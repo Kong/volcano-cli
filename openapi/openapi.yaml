@@ -6987,24 +6987,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /projects/{id}/lavaflow:
+  /projects/{id}/capabilities:
     get:
       tags:
-        - LavaFlow
-      summary: Get LavaFlow settings
+        - Projects
+      summary: List the project's capabilities
       description: |
-        Returns whether Volcano diagnoses the project's issues with AI and how
-        far a run may go. A project that never saved settings returns the
-        defaults, with LavaFlow off.
-
-        LavaFlow works in the repository a person turned it on for. When the
-        project points at another one, or its repository is disconnected,
-        `repository_changed` is true and no run starts until a person turns
-        LavaFlow on again.
-
-        Where LavaFlow is not available, saved settings stay readable. A project
-        that never saved any answers `404` with code `feature_unavailable`.
-      operationId: getLavaFlowSettings
+        Lists which features are available for this project. Check it to decide
+        what to offer, instead of calling a route to see whether it fails.
+      operationId: listProjectCapabilities
       security:
         - UserToken: []
         - ProjectAccessToken: []
@@ -7012,230 +7003,13 @@ paths:
         - $ref: '#/components/parameters/ProjectId'
       responses:
         '200':
-          description: Successful response
+          description: The project's capabilities
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LavaFlowSettings'
-        '404':
-          description: Project not found. Code `feature_unavailable` means LavaFlow is not available in this environment and the project never saved settings.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '501':
-          description: LavaFlow is not available in local mode.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          description: The owner's plan could not be resolved. Retry later.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-    patch:
-      tags:
-        - LavaFlow
-      summary: Update LavaFlow settings
-      description: |
-        Changes the fields the request names. An omitted field keeps its saved
-        value, or takes its default when the project has no saved settings, so
-        `{"enabled": true}` on a new project diagnoses each issue that happens a
-        second time or regresses, within the run limits, and opens a draft pull
-        request with each fix. Set `max_stage` and
-        `auto_trigger` to stop at a diagnosis or to start runs only on request.
-        Volcano picks the models a run uses.
-
-        Project access tokens are refused. LavaFlow opens pull requests in the
-        project's repository, so a person turns it on with a platform token.
-
-        `{"enabled": true}` records the repository the project points at as
-        LavaFlow's, even when LavaFlow is already on. That is how a person
-        resumes LavaFlow after `repository_changed`.
-
-        During the preview, turning LavaFlow on needs the SUPERAGENT plan, and
-        nothing is charged yet. Settings that are already on stay stored after
-        a downgrade, and saving them again is not refused, but no run starts
-        until the plan allows LavaFlow again. Other saves need no plan.
-
-        Where LavaFlow is not available, a project with saved settings can
-        still save a change that leaves LavaFlow off, such as
-        `{"enabled": false}`. A change that leaves it on, and a project's
-        first save, answer `404` with code `feature_unavailable`.
-      operationId: updateLavaFlowSettings
-      security:
-        - UserToken: []
-      parameters:
-        - $ref: '#/components/parameters/ProjectId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateLavaFlowSettingsRequest'
-      responses:
-        '200':
-          description: Saved
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LavaFlowSettings'
-        '400':
-          description: The request body is invalid or names no field.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ProjectCapabilityList'
         '403':
-          description: The owner's plan does not allow LavaFlow (code `plan_required`; during the preview it needs the SUPERAGENT plan), or the request used a project access token. Only a person changes LavaFlow settings.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Project not found. Code `feature_unavailable` means LavaFlow is not available in this environment, which refuses a change that leaves it on and a project's first save.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '501':
-          description: LavaFlow is not available in local mode.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          description: A change that leaves LavaFlow on needs the owner's plan, which could not be resolved. Nothing was saved. Retry later.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /projects/{id}/issues/{issueId}/lavaflow-runs:
-    post:
-      tags:
-        - LavaFlow
-      summary: Diagnose an issue
-      description: |
-        Queues a run that diagnoses the issue with AI. The run reads the
-        issue's runtime logs and, when the deployment that was live when the
-        issue was last seen came from the project's connected repository, its
-        source at that commit. That holds when a push to the repository built
-        the deployment, or when the deploy client reported the commit and
-        Volcano verified it with `dirty: false`. Poll the run until its status
-        is `succeeded`, `failed`, or `canceled`.
-
-        LavaFlow must be on for the project, and the project must still point
-        at the repository it was turned on for. An issue has at most one queued
-        or running run, and a project runs one at a time. In any 24 hours, an
-        issue starts at most 5 runs and a project at most 200, manual and
-        automatic together.
-
-        Project access tokens are refused. A run can open a pull request in
-        the project's repository, so a person starts it with a platform token
-        or in the dashboard.
-      operationId: startLavaFlowRun
-      security:
-        - UserToken: []
-      parameters:
-        - $ref: '#/components/parameters/ProjectId'
-        - $ref: '#/components/parameters/IssueId'
-      responses:
-        '202':
-          description: Queued
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LavaFlowRun'
-        '400':
-          description: The request is invalid.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: The owner's plan does not include LavaFlow (code `plan_required`), or the request used a project access token.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Project or issue not found. Code `feature_unavailable` means LavaFlow is not available in this environment.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '409':
-          description: LavaFlow is off for the project, or the issue already has a queued or running run. Code `repository_changed` means the project points at a different repository than when LavaFlow was turned on, or its repository is disconnected; turn LavaFlow on again.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '429':
-          description: 'The issue or the project reached its run limit for the last 24 hours. `code` names which: `issue_run_limit` or `project_run_limit`.'
-          headers:
-            Retry-After:
-              description: Seconds until a run can start.
-              required: true
-              schema:
-                type: integer
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '501':
-          description: LavaFlow is not available in local mode.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          description: The owner's plan could not be resolved. Retry later.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /projects/{id}/lavaflow-runs:
-    get:
-      tags:
-        - LavaFlow
-      summary: List LavaFlow runs
-      description: |
-        Lists the project's LavaFlow runs, newest first. Runs stay readable after
-        LavaFlow is turned off, and where LavaFlow is not available.
-
-        Project access tokens can list runs, including read-only ones.
-      operationId: listLavaFlowRuns
-      security:
-        - UserToken: []
-        - ProjectAccessToken: []
-      parameters:
-        - $ref: '#/components/parameters/ProjectId'
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/IssueCursor'
-        - name: issue_id
-          in: query
-          required: false
-          description: Return only runs for this issue.
-          schema:
-            type: string
-            format: uuid
-        - name: status
-          in: query
-          required: false
-          description: Return only runs in this status.
-          schema:
-            $ref: '#/components/schemas/LavaFlowRunStatus'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedLavaFlowRuns'
-        '400':
-          description: A filter or the cursor is invalid
+          description: Not a member of the project.
           content:
             application/json:
               schema:
@@ -7246,45 +7020,258 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '501':
-          description: LavaFlow is not available in local mode.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /projects/{id}/lavaflow-runs/{runId}:
+  /projects/{id}/lavaflow:
     get:
       tags:
         - LavaFlow
-      summary: Get a LavaFlow run
-      description: |
-        Returns one run: its status, the diagnosis once it succeeds, and why it
-        failed or was canceled. Runs stay readable where LavaFlow is not
-        available.
-
-        Project access tokens can read runs, including read-only ones.
-      operationId: getLavaFlowRun
+      summary: Get LavaFlow settings
+      operationId: getLavaflowSettings
       security:
         - UserToken: []
         - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
-        - $ref: '#/components/parameters/LavaFlowRunId'
       responses:
         '200':
-          description: Successful response
+          description: LavaFlow settings
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LavaFlowRun'
-        '404':
-          description: Project or run not found.
+                $ref: '#/components/schemas/LavaflowSettings'
+        '403':
+          description: Not a member of the project.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '501':
-          description: LavaFlow is not available in local mode.
+        '404':
+          description: Project not found. Code `feature_unavailable` means LavaFlow is not available for this project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - LavaFlow
+      summary: Update LavaFlow settings
+      description: A person's decision. A project access token answers `403`. An omitted field keeps its value.
+      operationId: updateLavaflowSettings
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LavaflowSettingsUpdate'
+      responses:
+        '200':
+          description: LavaFlow settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowSettings'
+        '400':
+          description: Validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: A project access token, or a member without the settings role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found. Code `feature_unavailable` means LavaFlow is not available for this project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/lavaflow/stats:
+    get:
+      tags:
+        - LavaFlow
+      summary: Get LavaFlow stats
+      operationId: getLavaflowStats
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: days
+          in: query
+          required: false
+          description: Days in the window, counting today. 1 to 90; defaults to 30.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 30
+      responses:
+        '200':
+          description: Issues and resolutions opened per day
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowStats'
+        '400':
+          description: Validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not a member of the project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found. Code `feature_unavailable` means LavaFlow is not available for this project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/lavaflow/resources:
+    get:
+      tags:
+        - LavaFlow
+      summary: List LavaFlow resources
+      operationId: listLavaflowResources
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: days
+          in: query
+          required: false
+          description: Days in the window, counting today. 1 to 90; defaults to 30.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 30
+      responses:
+        '200':
+          description: Every function, frontend and durable function in the project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowResourceList'
+        '400':
+          description: Validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not a member of the project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found. Code `feature_unavailable` means LavaFlow is not available for this project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/lavaflow/runs:
+    get:
+      tags:
+        - LavaFlow
+      summary: List LavaFlow runs
+      operationId: listLavaflowRuns
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/LavaflowRunStatus'
+        - name: resource_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: One page of runs, newest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowRunList'
+        '400':
+          description: Validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not a member of the project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found. Code `feature_unavailable` means LavaFlow is not available for this project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/lavaflow/runs/{runId}:
+    get:
+      tags:
+        - LavaFlow
+      summary: Get a LavaFlow run
+      description: Needs the same permission as the project's log routes.
+      operationId: getLavaflowRun
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowRun'
+        '403':
+          description: Not a member of the project, or no permission to read its logs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project or run not found. Code `feature_unavailable` means LavaFlow is not available for this project.
           content:
             application/json:
               schema:
@@ -24896,6 +24883,272 @@ components:
       required:
         - name
       additionalProperties: false
+    ProjectCapabilityList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Capability'
+      required:
+        - items
+    LavaflowAutonomy:
+      type: string
+      enum:
+        - diagnose_only
+        - open_pr
+    LavaflowSettings:
+      type: object
+      required: [enabled, autonomy, custom_context, system_prompt, updated_at]
+      properties:
+        enabled:
+          type: boolean
+        autonomy:
+          $ref: '#/components/schemas/LavaflowAutonomy'
+        custom_context:
+          type: string
+          maxLength: 4000
+        system_prompt:
+          type: string
+          maxLength: 4000
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+          nullable: true
+    LavaflowSettingsUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        autonomy:
+          $ref: '#/components/schemas/LavaflowAutonomy'
+        custom_context:
+          type: string
+          maxLength: 4000
+        system_prompt:
+          type: string
+          maxLength: 4000
+    LavaflowStatsDay:
+      type: object
+      required: [date, issues_opened, resolutions_opened]
+      properties:
+        date:
+          type: string
+          format: date
+        issues_opened:
+          type: integer
+        resolutions_opened:
+          type: integer
+    LavaflowStatsTotals:
+      type: object
+      required: [issues_opened, resolutions_opened]
+      properties:
+        issues_opened:
+          type: integer
+        resolutions_opened:
+          type: integer
+    LavaflowStats:
+      type: object
+      required: [window_start, window_end, days, totals]
+      properties:
+        window_start:
+          type: string
+          format: date
+        window_end:
+          type: string
+          format: date
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowStatsDay'
+        totals:
+          $ref: '#/components/schemas/LavaflowStatsTotals'
+    LavaflowResourceType:
+      type: string
+      enum:
+        - function
+        - frontend
+        - durable_function
+    LavaflowAnomaly:
+      type: object
+      required: [flagged]
+      properties:
+        flagged:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+    LavaflowResource:
+      type: object
+      required: [type, id, name, issues_opened, resolutions_submitted, anomaly]
+      properties:
+        type:
+          $ref: '#/components/schemas/LavaflowResourceType'
+        id:
+          type: string
+        name:
+          type: string
+        last_analyzed_at:
+          type: string
+          format: date-time
+          nullable: true
+        issues_opened:
+          type: integer
+        resolutions_submitted:
+          type: integer
+        anomaly:
+          $ref: '#/components/schemas/LavaflowAnomaly'
+    LavaflowResourceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowResource'
+    LavaflowRunStatus:
+      type: string
+      enum:
+        - queued
+        - diagnosing
+        - fixing
+        - reviewing
+        - pr_open
+        - completed
+        - failed
+        - cancelled
+    LavaflowResourceRef:
+      type: object
+      required: [type, id, name]
+      properties:
+        type:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+    LavaflowPullRequest:
+      type: object
+      required: [number, url, state]
+      properties:
+        number:
+          type: integer
+        url:
+          type: string
+          format: uri
+        state:
+          type: string
+          enum:
+            - open
+            - merged
+            - closed
+        opened_at:
+          type: string
+          format: date-time
+    LavaflowRunSummary:
+      type: object
+      required: [id, status, resource, created_at]
+      properties:
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/LavaflowRunStatus'
+        resource:
+          $ref: '#/components/schemas/LavaflowResourceRef'
+        issue_id:
+          type: string
+        title:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        pull_request:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowPullRequest'
+          nullable: true
+    LavaflowRunList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowRunSummary'
+        next_cursor:
+          type: string
+          nullable: true
+    LavaflowLogLine:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        level:
+          type: string
+        message:
+          type: string
+    LavaflowDiagnosis:
+      type: object
+      properties:
+        summary:
+          type: string
+        root_cause:
+          type: string
+        evidence:
+          type: array
+          items:
+            type: string
+        log_lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowLogLine'
+    LavaflowReview:
+      type: object
+      properties:
+        verdict:
+          type: string
+          enum:
+            - passed
+            - changes_requested
+            - blocked
+            - error
+        rounds:
+          type: integer
+    LavaflowFailure:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    LavaflowRun:
+      allOf:
+        - $ref: '#/components/schemas/LavaflowRunSummary'
+        - type: object
+          properties:
+            diagnosis:
+              allOf:
+                - $ref: '#/components/schemas/LavaflowDiagnosis'
+              nullable: true
+            diff:
+              type: string
+              nullable: true
+            review:
+              allOf:
+                - $ref: '#/components/schemas/LavaflowReview'
+              nullable: true
+            failure:
+              allOf:
+                - $ref: '#/components/schemas/LavaflowFailure'
+              nullable: true
     LavaFlowSettings:
       type: object
       additionalProperties: false

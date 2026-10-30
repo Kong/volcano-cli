@@ -5,9 +5,10 @@ import (
 	"testing"
 )
 
-// requireLocalModeLeavesLavaFlowToTheCloud checks that LavaFlow, which opens
-// fix pull requests through a GitHub App local development does not run,
-// refuses with that reason and names the cloud command instead of running.
+// requireLocalModeLeavesLavaFlowToTheCloud checks that LavaFlow, which runs on
+// Volcano's cloud service only, refuses in local mode with that reason and
+// names the cloud command instead of asking the local API, which answers
+// feature_unavailable.
 func requireLocalModeLeavesLavaFlowToTheCloud(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
 	help := runVolcanoLocalModeE2E(t, binary, env, dir, "--help")
@@ -17,7 +18,10 @@ func requireLocalModeLeavesLavaFlowToTheCloud(t *testing.T, binary string, env [
 		{"lavaflow", "status"},
 		{"lavaflow", "enable"},
 		{"lavaflow", "disable", "--json"},
-		{"lavaflow", "runs", "list"},
+		{"lavaflow", "settings", "set", "--autonomy", "diagnose_only"},
+		{"lavaflow", "stats", "--json"},
+		{"lavaflow", "list"},
+		{"lavaflow", "show", "run-id"},
 	} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
 		if err == nil {

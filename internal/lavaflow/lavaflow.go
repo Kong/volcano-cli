@@ -8,10 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
-	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -19,10 +17,6 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
-
-// CostNote is what LavaFlow needs during the preview, worded as the dashboard,
-// the pricing page and the public docs word it. It names no billing model.
-const CostNote = "LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan."
 
 // OnDescription says what LavaFlow does, and that it uses AI to do it, in
 // the wording approved for that disclosure. Keep it verbatim: it opens the
@@ -35,42 +29,31 @@ const OnDescription = "LavaFlow uses AI to diagnose this project's errors from t
 // answers, which otherwise reads as a missing project or run.
 var ErrUnavailable = errors.New("LavaFlow isn't available on this Volcano API")
 
-// ErrNotAvailableToAccount reports LavaFlow switched off for this account:
-// the API answers feature_unavailable while its release gate leaves the
-// account out.
+// ErrNotAvailableToAccount reports LavaFlow off for this project: the
+// project's capabilities say so, or a route answers feature_unavailable,
+// while LavaFlow is open only to some accounts.
 var ErrNotAvailableToAccount = errors.New("LavaFlow isn't available to your account yet")
 
-// codePlanRequired is the code of a refusal the owner's plan causes.
-const codePlanRequired = "plan_required"
+// ErrPersonDecides refuses changing LavaFlow's settings with a project access
+// token. Turning LavaFlow on, off or changing how far it goes is a person's
+// decision, so the API takes it from a person's session only, and the CLI
+// says so before asking.
+var ErrPersonDecides = errors.New("changing LavaFlow's settings needs a person's session: a project access token can't")
 
-// codeFeatureUnavailable is the code of a refusal for LavaFlow being off on
-// this API.
+// capabilityID is LavaFlow's entry in a project's capabilities.
+const capabilityID = "lavaflow"
+
+// codeFeatureUnavailable is the code of a refusal for LavaFlow being off.
 const codeFeatureUnavailable = "feature_unavailable"
 
-// codeRepositoryChanged is the code of a start refused because the project
-// points at another repository than when LavaFlow was turned on.
-const codeRepositoryChanged = "repository_changed"
-
-// ErrPersonMustTurnOn refuses turning LavaFlow on with a project access token.
-// Turning it on decides which repository LavaFlow reads and opens pull
-// requests in, so the API leaves it to a person, and the CLI says so before
-// asking.
-var ErrPersonMustTurnOn = errors.New("a person has to turn LavaFlow on: a project access token can't")
-
-// personMustTurnOn says how a person turns LavaFlow on instead. A token from
-// the environment outlasts a sign-in, so that case names the variable to
-// unset first. The refusal keeps the exit code of the permission the API
-// refuses.
-func personMustTurnOn(cfg *config.Config) error {
-	how := "Sign in with 'volcano login' and run this again"
-	if cfg.TokenFromEnv() {
-		how = "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
-	}
-	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonMustTurnOn, how), config.ErrAccountTokenRequired)
-}
-
-// MaxRunsLimit is the largest page of runs the API returns.
-const MaxRunsLimit = 100
+// Limits the API sets.
+const (
+	MaxRunsLimit  = 100
+	DefaultLimit  = 25
+	DefaultDays   = 30
+	MaxDays       = 90
+	MaxTextLength = 4000
+)
 
 // Whether a repository is connected for LavaFlow's fix pull requests.
 const (
@@ -84,39 +67,73 @@ const (
 // Status is a project's LavaFlow settings and whether a repository is
 // connected for its fix pull requests.
 type Status struct {
-	Settings        *apiclient.LavaFlowSettings `json:"settings"`
+	Settings        *apiclient.LavaflowSettings `json:"settings"`
 	RepositoryState string                      `json:"repository_state"`
 	// Repository is the connected repository's full name, set only when
 	// RepositoryState is RepositoryConnected.
 	Repository string `json:"repository,omitempty"`
 }
 
+// RunsQuery picks a page of runs. Zero values leave a filter out.
+type RunsQuery struct {
+	Limit      int
+	Cursor     string
+	Status     string
+	ResourceID string
+}
+
 // Service performs LavaFlow workflows against the current project.
 type Service struct {
 	sessions clisession.Factory
-	now      func() time.Time
-	// enableCommand turns LavaFlow on, which resumes it after the project's
-	// repository changed.
-	enableCommand string
 }
 
 // NewService returns a LavaFlow service.
 func NewService(deps cliruntime.Deps) Service {
-	now := deps.Now
-	if now == nil {
-		now = time.Now
+	return Service{sessions: clisession.NewFactory(deps)}
+}
+
+// project returns the current project's session once its capabilities say
+// LavaFlow is available, so every command reads that answer rather than
+// probing a route.
+func (s Service) project(ctx context.Context) (*clisession.ProjectSession, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
 	}
-	return Service{sessions: clisession.NewFactory(deps), now: now, enableCommand: cliruntime.CommandPath(deps, "lavaflow enable")}
+	if err := requireAvailable(ctx, authenticated); err != nil {
+		return nil, err
+	}
+	return authenticated, nil
+}
+
+func requireAvailable(ctx context.Context, authenticated *clisession.ProjectSession) error {
+	capabilities, err := authenticated.API.ListProjectCapabilities(ctx, authenticated.ProjectID)
+	if err != nil {
+		return unavailable(fmt.Errorf("failed to read the project's capabilities: %w", err))
+	}
+	if !availableIn(capabilities) {
+		return api.WithCause(ErrNotAvailableToAccount,
+			&api.Error{StatusCode: http.StatusNotFound, Message: ErrNotAvailableToAccount.Error(), Code: codeFeatureUnavailable})
+	}
+	return nil
+}
+
+// availableIn reports LavaFlow's capability entry as available. A missing
+// entry or any other status is unavailable.
+func availableIn(capabilities *apiclient.ProjectCapabilityList) bool {
+	return slices.ContainsFunc(capabilities.Items, func(c apiclient.Capability) bool {
+		return c.Id == capabilityID && c.Status == apiclient.CapabilityStatusAvailable
+	})
 }
 
 // Status returns the current project's LavaFlow settings and its repository
 // connection.
 func (s Service) Status(ctx context.Context) (*Status, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.project(ctx)
 	if err != nil {
 		return nil, err
 	}
-	settings, err := authenticated.API.GetLavaFlowSettings(ctx, authenticated.ProjectID)
+	settings, err := authenticated.API.GetLavaflowSettings(ctx, authenticated.ProjectID)
 	if err != nil {
 		return nil, unavailable(fmt.Errorf("failed to get LavaFlow settings: %w", err))
 	}
@@ -126,17 +143,6 @@ func (s Service) Status(ctx context.Context) (*Status, error) {
 		return nil, err
 	}
 	return status, nil
-}
-
-// Repository says which repository LavaFlow's fix pull requests go to, for a
-// project whose LavaFlow settings were just read or saved: its state, and its
-// full name when it is connected. Only a cancel or deadline is an error.
-func (s Service) Repository(ctx context.Context) (state, name string, err error) {
-	authenticated, err := s.sessions.CurrentProject()
-	if err != nil {
-		return "", "", err
-	}
-	return repository(ctx, authenticated)
 }
 
 func repository(ctx context.Context, authenticated *clisession.ProjectSession) (state, name string, err error) {
@@ -149,102 +155,169 @@ func repository(ctx context.Context, authenticated *clisession.ProjectSession) (
 		// ends the command.
 		return "", "", ctx.Err()
 	case api.Status(err) == http.StatusNotFound:
-		// The LavaFlow read or write before it proved the project exists, so a
-		// 404 means no repository; anything else leaves the connection unknown.
+		// The settings read before it proved the project exists, so a 404
+		// means no repository; anything else leaves the connection unknown.
 		return RepositoryNotConnected, "", nil
 	default:
 		return RepositoryUnknown, "", nil
 	}
 }
 
-// SetEnabled turns LavaFlow on or off for the current project. The update
-// changes only the fields it sends, so it sends enabled alone: a manifest's
-// max_stage and auto_trigger stay as they are.
-func (s Service) SetEnabled(ctx context.Context, enabled bool) (*apiclient.LavaFlowSettings, error) {
+// SetEnabled turns LavaFlow on or off for the current project, sending
+// enabled alone so the other settings keep their values.
+func (s Service) SetEnabled(ctx context.Context, enabled bool) (*apiclient.LavaflowSettings, error) {
 	verb := "turn LavaFlow off"
 	if enabled {
 		verb = "turn LavaFlow on"
 	}
+	return s.update(ctx, verb, apiclient.LavaflowSettingsUpdate{Enabled: &enabled})
+}
+
+// UpdateSettings changes the fields update sets and keeps the rest.
+func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSettingsUpdate) (*apiclient.LavaflowSettings, error) {
+	if update.Autonomy != nil && !update.Autonomy.Valid() {
+		return nil, fmt.Errorf("invalid autonomy %q: use %s or %s", *update.Autonomy, apiclient.DiagnoseOnly, apiclient.OpenPr)
+	}
+	for name, text := range map[string]*string{"custom context": update.CustomContext, "system prompt": update.SystemPrompt} {
+		if text != nil && len([]rune(*text)) > MaxTextLength {
+			return nil, fmt.Errorf("the %s is %d characters long: the most is %d", name, len([]rune(*text)), MaxTextLength)
+		}
+	}
+	return s.update(ctx, "change LavaFlow's settings", update)
+}
+
+// update refuses a project access token before sending anything, the
+// capabilities read included.
+func (s Service) update(ctx context.Context, verb string, update apiclient.LavaflowSettingsUpdate) (*apiclient.LavaflowSettings, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
-	if enabled && config.IsProjectToken(authenticated.Config.Token()) {
-		return nil, personMustTurnOn(authenticated.Config)
+	if config.IsProjectToken(authenticated.Config.Token()) {
+		return nil, personDecides(authenticated.Config)
 	}
-	settings, err := authenticated.API.UpdateLavaFlowSettings(ctx, authenticated.ProjectID,
-		apiclient.UpdateLavaFlowSettingsRequest{Enabled: &enabled})
+	if err := requireAvailable(ctx, authenticated); err != nil {
+		return nil, err
+	}
+	settings, err := authenticated.API.UpdateLavaflowSettings(ctx, authenticated.ProjectID, update)
 	if err != nil {
-		return nil, unavailable(refusal(fmt.Errorf("failed to %s: %w", verb, err)))
+		return nil, unavailable(fmt.Errorf("failed to %s: %w", verb, err))
 	}
 	return settings, nil
 }
 
-// ListRuns returns one page of the current project's runs, newest first.
-// cursor is "" for the first page.
-func (s Service) ListRuns(ctx context.Context, limit int, cursor string) (*apiclient.PaginatedLavaFlowRuns, error) {
-	if limit < 1 || limit > MaxRunsLimit {
-		return nil, fmt.Errorf("--limit must be between 1 and %d", MaxRunsLimit)
+// personDecides says how a person changes the settings instead. A token from
+// the environment outlasts a sign-in, so that case names the variable to
+// unset first. The refusal keeps the exit code of the permission the API
+// refuses.
+func personDecides(cfg *config.Config) error {
+	how := "Sign in with 'volcano login' and run this again"
+	if cfg.TokenFromEnv() {
+		how = "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
 	}
-	authenticated, err := s.sessions.CurrentProject()
+	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonDecides, how), config.ErrAccountTokenRequired)
+}
+
+// Stats returns the issues and resolutions LavaFlow opened per day over the
+// last days days, today included.
+func (s Service) Stats(ctx context.Context, days int) (*apiclient.LavaflowStats, error) {
+	if err := checkDays(days); err != nil {
+		return nil, err
+	}
+	authenticated, err := s.project(ctx)
 	if err != nil {
 		return nil, err
 	}
-	params := apiclient.ListLavaFlowRunsParams{Limit: &limit}
-	if cursor != "" {
-		params.Cursor = &cursor
+	stats, err := authenticated.API.GetLavaflowStats(ctx, authenticated.ProjectID, days)
+	if err != nil {
+		return nil, unavailable(fmt.Errorf("failed to get LavaFlow stats: %w", err))
 	}
-	page, err := authenticated.API.ListLavaFlowRuns(ctx, authenticated.ProjectID, params)
+	return stats, nil
+}
+
+// Resources returns every function, frontend and durable function in the
+// current project with what LavaFlow did for it over the last days days.
+func (s Service) Resources(ctx context.Context, days int) (*apiclient.LavaflowResourceList, error) {
+	if err := checkDays(days); err != nil {
+		return nil, err
+	}
+	authenticated, err := s.project(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resources, err := authenticated.API.ListLavaflowResources(ctx, authenticated.ProjectID, days)
+	if err != nil {
+		return nil, unavailable(fmt.Errorf("failed to list LavaFlow resources: %w", err))
+	}
+	return resources, nil
+}
+
+func checkDays(days int) error {
+	if days < 1 || days > MaxDays {
+		return fmt.Errorf("--days must be between 1 and %d", MaxDays)
+	}
+	return nil
+}
+
+// ListRuns returns one page of the current project's runs, newest first.
+func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.LavaflowRunList, error) {
+	if query.Limit < 1 || query.Limit > MaxRunsLimit {
+		return nil, fmt.Errorf("--limit must be between 1 and %d", MaxRunsLimit)
+	}
+	params := apiclient.ListLavaflowRunsParams{Limit: &query.Limit}
+	if query.Status != "" {
+		status := apiclient.LavaflowRunStatus(query.Status)
+		if !status.Valid() {
+			return nil, fmt.Errorf("invalid --status %q: use one of %s", query.Status, runStatuses())
+		}
+		params.Status = &status
+	}
+	if query.Cursor != "" {
+		params.Cursor = &query.Cursor
+	}
+	if query.ResourceID != "" {
+		params.ResourceId = &query.ResourceID
+	}
+	authenticated, err := s.project(ctx)
+	if err != nil {
+		return nil, err
+	}
+	page, err := authenticated.API.ListLavaflowRuns(ctx, authenticated.ProjectID, params)
 	if err != nil {
 		return nil, unavailable(fmt.Errorf("failed to list LavaFlow runs: %w", err))
 	}
 	return page, nil
 }
 
-// GetRun returns one of the current project's runs.
-func (s Service) GetRun(ctx context.Context, rawID string) (*apiclient.LavaFlowRun, error) {
-	runID, err := uuid.Parse(rawID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid run ID %q: expected a UUID", rawID)
+func runStatuses() string {
+	statuses := []apiclient.LavaflowRunStatus{
+		apiclient.LavaflowRunStatusQueued, apiclient.LavaflowRunStatusDiagnosing, apiclient.LavaflowRunStatusFixing,
+		apiclient.LavaflowRunStatusReviewing, apiclient.LavaflowRunStatusPrOpen, apiclient.LavaflowRunStatusCompleted,
+		apiclient.LavaflowRunStatusFailed, apiclient.LavaflowRunStatusCancelled,
 	}
-	authenticated, err := s.sessions.CurrentProject()
+	names := make([]string, 0, len(statuses))
+	for _, status := range statuses {
+		names = append(names, string(status))
+	}
+	return strings.Join(names, ", ")
+}
+
+// GetRun returns one of the current project's runs with its diagnosis, diff
+// and review.
+func (s Service) GetRun(ctx context.Context, runID string) (*apiclient.LavaflowRun, error) {
+	authenticated, err := s.project(ctx)
 	if err != nil {
 		return nil, err
 	}
-	run, err := authenticated.API.GetLavaFlowRun(ctx, authenticated.ProjectID, runID)
+	run, err := authenticated.API.GetLavaflowRun(ctx, authenticated.ProjectID, runID)
 	if err != nil {
 		return nil, unavailable(fmt.Errorf("failed to get LavaFlow run %s: %w", runID, err))
 	}
 	return run, nil
 }
 
-// StartRun queues a run that diagnoses an issue of the current project.
-func (s Service) StartRun(ctx context.Context, rawIssueID string) (*apiclient.LavaFlowRun, error) {
-	issueID, err := uuid.Parse(rawIssueID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid issue ID %q: expected a UUID", rawIssueID)
-	}
-	authenticated, err := s.sessions.CurrentProject()
-	if err != nil {
-		return nil, err
-	}
-	run, err := authenticated.API.StartLavaFlowRun(ctx, authenticated.ProjectID, issueID)
-	if err != nil {
-		// The server's message already says which repository changed, so it
-		// is shown as given, with the command that resumes LavaFlow.
-		if message := strings.TrimSpace(api.Message(err)); api.Code(err) == codeRepositoryChanged && message != "" {
-			if !strings.HasSuffix(message, ".") {
-				message += "."
-			}
-			return nil, api.WithCause(fmt.Errorf("%s Resume it with '%s'", message, s.enableCommand), err)
-		}
-		return nil, unavailable(retryHint(refusal(fmt.Errorf("failed to start a LavaFlow run for issue %s: %w", issueID, err)), s.now()))
-	}
-	return run, nil
-}
-
-// unavailable replaces a refusal that says LavaFlow is not on with
-// ErrUnavailable, keeping the refusal so the exit code still reports it.
+// unavailable replaces a refusal that says LavaFlow is not on with the error
+// that says why, keeping the refusal so the exit code still reports it.
 func unavailable(err error) error {
 	switch {
 	case api.Code(err) == codeFeatureUnavailable:
@@ -253,38 +326,4 @@ func unavailable(err error) error {
 		return api.WithCause(ErrUnavailable, err)
 	}
 	return err
-}
-
-// refusal adds what to do about a plan refusal, keeping the refusal so the
-// exit code still reports it.
-func refusal(err error) error {
-	if api.Status(err) == http.StatusForbidden && api.Code(err) == codePlanRequired {
-		return api.WithCause(errors.New(err.Error()+"\nLavaFlow needs a paid plan. "+CostNote), err)
-	}
-	return err
-}
-
-// retryHint adds when to try again to a refusal whose response said, such as
-// a run limit, keeping the refusal so the exit code still reports it. The CLI
-// never retries on its own: every run counts toward the project's usage.
-func retryHint(err error, now time.Time) error {
-	at, ok := api.RetryAt(err, now)
-	if !ok {
-		return err
-	}
-	return api.WithCause(errors.New(err.Error()+"\n"+tryAgain(at, now)), err)
-}
-
-func tryAgain(at, now time.Time) string {
-	if at.Sub(now) < time.Minute {
-		return "Try again in a minute."
-	}
-	// Round up to the minute, so neither the time nor the wait named is early.
-	at = at.Add(time.Minute - time.Nanosecond).Truncate(time.Minute)
-	minutes := int((at.Sub(now) + time.Minute - time.Nanosecond) / time.Minute)
-	in := fmt.Sprintf("%dm", minutes)
-	if minutes >= 60 {
-		in = fmt.Sprintf("%dh%02dm", minutes/60, minutes%60)
-	}
-	return fmt.Sprintf("Try again after %s (in %s).", at.In(now.Location()).Format("2006-01-02 15:04 MST"), in)
 }

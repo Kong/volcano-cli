@@ -11,60 +11,46 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-type enableOptions struct {
+type toggleOptions struct {
 	deps       cliruntime.Deps
 	jsonOutput bool
 	out        io.Writer
 }
 
 func newEnable(deps cliruntime.Deps) *cobra.Command {
-	opts := enableOptions{}
+	opts := toggleOptions{}
 	cmd := &cobra.Command{
 		Use:   "enable",
 		Short: "Turn LavaFlow on",
 		Long: clilavaflow.OnDescription + `
 
-This turns LavaFlow on for the current project. By default, runs start
-without a request; a project configuration with
-auto_trigger: false keeps them to '` + cliruntime.CommandPath(deps, "lavaflow runs start") + `'.
-Each run counts toward the project's usage.
-` + clilavaflow.CostNote + `
-
-Turning LavaFlow on needs a paid plan and a person's login: a project access
-token is refused. Connect a repository with 'volcano git connect' so LavaFlow
-can open fix pull requests; without one it diagnoses issues only. Connecting
-one after LavaFlow is on pauses it until you run '` + cliruntime.CommandPath(deps, "lavaflow enable") + `' again.`,
+This turns LavaFlow on for the current project. It needs a person's session: a
+project access token is refused. Connect a repository with 'volcano git
+connect' so LavaFlow can open fix pull requests. Choose how far it goes with
+'` + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy") + `'.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
 			opts.out = cmd.OutOrStdout()
-			return runEnable(cmd.Context(), opts)
+			return runToggle(cmd.Context(), opts, true)
 		},
 	}
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON")
 	return cmd
 }
 
-func runEnable(ctx context.Context, opts enableOptions) error {
-	service := clilavaflow.NewService(opts.deps)
-	settings, err := service.SetEnabled(ctx, true)
+func runToggle(ctx context.Context, opts toggleOptions, enabled bool) error {
+	settings, err := clilavaflow.NewService(opts.deps).SetEnabled(ctx, enabled)
 	if err != nil {
 		return err
 	}
 	if opts.jsonOutput {
 		return writeJSON(opts.out, settings)
 	}
-	// LavaFlow is on by now, so a cancel during the repository read leaves
-	// the line about it general rather than fail a change that was made.
-	state, repository, _ := service.Repository(ctx)
-	output.LavaFlowEnabled(opts.out, output.LavaFlowEnabledDetails{
-		Settings:          settings,
-		Repository:        repository,
-		RepositoryUnknown: state != clilavaflow.RepositoryConnected && state != clilavaflow.RepositoryNotConnected,
-		Description:       clilavaflow.OnDescription,
-		CostNote:          clilavaflow.CostNote,
-		GitConnectCommand: gitConnectCommand,
-		EnableCommand:     cliruntime.CommandPath(opts.deps, "lavaflow enable"),
-	})
+	message := "LavaFlow is off. Its runs and records stay readable."
+	if enabled {
+		message = "LavaFlow is on"
+	}
+	output.LavaflowSettingsSaved(opts.out, message, settings)
 	return nil
 }

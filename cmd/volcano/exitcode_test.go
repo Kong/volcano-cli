@@ -90,7 +90,7 @@ func TestRunLavaFlowEnableByAProjectTokenExitsPermissionDenied(t *testing.T) {
 	}, "cloud", "lavaflow", "enable")
 
 	assert.Equal(t, exitPermissionDenied, code, stderr)
-	assert.Contains(t, stderr, "Error: a person has to turn LavaFlow on")
+	assert.Contains(t, stderr, "Error: changing LavaFlow's settings needs a person's session")
 }
 
 // The API's 403 for a credential the CLI did not recognize is rewritten into
