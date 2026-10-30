@@ -327,3 +327,20 @@ func TestStatusReportsTheSourceOfTruth(t *testing.T) {
 		})
 	}
 }
+
+// The export names only the branch, so a repository reconnected while the
+// prompt was open would receive the source unseen. The binding is read again
+// first, and nothing is exported when it moved.
+func TestExportRefusesWhenTheRepositoryChangedWhileAsking(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedAfterRead = "octo/elsewhere"
+
+	_, err := executeGitCommand(t, api.serve(), nil, "", "export", "--yes")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "changed while this command was running")
+	assert.Contains(t, err.Error(), "octo/elsewhere")
+	exports, _ := api.exportCalls()
+	assert.Zero(t, exports)
+}

@@ -94,3 +94,15 @@ func TestReposExplainsAnAPIWithoutGitHub(t *testing.T) {
 	assert.Contains(t, err.Error(), "git provider integration is not configured on this API")
 	assert.Contains(t, err.Error(), "If this is local mode, that is expected")
 }
+
+// Every route repos reads hangs off the account, so it works right after
+// login, before a project is selected.
+func TestReposNeedsNoSelectedProject(t *testing.T) {
+	setGitCommandTestHome(t)
+	require.NoError(t, (&cliconfig.Config{UserToken: "token"}).Save())
+	api := newGitAPI(t)
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "repos")
+	require.NoError(t, err)
+	assert.Contains(t, out, "octo/storefront")
+}

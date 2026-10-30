@@ -32,21 +32,28 @@ func (s Service) SourceState(ctx context.Context) (*apiclient.ProjectSourceExpor
 	return state, nil
 }
 
-// ExportSource writes the project's stored source to its connected, empty
-// repository as the first commit on branch and pushes it. branch is the
-// production branch the caller confirmed; the platform refuses the export when
-// the configured one has changed since.
+// ExportSource writes the project's stored source to the repository in
+// expected, as the first commit on its production branch, and pushes it.
+//
+// The request names only the branch, so the platform would export to whatever
+// repository is bound when it arrives. Re-reading first keeps the command from
+// publishing source to a repository the user was never shown, as Connect and
+// Disconnect do; it narrows the window rather than closing it.
 //
 // The route's 404 covers a missing project, a project with no repository, and
 // a GitHub connection or repository that can no longer be reached. The
 // platform's message tells them apart, so it is reported as given.
-func (s Service) ExportSource(ctx context.Context, branch string) (*apiclient.ProjectSourceExport, error) {
+func (s Service) ExportSource(ctx context.Context, expected *apiclient.ProjectGitConnection) (*apiclient.ProjectSourceExport, error) {
 	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := authenticated.API.ExportProjectSource(ctx, authenticated.ProjectID, branch)
+	if err := s.confirmUnchanged(ctx, expected); err != nil {
+		return nil, err
+	}
+
+	result, err := authenticated.API.ExportProjectSource(ctx, authenticated.ProjectID, expected.ProductionBranch)
 	if err != nil {
 		if api.Status(err) == http.StatusNotImplemented {
 			return nil, ErrSourceExportUnavailable

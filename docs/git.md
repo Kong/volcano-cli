@@ -9,9 +9,11 @@ A binding between a **project** and a GitHub repository. Once connected, a push
 to the repository's default branch, or to a branch you pin instead, deploys the
 project — no CLI invocation needed.
 
-Connecting only records the binding. Volcano never creates push credentials,
-never pushes on your behalf, and never writes a token into your `.git/config`.
-Pushing stays your own `git push`, with the credentials already on your machine.
+Connecting only records the binding. Volcano never creates push credentials
+and never writes a token into your `.git/config`. Pushing stays your own
+`git push`, with the credentials already on your machine. The one exception is
+`volcano git export`, which you run once to write the project's stored source
+into an empty repository; Volcano pushes that first commit itself.
 
 ## How it relates
 
@@ -294,10 +296,11 @@ connected the command says so and exits non-zero. The same goes for
 
 A project you deployed from the CLI keeps its source in Volcano. To move it into
 Git, create an empty GitHub repository (no README, license or other first
-commit), connect it, and export:
+commit), connect it, and export. A repository with no commits has no default
+branch, so name the branch pushes will deploy from when you connect it:
 
 ```bash
-volcano git connect https://github.com/acme/storefront
+volcano git connect https://github.com/acme/storefront --production-branch main
 volcano git export
 ```
 
@@ -328,8 +331,8 @@ volcano git export --branch main --yes --json
 }
 ```
 
-`skipped` lists resources that never deployed successfully, so nothing was
-written for them. `omitted` lists what an export never writes: migrations,
+`skipped` lists resources whose source could not be taken, each with its
+reason; most often one that never deployed successfully. `omitted` lists what an export never writes: migrations,
 variable values, credential-shaped files such as `.env`, and installed
 dependencies.
 

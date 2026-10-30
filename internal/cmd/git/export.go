@@ -45,7 +45,8 @@ func newExport(deps cliruntime.Deps) *cobra.Command {
 repository, as the first commit on the production branch, and push it.
 
 The repository must be empty, with no commits and no branches; Volcano never
-creates it. Connect it first with '%s'. Export runs once per project.
+creates it. An empty repository has no default branch, so connect it naming
+one: '%s'. Export runs once per project.
 
 The push deploys like any other push to the production branch. Until that
 deployment succeeds, direct deploys of functions and frontends are paused;
@@ -60,7 +61,7 @@ both.
 Pass --branch to name the production branch you expect: the command refuses if
 the project's is different. By default this command prompts for confirmation.
 Use --yes to skip the prompt.`,
-			cliruntime.CommandPath(deps, "git connect <git-url>"),
+			cliruntime.CommandPath(deps, "git connect <git-url> --production-branch main"),
 			cliruntime.CommandPath(deps, "git export cancel")),
 		Example: "  volcano git export\n  volcano git export --branch main --yes --json",
 		Args:    cobra.NoArgs,
@@ -120,9 +121,9 @@ func runExport(ctx context.Context, opts exportOptions) error {
 		return err
 	}
 
-	// The branch shown is the branch sent: the platform refuses the export if
-	// the project's changed while the prompt was open.
-	result, err := service.ExportSource(ctx, branch)
+	// The repository and branch shown are the ones sent: the binding is read
+	// again, and the platform refuses the export if the branch changed.
+	result, err := service.ExportSource(ctx, connection)
 	if err != nil {
 		return guide(opts.deps, webURL, err)
 	}

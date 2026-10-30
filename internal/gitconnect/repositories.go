@@ -15,13 +15,14 @@ type Installation struct {
 }
 
 // Repositories lists every repository the caller can connect a project to,
-// grouped by the installation that grants it.
+// grouped by the installation that grants it. Every route it reads hangs off
+// the account, so it needs no selected project.
 //
 // Any failed lookup fails the whole list. A list with an installation missing
 // would read as "the App cannot see those repositories", which is a different
 // problem with a different fix.
 func (s Service) Repositories(ctx context.Context) ([]Installation, error) {
-	authenticated, err := s.accountScoped()
+	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return nil, err
 	}

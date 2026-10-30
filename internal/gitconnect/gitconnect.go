@@ -2,7 +2,9 @@
 //
 // The CLI never creates push credentials and never pushes: it resolves a local
 // remote to a repository the caller's GitHub connection can already see, and
-// asks the platform to bind it. Pushing stays the user's own `git push`.
+// asks the platform to bind it. Pushing stays the user's own `git push`, except
+// for a source export, where the platform pushes the first commit to an empty
+// repository.
 package gitconnect
 
 import (
@@ -286,7 +288,9 @@ func (s Service) resolveThroughConnection(
 }
 
 // Connect binds the current project to a resolved repository, provided its
-// binding is still expected — nil for a project that had none.
+// binding is still expected — nil for a project that had none. A non-empty
+// productionBranch is the branch it deploys from; empty follows the
+// repository's default, or keeps a branch pinned on the same repository.
 //
 // The bind is a full replace and names no prior state, so it overwrites whatever
 // is bound when it arrives. Everything the caller decided rests on a read taken
@@ -295,7 +299,7 @@ func (s Service) resolveThroughConnection(
 // it another actor can point the project somewhere the user was never shown.
 // Re-reading narrows that; the API has no conditional write to close it.
 func (s Service) Connect(
-	ctx context.Context, target Target, rootDirectory string, expected *apiclient.ProjectGitConnection,
+	ctx context.Context, target Target, rootDirectory, productionBranch string, expected *apiclient.ProjectGitConnection,
 ) (*apiclient.ProjectGitConnection, error) {
 	authenticated, err := s.current()
 	if err != nil {
@@ -320,7 +324,10 @@ func (s Service) Connect(
 	// Only for the same repository, though: a pin was chosen for the
 	// repository it belongs to, and naming it while changing repository is
 	// refused.
-	if expected != nil && expected.RepoId == repositoryID && !expected.ProductionBranchFollowsDefault {
+	switch {
+	case productionBranch != "":
+		body.ProductionBranch = &productionBranch
+	case expected != nil && expected.RepoId == repositoryID && !expected.ProductionBranchFollowsDefault:
 		branch := expected.ProductionBranch
 		body.ProductionBranch = &branch
 	}

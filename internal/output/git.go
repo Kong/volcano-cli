@@ -125,7 +125,7 @@ func GitSourceExported(w io.Writer, result *apiclient.ProjectSourceExport, statu
 	kv(w, on, "Commit", "%s", result.CommitSha)
 	if len(result.Skipped) > 0 {
 		fmt.Fprintln(w)
-		Warning(w, "Skipped, with no successful deployment to take source from:")
+		Warning(w, "Skipped:")
 		for _, skip := range result.Skipped {
 			fmt.Fprintf(w, "  %s %s: %s\n", skip.Kind, skip.Name, skip.Reason)
 		}

@@ -20,10 +20,11 @@ func New(deps cliruntime.Deps) *cobra.Command {
 		Short: "Manage the Git repository connected to the current project",
 		Long: `Connect the current project to a GitHub repository so that pushes deploy.
 
-Volcano never pushes for you and never stores push credentials: connecting only
-binds the project to a repository you can already reach through your GitHub
-connection. Pushing stays your own "git push", with the credentials already on
-your machine.`,
+Volcano never stores push credentials: connecting only binds the project to a
+repository you can already reach through your GitHub connection. Pushing stays
+your own "git push", with the credentials already on your machine. The one
+exception is "volcano git export", which writes the project's stored source to
+an empty repository once; Volcano pushes that first commit itself.`,
 	}
 	cmd.AddCommand(newStatus(deps))
 	cmd.AddCommand(newRepos(deps))
