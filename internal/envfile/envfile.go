@@ -4,6 +4,7 @@ package envfile
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -48,19 +49,43 @@ func Load(fileArg string) (*File, error) {
 	return loadPath(path)
 }
 
+// Stdin is the file argument that reads the env file from standard input.
+const Stdin = "-"
+
+// StdinName is how messages name an env file read from standard input.
+const StdinName = "standard input"
+
 func loadPath(path string) (*File, error) {
 	variables, err := godotenv.Read(path)
+	return parsed(path, variables, err)
+}
+
+// Read parses an env file from r, which name describes in messages. The values
+// stay in memory: nothing is written to disk.
+//
+// Unlike a file on disk, the input is usually a secret manager's output, and
+// stderr is often a CI log, so a parse error leaves out the parser's message,
+// which quotes the text it failed on.
+func Read(name string, r io.Reader) (*File, error) {
+	variables, err := godotenv.Parse(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: it is not a valid env file (the parser's message is not shown because it quotes the input)", name)
+	}
+	return parsed(name, variables, nil)
+}
+
+func parsed(name string, variables map[string]string, err error) (*File, error) {
 	if err != nil {
 		// The parser quotes the file's text, which holds the variable values.
-		return nil, fmt.Errorf("failed to read %s: %w", path, sensitive.Wrap(err))
+		return nil, fmt.Errorf("failed to read %s: %w", name, sensitive.Wrap(err))
 	}
-	for name := range variables {
-		if name == "" {
-			return nil, fmt.Errorf("failed to read %s: empty variable name", path)
+	for variable := range variables {
+		if variable == "" {
+			return nil, fmt.Errorf("failed to read %s: empty variable name", name)
 		}
 	}
 
-	return &File{Path: path, Variables: variables}, nil
+	return &File{Path: name, Variables: variables}, nil
 }
 
 func loadFirstExisting(candidates ...string) (*File, bool, error) {

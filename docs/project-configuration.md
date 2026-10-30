@@ -321,7 +321,27 @@ Omitting `shared_variables` leaves membership unchanged. Declaring
 remain stored as non-shared variables; this does not delete their values.
 The separate `variables` section still has its own full-sync semantics.
 
-`config pull` exports shared names only and omits variable values. The exported
+A variable entry can set its own `shared` instead:
+
+```yaml
+version: 1
+variables:
+  - name: STRIPE_SECRET_KEY
+    value: ${STRIPE_SECRET_KEY}
+    shared: false   # only scoped functions that select it receive it
+  - name: LOG_LEVEL
+    value: info     # no shared: a new variable is shared, an existing one keeps its setting
+```
+
+Omitting `shared` keeps today's default: a new variable is shared and an
+existing one keeps its setting. When the manifest also declares
+`shared_variables`, that list decides membership for every variable and an
+entry's own `shared` is ignored, so use one or the other.
+[`variables deploy --shared=false`](variables.md#shared-variables) sets the same
+field for the variables in an env file.
+
+`config pull` exports shared names only and omits variable values, so a
+variable saved as not shared is absent from the exported list. The exported
 list can be deployed back to the same project without supplying those values.
 Use `config deploy --dry-run` to preview a membership change.
 
@@ -363,8 +383,9 @@ keeps its domains, except on a server that predates this; see
 
 ## Function variable scope
 
-By default a function receives every project variable. Set `variable_scope` to
-`scoped` to give it only the variables it actually needs:
+By default a function receives every shared project variable, which is every
+variable unless some were saved as not shared. Set `variable_scope` to `scoped`
+to give it only the variables it actually needs:
 
 ```yaml
 version: 1
@@ -389,7 +410,8 @@ declared here. See [functions](functions.md).
 
 `variable_scope` takes `all` or `scoped`:
 
-- `all` is the default and gives the function every project variable.
+- `all` is the default and gives the function every shared project variable
+  (see [Shared variable names](#shared-variable-names)).
 - `scoped` gives it the names listed in `variables`, plus the names Volcano
   detects in the function's source that the project defines.
 

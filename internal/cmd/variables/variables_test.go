@@ -154,6 +154,160 @@ func TestVariablesListHonorsPaginationFlags(t *testing.T) {
 	assert.NotContains(t, out, secretSentinelDebugValue)
 }
 
+// --shared sets every variable in the file to the membership asked for. Without
+// it nothing is sent, so the server keeps its default: a new variable is shared
+// and an existing one keeps its setting.
+func TestVariablesDeployShared(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		args   []string
+		shared any
+		saved  string
+	}{
+		{"omitted", []string{"deploy"}, nil, "+ API_KEY (saved)\n"},
+		{"not shared", []string{"deploy", "--shared=false"}, false, "+ API_KEY (saved, not shared)\n"},
+		{"shared", []string{"deploy", "--shared"}, true, "+ API_KEY (saved, shared)\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setVariableCommandTestHome(t)
+			t.Chdir(t.TempDir())
+			require.NoError(t, os.MkdirAll("volcano", 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join("volcano", "volcano.env"), []byte("API_KEY="+secretSentinelAPINewValue+"\nDEBUG="+secretSentinelDebugValue+"\n"), 0o600))
+			saveVariableCommandTestConfig(t, &cliconfig.Config{
+				UserToken:      "token",
+				CurrentProject: &cliconfig.ProjectConfig{ID: variableProjectID, Name: "Beta"},
+			})
+
+			var bodies []map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, http.MethodPost, r.Method)
+				require.Equal(t, "/projects/"+variableProjectID+"/variables", r.URL.Path)
+				var body map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+				bodies = append(bodies, body)
+				writeVariableCommandJSON(t, w, http.StatusCreated, variableCommandPayload(variableProjectID, body["name"].(string), body["value"].(string)))
+			}))
+			defer server.Close()
+
+			out, err := executeVariableCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), tc.args...)
+			require.NoError(t, err)
+			require.Len(t, bodies, 2)
+			for _, body := range bodies {
+				shared, sent := body["shared"]
+				if tc.shared == nil {
+					assert.False(t, sent, "nothing is sent without --shared")
+				} else {
+					assert.Equal(t, tc.shared, shared)
+				}
+			}
+			assert.Contains(t, out, tc.saved)
+			assert.NotContains(t, out, secretSentinelAPINewValue)
+		})
+	}
+}
+
+// A server that cannot save a variable as not shared yet refuses it, and the
+// user sees its reason, not a claim that anything was saved.
+func TestVariablesDeployShowsTheServersRefusalOfNotShared(t *testing.T) {
+	setVariableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	require.NoError(t, os.MkdirAll("volcano", 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join("volcano", "volcano.env"), []byte("API_KEY="+secretSentinelAPINewValue+"\n"), 0o600))
+	saveVariableCommandTestConfig(t, &cliconfig.Config{
+		UserToken:      "token",
+		CurrentProject: &cliconfig.ProjectConfig{ID: variableProjectID, Name: "Beta"},
+	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeVariableCommandJSON(t, w, http.StatusServiceUnavailable, map[string]any{"error": "shared variable membership changes are temporarily unavailable"})
+	}))
+	defer server.Close()
+
+	out, err := executeVariableCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "--shared=false")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `failed to create variable "API_KEY"`)
+	assert.Contains(t, err.Error(), "shared variable membership changes are temporarily unavailable")
+	assert.NotContains(t, out, "saved")
+	assert.NotContains(t, out+err.Error(), secretSentinelAPINewValue)
+}
+
+func TestVariableGetShowsWhetherItIsShared(t *testing.T) {
+	setVariableCommandTestHome(t)
+	saveVariableCommandTestConfig(t, &cliconfig.Config{
+		UserToken:      "token",
+		CurrentProject: &cliconfig.ProjectConfig{ID: variableProjectID, Name: "Beta"},
+	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/projects/"+variableProjectID+"/variables/API_KEY", r.URL.Path)
+		payload := variableCommandPayload(variableProjectID, "API_KEY", secretSentinelAPINewValue)
+		payload["shared"] = false
+		writeVariableCommandJSON(t, w, http.StatusOK, payload)
+	}))
+	defer server.Close()
+
+	out, err := executeVariableCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "get", "API_KEY")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Shared: no")
+	assert.NotContains(t, out, secretSentinelAPINewValue)
+}
+
+// --file - reads the env file from standard input, as a pipe from a secret
+// manager provides it, and never echoes a value.
+func TestVariablesDeployReadsStandardInput(t *testing.T) {
+	setVariableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	saveVariableCommandTestConfig(t, &cliconfig.Config{
+		UserToken:      "token",
+		CurrentProject: &cliconfig.ProjectConfig{ID: variableProjectID, Name: "Beta"},
+	})
+	var bodies []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		bodies = append(bodies, body)
+		writeVariableCommandJSON(t, w, http.StatusCreated, variableCommandPayload(variableProjectID, body["name"].(string), body["value"].(string)))
+	}))
+	defer server.Close()
+
+	for _, flag := range []string{"--file", "-f"} {
+		bodies = nil
+		cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+		cmd.SetIn(strings.NewReader("API_KEY=" + secretSentinelAPINewValue + "\nDEBUG=" + secretSentinelDebugValue + "\n"))
+		out, err := executeVariableCommand(t, cmd, "deploy", flag, "-")
+		require.NoError(t, err, flag)
+		assert.ElementsMatch(t, []map[string]any{
+			{"name": "API_KEY", "value": secretSentinelAPINewValue},
+			{"name": "DEBUG", "value": secretSentinelDebugValue},
+		}, bodies, flag)
+		assert.Contains(t, out, "Reading standard input...", flag)
+		assert.Contains(t, out, "2 variable(s) saved", flag)
+		assert.NotContains(t, out, secretSentinelAPINewValue, flag)
+		assert.NotContains(t, out, secretSentinelDebugValue, flag)
+	}
+	entries, err := os.ReadDir(".")
+	require.NoError(t, err)
+	assert.Empty(t, entries, "nothing is written to disk")
+}
+
+func TestVariablesDeployFromEmptyStandardInput(t *testing.T) {
+	setVariableCommandTestHome(t)
+	cmd := New(cliruntime.Deps{})
+	cmd.SetIn(strings.NewReader(""))
+	out, err := executeVariableCommand(t, cmd, "deploy", "--file", "-")
+	require.NoError(t, err)
+	assert.Contains(t, out, "No variables found in standard input")
+}
+
+// The parser's message quotes the input, which holds values, so it is left out.
+func TestVariablesDeployStandardInputParseErrorHidesValues(t *testing.T) {
+	setVariableCommandTestHome(t)
+	cmd := New(cliruntime.Deps{})
+	cmd.SetIn(strings.NewReader("API_KEY=\"" + secretSentinelAPINewValue + "\nDEBUG\n"))
+	out, err := executeVariableCommand(t, cmd, "deploy", "--file", "-")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read standard input: it is not a valid env file")
+	assert.NotContains(t, out+err.Error(), secretSentinelAPINewValue)
+}
+
 func TestVariablesDeployEmptyEnvFile(t *testing.T) {
 	setVariableCommandTestHome(t)
 	t.Chdir(t.TempDir())

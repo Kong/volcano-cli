@@ -51,6 +51,9 @@ func Variable(w io.Writer, variable *apiclient.Variable) {
 	on := theme.On(w)
 	kv(w, on, "ID", "%s", variable.Id.String())
 	kv(w, on, "Name", "%s", variable.Name)
+	if variable.Shared != nil {
+		kv(w, on, "Shared", "%s", formatBool(*variable.Shared))
+	}
 	kv(w, on, "Created", "%s", FormatTimestamp(variable.CreatedAt))
 	kv(w, on, "Updated", "%s", FormatTimestamp(variable.UpdatedAt))
 }
