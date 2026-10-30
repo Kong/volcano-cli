@@ -2024,8 +2024,9 @@ paths:
         Lists the sign-in sessions of the account that owns the calling
         platform token: dashboard sign-ins (`kind: browser`) and CLI logins
         (`kind: cli`). The session the calling token was exchanged from is
-        marked `is_current: true`. A token created with `volcano login --token`
-        or in the dashboard has no session, so no session is current.
+        marked `is_current: true`. A token created in the dashboard or through
+        the management API, rather than by signing in, has no session, so no
+        session is current.
 
         Ordering and pagination match `GET /auth/user/sessions`.
 
@@ -2048,7 +2049,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthSessionList'
+                $ref: '#/components/schemas/AccountSessionList'
         '400':
           description: Invalid or conflicting pagination parameters
           content:
@@ -2089,8 +2090,8 @@ paths:
         them. When the calling token has no session, every session ends.
 
         Platform tokens that were never linked to a session, such as one
-        created in the dashboard or passed to `volcano login --token`, keep
-        working. Revoke each with `DELETE /user/tokens/current`.
+        created in the dashboard or through the management API, keep working.
+        Revoke each with `DELETE /user/tokens/current`.
       operationId: revokeOtherAccountSessions
       security:
         - UserToken: []
@@ -19840,6 +19841,113 @@ components:
         - require_numbers
         - require_special_chars
         - compromised_passwords_rejected
+    AccountSession:
+      type: object
+      description: A sign-in to your Volcano account, from the CLI or a browser.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique session identifier
+        user_id:
+          type: string
+          format: uuid
+          description: The account this session belongs to
+        provider:
+          type: string
+          description: |
+            How the session was created: `email`, `google`, `github`,
+            `microsoft`, `apple`, or `device:<client_id>` for a device-code
+            login such as the `volcano` CLI. More values may be added; use
+            `kind` to tell CLI logins from browser sign-ins.
+          example: github
+        kind:
+          type: string
+          description: |
+            `cli` for a device-code login, such as `volcano login`, and
+            `browser` for every other sign-in.
+          enum:
+            - cli
+            - browser
+          example: cli
+        user_agent:
+          type: string
+          description: Browser/device user agent string
+        ip_address:
+          type: string
+          description: IP address of the client when the session was created
+        last_ip_address:
+          type: string
+          description: IP address of the most recent activity (token refresh)
+        expires_at:
+          type: string
+          format: date-time
+          description: When this session expires
+        last_activity_at:
+          type: string
+          format: date-time
+          description: Last activity timestamp
+        session_started_at:
+          type: string
+          format: date-time
+          description: When the session was created
+        is_active:
+          type: boolean
+          description: Whether the session is currently active (not expired)
+        is_current:
+          type: boolean
+          description: Whether this is the session making the current request
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - user_id
+        - provider
+        - kind
+        - expires_at
+        - is_active
+        - is_current
+    AccountSessionList:
+      type: object
+      description: |
+        A page of sessions. Without `sort` the body is the legacy
+        `sessions`/`total`/`page`/`limit`/`total_pages` shape; with
+        `sort=created_at` and a cursor it is the shared `data` envelope.
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountSession'
+        total:
+          type: integer
+          description: Total number of sessions
+        page:
+          type: integer
+          description: Current page number
+        limit:
+          type: integer
+          description: Number of sessions per page
+        total_pages:
+          type: integer
+          description: Total number of pages
+        data:
+          type: array
+          description: Sessions for this page (cursor pagination only)
+          items:
+            $ref: '#/components/schemas/AccountSession'
+        has_more:
+          type: boolean
+          description: Whether a further page exists (cursor pagination only)
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page (cursor pagination only)
+        prev_cursor:
+          type: string
+          description: Opaque cursor for the previous page (cursor pagination only). Send as `ending_before`.
     AuthSession:
       type: object
       description: An authentication session for a user
@@ -19854,21 +19962,15 @@ components:
           description: The user this session belongs to
         provider:
           type: string
-          description: |
-            How the session was created: `email`, `google`, `github`,
-            `microsoft`, `apple`, `anonymous`, or `device:<client_id>` for a
-            device-code login such as the `volcano` CLI. More values may be
-            added; use `kind` to tell CLI logins from browser sign-ins.
-          example: email
-        kind:
-          type: string
-          description: |
-            `cli` for a device-code login, such as `volcano login`, and
-            `browser` for every other sign-in.
+          description: Authentication provider used to create this session
           enum:
-            - cli
-            - browser
-          example: browser
+            - email
+            - google
+            - github
+            - microsoft
+            - apple
+            - anonymous
+          example: email
         user_agent:
           type: string
           description: Browser/device user agent string
@@ -19909,47 +20011,9 @@ components:
         - id
         - user_id
         - provider
-        - kind
         - expires_at
         - is_active
         - is_current
-    AuthSessionList:
-      type: object
-      description: |
-        A page of sessions. Without `sort` the body is the legacy
-        `sessions`/`total`/`page`/`limit`/`total_pages` shape; with
-        `sort=created_at` and a cursor it is the shared `data` envelope.
-      properties:
-        sessions:
-          type: array
-          items:
-            $ref: '#/components/schemas/AuthSession'
-        total:
-          type: integer
-          description: Total number of sessions
-        page:
-          type: integer
-          description: Current page number
-        limit:
-          type: integer
-          description: Number of sessions per page
-        total_pages:
-          type: integer
-          description: Total number of pages
-        data:
-          type: array
-          description: Sessions for this page (cursor pagination only)
-          items:
-            $ref: '#/components/schemas/AuthSession'
-        has_more:
-          type: boolean
-          description: Whether a further page exists (cursor pagination only)
-        next_cursor:
-          type: string
-          description: Opaque cursor for the next page (cursor pagination only)
-        prev_cursor:
-          type: string
-          description: Opaque cursor for the previous page (cursor pagination only). Send as `ending_before`.
     AuthSignupResponse:
       type: object
       description: |

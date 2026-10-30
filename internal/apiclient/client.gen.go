@@ -30,6 +30,24 @@ const (
 	UserTokenScopes           userTokenContextKey           = "UserToken.Scopes"
 )
 
+// Defines values for AccountSessionKind.
+const (
+	AccountSessionKindBrowser AccountSessionKind = "browser"
+	AccountSessionKindCli     AccountSessionKind = "cli"
+)
+
+// Valid indicates whether the value is a known member of the AccountSessionKind enum.
+func (e AccountSessionKind) Valid() bool {
+	switch e {
+	case AccountSessionKindBrowser:
+		return true
+	case AccountSessionKindCli:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuthConfigAllowedEmailDomainsMode.
 const (
 	AuthConfigAllowedEmailDomainsModeDisabled        AuthConfigAllowedEmailDomainsMode = "disabled"
@@ -201,18 +219,30 @@ func (e AuthPageThemeVersion) Valid() bool {
 	}
 }
 
-// Defines values for AuthSessionKind.
+// Defines values for AuthSessionProvider.
 const (
-	AuthSessionKindBrowser AuthSessionKind = "browser"
-	AuthSessionKindCli     AuthSessionKind = "cli"
+	AuthSessionProviderAnonymous AuthSessionProvider = "anonymous"
+	AuthSessionProviderApple     AuthSessionProvider = "apple"
+	AuthSessionProviderEmail     AuthSessionProvider = "email"
+	AuthSessionProviderGithub    AuthSessionProvider = "github"
+	AuthSessionProviderGoogle    AuthSessionProvider = "google"
+	AuthSessionProviderMicrosoft AuthSessionProvider = "microsoft"
 )
 
-// Valid indicates whether the value is a known member of the AuthSessionKind enum.
-func (e AuthSessionKind) Valid() bool {
+// Valid indicates whether the value is a known member of the AuthSessionProvider enum.
+func (e AuthSessionProvider) Valid() bool {
 	switch e {
-	case AuthSessionKindBrowser:
+	case AuthSessionProviderAnonymous:
 		return true
-	case AuthSessionKindCli:
+	case AuthSessionProviderApple:
+		return true
+	case AuthSessionProviderEmail:
+		return true
+	case AuthSessionProviderGithub:
+		return true
+	case AuthSessionProviderGoogle:
+		return true
+	case AuthSessionProviderMicrosoft:
 		return true
 	default:
 		return false
@@ -5063,13 +5093,13 @@ func (e UploadStorageObjectParamsXUploadComplete) Valid() bool {
 
 // Defines values for StartGitConnectParamsProvider.
 const (
-	StartGitConnectParamsProviderGithub StartGitConnectParamsProvider = "github"
+	Github StartGitConnectParamsProvider = "github"
 )
 
 // Valid indicates whether the value is a known member of the StartGitConnectParamsProvider enum.
 func (e StartGitConnectParamsProvider) Valid() bool {
 	switch e {
-	case StartGitConnectParamsProviderGithub:
+	case Github:
 		return true
 	default:
 		return false
@@ -5110,6 +5140,86 @@ func (e ListAccountSessionsParamsStatus) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// AccountSession A sign-in to your Volcano account, from the CLI or a browser.
+type AccountSession struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// ExpiresAt When this session expires
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// Id Unique session identifier
+	Id openapi_types.UUID `json:"id"`
+
+	// IpAddress IP address of the client when the session was created
+	IpAddress *string `json:"ip_address,omitempty"`
+
+	// IsActive Whether the session is currently active (not expired)
+	IsActive bool `json:"is_active"`
+
+	// IsCurrent Whether this is the session making the current request
+	IsCurrent bool `json:"is_current"`
+
+	// Kind `cli` for a device-code login, such as `volcano login`, and
+	// `browser` for every other sign-in.
+	Kind AccountSessionKind `json:"kind"`
+
+	// LastActivityAt Last activity timestamp
+	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
+
+	// LastIpAddress IP address of the most recent activity (token refresh)
+	LastIpAddress *string `json:"last_ip_address,omitempty"`
+
+	// Provider How the session was created: `email`, `google`, `github`,
+	// `microsoft`, `apple`, or `device:<client_id>` for a device-code
+	// login such as the `volcano` CLI. More values may be added; use
+	// `kind` to tell CLI logins from browser sign-ins.
+	Provider string `json:"provider"`
+
+	// SessionStartedAt When the session was created
+	SessionStartedAt *time.Time `json:"session_started_at,omitempty"`
+	UpdatedAt        *time.Time `json:"updated_at,omitempty"`
+
+	// UserAgent Browser/device user agent string
+	UserAgent *string `json:"user_agent,omitempty"`
+
+	// UserId The account this session belongs to
+	UserId openapi_types.UUID `json:"user_id"`
+}
+
+// AccountSessionKind `cli` for a device-code login, such as `volcano login`, and
+// `browser` for every other sign-in.
+type AccountSessionKind string
+
+// AccountSessionList A page of sessions. Without `sort` the body is the legacy
+// `sessions`/`total`/`page`/`limit`/`total_pages` shape; with
+// `sort=created_at` and a cursor it is the shared `data` envelope.
+type AccountSessionList struct {
+	// Data Sessions for this page (cursor pagination only)
+	Data *[]AccountSession `json:"data,omitempty"`
+
+	// HasMore Whether a further page exists (cursor pagination only)
+	HasMore *bool `json:"has_more,omitempty"`
+
+	// Limit Number of sessions per page
+	Limit *int `json:"limit,omitempty"`
+
+	// NextCursor Opaque cursor for the next page (cursor pagination only)
+	NextCursor *string `json:"next_cursor,omitempty"`
+
+	// Page Current page number
+	Page *int `json:"page,omitempty"`
+
+	// PrevCursor Opaque cursor for the previous page (cursor pagination only). Send as `ending_before`.
+	PrevCursor *string           `json:"prev_cursor,omitempty"`
+	Sessions   *[]AccountSession `json:"sessions,omitempty"`
+
+	// Total Total number of sessions
+	Total *int `json:"total,omitempty"`
+
+	// TotalPages Total number of pages
+	TotalPages *int `json:"total_pages,omitempty"`
 }
 
 // AnonKey defines model for AnonKey.
@@ -5563,21 +5673,14 @@ type AuthSession struct {
 	// IsCurrent Whether this is the session making the current request
 	IsCurrent bool `json:"is_current"`
 
-	// Kind `cli` for a device-code login, such as `volcano login`, and
-	// `browser` for every other sign-in.
-	Kind AuthSessionKind `json:"kind"`
-
 	// LastActivityAt Last activity timestamp
 	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
 
 	// LastIpAddress IP address of the most recent activity (token refresh)
 	LastIpAddress *string `json:"last_ip_address,omitempty"`
 
-	// Provider How the session was created: `email`, `google`, `github`,
-	// `microsoft`, `apple`, `anonymous`, or `device:<client_id>` for a
-	// device-code login such as the `volcano` CLI. More values may be
-	// added; use `kind` to tell CLI logins from browser sign-ins.
-	Provider string `json:"provider"`
+	// Provider Authentication provider used to create this session
+	Provider AuthSessionProvider `json:"provider"`
 
 	// SessionStartedAt When the session was created
 	SessionStartedAt *time.Time `json:"session_started_at,omitempty"`
@@ -5590,39 +5693,8 @@ type AuthSession struct {
 	UserId openapi_types.UUID `json:"user_id"`
 }
 
-// AuthSessionKind `cli` for a device-code login, such as `volcano login`, and
-// `browser` for every other sign-in.
-type AuthSessionKind string
-
-// AuthSessionList A page of sessions. Without `sort` the body is the legacy
-// `sessions`/`total`/`page`/`limit`/`total_pages` shape; with
-// `sort=created_at` and a cursor it is the shared `data` envelope.
-type AuthSessionList struct {
-	// Data Sessions for this page (cursor pagination only)
-	Data *[]AuthSession `json:"data,omitempty"`
-
-	// HasMore Whether a further page exists (cursor pagination only)
-	HasMore *bool `json:"has_more,omitempty"`
-
-	// Limit Number of sessions per page
-	Limit *int `json:"limit,omitempty"`
-
-	// NextCursor Opaque cursor for the next page (cursor pagination only)
-	NextCursor *string `json:"next_cursor,omitempty"`
-
-	// Page Current page number
-	Page *int `json:"page,omitempty"`
-
-	// PrevCursor Opaque cursor for the previous page (cursor pagination only). Send as `ending_before`.
-	PrevCursor *string        `json:"prev_cursor,omitempty"`
-	Sessions   *[]AuthSession `json:"sessions,omitempty"`
-
-	// Total Total number of sessions
-	Total *int `json:"total,omitempty"`
-
-	// TotalPages Total number of pages
-	TotalPages *int `json:"total_pages,omitempty"`
-}
+// AuthSessionProvider Authentication provider used to create this session
+type AuthSessionProvider string
 
 // AuthSignupResponse Uniform, session-less response returned by POST /auth/signup. It carries no
 // tokens and no user object, and is identical for a new account and for an
@@ -53016,7 +53088,7 @@ func (r RevokeOtherAccountSessionsClientResponse) ContentType() string {
 type ListAccountSessionsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AuthSessionList
+	JSON200      *AccountSessionList
 	JSON400      *Error
 	JSON401      *Error
 	JSON403      *Error
@@ -72555,7 +72627,7 @@ func ParseListAccountSessionsClientResponse(rsp *http.Response) (*ListAccountSes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AuthSessionList
+		var dest AccountSessionList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

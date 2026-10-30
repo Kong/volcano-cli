@@ -8,11 +8,11 @@ import (
 
 // AccountSessionsPage is one page of the account's sign-in sessions.
 type AccountSessionsPage struct {
-	Sessions   []apiclient.AuthSession `json:"sessions"`
-	Page       int                     `json:"page"`
-	Limit      int                     `json:"limit"`
-	Total      int                     `json:"total"`
-	TotalPages int                     `json:"total_pages"`
+	Sessions   []apiclient.AccountSession `json:"sessions"`
+	Page       int                        `json:"page"`
+	Limit      int                        `json:"limit"`
+	Total      int                        `json:"total"`
+	TotalPages int                        `json:"total_pages"`
 }
 
 // RevokeCurrentToken revokes the platform token this client authenticates

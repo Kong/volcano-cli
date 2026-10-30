@@ -12,7 +12,7 @@ import (
 // AccountSessionsPage is one page of the account's sign-in sessions, as the
 // sessions list renders it.
 type AccountSessionsPage struct {
-	Sessions   []apiclient.AuthSession
+	Sessions   []apiclient.AccountSession
 	Page       int
 	Limit      int
 	Total      int
@@ -59,8 +59,8 @@ func AccountSessions(w io.Writer, page AccountSessionsPage) {
 }
 
 // sessionKind tells a CLI login from a browser sign-in.
-func sessionKind(kind apiclient.AuthSessionKind) string {
-	if kind == apiclient.AuthSessionKindCli {
+func sessionKind(kind apiclient.AccountSessionKind) string {
+	if kind == apiclient.AccountSessionKindCli {
 		return "CLI"
 	}
 	return "Browser"
@@ -79,7 +79,7 @@ func sessionDevice(userAgent *string) string {
 	return "unknown"
 }
 
-func sessionIP(session apiclient.AuthSession) string {
+func sessionIP(session apiclient.AccountSession) string {
 	for _, ip := range []*string{session.LastIpAddress, session.IpAddress} {
 		if ip == nil {
 			continue
@@ -91,7 +91,7 @@ func sessionIP(session apiclient.AuthSession) string {
 	return "unknown"
 }
 
-func sessionLastActive(session apiclient.AuthSession) string {
+func sessionLastActive(session apiclient.AccountSession) string {
 	switch {
 	case session.LastActivityAt != nil:
 		return FormatTimeAgo(*session.LastActivityAt)
