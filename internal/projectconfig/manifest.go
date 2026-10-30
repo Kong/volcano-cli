@@ -310,9 +310,46 @@ type EmailTemplateManifest struct {
 
 // AuthManagedPagesManifest declares managed auth page settings.
 type AuthManagedPagesManifest struct {
-	Enabled   *bool                  `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	Redirects *AuthRedirectsManifest `yaml:"redirects,omitempty" json:"redirects,omitempty"`
-	Pages     *HostedPagesManifest   `yaml:"pages,omitempty" json:"pages,omitempty"`
+	Enabled    *bool                       `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	Redirects  *AuthRedirectsManifest      `yaml:"redirects,omitempty" json:"redirects,omitempty"`
+	Pages      *HostedPagesManifest        `yaml:"pages,omitempty" json:"pages,omitempty"`
+	Appearance *AuthPageAppearanceManifest `yaml:"appearance,omitempty" json:"appearance,omitempty"`
+}
+
+// AuthPageAppearanceManifest declares the built-in renderer's theme and
+// per-page layouts. The server validates the values.
+type AuthPageAppearanceManifest struct {
+	Theme   *AuthPageThemeManifest   `yaml:"theme,omitempty" json:"theme,omitempty"`
+	Layouts *AuthPageLayoutsManifest `yaml:"layouts,omitempty" json:"layouts,omitempty"`
+}
+
+// AuthPageThemeManifest declares the managed pages' theme.
+type AuthPageThemeManifest struct {
+	Version *int                         `yaml:"version,omitempty" json:"version,omitempty"`
+	Colors  *AuthPageThemeColorsManifest `yaml:"colors,omitempty" json:"colors,omitempty"`
+	Font    *string                      `yaml:"font,omitempty" json:"font,omitempty"`
+	Scale   *string                      `yaml:"scale,omitempty" json:"scale,omitempty"`
+	Density *string                      `yaml:"density,omitempty" json:"density,omitempty"`
+	Radius  *string                      `yaml:"radius,omitempty" json:"radius,omitempty"`
+}
+
+// AuthPageThemeColorsManifest declares the theme's colors as #rrggbb values.
+type AuthPageThemeColorsManifest struct {
+	Background *string `yaml:"background,omitempty" json:"background,omitempty"`
+	Surface    *string `yaml:"surface,omitempty" json:"surface,omitempty"`
+	Text       *string `yaml:"text,omitempty" json:"text,omitempty"`
+	Accent     *string `yaml:"accent,omitempty" json:"accent,omitempty"`
+	AccentText *string `yaml:"accent_text,omitempty" json:"accent_text,omitempty"`
+}
+
+// AuthPageLayoutsManifest declares a layout per managed page type.
+type AuthPageLayoutsManifest struct {
+	Login          *string `yaml:"login,omitempty" json:"login,omitempty"`
+	Signup         *string `yaml:"signup,omitempty" json:"signup,omitempty"`
+	ForgotPassword *string `yaml:"forgot_password,omitempty" json:"forgot_password,omitempty"`
+	Device         *string `yaml:"device,omitempty" json:"device,omitempty"`
+	VerifyEmail    *string `yaml:"verify_email,omitempty" json:"verify_email,omitempty"`
+	ResetPassword  *string `yaml:"reset_password,omitempty" json:"reset_password,omitempty"`
 }
 
 // AuthRedirectsManifest declares the redirect allowlist and defaults.
@@ -325,8 +362,12 @@ type AuthRedirectsManifest struct {
 
 // HostedPagesManifest declares hosted auth pages keyed by page type.
 type HostedPagesManifest struct {
-	Login         *HostedPageManifest `yaml:"login,omitempty" json:"login,omitempty"`
-	ResetPassword *HostedPageManifest `yaml:"reset_password,omitempty" json:"reset_password,omitempty"`
+	Login          *HostedPageManifest `yaml:"login,omitempty" json:"login,omitempty"`
+	Signup         *HostedPageManifest `yaml:"signup,omitempty" json:"signup,omitempty"`
+	ForgotPassword *HostedPageManifest `yaml:"forgot_password,omitempty" json:"forgot_password,omitempty"`
+	Device         *HostedPageManifest `yaml:"device,omitempty" json:"device,omitempty"`
+	VerifyEmail    *HostedPageManifest `yaml:"verify_email,omitempty" json:"verify_email,omitempty"`
+	ResetPassword  *HostedPageManifest `yaml:"reset_password,omitempty" json:"reset_password,omitempty"`
 }
 
 // HostedPageManifest declares one hosted auth page.
