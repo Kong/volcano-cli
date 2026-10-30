@@ -31,6 +31,7 @@ account (auth)
     ├── git connection ........ push-to-deploy from GitHub     → git.md
     ├── access tokens ......... project-scoped CI credentials  → access-tokens.md
     ├── notifications ......... alerts when schedulers fail    → notifications.md
+    ├── LavaFlow .............. diagnoses errors, opens fix PRs → lavaflow.md
     ├── logs .................. search, tail, count runtime logs → logs.md
     └── declarative config .... one YAML syncing the above     → ../project-configuration.md
 ```
@@ -110,6 +111,7 @@ enable`. Turn it off on its own with `volcano feedback disable`. See
 | Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
 | Notifications | alert by email or webhook when schedulers fail, rotate the webhook secret, send a test | `notifications …`, `cloud notifications …` | [notifications.md](notifications.md) |
+| LavaFlow | turn on or off, follow runs and their diagnoses, diagnose an issue again | `cloud lavaflow …` | [lavaflow.md](lavaflow.md) |
 | Frontends | deploy, inspect, custom domains, function and Frontend routes | `frontends …`, `cloud frontends …` | [frontends.md](frontends.md) |
 | Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](project-configuration.md) |
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |

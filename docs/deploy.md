@@ -231,9 +231,12 @@ bit, so a frontend deployed from Windows doesn't match a commit that holds an
 executable file.
 
 Volcano verifies the commit against the project's connected repository: a
-commit on its production branch is verified. A workflow run for a pull
-request deploys GitHub's merge commit, which is on no branch, so that
-deployment is recorded unverified.
+commit on its production branch is verified. LavaFlow reads source and opens
+fix pull requests only for a deployment whose commit is verified and whose
+upload matched it, so commit your changes before you deploy. Of the deploys
+the CLI runs, only frontend deploys can get LavaFlow fix pull requests for
+now. A workflow run for a pull request deploys GitHub's merge commit, which is
+on no branch, so that deployment is recorded unverified.
 `frontends deploy --from` and a redeploy keep the commit of the build they
 publish.
 
