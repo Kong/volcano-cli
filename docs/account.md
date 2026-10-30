@@ -5,7 +5,7 @@ description: "List the browser and CLI sessions signed in to your Volcano accoun
 
 Every place you're signed in to Volcano is a session: the dashboard in each
 browser, and each `volcano login`. The `volcano account sessions` commands list
-them and sign them out, as the dashboard does under Account → Sessions.
+them and sign them out.
 
 They need an account login. A project access token can't reach them, and the
 commands say so before sending anything. They work against the cloud API:
@@ -63,5 +63,6 @@ the dashboard, keeps working. Revoke the one this CLI uses with
 `volcano logout`. Revoking your other platform tokens from the CLI is not
 available yet. The command reminds you of this when it finishes.
 
-Use it when a token or a device may be in the wrong hands. Afterwards, sign in
-to the dashboard again, and run `volcano login` on each machine you still use.
+Use it when a token or a device may be in the wrong hands. Afterwards, every
+browser asks you to sign in again; run `volcano login` on each machine you still
+use.
