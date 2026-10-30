@@ -85,7 +85,8 @@ func TestEnableExplainsAPlanRefusal(t *testing.T) {
 	_, err := executeLavaflowCommand(t, New(deps), "enable")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "a paid plan is required")
-	assert.Contains(t, err.Error(), "upgrade the project's plan in the dashboard")
+	assert.Contains(t, err.Error(), "LavaFlow needs a paid plan.")
+	assert.NotContains(t, err.Error(), "dashboard")
 	assert.Contains(t, err.Error(), clilavaflow.CostNote)
 	assert.Equal(t, http.StatusForbidden, api.Status(err), "the refusal keeps its status for the exit code")
 }
@@ -135,7 +136,7 @@ func TestEnableWithAProjectTokenSaysAPersonHasToTurnItOn(t *testing.T) {
 				t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"secret")
 			},
 			"a person has to turn LavaFlow on: a project access token can't. Unset VOLCANO_TOKEN and sign in " +
-				"with 'volcano login', then run this again, or turn it on in the dashboard",
+				"with 'volcano login', then run this again",
 		},
 		"saved": {
 			func(t *testing.T) {
@@ -146,7 +147,7 @@ func TestEnableWithAProjectTokenSaysAPersonHasToTurnItOn(t *testing.T) {
 				}).Save())
 			},
 			"a person has to turn LavaFlow on: a project access token can't. Sign in with 'volcano login' " +
-				"and run this again, or turn it on in the dashboard",
+				"and run this again",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

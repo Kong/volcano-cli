@@ -30,11 +30,15 @@ const CostNote = "LavaFlow is in preview. During the preview, it needs the SUPER
 const OnDescription = "LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, " +
 	"and opens fix pull requests in your connected repository."
 
-// ErrUnavailable reports an API where LavaFlow is not on: a platform release
-// older than LavaFlow, which has none of its routes, or one where Volcano has
-// not turned it on or has switched it off. Said in place of the 404 either
+// ErrUnavailable reports an API without LavaFlow: a platform release older
+// than LavaFlow, which has none of its routes. Said in place of the 404 it
 // answers, which otherwise reads as a missing project or run.
 var ErrUnavailable = errors.New("LavaFlow isn't available on this Volcano API")
+
+// ErrNotAvailableToAccount reports LavaFlow switched off for this account:
+// the API answers feature_unavailable while its release gate leaves the
+// account out.
+var ErrNotAvailableToAccount = errors.New("LavaFlow isn't available to your account yet")
 
 // codePlanRequired is the code of a refusal the owner's plan causes.
 const codePlanRequired = "plan_required"
@@ -58,10 +62,9 @@ var ErrPersonMustTurnOn = errors.New("a person has to turn LavaFlow on: a projec
 // unset first. The refusal keeps the exit code of the permission the API
 // refuses.
 func personMustTurnOn(cfg *config.Config) error {
-	how := "Sign in with 'volcano login' and run this again, or turn it on in the dashboard"
+	how := "Sign in with 'volcano login' and run this again"
 	if cfg.TokenFromEnv() {
-		how = "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again, " +
-			"or turn it on in the dashboard"
+		how = "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
 	}
 	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonMustTurnOn, how), config.ErrAccountTokenRequired)
 }
@@ -243,7 +246,10 @@ func (s Service) StartRun(ctx context.Context, rawIssueID string) (*apiclient.La
 // unavailable replaces a refusal that says LavaFlow is not on with
 // ErrUnavailable, keeping the refusal so the exit code still reports it.
 func unavailable(err error) error {
-	if api.RouteMissing(err) || api.Code(err) == codeFeatureUnavailable {
+	switch {
+	case api.Code(err) == codeFeatureUnavailable:
+		return api.WithCause(ErrNotAvailableToAccount, err)
+	case api.RouteMissing(err):
 		return api.WithCause(ErrUnavailable, err)
 	}
 	return err
@@ -253,7 +259,7 @@ func unavailable(err error) error {
 // exit code still reports it.
 func refusal(err error) error {
 	if api.Status(err) == http.StatusForbidden && api.Code(err) == codePlanRequired {
-		return api.WithCause(errors.New(err.Error()+"\nLavaFlow needs a paid plan: upgrade the project's plan in the dashboard. "+CostNote), err)
+		return api.WithCause(errors.New(err.Error()+"\nLavaFlow needs a paid plan. "+CostNote), err)
 	}
 	return err
 }

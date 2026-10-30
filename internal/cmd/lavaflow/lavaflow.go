@@ -34,9 +34,8 @@ func New(deps cliruntime.Deps) *cobra.Command {
 }
 
 // NewCloudOnly stands in for the lavaflow command in the local tree. LavaFlow
-// opens its fix pull requests through Volcano's GitHub App, which local
-// development does not run, so the local server refuses every LavaFlow
-// request. Hidden and without flag parsing for the reasons
+// runs on Volcano's cloud service, which local development does not run, so
+// the local server refuses every LavaFlow request. Hidden and without flag parsing for the reasons
 // accesstokens.NewCloudOnly gives.
 func NewCloudOnly() *cobra.Command {
 	return &cobra.Command{
@@ -44,16 +43,16 @@ func NewCloudOnly() *cobra.Command {
 		Short: groupShort,
 		Long: groupLong + `
 
-Local development has no GitHub App for LavaFlow to open fix pull requests
-with, so this command is cloud-only: run 'volcano cloud lavaflow ...' instead.`,
+LavaFlow runs on Volcano's cloud service, which local development doesn't
+run, so this command is cloud-only: run 'volcano cloud lavaflow ...' instead.`,
 		Hidden:             true,
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if slices.ContainsFunc(args, isHelpFlag) {
 				return cmd.Help()
 			}
-			return fmt.Errorf("%q is a cloud command: local development has no GitHub App for LavaFlow "+
-				"to open fix pull requests with, so run 'volcano cloud lavaflow ...' instead", "lavaflow")
+			return fmt.Errorf("%q is a cloud command: LavaFlow runs on Volcano's cloud service, "+
+				"which local development doesn't run, so run 'volcano cloud lavaflow ...' instead", "lavaflow")
 		},
 	}
 }

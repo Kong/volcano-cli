@@ -64,7 +64,7 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 			theme.Command(details.GitConnectCommand, on), theme.Command(details.EnableCommand, on))
 	}
 	if settings.PlanAllowsLavaflow != nil && !*settings.PlanAllowsLavaflow {
-		Warning(w, "No run starts until the project's plan allows LavaFlow. Upgrade the plan in the dashboard.")
+		Warning(w, "No run starts until the project's plan allows LavaFlow.")
 	}
 	fmt.Fprintln(w, theme.Dim(details.CostNote, on))
 	if !settings.Enabled {
@@ -142,8 +142,7 @@ func LavaFlowEnabled(w io.Writer, details LavaFlowEnabledDetails) {
 	Success(w, "LavaFlow is on")
 	Note(w, "%s", details.Description)
 	if settings.PlanAllowsLavaflow != nil && !*settings.PlanAllowsLavaflow {
-		Warning(w, "No run starts until the project's plan allows LavaFlow. LavaFlow needs a paid plan: "+
-			"upgrade the plan in the dashboard.")
+		Warning(w, "No run starts until the project's plan allows LavaFlow. LavaFlow needs a paid plan.")
 		Note(w, "%s", details.CostNote)
 		return
 	}
@@ -565,7 +564,7 @@ var lavaFlowFailures = map[string]lavaFlowStop{
 	},
 	"plan_required": {
 		"plan doesn't allow it", "the project's plan no longer allows LavaFlow",
-		say("Upgrade the project's plan in the dashboard, then start a new run."),
+		say("Start a new run once the project's plan allows LavaFlow."),
 	},
 	"issue_not_found": {"issue deleted", "the issue no longer exists", say("Nothing to do.")},
 	"internal_error":  {"LavaFlow error", "LavaFlow could not run the diagnosis", startAgain},
@@ -654,7 +653,7 @@ var lavaFlowSkips = map[apiclient.LavaFlowPullRequestSkipped]lavaFlowStop{
 	apiclient.LavaFlowPullRequestSkippedPermissionMissing: {
 		"no PR: app lacks access",
 		"the Volcano GitHub App cannot open pull requests in the repository",
-		say("Check the Volcano GitHub App's access to the repository in the dashboard's Git settings, then start a new run."),
+		say("Give the Volcano GitHub App access to the repository in your GitHub settings, then start a new run."),
 	},
 	apiclient.LavaFlowPullRequestSkippedRepositoryChanged: {
 		"no PR: repository changed",

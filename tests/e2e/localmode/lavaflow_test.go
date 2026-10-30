@@ -24,7 +24,7 @@ func requireLocalModeLeavesLavaFlowToTheCloud(t *testing.T, binary string, env [
 			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
 		}
 		requireContains(t, output, `"lavaflow" is a cloud command`)
-		requireContains(t, output, "local development has no GitHub App")
+		requireContains(t, output, "LavaFlow runs on Volcano's cloud service, which local development doesn't run")
 		requireContains(t, output, "volcano cloud lavaflow")
 	}
 }

@@ -17,14 +17,13 @@ its pull requests like any other.
 
 LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan.
 
-Where LavaFlow isn't available, a `volcano cloud lavaflow` command that needs
-it says "LavaFlow isn't available on this Volcano API" and exits with code 4:
+Where LavaFlow isn't available, a `volcano cloud lavaflow` command says why
+and exits with code 4:
 
-- On a Volcano API that has no LavaFlow, every command says so.
-- Where Volcano has LavaFlow off, `enable` and `runs start` say so. A project
-  that saved LavaFlow settings can still read its status and turn LavaFlow
-  off; for a project that never saved them, `status` and `disable` say so
-  too. `runs list` and `runs get` still show past runs.
+- While LavaFlow is open only to some accounts, every command on any other
+  account says "LavaFlow isn't available to your account yet".
+- On a Volcano API that has no LavaFlow, every command says "LavaFlow isn't
+  available on this Volcano API".
 
 ## How it relates
 
@@ -40,8 +39,8 @@ it says "LavaFlow isn't available on this Volcano API" and exits with code 4:
   deployment, LavaFlow diagnoses the issue and opens no pull request.
 - Declared in the **project configuration** under `lavaflow:`. See
   [project-configuration.md](project-configuration.md).
-- Cloud only. Local development has no GitHub App for LavaFlow to open pull
-  requests with, so `volcano lavaflow` refuses and points to
+- Cloud only. LavaFlow runs on Volcano's cloud service, which local
+  development doesn't run, so `volcano lavaflow` refuses and points to
   `volcano cloud lavaflow`.
 
 See [LavaFlow](/platform/guides/lavaflow) for how runs work and their limits.
