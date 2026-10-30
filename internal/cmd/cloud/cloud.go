@@ -12,6 +12,7 @@ import (
 	durablecmd "github.com/Kong/volcano-cli/internal/cmd/durable"
 	frontendscmd "github.com/Kong/volcano-cli/internal/cmd/frontends"
 	functionscmd "github.com/Kong/volcano-cli/internal/cmd/functions"
+	logscmd "github.com/Kong/volcano-cli/internal/cmd/logs"
 	notificationscmd "github.com/Kong/volcano-cli/internal/cmd/notifications"
 	sandboxescmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	storagecmd "github.com/Kong/volcano-cli/internal/cmd/storage"
@@ -50,6 +51,7 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 		durablecmd.New(deps),
 		frontendscmd.New(deps),
 		functionscmd.NewWithOptions(deps, functionscmd.WithInvokeTokenProvider(dataPlaneKeys.ServiceKeyForProject)),
+		logscmd.New(deps),
 		notificationscmd.New(deps),
 		storagecmd.NewWithOptions(deps, storagecmd.WithObjectTokenProvider(dataPlaneKeys.ServiceKey)),
 		variablescmd.New(deps),
