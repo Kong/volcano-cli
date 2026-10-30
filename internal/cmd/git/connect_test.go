@@ -31,10 +31,37 @@ func TestConnectBindsTheRepositoryFromTheLocalRemote(t *testing.T) {
 	assert.Equal(t, gitConnectionID, body["connection_id"])
 	assert.InDelta(t, float64(gitInstallation), body["installation_id"], 0)
 	assert.InDelta(t, float64(gitRepositoryID), body["repository_id"], 0)
-	// production_branch is deprecated: the branch follows GitHub's default, and
-	// sending a stale one is rejected by the platform.
+	// A new binding follows the repository's default branch, which leaving the
+	// branch out asks for.
 	assert.NotContains(t, body, "production_branch")
 	assert.NotContains(t, body, "root_directory")
+}
+
+// A connected repository that deploys only its functions looks complete, and
+// a site that never deploys gives no clue why, so connect names the command
+// that adds a frontend.
+func TestConnectSaysHowToDeployAFrontend(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: originRemoteOutput}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, "A push to main deploys: functions\n")
+	assert.Contains(t, out, "To deploy a frontend on push too, run volcano git frontend <name> --root <path>\n")
+}
+
+func TestConnectNamesTheFrontendAPushDeploys(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.frontend = "web"
+	api.frontendRoot = "apps/web"
+	runner := &gitRunner{stdout: originRemoteOutput}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, "A push to main deploys: functions, frontend web (apps/web)\n")
+	assert.NotContains(t, out, "To deploy a frontend")
 }
 
 // The CLI must never write a credential into .git/config. The strongest local
@@ -725,6 +752,58 @@ func TestConnectRepairsABindingWithAStaleInstallation(t *testing.T) {
 	assert.InDelta(t, float64(gitInstallation), api.sentConnectBody()["installation_id"], 0)
 }
 
+// A branch the project pinned is its own choice, so a repository whose GitHub
+// default is something else is still the binding asked for, and nothing is
+// rebound: rebinding would discard the pin.
+func TestConnectLeavesAPinnedBranchAlone(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedBranch, api.branchPinned = "release", true
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "already connected")
+	assert.Contains(t, out, "Production branch: release (pinned)")
+	assert.Nil(t, api.sentConnectBody())
+}
+
+// Rebinding the same repository, as after an App reinstall, sends the pinned
+// branch back: the bind is a full replace, and leaving it out would follow the
+// default instead.
+func TestConnectKeepsAPinnedBranchWhenItRebinds(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRepoID = gitRepositoryID
+	api.connectedInstallation = 999999
+	api.connectedBranch, api.branchPinned = "release", true
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	require.NotNil(t, api.sentConnectBody())
+	assert.Equal(t, "release", api.sentConnectBody()["production_branch"])
+	assert.Contains(t, out, "Production branch: release (pinned)")
+}
+
+// A pin belongs to the repository it was chosen for, and naming it while
+// changing repository is refused, so the new repository follows its default.
+func TestConnectToAnotherRepositoryFollowsItsDefaultBranch(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "acme/old-store"
+	api.connectedBranch, api.branchPinned = "release", true
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect", "--yes")
+	require.NoError(t, err)
+
+	require.NotNil(t, api.sentConnectBody())
+	assert.NotContains(t, api.sentConnectBody(), "production_branch")
+	assert.Contains(t, out, "Production branch: main (follows the default branch)")
+}
+
 // The platform builds from this path inside the repository, so a path that
 // climbs out of it or starts at the filesystem root deploys nothing. Reporting
 // success for a value that cannot work is worse than refusing it.
@@ -929,6 +1008,26 @@ func TestConnectRefusesWhenOnlyTheRootDirectoryMovedUnderIt(t *testing.T) {
 	assert.Contains(t, err.Error(), "changed while this command was running")
 	assert.Nil(t, api.sentConnectBody(), "apps/new must not be overwritten")
 	assert.Nil(t, api.sentRootBody(), "apps/new must not be overwritten")
+}
+
+// Pinning the branch it already deploys from changes neither the branch name
+// nor, in this fake, updated_at, so only the pin itself tells the reads apart.
+// A write that went ahead on the earlier read could rebind and drop that pin.
+func TestConnectRefusesWhenTheBranchWasPinnedUnderIt(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRepoID = gitRepositoryID
+	api.connectedRoot = "apps/old"
+	api.pinAfterRead = true
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+		"", "connect", "--root-directory", "apps/mine")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "changed while this command was running")
+	assert.Nil(t, api.sentConnectBody(), "the pin must not be dropped")
+	assert.Nil(t, api.sentRootBody())
 }
 
 // Nothing is written when the binding already matches, so a concurrent edit

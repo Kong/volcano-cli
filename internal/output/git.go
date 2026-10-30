@@ -32,6 +32,15 @@ type GitBinding struct {
 	// "could not find out" are different states, and only one of them is safe
 	// to read as "no deploy configured".
 	SettingsErr error
+	// GitCommand is the path of the git command group, such as "volcano git".
+	// When it is set, the output names the command that changes what a push
+	// deploys wherever that is the next step: a repository that deploys only
+	// its functions looks complete, and a site that never deploys gives no
+	// clue why.
+	GitCommand string
+	// Changed is the git subcommand that just ran, such as "frontend". Its own
+	// next step is left out, since naming it would only repeat the command.
+	Changed string
 }
 
 // GitConnected renders a repository binding that was just made, followed by
@@ -53,9 +62,20 @@ func GitConnection(w io.Writer, binding GitBinding) {
 // GitStatus renders a binding as a plain report. It deliberately does not read
 // as an outcome — nothing was just done — and it names no GitHub account,
 // because answering that would mean contacting the provider, which the command
-// behind it does not do.
+// behind it does not do. It lists every deploy setting, each of which a git
+// subcommand changes.
 func GitStatus(w io.Writer, binding GitBinding) {
-	gitBindingDetail(w, theme.On(w), binding)
+	on := theme.On(w)
+	gitBindingDetail(w, on, binding)
+	if settings := binding.Settings; settings != nil {
+		kv(w, on, "Auto-deploy", "%s", onOff(settings.AutoDeployEnabled))
+		kv(w, on, "Functions", "%s", onOff(settings.DeployFunctions))
+		frontend := frontendTarget(settings)
+		if frontend == "" {
+			frontend = "none"
+		}
+		kv(w, on, "Frontend", "%s", frontend)
+	}
 	gitDeploySettings(w, binding)
 }
 
@@ -84,6 +104,89 @@ func GitRootDirectorySet(w io.Writer, binding GitBinding) {
 	gitDeploySettings(w, binding)
 }
 
+// GitFrontendSet renders the frontend a push now deploys, or that it deploys
+// none, followed by what a push to the production branch deploys. Like a root
+// directory change, nothing is redeployed by it.
+func GitFrontendSet(w io.Writer, binding GitBinding) {
+	frontend := frontendTarget(binding.Settings)
+	if frontend != "" {
+		Success(w, "Frontend set to %s", frontend)
+	} else {
+		Success(w, "Frontend cleared, so a push deploys no frontend")
+	}
+	gitBindingDetail(w, theme.On(w), binding)
+	switch {
+	case frontend == "":
+		Note(w, "Nothing was removed. A frontend already deployed stays up; pushes no longer redeploy it.")
+	case binding.Settings.AutoDeployEnabled:
+		Note(w, "Nothing was redeployed. The next push to %s deploys this frontend.",
+			binding.Connection.ProductionBranch)
+	default:
+		// Auto-deploy off: the settings below say no push deploys anything, so
+		// promising this one would contradict them.
+		Note(w, "Nothing was redeployed.")
+	}
+	gitDeploySettings(w, binding)
+}
+
+// GitAutoDeploySet renders auto-deploy just turned on or off, followed by what
+// a push to the production branch deploys.
+func GitAutoDeploySet(w io.Writer, binding GitBinding) {
+	branch := binding.Connection.ProductionBranch
+	Success(w, "Auto-deploy turned %s", onOff(binding.Settings.AutoDeployEnabled))
+	gitBindingDetail(w, theme.On(w), binding)
+	switch {
+	case !binding.Settings.AutoDeployEnabled:
+		Note(w, "Nothing was removed. What is already deployed stays up; pushes to %s no longer deploy.", branch)
+	case len(deployTargets(binding.Settings)) == 0:
+		// Nothing selected: the settings below say a push deploys nothing and
+		// name the command that selects something, so promising pushes would
+		// contradict them.
+		Note(w, "Nothing was deployed.")
+	default:
+		Note(w, "Nothing was deployed. Pushes to %s deploy from now on.", branch)
+	}
+	gitDeploySettings(w, binding)
+}
+
+// GitFunctionsSet renders deploying functions on push just turned on or off,
+// followed by what a push to the production branch deploys.
+func GitFunctionsSet(w io.Writer, binding GitBinding) {
+	settings := binding.Settings
+	Success(w, "Functions turned %s", onOff(settings.DeployFunctions))
+	gitBindingDetail(w, theme.On(w), binding)
+	switch {
+	case !settings.DeployFunctions:
+		Note(w, "Nothing was removed. Functions already deployed stay up; pushes no longer redeploy them.")
+	case settings.AutoDeployEnabled:
+		Note(w, "Nothing was deployed. The next push to %s deploys the repository's functions.",
+			binding.Connection.ProductionBranch)
+	default:
+		// Auto-deploy off: the settings below say no push deploys anything, so
+		// promising this one would contradict them.
+		Note(w, "Nothing was deployed.")
+	}
+	gitDeploySettings(w, binding)
+}
+
+// GitProductionBranchSet renders the branch a push must now land on, and
+// whether it follows the repository's default branch or is pinned.
+func GitProductionBranchSet(w io.Writer, binding GitBinding) {
+	connection := binding.Connection
+	if connection.ProductionBranchFollowsDefault {
+		Success(w, "Production branch follows the repository's default branch, %s", connection.ProductionBranch)
+	} else {
+		Success(w, "Production branch set to %s", connection.ProductionBranch)
+	}
+	gitBindingDetail(w, theme.On(w), binding)
+	if connection.ProductionBranchFollowsDefault {
+		Note(w, "Renaming the default branch on GitHub moves the project with it. Nothing was deployed.")
+	} else {
+		Note(w, "Pinned: renaming the default branch on GitHub no longer moves it. Nothing was deployed.")
+	}
+	gitDeploySettings(w, binding)
+}
+
 // GitDisconnected renders a removed binding. The repository is untouched, which
 // is worth saying: "disconnect" reads as destructive and is not.
 func GitDisconnected(w io.Writer, repoFullName string) {
@@ -97,7 +200,7 @@ func gitBindingDetail(w io.Writer, on bool, binding GitBinding) {
 		kv(w, on, "Project", "%s", binding.Project)
 	}
 	kv(w, on, "Repository", "%s", connection.RepoFullName)
-	kv(w, on, "Production branch", "%s", connection.ProductionBranch)
+	kv(w, on, "Production branch", "%s (%s)", connection.ProductionBranch, branchSource(connection))
 	if root := strings.TrimSpace(connection.RootDirectory); root != "" {
 		kv(w, on, "Root directory", "%s", root)
 	}
@@ -111,6 +214,22 @@ func gitBindingDetail(w io.Writer, on bool, binding GitBinding) {
 		!strings.EqualFold(account, repositoryOwner(connection.RepoFullName)) {
 		kv(w, on, "App installed on", "%s", account)
 	}
+}
+
+// branchSource says why a push to the production branch is what deploys: the
+// branch moves with the repository's default branch, or the project pinned it.
+func branchSource(connection *apiclient.ProjectGitConnection) string {
+	if connection.ProductionBranchFollowsDefault {
+		return "follows the default branch"
+	}
+	return "pinned"
+}
+
+func onOff(on bool) string {
+	if on {
+		return "on"
+	}
+	return "off"
 }
 
 func repositoryOwner(fullName string) string {
@@ -136,18 +255,32 @@ func gitDeploySettings(w io.Writer, binding GitBinding) {
 	fmt.Fprintln(w)
 	if !settings.AutoDeployEnabled {
 		Warning(w, "Auto-deploy is off, so a push to %s will not deploy anything.", connection.ProductionBranch)
+		nextStep(w, on, binding, "Turn it on with ", "auto-deploy", "on")
 		return
 	}
 
 	targets := deployTargets(settings)
 	if len(targets) == 0 {
 		Warning(w, "Auto-deploy is on, but neither functions nor a frontend is selected, so a push deploys nothing.")
+		nextStep(w, on, binding, "Deploy functions with ", "functions", "on")
+	} else {
+		fmt.Fprintf(w, "%s%s\n",
+			theme.Dim(fmt.Sprintf("A push to %s deploys: ", connection.ProductionBranch), on),
+			strings.Join(targets, ", "),
+		)
+	}
+	if frontendTarget(settings) == "" {
+		nextStep(w, on, binding, "To deploy a frontend on push too, run ", "frontend", "<name> --root <path>")
+	}
+}
+
+// nextStep names the git subcommand that changes what a push deploys, when the
+// caller gave the command group's path to name it with and did not just run it.
+func nextStep(w io.Writer, on bool, binding GitBinding, lead, subcommand, args string) {
+	if binding.GitCommand == "" || binding.Changed == subcommand {
 		return
 	}
-	fmt.Fprintf(w, "%s%s\n",
-		theme.Dim(fmt.Sprintf("A push to %s deploys: ", connection.ProductionBranch), on),
-		strings.Join(targets, ", "),
-	)
+	fmt.Fprintf(w, "%s%s\n", theme.Dim(lead, on), theme.Command(binding.GitCommand+" "+subcommand+" "+args, on))
 }
 
 func deployTargets(settings *apiclient.ProjectGitDeploySettings) []string {
@@ -155,12 +288,22 @@ func deployTargets(settings *apiclient.ProjectGitDeploySettings) []string {
 	if settings.DeployFunctions {
 		targets = append(targets, "functions")
 	}
-	if settings.FrontendName != nil && strings.TrimSpace(*settings.FrontendName) != "" {
-		frontend := "frontend " + *settings.FrontendName
-		if settings.FrontendAppRoot != nil && strings.TrimSpace(*settings.FrontendAppRoot) != "" {
-			frontend += " (" + *settings.FrontendAppRoot + ")"
-		}
-		targets = append(targets, frontend)
+	if frontend := frontendTarget(settings); frontend != "" {
+		targets = append(targets, "frontend "+frontend)
 	}
 	return targets
+}
+
+// frontendTarget names the frontend a push deploys and, when it builds from a
+// subdirectory, that directory: "web (apps/web)". It is empty when a push
+// deploys no frontend.
+func frontendTarget(settings *apiclient.ProjectGitDeploySettings) string {
+	if settings == nil || settings.FrontendName == nil || strings.TrimSpace(*settings.FrontendName) == "" {
+		return ""
+	}
+	frontend := *settings.FrontendName
+	if settings.FrontendAppRoot != nil && strings.TrimSpace(*settings.FrontendAppRoot) != "" {
+		frontend += " (" + *settings.FrontendAppRoot + ")"
+	}
+	return frontend
 }

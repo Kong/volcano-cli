@@ -148,6 +148,13 @@ type gitAPI struct {
 	// connectedBranch overrides the binding's cached production branch, which
 	// goes stale when the repository's GitHub default branch moves.
 	connectedBranch string
+	// branchPinned marks connectedBranch as the project's own choice rather
+	// than the repository's default, which a rename on GitHub then leaves
+	// alone.
+	branchPinned bool
+	// branchStatus and branchMessage make the production-branch route refuse.
+	branchStatus  int
+	branchMessage string
 	// connectedAfterRead makes the binding change on the next read, modelling
 	// something else repointing the project while a prompt is open.
 	connectedAfterRead string
@@ -163,6 +170,9 @@ type gitAPI struct {
 	// rootAfterRead changes only the binding's root directory on the next read,
 	// leaving the repository alone.
 	rootAfterRead string
+	// pinAfterRead pins the binding's current branch on the next read, leaving
+	// the branch name and updated_at alone.
+	pinAfterRead bool
 	// connectionUpdated overrides the binding's updated_at, which the platform
 	// bumps whenever the row really changes.
 	connectionUpdated string
@@ -193,11 +203,19 @@ type gitAPI struct {
 	// rootStatus and rootMessage make the root-directory route refuse.
 	rootStatus  int
 	rootMessage string
+	// settingsWriteStatus and settingsWriteMessage make the deploy-settings
+	// write refuse.
+	settingsWriteStatus  int
+	settingsWriteMessage string
 
 	mu          sync.Mutex
 	connectBody map[string]any
 	// rootBody is what the root-directory route was sent.
-	rootBody        map[string]any
+	rootBody map[string]any
+	// settingsBody is what the deploy-settings write was sent.
+	settingsBody map[string]any
+	// branchBody is what the production-branch route was sent.
+	branchBody      map[string]any
 	deleted         bool
 	connectionReads int
 	// accountReads counts the calls to the caller's own GitHub routes, which
@@ -259,10 +277,14 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 		a.serveConnect(w, r)
 	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-connection/root-directory"):
 		a.serveRootDirectory(w, r)
+	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-connection/production-branch"):
+		a.serveProductionBranch(w, r)
 	case r.Method == http.MethodDelete && strings.HasSuffix(r.URL.Path, "/git-connection"):
 		a.serveDisconnect(w)
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git-deploy-settings"):
 		a.serveDeploySettings(w)
+	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-deploy-settings"):
+		a.serveUpdateDeploySettings(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -364,20 +386,56 @@ func (a *gitAPI) serveConnection(w http.ResponseWriter) {
 		case a.rootAfterRead != "":
 			a.connectedRoot, a.rootAfterRead = a.rootAfterRead, ""
 			a.connectionUpdated = "2026-08-18T00:00:01Z"
+		case a.pinAfterRead:
+			a.branchPinned, a.pinAfterRead = true, false
 		}
 	}
 	if a.connected == "" {
 		writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "project has no repo connection"})
 		return
 	}
+	writeGitJSON(a.t, w, http.StatusOK, a.connectionNow())
+}
+
+// connectionNow is the binding as the platform would report it now.
+func (a *gitAPI) connectionNow() map[string]any {
 	payload := connectionPayload(a.connected, a.connectedRoot, a.currentRepoID(), a.currentInstallation())
 	if a.connectedBranch != "" {
 		payload["production_branch"] = a.connectedBranch
 	}
+	payload["production_branch_follows_default"] = !a.branchPinned
 	if a.connectionUpdated != "" {
 		payload["updated_at"] = a.connectionUpdated
 	}
-	writeGitJSON(a.t, w, http.StatusOK, payload)
+	return payload
+}
+
+// serveProductionBranch changes only the binding's branch, answering 404 for
+// a project with none, as the platform does. A branch pins the project to
+// it; an empty one follows the repository's default branch, main, again.
+func (a *gitAPI) serveProductionBranch(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.branchBody))
+
+	if a.branchStatus != 0 {
+		writeGitJSON(a.t, w, a.branchStatus, map[string]any{"error": a.branchMessage})
+		return
+	}
+	if a.connected == "" {
+		writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "project has no repository connected"})
+		return
+	}
+	a.connectedBranch, _ = a.branchBody["production_branch"].(string)
+	a.branchPinned = a.connectedBranch != ""
+	a.connectionUpdated = "2026-08-18T00:00:03Z"
+	writeGitJSON(a.t, w, http.StatusOK, a.connectionNow())
+}
+
+func (a *gitAPI) sentBranchBody() map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.branchBody
 }
 
 // currentRepoID derives the bound repository's id from its name unless a test
@@ -414,8 +472,14 @@ func (a *gitAPI) serveConnect(w http.ResponseWriter, r *http.Request) {
 	if id, ok := a.connectBody["installation_id"].(float64); ok {
 		a.connectedInstallation = int64(id)
 	}
-	writeGitJSON(a.t, w, http.StatusOK,
-		connectionPayload(a.connected, a.connectedRoot, a.connectedRepoID, a.currentInstallation()))
+	// A full replace: an omitted branch follows the default, main; any other
+	// branch is the project's own choice.
+	branch, _ := a.connectBody["production_branch"].(string)
+	a.connectedBranch, a.branchPinned = "", false
+	if branch != "" && branch != "main" {
+		a.connectedBranch, a.branchPinned = branch, true
+	}
+	writeGitJSON(a.t, w, http.StatusOK, a.connectionNow())
 }
 
 // serveRootDirectory changes only the binding's root directory, answering 404
@@ -452,6 +516,28 @@ func (a *gitAPI) serveDeploySettings(w http.ResponseWriter) {
 		writeGitJSON(a.t, w, a.deploySettingsStatus, map[string]any{"error": "settings unavailable"})
 		return
 	}
+	writeGitJSON(a.t, w, http.StatusOK, a.deploySettings())
+}
+
+// serveUpdateDeploySettings replaces every deploy setting with what it was
+// sent, as the platform does: a field left out is cleared, not kept.
+func (a *gitAPI) serveUpdateDeploySettings(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.settingsBody))
+
+	if a.settingsWriteStatus != 0 {
+		writeGitJSON(a.t, w, a.settingsWriteStatus, map[string]any{"error": a.settingsWriteMessage})
+		return
+	}
+	a.autoDeploy, _ = a.settingsBody["auto_deploy_enabled"].(bool)
+	a.deployFunctions, _ = a.settingsBody["deploy_functions"].(bool)
+	a.frontend, _ = a.settingsBody["frontend_name"].(string)
+	a.frontendRoot, _ = a.settingsBody["frontend_app_root"].(string)
+	writeGitJSON(a.t, w, http.StatusOK, a.deploySettings())
+}
+
+func (a *gitAPI) deploySettings() map[string]any {
 	settings := map[string]any{
 		"auto_deploy_enabled": a.autoDeploy,
 		"deploy_functions":    a.deployFunctions,
@@ -463,7 +549,13 @@ func (a *gitAPI) serveDeploySettings(w http.ResponseWriter) {
 	if a.frontendRoot != "" {
 		settings["frontend_app_root"] = a.frontendRoot
 	}
-	writeGitJSON(a.t, w, http.StatusOK, settings)
+	return settings
+}
+
+func (a *gitAPI) sentSettingsBody() map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.settingsBody
 }
 
 func (a *gitAPI) sentConnectBody() map[string]any {
@@ -498,6 +590,9 @@ func connectionPayload(fullName, rootDirectory string, repoID, installationID in
 		"root_directory":       rootDirectory,
 		"production_branch":    "main",
 		"updated_at":           "2026-08-18T00:00:00Z",
+		// A binding follows the repository's default branch until the project
+		// pins one.
+		"production_branch_follows_default": true,
 	}
 }
 

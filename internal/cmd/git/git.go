@@ -28,6 +28,10 @@ your machine.`,
 	cmd.AddCommand(newStatus(deps))
 	cmd.AddCommand(newConnect(deps))
 	cmd.AddCommand(newRootDirectory(deps))
+	cmd.AddCommand(newProductionBranch(deps))
+	cmd.AddCommand(newAutoDeploy(deps))
+	cmd.AddCommand(newFunctions(deps))
+	cmd.AddCommand(newFrontend(deps))
 	cmd.AddCommand(newDisconnect(deps))
 	return cmd
 }

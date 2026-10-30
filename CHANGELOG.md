@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.59.0](https://github.com/Kong/volcano-cli/compare/v0.58.0...v0.59.0) (2026-10-29)
+
+
+### Features
+
+* **git:** turn auto-deploy and functions on or off, and pin the production branch ([#370](https://github.com/Kong/volcano-cli/issues/370)) ([fa09a88](https://github.com/Kong/volcano-cli/commit/fa09a88ca0fbf92b973e724578e6c6bffd984767))
+
+## [0.58.0](https://github.com/Kong/volcano-cli/compare/v0.57.0...v0.58.0) (2026-10-29)
+
+
+### Features
+
+* **git:** choose the frontend a push deploys, and say how when none is ([#366](https://github.com/Kong/volcano-cli/issues/366)) ([0496318](https://github.com/Kong/volcano-cli/commit/049631886761098ce00c6bbc2ea7b7e62f10083b))
+
 ## [0.57.0](https://github.com/Kong/volcano-cli/compare/v0.56.0...v0.57.0) (2026-10-29)
 
 

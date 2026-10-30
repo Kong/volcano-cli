@@ -112,6 +112,7 @@ func runRootDirectory(ctx context.Context, opts rootDirectoryOptions) error {
 		Settings:    settings,
 		SettingsErr: settingsErr,
 		Project:     project.Label(),
+		GitCommand:  cliruntime.CommandPath(opts.deps, "git"),
 	})
 	return nil
 }
