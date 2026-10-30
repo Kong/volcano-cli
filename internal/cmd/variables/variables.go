@@ -20,7 +20,10 @@ import (
 type deployOptions struct {
 	deps cliruntime.Deps
 	file string
-	out  io.Writer
+	// shared is nil when --shared was not passed, which leaves the server's
+	// default: a new variable is shared and an existing one keeps its setting.
+	shared *bool
+	out    io.Writer
 }
 
 type listOptions struct {
@@ -60,6 +63,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 
 func newDeploy(deps cliruntime.Deps) *cobra.Command {
 	var file string
+	var shared bool
 	cmd := &cobra.Command{
 		Use:   "deploy",
 		Short: "Deploy variables from volcano.env",
@@ -74,17 +78,28 @@ By default, looks for volcano.env in these locations (in order):
 
 Use --file to specify a custom path.
 
-Creates new variables and updates existing ones.`, cliruntime.CommandPath(deps, "variables list")),
+Creates new variables and updates existing ones.
+
+A shared variable reaches every function whose variable scope is all, the
+default. Pass --shared=false to save the file's variables as not shared: a
+function then receives one only when its variable scope is scoped and it lists
+or reads the name. --shared saves them as shared. Without the flag, new
+variables are shared and existing ones keep their setting.`, cliruntime.CommandPath(deps, "variables list")),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runDeploy(cmd.Context(), deployOptions{
+			opts := deployOptions{
 				deps: deps,
 				file: file,
 				out:  cmd.OutOrStdout(),
-			})
+			}
+			if cmd.Flags().Changed("shared") {
+				opts.shared = &shared
+			}
+			return runDeploy(cmd.Context(), opts)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to env file (default: volcano/volcano.env or ./volcano.env)")
+	cmd.Flags().BoolVar(&shared, "shared", false, "Save the variables as shared (--shared) or not shared (--shared=false); omit to keep the default: new variables shared, existing ones unchanged")
 	return cmd
 }
 
@@ -92,6 +107,19 @@ Creates new variables and updates existing ones.`, cliruntime.CommandPath(deps, 
 // does. An empty path uses the default lookup. out must not be nil.
 func Deploy(ctx context.Context, deps cliruntime.Deps, path string, out io.Writer) error {
 	return runDeploy(ctx, deployOptions{deps: deps, file: path, out: out})
+}
+
+// sharedNotApplied explains a saved variable whose response does not carry the
+// --shared value asked for: a server that predates the field accepts the
+// request, ignores it, and keeps its default, so reporting the value as set
+// would be wrong about which functions receive the variable.
+func sharedNotApplied(deps cliruntime.Deps, name string, shared bool) error {
+	msg := fmt.Sprintf("%s was saved, but the server did not apply --shared=%t: "+
+		"it does not support choosing whether a variable is shared yet", name, shared)
+	if deps.LocalMode {
+		msg += "; upgrade your local-mode server image"
+	}
+	return fmt.Errorf("%s. Check it with %s", msg, cliruntime.CommandPath(deps, "variables get "+name))
 }
 
 func runDeploy(ctx context.Context, opts deployOptions) error {
@@ -111,11 +139,22 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	fmt.Fprintln(opts.out, "\nSyncing with project...")
 
 	service := clivariable.NewService(opts.deps)
+	saved := "saved"
+	if opts.shared != nil {
+		saved = "saved, not shared"
+		if *opts.shared {
+			saved = "saved, shared"
+		}
+	}
 	for name, value := range vars {
-		if _, err := service.Create(ctx, name, value); err != nil {
+		created, err := service.Create(ctx, name, value, opts.shared)
+		if err != nil {
 			return err
 		}
-		fmt.Fprintf(opts.out, "  + %s (saved)\n", name)
+		if opts.shared != nil && (created.Shared == nil || *created.Shared != *opts.shared) {
+			return sharedNotApplied(opts.deps, name, *opts.shared)
+		}
+		fmt.Fprintf(opts.out, "  + %s (%s)\n", name, saved)
 	}
 
 	fmt.Fprintln(opts.out)

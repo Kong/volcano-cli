@@ -814,6 +814,52 @@ func TestSharedVariablesPullDeployRoundTrip(t *testing.T) {
 	}
 }
 
+// A variable's own shared reaches the server on the dry run and the deploy
+// alike, so the dry run previews the membership the deploy writes.
+func TestDeploySendsEachVariablesShared(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+	t.Setenv("FAKE_STRIPE_KEY", "sk_test_fake")
+	manifest := `version: 1
+variables:
+  - name: LOG_LEVEL
+    value: debug
+  - name: STRIPE_SECRET_KEY
+    value: ${FAKE_STRIPE_KEY}
+    shared: false
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte(manifest), 0o600))
+
+	var queries []string
+	var uploads []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPut, r.Method)
+		require.Equal(t, projectConfigURL, r.URL.Path)
+		queries = append(queries, r.URL.RawQuery)
+		var uploaded map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&uploaded))
+		uploads = append(uploads, uploaded)
+		writeConfigCommandJSON(t, w, http.StatusOK, applyResultResponse())
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+
+	_, err := executeConfigCommand(t, New(deps), "deploy", "--dry-run")
+	require.NoError(t, err)
+	_, err = executeConfigCommand(t, New(deps), "deploy")
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"dry_run=true", ""}, queries)
+	want := []any{
+		map[string]any{"name": "LOG_LEVEL", "value": "debug"},
+		map[string]any{"name": "STRIPE_SECRET_KEY", "value": "sk_test_fake", "shared": false},
+	}
+	for _, uploaded := range uploads {
+		assert.Equal(t, want, uploaded["variables"])
+	}
+}
+
 func TestFrontendSharedVariablesPullDeployRoundTrip(t *testing.T) {
 	for _, tc := range []struct {
 		name, section string

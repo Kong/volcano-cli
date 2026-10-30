@@ -106,10 +106,13 @@ type DatabaseManifest struct {
 	DatabaseType *string `yaml:"database_type,omitempty" json:"database_type,omitempty"`
 }
 
-// VariableManifest declares one project variable.
+// VariableManifest declares one project variable. Shared sets whether the
+// variable is in the project's shared function variables; nil keeps the
+// server's default. A declared SharedVariables list decides membership instead.
 type VariableManifest struct {
-	Name  string `yaml:"name" json:"name"`
-	Value string `yaml:"value" json:"value"`
+	Name   string `yaml:"name" json:"name"`
+	Value  string `yaml:"value" json:"value"`
+	Shared *bool  `yaml:"shared,omitempty" json:"shared,omitempty"`
 }
 
 // BucketManifest declares settings and policies for an existing bucket.

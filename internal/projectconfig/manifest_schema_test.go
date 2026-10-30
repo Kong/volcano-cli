@@ -26,9 +26,7 @@ func TestManifestAcceptsEveryProjectConfigField(t *testing.T) {
 
 	// Each pending field is being added by an open pull request. It fails here
 	// once the field decodes, so the entry is removed when that change lands.
-	pending := map[string]string{
-		"variables[].shared": "Kong/volcano-cli#373",
-	}
+	pending := map[string]string{}
 	for field, change := range pending {
 		assert.Containsf(t, missing, field, "%s now decodes; remove its pending entry (%s)", field, change)
 		missing = slices.DeleteFunc(missing, func(m string) bool { return m == field })
