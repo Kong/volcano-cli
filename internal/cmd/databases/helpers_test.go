@@ -46,6 +46,17 @@ func writeDatabaseCommandJSON(t *testing.T, w http.ResponseWriter, status int, v
 	require.NoError(t, json.NewEncoder(w).Encode(value))
 }
 
+// respondDatabaseJSON writes a JSON answer from a test server's handler, which
+// runs off the test's goroutine and so reports rather than stops.
+func respondDatabaseJSON(t *testing.T, w http.ResponseWriter, status int, value any) {
+	t.Helper()
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(value); err != nil {
+		t.Errorf("encode response: %v", err)
+	}
+}
+
 func databaseCommandPayload(id, projectID, name string) map[string]any {
 	return map[string]any{
 		"connection_string": "postgres://example",

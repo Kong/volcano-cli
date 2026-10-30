@@ -13,11 +13,28 @@ import (
 // Service performs authenticated Volcano database workflows.
 type Service struct {
 	sessions clisession.Factory
+	// pingWithSessionToken makes Ping send the session's own token instead of
+	// a project service key.
+	pingWithSessionToken bool
+}
+
+// Option configures a Service.
+type Option func(*Service)
+
+// PingWithSessionToken makes Ping authenticate with the session's own token.
+// Local mode sets that token to its service key, and has no project service
+// keys to list.
+func PingWithSessionToken() Option {
+	return func(s *Service) { s.pingWithSessionToken = true }
 }
 
 // NewService returns a database service.
-func NewService(deps cliruntime.Deps) Service {
-	return Service{sessions: clisession.NewFactory(deps)}
+func NewService(deps cliruntime.Deps, opts ...Option) Service {
+	s := Service{sessions: clisession.NewFactory(deps)}
+	for _, opt := range opts {
+		opt(&s)
+	}
+	return s
 }
 
 // Create creates a database in the current project.

@@ -39,9 +39,13 @@ func newCreate(deps cliruntime.Deps) *cobra.Command {
 		short: "Create a cloud database",
 		long: fmt.Sprintf(`Create a PostgreSQL database in the current cloud project.
 
+List the accepted regions with '%s' and versions with '%s'.
+
 Examples:
   %s
   %s`,
+			cliruntime.CommandPath(deps, "databases regions"),
+			cliruntime.CommandPath(deps, "databases versions"),
 			cliruntime.CommandPath(deps, "databases create app --region <region> --pg-version <version>"),
 			cliruntime.CommandPath(deps, "databases create analytics --region <region> --pg-version <version> --type volcano-db-s")),
 		requireRegion:          true,
@@ -80,8 +84,8 @@ func newCreateWithOptions(deps cliruntime.Deps, commandOpts createCommandOptions
 			})
 		},
 	}
-	cmd.Flags().StringVar(&region, "region", "", "Database region, such as us-east-1")
-	cmd.Flags().StringVar(&pgVersion, "pg-version", "", "PostgreSQL version")
+	cmd.Flags().StringVar(&region, "region", "", "Database region, such as us-east-1 (see 'databases regions')")
+	cmd.Flags().StringVar(&pgVersion, "pg-version", "", "PostgreSQL version (see 'databases versions')")
 	cmd.Flags().StringVar(&databaseType, "type", "", "Database type (default: volcano-db-xs)")
 	cmd.Flags().BoolVar(&showConnectionString, "show-connection-string", false, "Show database connection string")
 	if commandOpts.requireRegion {

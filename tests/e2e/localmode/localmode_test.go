@@ -53,6 +53,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, databasesAfterCreate, "app")
 
 	requireLocalModeOmitsProviderOnlyDatabaseCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeTestsDatabaseConnections(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsDurableFunctions(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsDurableApprovals(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsSandboxes(t, volcanoBin, env, projectDir)
@@ -365,7 +366,7 @@ func requireLocalModeConfigFunctionVisibility(t *testing.T, binary string, env [
 func requireLocalModeOmitsProviderOnlyDatabaseCommands(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
 	help := runVolcanoLocalModeE2E(t, binary, env, dir, "databases", "--help")
-	for _, command := range []string{"backups", "backup-schedule", "restore", "restores", "branches"} {
+	for _, command := range []string{"backups", "backup-schedule", "restore", "restores", "branches", "resize"} {
 		requireNotContains(t, help, command)
 	}
 
@@ -380,6 +381,7 @@ func requireLocalModeOmitsProviderOnlyDatabaseCommands(t *testing.T, binary stri
 		{"databases", "branches", "list", "app"},
 		{"databases", "branches", "create", "app", "feature"},
 		{"databases", "branch", "list", "app"},
+		{"databases", "resize", "app", "--type", "volcano-db-m"},
 	} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
 		if err == nil {

@@ -26,6 +26,9 @@ it using its connection string.
 | List | `volcano databases list` |
 | Get | `volcano databases get <name> [--show-connection-string]` |
 | Delete | `volcano databases delete <name>` |
+| List regions and PostgreSQL versions | `volcano databases regions`, `volcano databases versions` |
+| Test a connection | `volcano databases ping <name> [--branch <branch>]` |
+| Change size (cloud) | `volcano cloud databases resize <name> --type <size>` |
 | Apply local migrations | `volcano migrations deploy --all -d <db>` |
 | Apply cloud migrations | `volcano cloud databases migration up --all -d <db>` |
 
@@ -38,6 +41,62 @@ migrations as part of a whole-project deploy.
 Each file runs as a single query, and the database proxy refuses a query with
 more than one statement, so put one SQL statement in each file. Files run in
 name order.
+
+## Regions and versions
+
+`databases create` in the cloud requires `--region` and `--pg-version`. List the
+values they accept:
+
+```bash
+volcano cloud databases regions
+volcano cloud databases versions
+```
+
+```text
+Version   Name              Notes
+--------------------------------------------
+18        PostgreSQL 18     default, recommended
+17        PostgreSQL 17
+```
+
+Both lists are public, so they work before you sign in. Pass `--json` to read
+them from a script. Local development lists only the version its server runs.
+
+## Test a connection
+
+`databases ping` runs `SELECT 1` against a database through the database API
+and reports the round trip. It exits non-zero with the reason when the database
+cannot take queries, such as while it is still provisioning.
+
+```bash
+volcano cloud databases ping app
+volcano cloud databases ping app --branch feature_x --json
+```
+
+```text
+✓ Connected to database 'app' in 41ms
+```
+
+The database API takes a service key rather than your sign-in, so the test uses
+one of the project's service keys and never prints it. If the project has none,
+create one with `volcano projects keys service create <name>`. Local
+development uses its own service key and has no branches.
+
+## Change a database's size
+
+```bash
+volcano cloud databases resize app --type volcano-db-m
+```
+
+Sizes, smallest first: `volcano-db-xs`, `volcano-db-s`, `volcano-db-m`,
+`volcano-db-l`, `volcano-db-xl`, `volcano-db-2xl`. The database must be active,
+and active connections may drop briefly while it changes. The command asks for
+confirmation; pass `--yes` to skip it and `--json` to print the updated
+database. A plan can limit the sizes it allows. In local development a database
+runs on your machine and has no size to change.
+
+The manifest's `database_type` asserts a database's size but does not change
+it; resize it with this command.
 
 ## Branches
 
@@ -200,6 +259,9 @@ volcano databases create app --type volcano-db-s --region us-east-1
 
 # Show the connection string
 volcano databases get app --show-connection-string
+
+# Check the database accepts queries
+volcano databases ping app
 
 # Apply migration files from volcano/migrations to the "app" database
 volcano migrations deploy --all -d app
