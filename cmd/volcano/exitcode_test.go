@@ -18,7 +18,7 @@ const (
 	exitTestApprovalID = "77777777-7777-4777-8777-777777777777"
 	exitTestFrontendID = "88888888-8888-4888-8888-888888888888"
 	needsAPersonError  = "approvals are decided by a person. " +
-		"Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard"
+		"Run `volcano login` with VOLCANO_TOKEN unset, then decide again"
 )
 
 // runAgainst runs the real command tree with token and mainTestProjectAlpha
