@@ -35,6 +35,8 @@ type logsAPI struct {
 	pages []map[string]any
 	// activity is what the activity route answers.
 	activity map[string]any
+	// onSearch runs before each search is answered.
+	onSearch func()
 
 	mu     sync.Mutex
 	bodies []map[string]any
@@ -72,6 +74,9 @@ func (a *logsAPI) handle(w http.ResponseWriter, r *http.Request) {
 		a.write(w, http.StatusOK, map[string]any{"id": ordersDBID, "name": "orders"})
 	case r.Method == http.MethodPost && r.URL.Path == projectPath+"/logs/search":
 		a.record(r)
+		if a.onSearch != nil {
+			a.onSearch()
+		}
 		a.mu.Lock()
 		page := a.pages[0]
 		if len(a.pages) > 1 {
@@ -269,6 +274,31 @@ func TestLogsPagesUntilTheLimit(t *testing.T) {
 	assert.Contains(t, errOut, "More logs match")
 }
 
+// Every page of one read goes to the project it started in, even when another
+// shell selects a different project meanwhile.
+func TestLogsKeepsReadingTheProjectItStartedIn(t *testing.T) {
+	setLogsTestHome(t)
+	api := newLogsAPI(t)
+	api.pages = []map[string]any{
+		logPage(true, "c2", logEvent("a", "checkout", "info", "first")),
+		logPage(false, "", logEvent("b", "checkout", "info", "second")),
+	}
+	api.onSearch = func() {
+		cfg := &cliconfig.Config{
+			UserToken:      "token",
+			CurrentProject: &cliconfig.ProjectConfig{ID: "99999999-9999-4999-8999-999999999999", Name: "Other"},
+		}
+		if err := cfg.Save(); err != nil {
+			t.Errorf("select another project: %v", err)
+		}
+	}
+
+	out, _, err := executeLogs(t, api.serve())
+	require.NoError(t, err)
+	assert.Len(t, api.sent(), 2)
+	assert.Contains(t, out, "second")
+}
+
 func TestLogsSaysWhenNothingMatches(t *testing.T) {
 	setLogsTestHome(t)
 	api := newLogsAPI(t)
@@ -380,6 +410,7 @@ func TestLogsRefusesBadFlags(t *testing.T) {
 		{[]string{"--start", "2026-10-30T09:00:00Z", "--end", "2026-10-30T08:00:00Z"}, "must be before its end"},
 		{[]string{"--follow", "--end", "2026-10-30T08:00:00Z"}, "--end cannot be combined with --follow"},
 		{[]string{"--limit", "0"}, "--limit must be at least 1"},
+		{[]string{"--follow", "--limit", "1001"}, "--limit is at most 1000 with --follow"},
 		{[]string{"activity", "--buckets", "97"}, "--buckets must be between 1 and 96"},
 	} {
 		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {

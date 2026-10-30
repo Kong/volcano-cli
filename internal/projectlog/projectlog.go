@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -67,17 +68,39 @@ type Filters struct {
 type Service struct {
 	deps     cliruntime.Deps
 	sessions clisession.Factory
+	pinned   *pinnedProject
+}
+
+// pinnedProject resolves the project once per service, so the pages of one
+// read and the reconnects of one tail all go to the project the read started
+// in, even if another shell selects a different one meanwhile.
+type pinnedProject struct {
+	once    sync.Once
+	session *clisession.ProjectSession
+	err     error
 }
 
 // NewService returns a project log service.
 func NewService(deps cliruntime.Deps) Service {
-	return Service{deps: deps, sessions: clisession.NewFactory(deps)}
+	return Service{deps: deps, sessions: clisession.NewFactory(deps), pinned: &pinnedProject{}}
+}
+
+func (s Service) current() (*clisession.ProjectSession, error) {
+	s.pinned.once.Do(func() {
+		s.pinned.session, s.pinned.err = s.sessions.CurrentProject()
+	})
+	return s.pinned.session, s.pinned.err
 }
 
 // Query checks the selector and filters, resolves each name to its ID, and
 // returns the read they describe.
 func (s Service) Query(ctx context.Context, selector Selector, filters Filters) (api.LogQuery, error) {
 	if err := validate(selector, filters); err != nil {
+		return api.LogQuery{}, err
+	}
+	// Pin the project before resolving names, so the IDs and every read after
+	// them belong to the same one.
+	if _, err := s.current(); err != nil {
 		return api.LogQuery{}, err
 	}
 	ids := make([]uuid.UUID, 0, len(selector.Names))
@@ -190,7 +213,7 @@ func quote(value string) string {
 
 // Search returns one page of matching logs, newest first.
 func (s Service) Search(ctx context.Context, query api.LogQuery, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +226,7 @@ func (s Service) Search(ctx context.Context, query api.LogQuery, limit int, curs
 
 // Stream live-tails matching logs, resuming after lastEventID when it is set.
 func (s Service) Stream(ctx context.Context, query api.LogQuery, limit int, lastEventID string) (*api.ProjectLogStream, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +239,7 @@ func (s Service) Stream(ctx context.Context, query api.LogQuery, limit int, last
 
 // Activity returns bucketed counts of matching logs.
 func (s Service) Activity(ctx context.Context, query api.LogQuery, buckets int) (*apiclient.LogActivityResponse, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -227,8 +250,9 @@ func (s Service) Activity(ctx context.Context, query api.LogQuery, buckets int) 
 	return activity, nil
 }
 
-// maxPage is the API's largest log search page.
-const maxPage = 1000
+// MaxPage is the API's largest log search page, and the most recent logs a
+// tail can start with.
+const MaxPage = 1000
 
 // Each pages through matching logs, newest first, handing each page to visit
 // until limit logs have been visited or none remain. It reports whether more
@@ -239,7 +263,7 @@ const maxPage = 1000
 func (s Service) Each(ctx context.Context, query api.LogQuery, limit int, visit func([]apiclient.LogSearchEvent) error) (bool, error) {
 	cursor := ""
 	for remaining := limit; remaining > 0; {
-		page, err := s.Search(ctx, query, min(remaining, maxPage), cursor)
+		page, err := s.Search(ctx, query, min(remaining, MaxPage), cursor)
 		if err != nil {
 			return false, err
 		}

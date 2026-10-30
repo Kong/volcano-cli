@@ -19,7 +19,7 @@ volcano cloud logs --since 1h --level error
 ```
 
 Build logs stay on each resource: `volcano functions logs <name> --type build`,
-`volcano durable logs <name> [deployment-id]` and
+`volcano durable logs <name> [deployment-id] --type build` and
 `volcano frontends logs <name> --type build`.
 
 ## Choosing what to read
@@ -61,7 +61,7 @@ it.
 says so on stderr; raise `--limit` or narrow the window.
 
 `--follow` tails new logs as they arrive, after printing up to `--limit` recent
-ones. Press Ctrl+C to stop. `--end` cannot be combined with it.
+ones (at most 1000). Press Ctrl+C to stop. `--end` cannot be combined with it.
 
 `--json` prints one JSON object per log, with its level, region, resource and
 invocation, so a script can read a page or a tail the same way:

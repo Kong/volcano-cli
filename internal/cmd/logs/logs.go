@@ -145,7 +145,7 @@ Build logs stay on each resource:
   %s
   %s`,
 			cliruntime.CommandPath(deps, "functions logs <name> --type build"),
-			cliruntime.CommandPath(deps, "durable logs <name>"),
+			cliruntime.CommandPath(deps, "durable logs <name> [deployment-id] --type build"),
 			cliruntime.CommandPath(deps, "frontends logs <name> --type build")),
 		Example: strings.Join([]string{
 			"  " + cliruntime.CommandPath(deps, "logs --since 1h --level error"),
@@ -161,7 +161,8 @@ Build logs stay on each resource:
 		},
 	}
 	opts.query.bind(cmd)
-	cmd.Flags().IntVarP(&opts.limit, "limit", "l", defaultLimit, "Maximum logs to print; with --follow, recent logs to print before tailing")
+	cmd.Flags().IntVarP(&opts.limit, "limit", "l", defaultLimit,
+		fmt.Sprintf("Maximum logs to print; with --follow, recent logs to print before tailing, at most %d", projectlog.MaxPage))
 	cmd.Flags().BoolVarP(&opts.follow, "follow", "f", false, "Tail new logs as they arrive")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Print one JSON object per log")
 	cmd.AddCommand(newActivity(deps))
@@ -177,6 +178,9 @@ func runSearch(ctx context.Context, opts searchOptions) error {
 	}
 	if opts.follow && opts.query.filters.End != nil {
 		return errors.New("--end cannot be combined with --follow: a tail has no end")
+	}
+	if opts.follow && opts.limit > projectlog.MaxPage {
+		return fmt.Errorf("--limit is at most %d with --follow, the recent logs a tail starts with", projectlog.MaxPage)
 	}
 
 	service := projectlog.NewService(opts.deps)
