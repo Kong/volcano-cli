@@ -143,7 +143,9 @@ Key semantics:
   deployable.
 - `functions[].variables` is fully synced when declared: the list replaces the
   function's declared variable names. Omitting it, like omitting
-  `variable_scope`, leaves the function's existing declaration untouched. See
+  `variable_scope`, leaves the function's existing declaration untouched. A
+  `variables` key with no value, such as a bare `variables:` or
+  `variables: null`, is refused: write `variables: []` to declare no names. See
   "Function variable scope" below.
 
 ## Function visibility

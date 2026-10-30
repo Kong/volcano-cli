@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 // A manifest pulled from the server carries the scope fields, so strict
@@ -153,6 +155,45 @@ functions:
 		// A function with no declaration is absent, not present-and-nil.
 		_, ok := declarations["plain-fn"]
 		assert.False(t, ok)
+	})
+}
+
+// A variables key with no value is refused rather than read as omitted, which
+// would keep the function's current selection, as config deploy and Git push
+// refuse it.
+func TestFunctionVariableDeclarationsRefuseVariablesWithNoValue(t *testing.T) {
+	for name, entry := range map[string]string{
+		"bare":  "    variables:\n",
+		"null":  "    variables: null\n",
+		"tilde": "    variables: ~\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			withTempWorkingDir(t, func(_ string) {
+				require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\nfunctions:\n  - name: scoped-fn\n    variable_scope: scoped\n"+entry), 0o644))
+
+				_, err := FunctionVariableDeclarations("")
+				require.ErrorIs(t, err, ErrFunctionVariablesNull)
+				assert.Contains(t, err.Error(), `function "scoped-fn": variables has no value`)
+			})
+		})
+	}
+
+	// The name can be interpolated from the environment, so the error is
+	// sensitive and stays out of telemetry.
+	t.Setenv("NULL_VARIABLES_FUNCTION", "secret-fn")
+	withTempWorkingDir(t, func(_ string) {
+		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\nfunctions:\n  - name: ${NULL_VARIABLES_FUNCTION}\n    variables:\n"), 0o644))
+		_, err := FunctionVariableDeclarations("")
+		require.ErrorIs(t, err, ErrFunctionVariablesNull)
+		assert.Contains(t, sensitive.Text(err), `function "secret-fn": variables has no value`)
+	})
+
+	withTempWorkingDir(t, func(_ string) {
+		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\nfunctions:\n  - name: scoped-fn\n    variables: []\n"), 0o644))
+		declarations, err := FunctionVariableDeclarations("")
+		require.NoError(t, err)
+		require.NotNil(t, declarations["scoped-fn"].Variables)
+		assert.Empty(t, *declarations["scoped-fn"].Variables, "[] still declares no names")
 	})
 }
 

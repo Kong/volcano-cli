@@ -841,6 +841,30 @@ type FunctionDeployManifest struct {
 	Name string
 }
 
+// ErrFunctionVariablesNull refuses a function's variables key with no value,
+// which the typed manifest would read as omitted. The server refuses it on
+// config deploy and Git push with the same words.
+var ErrFunctionVariablesNull = errors.New("variables has no value: list the names, write [] to declare none, or remove the key to keep the current selection")
+
+// nullFunctionVariables finds a function whose variables key has no value, in
+// the generic shape that keeps a null apart from an omitted key.
+func (m *Manifest) nullFunctionVariables() error {
+	functions, _ := m.upload["functions"].([]any)
+	for i, entry := range functions {
+		function, _ := entry.(map[string]any)
+		if value, present := function["variables"]; !present || value != nil {
+			continue
+		}
+		name := ""
+		if m.Functions != nil && i < len(*m.Functions) {
+			name = (*m.Functions)[i].Name
+		}
+		// The name can be an interpolated environment value.
+		return sensitive.Wrap(fmt.Errorf("function %q: %w", name, ErrFunctionVariablesNull))
+	}
+	return nil
+}
+
 // ReadFunctionDeployManifest reads both of a deploy's manifest inputs in one
 // pass, with the absence-versus-invalidity rule described on
 // FunctionVariableDeclarations.
@@ -863,6 +887,9 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 		return FunctionDeployManifest{}, err
 	}
 	manifest, _, err := Load(path)
+	if err == nil {
+		err = manifest.nullFunctionVariables()
+	}
 	if err != nil {
 		return FunctionDeployManifest{}, fmt.Errorf("failed to read function variable scope from %s: %w\nfix the manifest (or export the environment variables it references) and deploy again", read.Name, err)
 	}
