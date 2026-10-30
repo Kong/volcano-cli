@@ -2172,6 +2172,126 @@ func (e LavaFlowStage) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowAutonomy.
+const (
+	DiagnoseOnly LavaflowAutonomy = "diagnose_only"
+	OpenPr       LavaflowAutonomy = "open_pr"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowAutonomy enum.
+func (e LavaflowAutonomy) Valid() bool {
+	switch e {
+	case DiagnoseOnly:
+		return true
+	case OpenPr:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowPullRequestState.
+const (
+	Closed LavaflowPullRequestState = "closed"
+	Merged LavaflowPullRequestState = "merged"
+	Open   LavaflowPullRequestState = "open"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowPullRequestState enum.
+func (e LavaflowPullRequestState) Valid() bool {
+	switch e {
+	case Closed:
+		return true
+	case Merged:
+		return true
+	case Open:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowResourceType.
+const (
+	LavaflowResourceTypeDurableFunction LavaflowResourceType = "durable_function"
+	LavaflowResourceTypeFrontend        LavaflowResourceType = "frontend"
+	LavaflowResourceTypeFunction        LavaflowResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowResourceType enum.
+func (e LavaflowResourceType) Valid() bool {
+	switch e {
+	case LavaflowResourceTypeDurableFunction:
+		return true
+	case LavaflowResourceTypeFrontend:
+		return true
+	case LavaflowResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowReviewVerdict.
+const (
+	LavaflowReviewVerdictBlocked          LavaflowReviewVerdict = "blocked"
+	LavaflowReviewVerdictChangesRequested LavaflowReviewVerdict = "changes_requested"
+	LavaflowReviewVerdictError            LavaflowReviewVerdict = "error"
+	LavaflowReviewVerdictPassed           LavaflowReviewVerdict = "passed"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowReviewVerdict enum.
+func (e LavaflowReviewVerdict) Valid() bool {
+	switch e {
+	case LavaflowReviewVerdictBlocked:
+		return true
+	case LavaflowReviewVerdictChangesRequested:
+		return true
+	case LavaflowReviewVerdictError:
+		return true
+	case LavaflowReviewVerdictPassed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowRunStatus.
+const (
+	LavaflowRunStatusCancelled  LavaflowRunStatus = "cancelled"
+	LavaflowRunStatusCompleted  LavaflowRunStatus = "completed"
+	LavaflowRunStatusDiagnosing LavaflowRunStatus = "diagnosing"
+	LavaflowRunStatusFailed     LavaflowRunStatus = "failed"
+	LavaflowRunStatusFixing     LavaflowRunStatus = "fixing"
+	LavaflowRunStatusPrOpen     LavaflowRunStatus = "pr_open"
+	LavaflowRunStatusQueued     LavaflowRunStatus = "queued"
+	LavaflowRunStatusReviewing  LavaflowRunStatus = "reviewing"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowRunStatus enum.
+func (e LavaflowRunStatus) Valid() bool {
+	switch e {
+	case LavaflowRunStatusCancelled:
+		return true
+	case LavaflowRunStatusCompleted:
+		return true
+	case LavaflowRunStatusDiagnosing:
+		return true
+	case LavaflowRunStatusFailed:
+		return true
+	case LavaflowRunStatusFixing:
+		return true
+	case LavaflowRunStatusPrOpen:
+		return true
+	case LavaflowRunStatusQueued:
+		return true
+	case LavaflowRunStatusReviewing:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LiveLogLevel.
 const (
 	LiveLogLevelDebug LiveLogLevel = "debug"
@@ -4367,22 +4487,22 @@ func (e ListDeploymentsParamsStatus) Valid() bool {
 
 // Defines values for ListDeploymentsParamsOperation.
 const (
-	ListDeploymentsParamsOperationDelete   ListDeploymentsParamsOperation = "delete"
-	ListDeploymentsParamsOperationDeploy   ListDeploymentsParamsOperation = "deploy"
-	ListDeploymentsParamsOperationRedeploy ListDeploymentsParamsOperation = "redeploy"
-	ListDeploymentsParamsOperationUpdate   ListDeploymentsParamsOperation = "update"
+	Delete   ListDeploymentsParamsOperation = "delete"
+	Deploy   ListDeploymentsParamsOperation = "deploy"
+	Redeploy ListDeploymentsParamsOperation = "redeploy"
+	Update   ListDeploymentsParamsOperation = "update"
 )
 
 // Valid indicates whether the value is a known member of the ListDeploymentsParamsOperation enum.
 func (e ListDeploymentsParamsOperation) Valid() bool {
 	switch e {
-	case ListDeploymentsParamsOperationDelete:
+	case Delete:
 		return true
-	case ListDeploymentsParamsOperationDeploy:
+	case Deploy:
 		return true
-	case ListDeploymentsParamsOperationRedeploy:
+	case Redeploy:
 		return true
-	case ListDeploymentsParamsOperationUpdate:
+	case Update:
 		return true
 	default:
 		return false
@@ -8281,6 +8401,171 @@ type LavaFlowTriggerIssue struct {
 
 	// Title The issue's title, as the issues API reports it.
 	Title string `json:"title"`
+}
+
+// LavaflowAnomaly defines model for LavaflowAnomaly.
+type LavaflowAnomaly struct {
+	Flagged bool    `json:"flagged"`
+	Reason  *string `json:"reason,omitempty"`
+}
+
+// LavaflowAutonomy defines model for LavaflowAutonomy.
+type LavaflowAutonomy string
+
+// LavaflowDiagnosis defines model for LavaflowDiagnosis.
+type LavaflowDiagnosis struct {
+	Evidence  *[]string          `json:"evidence,omitempty"`
+	LogLines  *[]LavaflowLogLine `json:"log_lines,omitempty"`
+	RootCause *string            `json:"root_cause,omitempty"`
+	Summary   *string            `json:"summary,omitempty"`
+}
+
+// LavaflowFailure defines model for LavaflowFailure.
+type LavaflowFailure struct {
+	Code    *string `json:"code,omitempty"`
+	Message *string `json:"message,omitempty"`
+}
+
+// LavaflowLogLine defines model for LavaflowLogLine.
+type LavaflowLogLine struct {
+	Level     *string    `json:"level,omitempty"`
+	Message   *string    `json:"message,omitempty"`
+	Timestamp *time.Time `json:"timestamp,omitempty"`
+}
+
+// LavaflowPullRequest defines model for LavaflowPullRequest.
+type LavaflowPullRequest struct {
+	Number   int                      `json:"number"`
+	OpenedAt *time.Time               `json:"opened_at,omitempty"`
+	State    LavaflowPullRequestState `json:"state"`
+	Url      string                   `json:"url"`
+}
+
+// LavaflowPullRequestState defines model for LavaflowPullRequest.State.
+type LavaflowPullRequestState string
+
+// LavaflowResource defines model for LavaflowResource.
+type LavaflowResource struct {
+	Anomaly            LavaflowAnomaly      `json:"anomaly"`
+	Id                 string               `json:"id"`
+	IssuesOpened       int                  `json:"issues_opened"`
+	LastAnalyzedAt     *time.Time           `json:"last_analyzed_at,omitempty"`
+	Name               string               `json:"name"`
+	PullRequestsOpened int                  `json:"pull_requests_opened"`
+	Type               LavaflowResourceType `json:"type"`
+}
+
+// LavaflowResourceList defines model for LavaflowResourceList.
+type LavaflowResourceList struct {
+	Data []LavaflowResource `json:"data"`
+}
+
+// LavaflowResourceRef defines model for LavaflowResourceRef.
+type LavaflowResourceRef struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+// LavaflowResourceType defines model for LavaflowResourceType.
+type LavaflowResourceType string
+
+// LavaflowReview defines model for LavaflowReview.
+type LavaflowReview struct {
+	Rounds  *int                   `json:"rounds,omitempty"`
+	Verdict *LavaflowReviewVerdict `json:"verdict,omitempty"`
+}
+
+// LavaflowReviewVerdict defines model for LavaflowReview.Verdict.
+type LavaflowReviewVerdict string
+
+// LavaflowRun defines model for LavaflowRun.
+type LavaflowRun struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// DetailsClearedAt When retention cleared the run's diagnosis, log lines, diff and review text, which are then null.
+	DetailsClearedAt *time.Time `json:"details_cleared_at,omitempty"`
+
+	// DetailsExpireAt When the run's diagnosis, log lines, diff and review text are cleared, 90 days after it completed. Null while the run is active.
+	DetailsExpireAt *time.Time           `json:"details_expire_at,omitempty"`
+	Diagnosis       *LavaflowDiagnosis   `json:"diagnosis,omitempty"`
+	Diff            *string              `json:"diff,omitempty"`
+	Failure         *LavaflowFailure     `json:"failure,omitempty"`
+	FinishedAt      *time.Time           `json:"finished_at,omitempty"`
+	Id              string               `json:"id"`
+	IssueId         *string              `json:"issue_id,omitempty"`
+	PullRequest     *LavaflowPullRequest `json:"pull_request,omitempty"`
+	Resource        LavaflowResourceRef  `json:"resource"`
+	Review          *LavaflowReview      `json:"review,omitempty"`
+	Status          LavaflowRunStatus    `json:"status"`
+	Title           *string              `json:"title,omitempty"`
+}
+
+// LavaflowRunList defines model for LavaflowRunList.
+type LavaflowRunList struct {
+	Data       []LavaflowRunSummary `json:"data"`
+	HasMore    bool                 `json:"has_more"`
+	Limit      int                  `json:"limit"`
+	NextCursor *string              `json:"next_cursor,omitempty"`
+}
+
+// LavaflowRunStatus defines model for LavaflowRunStatus.
+type LavaflowRunStatus string
+
+// LavaflowRunSummary defines model for LavaflowRunSummary.
+type LavaflowRunSummary struct {
+	CreatedAt   time.Time            `json:"created_at"`
+	FinishedAt  *time.Time           `json:"finished_at,omitempty"`
+	Id          string               `json:"id"`
+	IssueId     *string              `json:"issue_id,omitempty"`
+	PullRequest *LavaflowPullRequest `json:"pull_request,omitempty"`
+	Resource    LavaflowResourceRef  `json:"resource"`
+	Status      LavaflowRunStatus    `json:"status"`
+	Title       *string              `json:"title,omitempty"`
+}
+
+// LavaflowSettings defines model for LavaflowSettings.
+type LavaflowSettings struct {
+	Autonomy LavaflowAutonomy `json:"autonomy"`
+
+	// CanUpdate Whether this caller can change the settings. True only for the project owner's own session; false for any project access token.
+	CanUpdate     bool      `json:"can_update"`
+	CustomContext string    `json:"custom_context"`
+	Enabled       bool      `json:"enabled"`
+	SystemPrompt  string    `json:"system_prompt"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	UpdatedBy     *string   `json:"updated_by,omitempty"`
+}
+
+// LavaflowSettingsUpdate defines model for LavaflowSettingsUpdate.
+type LavaflowSettingsUpdate struct {
+	Autonomy      *LavaflowAutonomy `json:"autonomy,omitempty"`
+	CustomContext *string           `json:"custom_context,omitempty"`
+	Enabled       *bool             `json:"enabled,omitempty"`
+	SystemPrompt  *string           `json:"system_prompt,omitempty"`
+}
+
+// LavaflowStats defines model for LavaflowStats.
+type LavaflowStats struct {
+	Days        []LavaflowStatsDay  `json:"days"`
+	Totals      LavaflowStatsTotals `json:"totals"`
+	WindowEnd   openapi_types.Date  `json:"window_end"`
+	WindowStart openapi_types.Date  `json:"window_start"`
+}
+
+// LavaflowStatsDay defines model for LavaflowStatsDay.
+type LavaflowStatsDay struct {
+	Date         openapi_types.Date `json:"date"`
+	IssuesOpened int                `json:"issues_opened"`
+
+	// PullRequestsOpened Fix pull requests LavaFlow opened that day. Merges are not counted.
+	PullRequestsOpened int `json:"pull_requests_opened"`
+}
+
+// LavaflowStatsTotals defines model for LavaflowStatsTotals.
+type LavaflowStatsTotals struct {
+	IssuesOpened       int `json:"issues_opened"`
+	PullRequestsOpened int `json:"pull_requests_opened"`
 }
 
 // LiveLogLevel Canonical lowercase function runtime log level.
@@ -13210,20 +13495,24 @@ type ListFunctionDeploymentsParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
-// ListLavaFlowRunsParams defines parameters for ListLavaFlowRuns.
-type ListLavaFlowRunsParams struct {
-	// Limit Number of items per page (max 100)
-	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+// ListLavaflowResourcesParams defines parameters for ListLavaflowResources.
+type ListLavaflowResourcesParams struct {
+	// Days Days in the window, counting today. 1 to 90; defaults to 30.
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
+}
 
-	// Cursor Opaque cursor from a previous response's `next_cursor`. Pages forward;
-	// keep the same filters while paging.
-	Cursor *IssueCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+// ListLavaflowRunsParams defines parameters for ListLavaflowRuns.
+type ListLavaflowRunsParams struct {
+	Cursor     *string            `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit      *int               `form:"limit,omitempty" json:"limit,omitempty"`
+	Status     *LavaflowRunStatus `form:"status,omitempty" json:"status,omitempty"`
+	ResourceId *string            `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+}
 
-	// IssueId Return only runs for this issue.
-	IssueId *openapi_types.UUID `form:"issue_id,omitempty" json:"issue_id,omitempty"`
-
-	// Status Return only runs in this status.
-	Status *LavaFlowRunStatus `form:"status,omitempty" json:"status,omitempty"`
+// GetLavaflowStatsParams defines parameters for GetLavaflowStats.
+type GetLavaflowStatsParams struct {
+	// Days Days in the window, counting today. 1 to 90; defaults to 30.
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
 // UploadProjectLogoMultipartBody defines parameters for UploadProjectLogo.
@@ -13939,8 +14228,8 @@ type SetProjectGitRootDirectoryJSONRequestBody = SetProjectGitRootDirectoryReque
 // UpdateProjectGitDeploySettingsJSONRequestBody defines body for UpdateProjectGitDeploySettings for application/json ContentType.
 type UpdateProjectGitDeploySettingsJSONRequestBody = UpdateProjectGitDeploySettingsRequest
 
-// UpdateLavaFlowSettingsJSONRequestBody defines body for UpdateLavaFlowSettings for application/json ContentType.
-type UpdateLavaFlowSettingsJSONRequestBody = UpdateLavaFlowSettingsRequest
+// UpdateLavaflowSettingsJSONRequestBody defines body for UpdateLavaflowSettings for application/json ContentType.
+type UpdateLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
 
 // UploadProjectLogoMultipartRequestBody defines body for UploadProjectLogo for multipart/form-data ContentType.
 type UploadProjectLogoMultipartRequestBody UploadProjectLogoMultipartBody
@@ -15921,6 +16210,9 @@ type ClientInterface interface {
 	// UnbanAuthUser request
 	UnbanAuthUser(ctx context.Context, id ProjectId, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListProjectCapabilities request
+	ListProjectCapabilities(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetProjectConfig request
 	GetProjectConfig(ctx context.Context, id ProjectId, params *GetProjectConfigParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -16319,22 +16611,25 @@ type ClientInterface interface {
 	// GetProjectHealth request
 	GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// StartLavaFlowRun request
-	StartLavaFlowRun(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetLavaflowSettings request
+	GetLavaflowSettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetLavaFlowSettings request
-	GetLavaFlowSettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateLavaflowSettingsWithBody request with any body
+	UpdateLavaflowSettingsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateLavaFlowSettingsWithBody request with any body
-	UpdateLavaFlowSettingsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateLavaflowSettings(ctx context.Context, id ProjectId, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateLavaFlowSettings(ctx context.Context, id ProjectId, body UpdateLavaFlowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListLavaflowResources request
+	ListLavaflowResources(ctx context.Context, id ProjectId, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListLavaFlowRuns request
-	ListLavaFlowRuns(ctx context.Context, id ProjectId, params *ListLavaFlowRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListLavaflowRuns request
+	ListLavaflowRuns(ctx context.Context, id ProjectId, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetLavaFlowRun request
-	GetLavaFlowRun(ctx context.Context, id ProjectId, runId LavaFlowRunId, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetLavaflowRun request
+	GetLavaflowRun(ctx context.Context, id ProjectId, runId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLavaflowStats request
+	GetLavaflowStats(ctx context.Context, id ProjectId, params *GetLavaflowStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteProjectLogo request
 	DeleteProjectLogo(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -18870,6 +19165,18 @@ func (c *Client) UnbanAuthUser(ctx context.Context, id ProjectId, userId openapi
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListProjectCapabilities(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectCapabilitiesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetProjectConfig(ctx context.Context, id ProjectId, params *GetProjectConfigParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectConfigRequest(c.Server, id, params)
 	if err != nil {
@@ -20598,8 +20905,8 @@ func (c *Client) GetProjectHealth(ctx context.Context, id ProjectId, reqEditors 
 	return c.Client.Do(req)
 }
 
-func (c *Client) StartLavaFlowRun(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartLavaFlowRunRequest(c.Server, id, issueId)
+func (c *Client) GetLavaflowSettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLavaflowSettingsRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -20610,8 +20917,8 @@ func (c *Client) StartLavaFlowRun(ctx context.Context, id ProjectId, issueId Iss
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLavaFlowSettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetLavaFlowSettingsRequest(c.Server, id)
+func (c *Client) UpdateLavaflowSettingsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLavaflowSettingsRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -20622,8 +20929,8 @@ func (c *Client) GetLavaFlowSettings(ctx context.Context, id ProjectId, reqEdito
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateLavaFlowSettingsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateLavaFlowSettingsRequestWithBody(c.Server, id, contentType, body)
+func (c *Client) UpdateLavaflowSettings(ctx context.Context, id ProjectId, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLavaflowSettingsRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -20634,8 +20941,8 @@ func (c *Client) UpdateLavaFlowSettingsWithBody(ctx context.Context, id ProjectI
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateLavaFlowSettings(ctx context.Context, id ProjectId, body UpdateLavaFlowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateLavaFlowSettingsRequest(c.Server, id, body)
+func (c *Client) ListLavaflowResources(ctx context.Context, id ProjectId, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaflowResourcesRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -20646,8 +20953,8 @@ func (c *Client) UpdateLavaFlowSettings(ctx context.Context, id ProjectId, body 
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListLavaFlowRuns(ctx context.Context, id ProjectId, params *ListLavaFlowRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListLavaFlowRunsRequest(c.Server, id, params)
+func (c *Client) ListLavaflowRuns(ctx context.Context, id ProjectId, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaflowRunsRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -20658,8 +20965,20 @@ func (c *Client) ListLavaFlowRuns(ctx context.Context, id ProjectId, params *Lis
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLavaFlowRun(ctx context.Context, id ProjectId, runId LavaFlowRunId, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetLavaFlowRunRequest(c.Server, id, runId)
+func (c *Client) GetLavaflowRun(ctx context.Context, id ProjectId, runId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLavaflowRunRequest(c.Server, id, runId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLavaflowStats(ctx context.Context, id ProjectId, params *GetLavaflowStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLavaflowStatsRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -28668,6 +28987,40 @@ func NewUnbanAuthUserRequest(server string, id ProjectId, userId openapi_types.U
 	return req, nil
 }
 
+// NewListProjectCapabilitiesRequest generates requests for ListProjectCapabilities
+func NewListProjectCapabilitiesRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/capabilities", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetProjectConfigRequest generates requests for GetProjectConfig
 func NewGetProjectConfigRequest(server string, id ProjectId, params *GetProjectConfigParams) (*http.Request, error) {
 	var err error
@@ -34823,49 +35176,8 @@ func NewGetProjectHealthRequest(server string, id ProjectId) (*http.Request, err
 	return req, nil
 }
 
-// NewStartLavaFlowRunRequest generates requests for StartLavaFlowRun
-func NewStartLavaFlowRunRequest(server string, id ProjectId, issueId IssueId) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "issueId", issueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/projects/%s/issues/%s/lavaflow-runs", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetLavaFlowSettingsRequest generates requests for GetLavaFlowSettings
-func NewGetLavaFlowSettingsRequest(server string, id ProjectId) (*http.Request, error) {
+// NewGetLavaflowSettingsRequest generates requests for GetLavaflowSettings
+func NewGetLavaflowSettingsRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -34898,19 +35210,19 @@ func NewGetLavaFlowSettingsRequest(server string, id ProjectId) (*http.Request, 
 	return req, nil
 }
 
-// NewUpdateLavaFlowSettingsRequest calls the generic UpdateLavaFlowSettings builder with application/json body
-func NewUpdateLavaFlowSettingsRequest(server string, id ProjectId, body UpdateLavaFlowSettingsJSONRequestBody) (*http.Request, error) {
+// NewUpdateLavaflowSettingsRequest calls the generic UpdateLavaflowSettings builder with application/json body
+func NewUpdateLavaflowSettingsRequest(server string, id ProjectId, body UpdateLavaflowSettingsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateLavaFlowSettingsRequestWithBody(server, id, "application/json", bodyReader)
+	return NewUpdateLavaflowSettingsRequestWithBody(server, id, "application/json", bodyReader)
 }
 
-// NewUpdateLavaFlowSettingsRequestWithBody generates requests for UpdateLavaFlowSettings with any type of body
-func NewUpdateLavaFlowSettingsRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateLavaflowSettingsRequestWithBody generates requests for UpdateLavaflowSettings with any type of body
+func NewUpdateLavaflowSettingsRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -34935,7 +35247,7 @@ func NewUpdateLavaFlowSettingsRequestWithBody(server string, id ProjectId, conte
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -34945,8 +35257,8 @@ func NewUpdateLavaFlowSettingsRequestWithBody(server string, id ProjectId, conte
 	return req, nil
 }
 
-// NewListLavaFlowRunsRequest generates requests for ListLavaFlowRuns
-func NewListLavaFlowRunsRequest(server string, id ProjectId, params *ListLavaFlowRunsParams) (*http.Request, error) {
+// NewListLavaflowResourcesRequest generates requests for ListLavaflowResources
+func NewListLavaflowResourcesRequest(server string, id ProjectId, params *ListLavaflowResourcesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -34961,7 +35273,7 @@ func NewListLavaFlowRunsRequest(server string, id ProjectId, params *ListLavaFlo
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/projects/%s/lavaflow-runs", pathParam0)
+	operationPath := fmt.Sprintf("/projects/%s/lavaflow/resources", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -34980,45 +35292,9 @@ func NewListLavaFlowRunsRequest(server string, id ProjectId, params *ListLavaFlo
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
 
-		if params.Limit != nil {
+		if params.Days != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Cursor != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.IssueId != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "issue_id", *params.IssueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Status != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "days", *params.Days, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -35042,8 +35318,105 @@ func NewListLavaFlowRunsRequest(server string, id ProjectId, params *ListLavaFlo
 	return req, nil
 }
 
-// NewGetLavaFlowRunRequest generates requests for GetLavaFlowRun
-func NewGetLavaFlowRunRequest(server string, id ProjectId, runId LavaFlowRunId) (*http.Request, error) {
+// NewListLavaflowRunsRequest generates requests for ListLavaflowRuns
+func NewListLavaflowRunsRequest(server string, id ProjectId, params *ListLavaflowRunsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/lavaflow/runs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.ResourceId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_id", *params.ResourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLavaflowRunRequest generates requests for GetLavaflowRun
+func NewGetLavaflowRunRequest(server string, id ProjectId, runId string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -35055,7 +35428,7 @@ func NewGetLavaFlowRunRequest(server string, id ProjectId, runId LavaFlowRunId) 
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "runId", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "runId", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -35065,7 +35438,7 @@ func NewGetLavaFlowRunRequest(server string, id ProjectId, runId LavaFlowRunId) 
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/projects/%s/lavaflow-runs/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/projects/%s/lavaflow/runs/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -35073,6 +35446,67 @@ func NewGetLavaFlowRunRequest(server string, id ProjectId, runId LavaFlowRunId) 
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLavaflowStatsRequest generates requests for GetLavaflowStats
+func NewGetLavaflowStatsRequest(server string, id ProjectId, params *GetLavaflowStatsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/lavaflow/stats", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Days != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "days", *params.Days, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -40541,6 +40975,9 @@ type ClientWithResponsesInterface interface {
 	// UnbanAuthUserWithResponse request
 	UnbanAuthUserWithResponse(ctx context.Context, id ProjectId, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnbanAuthUserClientResponse, error)
 
+	// ListProjectCapabilitiesWithResponse request
+	ListProjectCapabilitiesWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListProjectCapabilitiesClientResponse, error)
+
 	// GetProjectConfigWithResponse request
 	GetProjectConfigWithResponse(ctx context.Context, id ProjectId, params *GetProjectConfigParams, reqEditors ...RequestEditorFn) (*GetProjectConfigClientResponse, error)
 
@@ -40939,22 +41376,25 @@ type ClientWithResponsesInterface interface {
 	// GetProjectHealthWithResponse request
 	GetProjectHealthWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectHealthClientResponse, error)
 
-	// StartLavaFlowRunWithResponse request
-	StartLavaFlowRunWithResponse(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*StartLavaFlowRunClientResponse, error)
+	// GetLavaflowSettingsWithResponse request
+	GetLavaflowSettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetLavaflowSettingsClientResponse, error)
 
-	// GetLavaFlowSettingsWithResponse request
-	GetLavaFlowSettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetLavaFlowSettingsClientResponse, error)
+	// UpdateLavaflowSettingsWithBodyWithResponse request with any body
+	UpdateLavaflowSettingsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
 
-	// UpdateLavaFlowSettingsWithBodyWithResponse request with any body
-	UpdateLavaFlowSettingsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaFlowSettingsClientResponse, error)
+	UpdateLavaflowSettingsWithResponse(ctx context.Context, id ProjectId, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
 
-	UpdateLavaFlowSettingsWithResponse(ctx context.Context, id ProjectId, body UpdateLavaFlowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaFlowSettingsClientResponse, error)
+	// ListLavaflowResourcesWithResponse request
+	ListLavaflowResourcesWithResponse(ctx context.Context, id ProjectId, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*ListLavaflowResourcesClientResponse, error)
 
-	// ListLavaFlowRunsWithResponse request
-	ListLavaFlowRunsWithResponse(ctx context.Context, id ProjectId, params *ListLavaFlowRunsParams, reqEditors ...RequestEditorFn) (*ListLavaFlowRunsClientResponse, error)
+	// ListLavaflowRunsWithResponse request
+	ListLavaflowRunsWithResponse(ctx context.Context, id ProjectId, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*ListLavaflowRunsClientResponse, error)
 
-	// GetLavaFlowRunWithResponse request
-	GetLavaFlowRunWithResponse(ctx context.Context, id ProjectId, runId LavaFlowRunId, reqEditors ...RequestEditorFn) (*GetLavaFlowRunClientResponse, error)
+	// GetLavaflowRunWithResponse request
+	GetLavaflowRunWithResponse(ctx context.Context, id ProjectId, runId string, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error)
+
+	// GetLavaflowStatsWithResponse request
+	GetLavaflowStatsWithResponse(ctx context.Context, id ProjectId, params *GetLavaflowStatsParams, reqEditors ...RequestEditorFn) (*GetLavaflowStatsClientResponse, error)
 
 	// DeleteProjectLogoWithResponse request
 	DeleteProjectLogoWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*DeleteProjectLogoClientResponse, error)
@@ -45600,6 +46040,38 @@ func (r UnbanAuthUserClientResponse) ContentType() string {
 	return ""
 }
 
+type ListProjectCapabilitiesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CapabilityList
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectCapabilitiesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectCapabilitiesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectCapabilitiesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetProjectConfigClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -49329,21 +49801,49 @@ func (r GetProjectHealthClientResponse) ContentType() string {
 	return ""
 }
 
-type StartLavaFlowRunClientResponse struct {
+type GetLavaflowSettingsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *LavaFlowRun
+	JSON200      *LavaflowSettings
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLavaflowSettingsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLavaflowSettingsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetLavaflowSettingsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateLavaflowSettingsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSettings
 	JSON400      *Error
 	JSON403      *Error
 	JSON404      *Error
-	JSON409      *Error
-	JSON429      *Error
-	JSON501      *Error
-	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r StartLavaFlowRunClientResponse) Status() string {
+func (r UpdateLavaflowSettingsClientResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -49351,7 +49851,7 @@ func (r StartLavaFlowRunClientResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r StartLavaFlowRunClientResponse) StatusCode() int {
+func (r UpdateLavaflowSettingsClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -49359,59 +49859,24 @@ func (r StartLavaFlowRunClientResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r StartLavaFlowRunClientResponse) ContentType() string {
+func (r UpdateLavaflowSettingsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type GetLavaFlowSettingsClientResponse struct {
+type ListLavaflowResourcesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *LavaFlowSettings
-	JSON404      *Error
-	JSON501      *Error
-	JSON503      *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r GetLavaFlowSettingsClientResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetLavaFlowSettingsClientResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetLavaFlowSettingsClientResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type UpdateLavaFlowSettingsClientResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *LavaFlowSettings
+	JSON200      *LavaflowResourceList
 	JSON400      *Error
 	JSON403      *Error
 	JSON404      *Error
-	JSON501      *Error
-	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateLavaFlowSettingsClientResponse) Status() string {
+func (r ListLavaflowResourcesClientResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -49419,7 +49884,7 @@ func (r UpdateLavaFlowSettingsClientResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateLavaFlowSettingsClientResponse) StatusCode() int {
+func (r ListLavaflowResourcesClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -49427,24 +49892,24 @@ func (r UpdateLavaFlowSettingsClientResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r UpdateLavaFlowSettingsClientResponse) ContentType() string {
+func (r ListLavaflowResourcesClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type ListLavaFlowRunsClientResponse struct {
+type ListLavaflowRunsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *PaginatedLavaFlowRuns
+	JSON200      *LavaflowRunList
 	JSON400      *Error
+	JSON403      *Error
 	JSON404      *Error
-	JSON501      *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r ListLavaFlowRunsClientResponse) Status() string {
+func (r ListLavaflowRunsClientResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -49452,7 +49917,7 @@ func (r ListLavaFlowRunsClientResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListLavaFlowRunsClientResponse) StatusCode() int {
+func (r ListLavaflowRunsClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -49460,23 +49925,23 @@ func (r ListLavaFlowRunsClientResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListLavaFlowRunsClientResponse) ContentType() string {
+func (r ListLavaflowRunsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type GetLavaFlowRunClientResponse struct {
+type GetLavaflowRunClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *LavaFlowRun
+	JSON200      *LavaflowRun
+	JSON403      *Error
 	JSON404      *Error
-	JSON501      *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r GetLavaFlowRunClientResponse) Status() string {
+func (r GetLavaflowRunClientResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -49484,7 +49949,7 @@ func (r GetLavaFlowRunClientResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetLavaFlowRunClientResponse) StatusCode() int {
+func (r GetLavaflowRunClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -49492,7 +49957,40 @@ func (r GetLavaFlowRunClientResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetLavaFlowRunClientResponse) ContentType() string {
+func (r GetLavaflowRunClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetLavaflowStatsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowStats
+	JSON400      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLavaflowStatsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLavaflowStatsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetLavaflowStatsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -54119,6 +54617,15 @@ func (c *ClientWithResponses) UnbanAuthUserWithResponse(ctx context.Context, id 
 	return ParseUnbanAuthUserClientResponse(rsp)
 }
 
+// ListProjectCapabilitiesWithResponse request returning *ListProjectCapabilitiesClientResponse
+func (c *ClientWithResponses) ListProjectCapabilitiesWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListProjectCapabilitiesClientResponse, error) {
+	rsp, err := c.ListProjectCapabilities(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectCapabilitiesClientResponse(rsp)
+}
+
 // GetProjectConfigWithResponse request returning *GetProjectConfigClientResponse
 func (c *ClientWithResponses) GetProjectConfigWithResponse(ctx context.Context, id ProjectId, params *GetProjectConfigParams, reqEditors ...RequestEditorFn) (*GetProjectConfigClientResponse, error) {
 	rsp, err := c.GetProjectConfig(ctx, id, params, reqEditors...)
@@ -55381,57 +55888,66 @@ func (c *ClientWithResponses) GetProjectHealthWithResponse(ctx context.Context, 
 	return ParseGetProjectHealthClientResponse(rsp)
 }
 
-// StartLavaFlowRunWithResponse request returning *StartLavaFlowRunClientResponse
-func (c *ClientWithResponses) StartLavaFlowRunWithResponse(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*StartLavaFlowRunClientResponse, error) {
-	rsp, err := c.StartLavaFlowRun(ctx, id, issueId, reqEditors...)
+// GetLavaflowSettingsWithResponse request returning *GetLavaflowSettingsClientResponse
+func (c *ClientWithResponses) GetLavaflowSettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetLavaflowSettingsClientResponse, error) {
+	rsp, err := c.GetLavaflowSettings(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseStartLavaFlowRunClientResponse(rsp)
+	return ParseGetLavaflowSettingsClientResponse(rsp)
 }
 
-// GetLavaFlowSettingsWithResponse request returning *GetLavaFlowSettingsClientResponse
-func (c *ClientWithResponses) GetLavaFlowSettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetLavaFlowSettingsClientResponse, error) {
-	rsp, err := c.GetLavaFlowSettings(ctx, id, reqEditors...)
+// UpdateLavaflowSettingsWithBodyWithResponse request with arbitrary body returning *UpdateLavaflowSettingsClientResponse
+func (c *ClientWithResponses) UpdateLavaflowSettingsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error) {
+	rsp, err := c.UpdateLavaflowSettingsWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetLavaFlowSettingsClientResponse(rsp)
+	return ParseUpdateLavaflowSettingsClientResponse(rsp)
 }
 
-// UpdateLavaFlowSettingsWithBodyWithResponse request with arbitrary body returning *UpdateLavaFlowSettingsClientResponse
-func (c *ClientWithResponses) UpdateLavaFlowSettingsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaFlowSettingsClientResponse, error) {
-	rsp, err := c.UpdateLavaFlowSettingsWithBody(ctx, id, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpdateLavaflowSettingsWithResponse(ctx context.Context, id ProjectId, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error) {
+	rsp, err := c.UpdateLavaflowSettings(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateLavaFlowSettingsClientResponse(rsp)
+	return ParseUpdateLavaflowSettingsClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateLavaFlowSettingsWithResponse(ctx context.Context, id ProjectId, body UpdateLavaFlowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaFlowSettingsClientResponse, error) {
-	rsp, err := c.UpdateLavaFlowSettings(ctx, id, body, reqEditors...)
+// ListLavaflowResourcesWithResponse request returning *ListLavaflowResourcesClientResponse
+func (c *ClientWithResponses) ListLavaflowResourcesWithResponse(ctx context.Context, id ProjectId, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*ListLavaflowResourcesClientResponse, error) {
+	rsp, err := c.ListLavaflowResources(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateLavaFlowSettingsClientResponse(rsp)
+	return ParseListLavaflowResourcesClientResponse(rsp)
 }
 
-// ListLavaFlowRunsWithResponse request returning *ListLavaFlowRunsClientResponse
-func (c *ClientWithResponses) ListLavaFlowRunsWithResponse(ctx context.Context, id ProjectId, params *ListLavaFlowRunsParams, reqEditors ...RequestEditorFn) (*ListLavaFlowRunsClientResponse, error) {
-	rsp, err := c.ListLavaFlowRuns(ctx, id, params, reqEditors...)
+// ListLavaflowRunsWithResponse request returning *ListLavaflowRunsClientResponse
+func (c *ClientWithResponses) ListLavaflowRunsWithResponse(ctx context.Context, id ProjectId, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*ListLavaflowRunsClientResponse, error) {
+	rsp, err := c.ListLavaflowRuns(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListLavaFlowRunsClientResponse(rsp)
+	return ParseListLavaflowRunsClientResponse(rsp)
 }
 
-// GetLavaFlowRunWithResponse request returning *GetLavaFlowRunClientResponse
-func (c *ClientWithResponses) GetLavaFlowRunWithResponse(ctx context.Context, id ProjectId, runId LavaFlowRunId, reqEditors ...RequestEditorFn) (*GetLavaFlowRunClientResponse, error) {
-	rsp, err := c.GetLavaFlowRun(ctx, id, runId, reqEditors...)
+// GetLavaflowRunWithResponse request returning *GetLavaflowRunClientResponse
+func (c *ClientWithResponses) GetLavaflowRunWithResponse(ctx context.Context, id ProjectId, runId string, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error) {
+	rsp, err := c.GetLavaflowRun(ctx, id, runId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetLavaFlowRunClientResponse(rsp)
+	return ParseGetLavaflowRunClientResponse(rsp)
+}
+
+// GetLavaflowStatsWithResponse request returning *GetLavaflowStatsClientResponse
+func (c *ClientWithResponses) GetLavaflowStatsWithResponse(ctx context.Context, id ProjectId, params *GetLavaflowStatsParams, reqEditors ...RequestEditorFn) (*GetLavaflowStatsClientResponse, error) {
+	rsp, err := c.GetLavaflowStats(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLavaflowStatsClientResponse(rsp)
 }
 
 // DeleteProjectLogoWithResponse request returning *DeleteProjectLogoClientResponse
@@ -62221,6 +62737,46 @@ func ParseUnbanAuthUserClientResponse(rsp *http.Response) (*UnbanAuthUserClientR
 	return response, nil
 }
 
+// ParseListProjectCapabilitiesClientResponse parses an HTTP response from a ListProjectCapabilitiesWithResponse call
+func ParseListProjectCapabilitiesClientResponse(rsp *http.Response) (*ListProjectCapabilitiesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectCapabilitiesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CapabilityList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetProjectConfigClientResponse parses an HTTP response from a GetProjectConfigWithResponse call
 func ParseGetProjectConfigClientResponse(rsp *http.Response) (*GetProjectConfigClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -67958,33 +68514,26 @@ func ParseGetProjectHealthClientResponse(rsp *http.Response) (*GetProjectHealthC
 	return response, nil
 }
 
-// ParseStartLavaFlowRunClientResponse parses an HTTP response from a StartLavaFlowRunWithResponse call
-func ParseStartLavaFlowRunClientResponse(rsp *http.Response) (*StartLavaFlowRunClientResponse, error) {
+// ParseGetLavaflowSettingsClientResponse parses an HTTP response from a GetLavaflowSettingsWithResponse call
+func ParseGetLavaflowSettingsClientResponse(rsp *http.Response) (*GetLavaflowSettingsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &StartLavaFlowRunClientResponse{
+	response := &GetLavaflowSettingsClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
-		var dest LavaFlowRun
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSettings
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON202 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error
@@ -68000,102 +68549,27 @@ func ParseStartLavaFlowRunClientResponse(rsp *http.Response) (*StartLavaFlowRunC
 		}
 		response.JSON404 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON429 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
-
 	}
 
 	return response, nil
 }
 
-// ParseGetLavaFlowSettingsClientResponse parses an HTTP response from a GetLavaFlowSettingsWithResponse call
-func ParseGetLavaFlowSettingsClientResponse(rsp *http.Response) (*GetLavaFlowSettingsClientResponse, error) {
+// ParseUpdateLavaflowSettingsClientResponse parses an HTTP response from a UpdateLavaflowSettingsWithResponse call
+func ParseUpdateLavaflowSettingsClientResponse(rsp *http.Response) (*UpdateLavaflowSettingsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetLavaFlowSettingsClientResponse{
+	response := &UpdateLavaflowSettingsClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest LavaFlowSettings
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateLavaFlowSettingsClientResponse parses an HTTP response from a UpdateLavaFlowSettingsWithResponse call
-func ParseUpdateLavaFlowSettingsClientResponse(rsp *http.Response) (*UpdateLavaFlowSettingsClientResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateLavaFlowSettingsClientResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest LavaFlowSettings
+		var dest LavaflowSettings
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -68122,41 +68596,27 @@ func ParseUpdateLavaFlowSettingsClientResponse(rsp *http.Response) (*UpdateLavaF
 		}
 		response.JSON404 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
-
 	}
 
 	return response, nil
 }
 
-// ParseListLavaFlowRunsClientResponse parses an HTTP response from a ListLavaFlowRunsWithResponse call
-func ParseListLavaFlowRunsClientResponse(rsp *http.Response) (*ListLavaFlowRunsClientResponse, error) {
+// ParseListLavaflowResourcesClientResponse parses an HTTP response from a ListLavaflowResourcesWithResponse call
+func ParseListLavaflowResourcesClientResponse(rsp *http.Response) (*ListLavaflowResourcesClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListLavaFlowRunsClientResponse{
+	response := &ListLavaflowResourcesClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest PaginatedLavaFlowRuns
+		var dest LavaflowResourceList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -68169,45 +68629,59 @@ func ParseListLavaFlowRunsClientResponse(rsp *http.Response) (*ListLavaFlowRunsC
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
 
 	}
 
 	return response, nil
 }
 
-// ParseGetLavaFlowRunClientResponse parses an HTTP response from a GetLavaFlowRunWithResponse call
-func ParseGetLavaFlowRunClientResponse(rsp *http.Response) (*GetLavaFlowRunClientResponse, error) {
+// ParseListLavaflowRunsClientResponse parses an HTTP response from a ListLavaflowRunsWithResponse call
+func ParseListLavaflowRunsClientResponse(rsp *http.Response) (*ListLavaflowRunsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetLavaFlowRunClientResponse{
+	response := &ListLavaflowRunsClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest LavaFlowRun
+		var dest LavaflowRunList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -68216,12 +68690,92 @@ func ParseGetLavaFlowRunClientResponse(rsp *http.Response) (*GetLavaFlowRunClien
 		}
 		response.JSON404 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+	}
+
+	return response, nil
+}
+
+// ParseGetLavaflowRunClientResponse parses an HTTP response from a GetLavaflowRunWithResponse call
+func ParseGetLavaflowRunClientResponse(rsp *http.Response) (*GetLavaflowRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLavaflowRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON501 = &dest
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLavaflowStatsClientResponse parses an HTTP response from a GetLavaflowStatsWithResponse call
+func ParseGetLavaflowStatsClientResponse(rsp *http.Response) (*GetLavaflowStatsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLavaflowStatsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowStats
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 

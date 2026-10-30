@@ -81,6 +81,18 @@ func TestRunApprovalDecisionByAProjectTokenExitsPermissionDenied(t *testing.T) {
 	assert.Contains(t, stderr, "Error: "+needsAPersonError+"\n")
 }
 
+// Turning LavaFlow on with a project access token is refused before any
+// request, with the exit code of a permission the API refuses.
+func TestRunLavaFlowEnableByAProjectTokenExitsPermissionDenied(t *testing.T) {
+	code, stderr := runAgainst(t, cliconfig.ProjectTokenPrefix+"scoped", func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("a project access token must not turn LavaFlow on: %s %s", r.Method, r.URL.Path)
+		respondExitTestJSON(w, http.StatusNotFound, `{"error":"not found"}`)
+	}, "cloud", "lavaflow", "enable")
+
+	assert.Equal(t, exitPermissionDenied, code, stderr)
+	assert.Contains(t, stderr, "Error: changing LavaFlow's settings needs a person's session")
+}
+
 // The API's 403 for a credential the CLI did not recognize is rewritten into
 // the same answer. The exit code reports the refusal, and no hint about the
 // token's project is added.
