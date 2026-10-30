@@ -83,7 +83,6 @@ func rootDirectoryArgument(args []string, reset bool) (string, error) {
 
 func runRootDirectory(ctx context.Context, opts rootDirectoryOptions) error {
 	service := gitconnect.NewService(opts.deps)
-	webURL, _ := service.WebURL()
 
 	project, err := service.Project()
 	if err != nil {
@@ -101,7 +100,7 @@ func runRootDirectory(ctx context.Context, opts rootDirectoryOptions) error {
 				err = cannot
 			}
 		}
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 
 	// Read afterwards, like connect: the directory is set either way, and

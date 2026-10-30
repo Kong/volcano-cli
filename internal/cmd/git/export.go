@@ -85,7 +85,6 @@ Use --yes to skip the prompt.`,
 
 func runExport(ctx context.Context, opts exportOptions) error {
 	service := gitconnect.NewService(opts.deps)
-	webURL, _ := service.WebURL()
 
 	project, err := service.Project()
 	if err != nil {
@@ -96,7 +95,7 @@ func runExport(ctx context.Context, opts exportOptions) error {
 	// that has already exported, says so before anything is asked.
 	state, err := service.SourceState(ctx)
 	if err != nil {
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 	if err := exportRefusal(opts.deps, state); err != nil {
 		return err
@@ -104,7 +103,7 @@ func runExport(ctx context.Context, opts exportOptions) error {
 
 	connection, err := service.Status(ctx)
 	if err != nil {
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 	branch := connection.ProductionBranch
 	if opts.branch != "" && opts.branch != branch {
@@ -129,7 +128,7 @@ func runExport(ctx context.Context, opts exportOptions) error {
 	// again, and the platform refuses the export if the branch changed.
 	result, err := service.ExportSource(ctx, connection)
 	if err != nil {
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 	if opts.jsonOutput {
 		return output.JSON(opts.out, result)
@@ -193,7 +192,6 @@ By default this command prompts for confirmation. Use --yes to skip the prompt.`
 
 func runExportCancel(ctx context.Context, opts exportCancelOptions) error {
 	service := gitconnect.NewService(opts.deps)
-	webURL, _ := service.WebURL()
 
 	project, err := service.Project()
 	if err != nil {
@@ -202,7 +200,7 @@ func runExportCancel(ctx context.Context, opts exportCancelOptions) error {
 
 	state, err := service.SourceState(ctx)
 	if err != nil {
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 	switch state.Mode {
 	case apiclient.ProjectSourceExportStateModePlatform:
@@ -225,7 +223,7 @@ func runExportCancel(ctx context.Context, opts exportCancelOptions) error {
 	}
 
 	if err := service.CancelSourceExport(ctx); err != nil {
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 
 	// Read again: whether export can still run depends on how far it got, and

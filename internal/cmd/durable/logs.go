@@ -28,6 +28,7 @@ const (
 type logsOptions struct {
 	deps         cliruntime.Deps
 	identifier   string
+	deploymentID string
 	logsType     string
 	limit        int
 	follow       bool
@@ -40,26 +41,33 @@ func newLogs(deps cliruntime.Deps) *cobra.Command {
 	var logsType string
 	var follow bool
 	cmd := &cobra.Command{
-		Use:   "logs <name-or-id>",
+		Use:   "logs <name-or-id> [deployment-id]",
 		Short: "Show a durable function's build or runtime logs",
 		Long: `Read the logs of one durable function.
 
 --type build is the deploy's own output, and is where a deploy that ended in
 "failed" says why. It reads the deployment the function is on, which after a
-failed deploy is that deploy.
+failed deploy is that deploy, or the one named by deployment-id.
 
 --type runtime is what the function logged while its executions ran, across
 every execution. The code between context operations runs again on each resume,
 so a line logged there appears once per resume.`,
 		Example: fmt.Sprintf(`  %s
+  %s
   %s`,
 			cliruntime.CommandPath(deps, "durable logs order-pipeline --type build"),
+			cliruntime.CommandPath(deps, "durable logs order-pipeline 4f1c2b8e-3c2a-4b7e-9a51-6d0e2f7a9c13 --type build"),
 			cliruntime.CommandPath(deps, "durable logs order-pipeline --type runtime --follow")),
-		Args: cobra.ExactArgs(1),
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			deploymentID := ""
+			if len(args) > 1 {
+				deploymentID = strings.TrimSpace(args[1])
+			}
 			return runLogs(cmd.Context(), logsOptions{
 				deps:         deps,
 				identifier:   strings.TrimSpace(args[0]),
+				deploymentID: deploymentID,
 				logsType:     logsType,
 				limit:        limit,
 				follow:       follow,
@@ -82,6 +90,9 @@ func runLogs(ctx context.Context, opts logsOptions) error {
 	if err != nil {
 		return err
 	}
+	if logsType == logsTypeRuntime && opts.deploymentID != "" {
+		return errors.New("deployment-id is only supported with --type build")
+	}
 
 	service := clidurable.NewService(opts.deps)
 	function, err := service.Get(ctx, opts.identifier)
@@ -92,11 +103,27 @@ func runLogs(ctx context.Context, opts logsOptions) error {
 	if logsType == logsTypeRuntime {
 		return runtimeLogs(ctx, opts, service, function)
 	}
-	if function.CurrentDeploymentId == nil {
-		fmt.Fprintln(opts.out, "No deployments found for this durable function")
-		return nil
+	if opts.deploymentID == "" {
+		if function.CurrentDeploymentId == nil {
+			fmt.Fprintln(opts.out, "No deployments found for this durable function")
+			return nil
+		}
+		return buildLogs(ctx, opts, service, function.Id, *function.CurrentDeploymentId, function.Name)
 	}
-	return buildLogs(ctx, opts, service, function.Id, *function.CurrentDeploymentId, function.Name)
+
+	deployment, err := service.ResolveDeployment(ctx, function.Id, opts.deploymentID)
+	if errors.Is(err, api.ErrNotFound) {
+		return fmt.Errorf("deployment %q %w for durable function %s", opts.deploymentID, api.ErrNotFound, function.Name)
+	}
+	if err != nil {
+		return err
+	}
+	// Following stops when the function leaves provisioning, which says
+	// nothing about any deployment but the one it is on.
+	if opts.follow && (function.CurrentDeploymentId == nil || *function.CurrentDeploymentId != deployment.Id) {
+		return errors.New("--follow reads only the deployment the function is on; drop --follow to read an earlier one")
+	}
+	return buildLogs(ctx, opts, service, function.Id, deployment.Id, function.Name)
 }
 
 func runtimeLogs(

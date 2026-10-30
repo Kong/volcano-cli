@@ -44,11 +44,10 @@ than a project access token.`,
 
 func runRepos(ctx context.Context, opts reposOptions) error {
 	service := gitconnect.NewService(opts.deps)
-	webURL, _ := service.WebURL()
 
 	installations, err := service.Repositories(ctx)
 	if err != nil {
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 
 	listings := make([]output.GitInstallationListing, 0, len(installations))

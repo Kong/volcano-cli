@@ -26,20 +26,19 @@ type deploySetting struct {
 // connected, then says what a push to the production branch deploys.
 func runDeploySetting(ctx context.Context, deps cliruntime.Deps, out io.Writer, setting deploySetting) error {
 	service := gitconnect.NewService(deps)
-	webURL, _ := service.WebURL()
 
 	project, err := service.Project()
 	if err != nil {
 		return err
 	}
-	connection, err := connectedBinding(ctx, deps, service, webURL)
+	connection, err := connectedBinding(ctx, deps, service)
 	if err != nil {
 		return err
 	}
 
 	settings, err := setting.change(ctx, service)
 	if err != nil {
-		return guide(deps, webURL, err)
+		return guide(deps, err)
 	}
 	setting.render(out, output.GitBinding{
 		Connection: connection,
@@ -57,7 +56,7 @@ func runDeploySetting(ctx context.Context, deps cliruntime.Deps, out io.Writer, 
 // auto-deploy and functions for it: the setting would be saved and nothing
 // would deploy.
 func connectedBinding(
-	ctx context.Context, deps cliruntime.Deps, service gitconnect.Service, webURL string,
+	ctx context.Context, deps cliruntime.Deps, service gitconnect.Service,
 ) (*apiclient.ProjectGitConnection, error) {
 	connection, err := service.Status(ctx)
 	if err == nil {
@@ -69,7 +68,7 @@ func connectedBinding(
 			err = cannot
 		}
 	}
-	return nil, guide(deps, webURL, err)
+	return nil, guide(deps, err)
 }
 
 // onOffArgument reads the one argument of a setting that is either on or off.

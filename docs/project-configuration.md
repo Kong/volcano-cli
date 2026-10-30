@@ -13,7 +13,8 @@ validates and applies the full project configuration:
 - Buckets and policies
 - Realtime
 - Notifications: where scheduler failure alerts go and when they are sent
-- Auth configuration, including providers, email, templates, and managed pages
+- Auth configuration, including providers, email, templates, and managed pages:
+  hosted pages for every page type, and the built-in pages' theme and layouts
 - Function visibility, invocation mode, HTTP authentication, OpenAPI metadata,
   and schedulers
 - Frontend custom domains, function routes, and Frontend routes
