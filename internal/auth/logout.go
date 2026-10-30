@@ -28,17 +28,19 @@ const (
 	// which revoking the calling token does not cover. It stays valid.
 	LogoutProjectToken
 	// LogoutNotRevoked means the revoke failed in a way that can pass, such
-	// as a network error or a server error. The login stays saved, so logging
+	// as a network error, a server error, or a request that couldn't be built. The login stays saved, so logging
 	// out again can end it. See the returned error.
 	LogoutNotRevoked
 	// LogoutRefused means the server answered and would not revoke the token,
-	// or the CLI could not build a request for it, so trying again would get
-	// the same answer. The login is removed from this machine anyway, and the
+	// so trying again would get the same answer. The login is removed from this machine anyway, and the
 	// token stays valid until it expires. See the returned error.
 	LogoutRefused
 	// LogoutNoServerSession means the server keeps no sign-in to end, as in
 	// local mode, so only this machine's login was removed.
 	LogoutNoServerSession
+	// LogoutNotAsked means the caller chose not to reach the server: only this
+	// machine's login was removed, and its token stays valid until it expires.
+	LogoutNotAsked
 )
 
 // LogoutResult says what logging out did on the server and on this machine.
@@ -53,6 +55,12 @@ type LogoutResult struct {
 	// EnvTokenEnded reports that VOLCANO_TOKEN holds the saved token, which the
 	// server no longer accepts, so commands that use it now fail.
 	EnvTokenEnded bool
+	// Replaced reports that another login was saved while logout reached the
+	// server, so it was kept rather than cleared.
+	Replaced bool
+	// AccountToken reports that the saved token carries the account-token
+	// prefix, so a refusal can't mean it was a project access token.
+	AccountToken bool
 }
 
 // Logout ends the saved login: it asks the server to revoke the saved token and
@@ -74,8 +82,24 @@ func (s Service) Logout(ctx context.Context) LogoutResult {
 		env := &config.Config{}
 		result.EnvTokenEnded = env.TokenFromEnv() && env.Token() == token
 	}
-	result.ClearErr = config.ClearLogin()
+	result.AccountToken = strings.HasPrefix(strings.ToLower(token), config.AccountTokenPrefix)
+	if outcome == LogoutUnreadable {
+		result.ClearErr = config.ClearLogin()
+		return result
+	}
+	// Only the login logout read is cleared: one saved in another terminal
+	// while the server answered is a different login, still live there.
+	cleared, err := config.ClearLoginOf(token)
+	result.ClearErr = err
+	result.Replaced = err == nil && !cleared
 	return result
+}
+
+// LogoutWithoutRevoke removes this machine's login without reaching the
+// server, for when it can't be reached. The token stays valid until it
+// expires.
+func (s Service) LogoutWithoutRevoke() LogoutResult {
+	return LogoutResult{Outcome: LogoutNotAsked, ClearErr: config.ClearLogin()}
 }
 
 // revokeSavedLogin asks the server to revoke the saved token, and returns the
@@ -95,7 +119,9 @@ func (s Service) revokeSavedLogin(ctx context.Context) (LogoutOutcome, string, e
 
 	client, err := s.sessions.APIClient(s.apiURL(cfg), token)
 	if err != nil {
-		return LogoutRefused, token, err
+		// A request that can't be built, such as for a malformed API URL,
+		// can be sent once the user fixes the cause, so keep the login.
+		return LogoutNotRevoked, token, err
 	}
 	err = client.RevokeCurrentToken(ctx)
 	switch status := api.Status(err); {
@@ -114,10 +140,12 @@ func (s Service) revokeSavedLogin(ctx context.Context) (LogoutOutcome, string, e
 
 // revokeCanPass reports whether a failed revoke is worth trying again: no
 // answer at all (status 0, such as a network error or an interrupted command),
-// a server error, or a request the server shed.
+// a server error, a request the server shed, or a CLI too old for the server,
+// which works again after an upgrade.
 func revokeCanPass(status int) bool {
 	return status == 0 || status >= http.StatusInternalServerError ||
-		status == http.StatusTooManyRequests || status == http.StatusRequestTimeout
+		status == http.StatusTooManyRequests || status == http.StatusRequestTimeout ||
+		status == http.StatusUpgradeRequired
 }
 
 // savedConfig reads the local config. One that cannot be read holds no login

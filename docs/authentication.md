@@ -109,13 +109,18 @@ other CLI logins and browser sessions stay signed in.
 
 If the server can't be reached or fails, `volcano logout` says so, exits
 non-zero, and keeps the login saved on this machine. Run `volcano logout` again
-to end it, or end it with `volcano account sessions revoke <id>`. If the server
+to end it, or end it from another login with
+`volcano account sessions revoke <id>`. If the server
 refuses to revoke the login, `volcano logout` removes it from this machine
 anyway and exits non-zero. The token then stays valid until it expires. If it
 was a project access token, revoke it with `volcano cloud access-tokens revoke`.
 If it came from a sign-in, end that session from another login with
 `volcano account sessions revoke <id>`; see [account.md](account.md). Ending a
 token that isn't tied to a session isn't available from the CLI yet.
+
+To remove the login from this machine without reaching the server, for example
+while offline, run `volcano logout --no-revoke`. The token then stays valid
+until it expires.
 
 Local development keeps no sign-in session on the server, so there
 `volcano logout` only removes the login from this machine.
