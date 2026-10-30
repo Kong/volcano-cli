@@ -1,6 +1,5 @@
 // Package deploycommit reports which commit a frontend deploy's source came
-// from, so Volcano can tie the deployment to its repository and LavaFlow can
-// open fix pull requests against the code that actually runs.
+// from, so Volcano can tie the deployment to its repository.
 //
 // It sends only the GitHub repository as owner/name, the commit ID, whether
 // the uploaded files differ from that commit, and the uploaded directory's
