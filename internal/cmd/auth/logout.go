@@ -25,9 +25,10 @@ server, then remove the login, the current project, and function aliases from
 Only this login ends. Your other CLI logins and browser sessions stay signed
 in.
 
-If the server can't revoke the login, the command says so, still removes it
-from this machine, and exits non-zero. The token then stays valid until it
-expires, so end it in the dashboard under Account, Sessions.
+If the server can't be reached or fails, the command says so, exits non-zero,
+and keeps the login saved, so running it again can end it. If the server
+refuses to revoke the login, the command removes it from this machine anyway
+and exits non-zero; the token then stays valid until it expires.
 
 A project access token (pt-) is removed from this machine but not revoked:
 revoke it with '%s'. A token in VOLCANO_TOKEN was never saved,
@@ -54,18 +55,18 @@ func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
 		output.Success(w, "Logged out: this server keeps no sign-in session, so there was nothing to revoke")
 	case cliauth.LogoutUnreadable:
 		output.Success(w, "Logged out")
-		output.Warning(w, "The saved login could not be read, so nothing was revoked on the server. "+
-			"If it is still valid, end it in the dashboard under Account, Sessions.")
+		output.Warning(w, "The saved login could not be read, so nothing was revoked on the server.")
 	case cliauth.LogoutProjectToken:
 		output.Success(w, "Logged out")
 		output.Note(w, "The project access token stays valid: revoke it with %s.",
 			cliruntime.CommandPath(deps, "access-tokens revoke"))
 	case cliauth.LogoutNotRevoked:
-		if err != nil {
-			return fmt.Errorf("logged out of this machine, but the server did not revoke this login: %w\n\n"+
-				"The token stays valid until it expires. End it in the dashboard under Account, Sessions",
-				err)
-		}
+		return fmt.Errorf("the server did not end this login: %w\n\n"+
+			"The login is still saved on this machine. Run %s again",
+			err, cliruntime.CommandPath(deps, "logout"))
+	case cliauth.LogoutRefused:
+		return fmt.Errorf("logged out of this machine, but the server did not end this login: %w\n\n"+
+			"The token stays valid until it expires", err)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to clear credentials: %w", err)

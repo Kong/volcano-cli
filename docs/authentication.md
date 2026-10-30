@@ -107,9 +107,11 @@ stops working everywhere it was copied. The CLI then removes the token, the
 selected project, and function aliases from `~/.volcano/config.json`. Your
 other CLI logins and browser sessions stay signed in.
 
-If the server can't revoke the login, `volcano logout` says so, still removes
-the login from this machine, and exits non-zero. The token then stays valid
-until it expires. End it in the dashboard under Account → Sessions.
+If the server can't be reached or fails, `volcano logout` says so, exits
+non-zero, and keeps the login saved on this machine. Run `volcano logout` again
+to end it. If the server refuses to revoke the login, `volcano logout` removes
+it from this machine anyway and exits non-zero. The token then stays valid
+until it expires.
 
 Local development keeps no sign-in session on the server, so there
 `volcano logout` only removes the login from this machine.
