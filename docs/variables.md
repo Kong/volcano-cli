@@ -33,6 +33,14 @@ than fall back to the cloud.
 `deploy` reads variables from the file only; `NAME=value` arguments are an
 error. It creates and updates variables and never deletes them.
 
+On macOS and Linux, `-f` also takes a process substitution, so a secrets
+manager's output can be deployed without writing it to disk. This works with
+the npm-installed CLI too:
+
+```bash
+volcano cloud variables deploy -f <(op inject -i volcano.env.tpl)
+```
+
 ## Examples
 
 ```bash

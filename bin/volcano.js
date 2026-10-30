@@ -32,8 +32,14 @@ async function resolveBinary() {
 // (`volcano variables deploy -f <(...)`), names a descriptor this process
 // inherited. spawn hands the binary only stdin, stdout and stderr, so each
 // descriptor an argument names is passed through at the same number, or the
-// binary finds it closed.
-const DESCRIPTOR_PATH = /(?:^|=)\/(?:dev\/fd|proc\/self\/fd)\/(\d+)$/;
+// binary finds it closed. The path may be a whole argument, follow `=` as in
+// --file=/dev/fd/63, or follow a short flag as in -f/dev/fd/63.
+//
+// Limit: an inherited descriptor can't be told apart from one Node opened for
+// itself, and Node opens a few at low numbers as it starts. So a low number
+// this process never inherited, such as one a wrapper in between closed,
+// reaches the binary as one of Node's descriptors rather than as a closed one.
+const DESCRIPTOR_PATH = /(?:^|=|^-[A-Za-z])\/(?:dev\/fd|proc\/self\/fd)\/(\d+)$/;
 
 function isOpen(fd) {
   try {

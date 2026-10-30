@@ -31,6 +31,7 @@ function fakePackage(t) {
     '  case "$1" in',
     '    -f|--file) shift; cat "$1" || exit 3 ;;',
     '    --file=*) cat "${1#--file=}" || exit 3 ;;',
+    '    -f?*) cat "${1#-f}" || exit 3 ;;',
     '    --exit=*) exit "${1#--exit=}" ;;',
     '  esac',
     '  shift',
@@ -73,7 +74,23 @@ test('passes an inherited descriptor named in --file= through to the binary', { 
   assert.equal(result.stdout, fakeEnv);
 });
 
-test('a descriptor the shim was not given stays closed', { skip: !unix }, async (t) => {
+test('passes a descriptor named after an attached short flag through to the binary', { skip: !unix }, async (t) => {
+  const shim = fakePackage(t);
+  const file = path.join(path.dirname(shim), 'fake.env');
+  fs.writeFileSync(file, fakeEnv);
+  const fd = fs.openSync(file, 'r');
+  t.after(() => fs.closeSync(fd));
+
+  const result = await run(['ignore', 'pipe', 'pipe', 'ignore', fd], shim, '-f/dev/fd/4');
+  assert.equal(result.stderr, '');
+  assert.equal(result.code, 0);
+  assert.equal(result.stdout, fakeEnv);
+});
+
+// Node's own descriptors sit at low numbers, so this uses one above them: a
+// low number the shim was not given can't be told from one of Node's (see the
+// limit in volcano.js).
+test('a descriptor above Node\'s own that the shim was not given stays closed', { skip: !unix }, async (t) => {
   const shim = fakePackage(t);
   const result = await run(['ignore', 'pipe', 'pipe'], shim, '--file=/dev/fd/200');
   assert.equal(result.code, 3);
@@ -82,8 +99,15 @@ test('a descriptor the shim was not given stays closed', { skip: !unix }, async 
 
 test('passes stdin and the exit code through', { skip: !unix }, async (t) => {
   const shim = fakePackage(t);
-  const piped = spawnSync(process.execPath, [shim, '--file', '/dev/stdin'], { input: fakeEnv, encoding: 'utf8' });
-  assert.equal(piped.status, 0);
+  // A file rather than spawn's input option: on Linux that is a socket, which
+  // /dev/stdin can't open.
+  const file = path.join(path.dirname(shim), 'fake.env');
+  fs.writeFileSync(file, fakeEnv);
+  const fd = fs.openSync(file, 'r');
+  t.after(() => fs.closeSync(fd));
+  const piped = await run([fd, 'pipe', 'pipe'], shim, '--file', '/dev/stdin');
+  assert.equal(piped.stderr, '');
+  assert.equal(piped.code, 0);
   assert.equal(piped.stdout, fakeEnv);
 
   const result = await run(['ignore', 'pipe', 'pipe'], shim, '--exit=7');
