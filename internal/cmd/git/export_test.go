@@ -1,12 +1,16 @@
 package git
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
 func TestExportPushesTheConfiguredBranch(t *testing.T) {
@@ -120,11 +124,42 @@ func TestExportAsksFirst(t *testing.T) {
 			out, err := executeGitCommand(t, api.serve(), nil, tc.answer, "export")
 			require.NoError(t, err)
 			assert.Contains(t, out, "to octo/storefront as the first commit on main")
+			// The prompt states what the user cannot take back.
+			assert.Contains(t, out, "Anyone who can read octo/storefront can read that source.")
+			assert.Contains(t, out, "this cannot be undone")
+			assert.Contains(t, out, "can never be disconnected from it or moved to another repository")
 			assert.Contains(t, out, "Export to octo/storefront?")
 			exports, _ := api.exportCalls()
 			assert.Equal(t, tc.exports, exports)
 		})
 	}
+}
+
+// Without a terminal to answer the prompt, export refuses unless --yes says to
+// go ahead, and still shows what it would have done.
+func TestExportRefusesWhenStdinCannotAnswer(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+
+	closed, err := os.Open(os.DevNull)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = closed.Close() })
+
+	cmd := New(cliruntime.Deps{HTTPClient: api.serve().Client(), APIBaseURL: api.serve().URL})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetIn(closed)
+	cmd.SetArgs([]string{"export"})
+
+	err = cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "stdin is not a terminal")
+	assert.Contains(t, err.Error(), "--yes")
+	assert.Contains(t, out.String(), "this cannot be undone")
+	exports, _ := api.exportCalls()
+	assert.Zero(t, exports)
 }
 
 // An export the platform is certain to refuse stops before the prompt, and
@@ -295,6 +330,33 @@ func TestExportCancelAsksFirst(t *testing.T) {
 	assert.Contains(t, out, "Cancel the source export?")
 	_, cancels := api.exportCalls()
 	assert.Zero(t, cancels)
+}
+
+// Once the first commit exists, cancelling gives up the one export the project
+// gets, and the prompt says so.
+func TestExportCancelSaysWhenExportCannotRunAgain(t *testing.T) {
+	for _, tc := range []struct {
+		name, mode, exportedAt string
+		final                  bool
+	}{
+		{name: "before its commit", mode: "git_exporting"},
+		{name: "after its commit", mode: "git_exporting", exportedAt: "2026-08-25T09:14:04Z", final: true},
+		{name: "pending its deploy", mode: "git_pending", final: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setGitCommandTestHome(t)
+			api := newGitAPI(t)
+			api.sourceMode, api.sourceExportedAt = tc.mode, tc.exportedAt
+
+			out, err := executeGitCommand(t, api.serve(), nil, "n\n", "export", "cancel")
+			require.NoError(t, err)
+			if tc.final {
+				assert.Contains(t, out, "Export cannot run again for this project.")
+			} else {
+				assert.NotContains(t, out, "cannot run again")
+			}
+		})
+	}
 }
 
 func TestStatusReportsTheSourceOfTruth(t *testing.T) {

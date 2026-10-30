@@ -320,10 +320,13 @@ volcano git export
 
 Export writes the source of each function and frontend, taken from its latest
 successful deployment, as the first commit on the production branch, and
-pushes it. That push deploys like any other. Until the deployment succeeds,
-`volcano deploy` refuses functions and frontends; once it does, the repository
-is the project's source of truth and code deploys only by pushing. Variables,
-databases and other settings stay managed through Volcano.
+pushes it. Anyone who can read the repository can read that source. That push
+deploys like any other. Until the deployment succeeds, `volcano deploy`
+refuses functions and frontends. Once it succeeds, this cannot be undone: the
+repository is the project's source of truth, code deploys only by pushing to
+it, and the project can never be disconnected from it or moved to another
+repository. Variables, databases and other settings stay managed through
+Volcano.
 
 The command asks before it writes, naming the repository and branch. Pass
 `--branch` to state the branch you expect, so a script fails instead of

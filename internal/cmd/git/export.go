@@ -48,10 +48,12 @@ The repository must be empty, with no commits and no branches; Volcano never
 creates it. An empty repository has no default branch, so connect it naming
 one: '%s'. Export runs once per project.
 
-The push deploys like any other push to the production branch. Until that
-deployment succeeds, direct deploys of functions and frontends are paused;
-'%s' resumes them. Once it succeeds, the repository is the project's source of
-truth and code deploys only by pushing.
+Anyone who can read the repository can read that source. The push deploys like
+any other push to the production branch. Until that deployment succeeds, direct
+deploys of functions and frontends are paused; '%s' resumes them. Once it
+succeeds, this cannot be undone: the repository is the project's source of
+truth, code deploys only by pushing to it, and the project can never be
+disconnected from it or moved to another repository.
 
 Export takes each function and frontend from its latest successful deployment.
 Resources that never deployed successfully are skipped. Migrations, variable
@@ -114,8 +116,10 @@ func runExport(ctx context.Context, opts exportOptions) error {
 
 	confirmed, err := ask(opts.in, promptWriter(opts.jsonOutput, opts.out, opts.errOut), opts.yes,
 		fmt.Sprintf("This writes the stored source of project %s to %s as the first commit on %s, and pushes it. "+
-			"The push deploys. Once that deployment succeeds, code deploys only by pushing to the repository. "+
-			"Export runs once.", project.Label(), connection.RepoFullName, branch),
+			"Anyone who can read %s can read that source. The push deploys. "+
+			"Once that deployment succeeds, this cannot be undone: code deploys only by pushing to %s, "+
+			"and the project can never be disconnected from it or moved to another repository. Export runs once.",
+			project.Label(), connection.RepoFullName, branch, connection.RepoFullName, connection.RepoFullName),
 		fmt.Sprintf("Export to %s?", connection.RepoFullName))
 	if err != nil || !confirmed {
 		return err
@@ -208,10 +212,14 @@ func runExportCancel(ctx context.Context, opts exportCancelOptions) error {
 			"so there is nothing to cancel")
 	}
 
+	warning := fmt.Sprintf("Direct deploys of project %s will work again. The repository and anything already pushed to it are not changed.",
+		project.Label())
+	// Once the first commit exists, the platform refuses a second export.
+	if state.ExportedAt != nil || state.Mode == apiclient.ProjectSourceExportStateModeGitPending {
+		warning += " Export cannot run again for this project."
+	}
 	confirmed, err := ask(opts.in, promptWriter(opts.jsonOutput, opts.out, opts.errOut), opts.yes,
-		fmt.Sprintf("Direct deploys of project %s will work again. The repository and anything already pushed to it are not changed.",
-			project.Label()),
-		"Cancel the source export?")
+		warning, "Cancel the source export?")
 	if err != nil || !confirmed {
 		return err
 	}
