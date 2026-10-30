@@ -60,8 +60,6 @@ type Manifest struct {
 	Variables *[]VariableManifest `yaml:"variables,omitempty" json:"variables,omitempty"`
 	Buckets   *[]BucketManifest   `yaml:"buckets,omitempty" json:"buckets,omitempty"`
 	Realtime  *RealtimeManifest   `yaml:"realtime,omitempty" json:"realtime,omitempty"`
-	// LavaFlow has no key, provider, or model: Volcano picks the models.
-	LavaFlow *LavaFlowManifest `yaml:"lavaflow,omitempty" json:"lavaflow,omitempty"`
 	// Notifications never carries the webhook signing secret; the server
 	// generates it and returns it only from the notifications API.
 	Notifications *NotificationsManifest `yaml:"notifications,omitempty" json:"notifications,omitempty"`
@@ -136,14 +134,6 @@ type RealtimeManifest struct {
 	BroadcastEnabled       *bool `yaml:"broadcast_enabled,omitempty" json:"broadcast_enabled,omitempty"`
 	PresenceEnabled        *bool `yaml:"presence_enabled,omitempty" json:"presence_enabled,omitempty"`
 	PostgresChangesEnabled *bool `yaml:"postgres_changes_enabled,omitempty" json:"postgres_changes_enabled,omitempty"`
-}
-
-// LavaFlowManifest declares LavaFlow's settings. Nil fields keep their current
-// values. MaxStage is diagnose or pull_request; the server validates it.
-type LavaFlowManifest struct {
-	Enabled     *bool   `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	MaxStage    *string `yaml:"max_stage,omitempty" json:"max_stage,omitempty"`
-	AutoTrigger *bool   `yaml:"auto_trigger,omitempty" json:"auto_trigger,omitempty"`
 }
 
 // NotificationsManifest declares where project alerts go and when a failing
@@ -608,6 +598,27 @@ func Load(filePath string) (*Manifest, string, error) {
 // strictly (unknown fields are errors), and validates it. YAML, interpolation,
 // decode, and validation errors can quote manifest values, including
 // interpolated secrets, so they are marked sensitive.
+// errLavaFlowSection refuses a lavaflow section. Turning LavaFlow on is a
+// person's decision, made with its own commands, so the project configuration
+// doesn't carry it.
+var errLavaFlowSection = errors.New("LavaFlow isn't part of the project configuration: remove the lavaflow section, " +
+	"and turn LavaFlow on with 'volcano cloud lavaflow enable'")
+
+// refuseLavaFlowSection names the line of a top-level lavaflow section, which
+// the decoder would otherwise report as an unknown field.
+func refuseLavaFlowSection(root *yaml.Node) error {
+	if root.Kind != yaml.DocumentNode || len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
+		return nil
+	}
+	mapping := root.Content[0]
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if key := mapping.Content[i]; key.Value == "lavaflow" {
+			return fmt.Errorf("invalid manifest: line %d: %w", key.Line, errLavaFlowSection)
+		}
+	}
+	return nil
+}
+
 func Parse(data []byte, lookupEnv func(string) (string, bool)) (*Manifest, error) {
 	var root yaml.Node
 	if err := yaml.Unmarshal(data, &root); err != nil {
@@ -619,6 +630,10 @@ func Parse(data []byte, lookupEnv func(string) (string, bool)) (*Manifest, error
 
 	if err := interpolateNode(&root, lookupEnv); err != nil {
 		return nil, sensitive.Wrap(err)
+	}
+
+	if err := refuseLavaFlowSection(&root); err != nil {
+		return nil, err
 	}
 
 	interpolated, err := yaml.Marshal(&root)

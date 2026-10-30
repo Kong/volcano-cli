@@ -9303,7 +9303,8 @@ type ProjectConfig struct {
 	Frontends               *[]ProjectConfigFrontend `json:"frontends,omitempty"`
 	Functions               *[]ProjectConfigFunction `json:"functions,omitempty"`
 
-	// Lavaflow AI diagnosis and fix settings. Omitted fields keep their current value; a project that never saved settings starts from `max_stage: pull_request` and `auto_trigger: true`.
+	// Lavaflow Ignored. LavaFlow is no longer part of the platform. A manifest that still declares this section applies as before, without it, and the result reports it as `unchanged` with a notice. Export never includes it.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Lavaflow *ProjectConfigLavaFlow `json:"lavaflow,omitempty"`
 
 	// Notifications Where the project's alerts go and when a failing scheduler is announced. Omitted fields keep their current value. The webhook signing secret is never part of the manifest: setting `webhook.url` on a project without a webhook generates one that is never shown. Rotate it with `POST /projects/{id}/notifications/webhook-secret` to get a secret you can use.
@@ -9832,14 +9833,8 @@ type ProjectConfigHostedPages struct {
 	VerifyEmail    *ProjectConfigHostedPage `json:"verify_email,omitempty"`
 }
 
-// ProjectConfigLavaFlow AI diagnosis and fix settings. Omitted fields keep their current value; a project that never saved settings starts from `max_stage: pull_request` and `auto_trigger: true`.
-type ProjectConfigLavaFlow struct {
-	AutoTrigger *bool `json:"auto_trigger,omitempty"`
-	Enabled     *bool `json:"enabled,omitempty"`
-
-	// MaxStage How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
-	MaxStage *LavaFlowStage `json:"max_stage,omitempty"`
-}
+// ProjectConfigLavaFlow Ignored. LavaFlow is no longer part of the platform. A manifest that still declares this section applies as before, without it, and the result reports it as `unchanged` with a notice. Export never includes it.
+type ProjectConfigLavaFlow = map[string]interface{}
 
 // ProjectConfigMissingResource defines model for ProjectConfigMissingResource.
 type ProjectConfigMissingResource struct {
