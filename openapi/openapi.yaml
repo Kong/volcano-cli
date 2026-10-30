@@ -26430,15 +26430,8 @@ components:
           type: boolean
     ProjectConfigLavaFlow:
       type: object
-      additionalProperties: false
-      description: 'AI diagnosis and fix settings. Omitted fields keep their current value; a project that never saved settings starts from `max_stage: pull_request` and `auto_trigger: true`.'
-      properties:
-        enabled:
-          type: boolean
-        max_stage:
-          $ref: '#/components/schemas/LavaFlowStage'
-        auto_trigger:
-          type: boolean
+      deprecated: true
+      description: Ignored. LavaFlow is no longer part of the platform. A manifest that still declares this section applies as before, without it, and the result reports it as `unchanged` with a notice. Export never includes it.
     ProjectConfigScheduler:
       type: object
       additionalProperties: false
