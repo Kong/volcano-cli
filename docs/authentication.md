@@ -111,7 +111,8 @@ If the server can't be reached or fails, `volcano logout` says so, exits
 non-zero, and keeps the login saved on this machine. Run `volcano logout` again
 to end it. If the server refuses to revoke the login, `volcano logout` removes
 it from this machine anyway and exits non-zero. The token then stays valid
-until it expires.
+until it expires. If it was a project access token, revoke it with
+`volcano cloud access-tokens revoke`.
 
 Local development keeps no sign-in session on the server, so there
 `volcano logout` only removes the login from this machine.

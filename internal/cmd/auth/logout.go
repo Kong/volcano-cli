@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	cliauth "github.com/Kong/volcano-cli/internal/auth"
 	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -28,10 +30,11 @@ in.
 If the server can't be reached or fails, the command says so, exits non-zero,
 and keeps the login saved, so running it again can end it. If the server
 refuses to revoke the login, the command removes it from this machine anyway
-and exits non-zero; the token then stays valid until it expires.
+and exits non-zero; the token then stays valid until it expires. If it was a
+project access token, revoke it with '%[1]s'.
 
 A project access token (pt-) is removed from this machine but not revoked:
-revoke it with '%s'. A token in VOLCANO_TOKEN was never saved,
+revoke it with '%[1]s'. A token in VOLCANO_TOKEN was never saved,
 so logout doesn't unset it, and revokes it only when it is the saved token.`,
 			cliruntime.CommandPath(deps, "cloud access-tokens revoke"),
 		),
@@ -69,8 +72,8 @@ func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
 		output.Note(w, "The project access token stays valid: revoke it with %s.",
 			cliruntime.CommandPath(deps, "cloud access-tokens revoke"))
 	case cliauth.LogoutRefused:
-		return fmt.Errorf("logged out of this machine, but the server did not end this login: %w\n\n"+
-			"The token stays valid until it expires", result.RevokeErr)
+		return fmt.Errorf("logged out of this machine, but the server did not end this login: %w\n\n%s",
+			result.RevokeErr, refusedAdvice(deps, result.RevokeErr))
 	}
 	output.Note(w, "Removed the login from ~/.volcano/config.json.")
 	switch {
@@ -81,6 +84,18 @@ func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
 		output.Note(w, "%s is still set, so commands keep using it. Logout neither revokes nor unsets it.", config.TokenEnv)
 	}
 	return nil
+}
+
+// refusedAdvice says what still holds after the server refused to end the
+// login. A 403 means the login held a project access token, which only the
+// access-token commands revoke.
+func refusedAdvice(deps cliruntime.Deps, err error) string {
+	if api.Status(err) == http.StatusForbidden {
+		return fmt.Sprintf("This login held a project access token, which stays valid until it expires. "+
+			"Revoke it with %s from a login that can manage the project",
+			cliruntime.CommandPath(deps, "cloud access-tokens revoke <name-or-id>"))
+	}
+	return "The token stays valid until it expires"
 }
 
 // clearFailed explains a login the server answered for but this machine could
