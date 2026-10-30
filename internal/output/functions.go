@@ -121,6 +121,20 @@ func FunctionRuntimes(w io.Writer, runtimes []apiclient.FunctionRuntimeOption) {
 	}
 }
 
+// FunctionRegions renders the regions functions can be deployed to.
+func FunctionRegions(w io.Writer, regions []apiclient.FunctionRegion) {
+	if len(regions) == 0 {
+		fmt.Fprintln(w, "No function regions found")
+		return
+	}
+
+	on := theme.On(w)
+	tableHead(w, on, false, 44, "%-16s  %s", "Region", "Location")
+	for _, region := range regions {
+		fmt.Fprintf(w, "%-16s  %s\n", region.Code, region.Label)
+	}
+}
+
 // LogEvents renders function log events.
 func LogEvents(w io.Writer, events []apiclient.LogEvent) {
 	on := theme.On(w)

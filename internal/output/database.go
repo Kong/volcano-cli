@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
@@ -118,4 +119,43 @@ func blankString(value string) string {
 		return "-"
 	}
 	return value
+}
+
+// DatabaseRegions renders the regions a database can be created in.
+func DatabaseRegions(w io.Writer, regions []api.DatabaseRegion) {
+	if len(regions) == 0 {
+		fmt.Fprintln(w, "No database regions found")
+		return
+	}
+
+	on := theme.On(w)
+	tableHead(w, on, false, 44, "%-16s  %s", "Region", "Location")
+	for _, region := range regions {
+		fmt.Fprintf(w, "%-16s  %s\n", region.ID, region.Name)
+	}
+}
+
+// PostgresVersions renders the PostgreSQL versions a database can be created
+// on, marking the default, the recommended and any deprecated one.
+func PostgresVersions(w io.Writer, versions []api.PostgresVersion) {
+	if len(versions) == 0 {
+		fmt.Fprintln(w, "No PostgreSQL versions found")
+		return
+	}
+
+	on := theme.On(w)
+	tableHead(w, on, false, 44, "%-8s  %-16s  %s", "Version", "Name", "Notes")
+	for _, version := range versions {
+		var notes []string
+		if version.Default {
+			notes = append(notes, "default")
+		}
+		if version.Recommended {
+			notes = append(notes, "recommended")
+		}
+		if version.Deprecated {
+			notes = append(notes, "deprecated")
+		}
+		fmt.Fprintf(w, "%-8s  %-16s  %s\n", version.Version, version.Name, strings.Join(notes, ", "))
+	}
 }

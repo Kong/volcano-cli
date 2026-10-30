@@ -86,6 +86,26 @@ func (s Service) ListRuntimes(ctx context.Context) ([]apiclient.FunctionRuntimeO
 	return runtimes, nil
 }
 
+// ListRegions returns the regions functions can be deployed to. The route is
+// public, so this needs no sign-in.
+func (s Service) ListRegions(ctx context.Context) ([]apiclient.FunctionRegion, error) {
+	cfg, err := s.sessions.Config()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := s.sessions.APIClient(s.sessions.APIURL(cfg), cfg.Token())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create api client: %w", err)
+	}
+
+	regions, err := client.ListFunctionRegions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list function regions: %w", err)
+	}
+	return regions, nil
+}
+
 // maxListPages caps a pagination walk so a server that keeps reporting HasMore
 // cannot hang the CLI.
 const maxListPages = 1000
