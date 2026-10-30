@@ -82,6 +82,8 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 
 	variableGetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "get", "SMOKE_MESSAGE")
 	requireContains(t, variableGetOutput, "Name: SMOKE_MESSAGE")
+	requireContains(t, variableGetOutput, "Shared: yes")
+	requireLocalModeSavesVariablesNotShared(t, volcanoBin, env, projectDir)
 
 	functionDeployOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "deploy", "--all")
 	requireContains(t, functionDeployOutput, "Packaging hello")
@@ -257,8 +259,9 @@ func readLocalModeE2EFile(t *testing.T, projectDir, relativePath string) string 
 
 // runLocalModeConfigSmoke exercises `config deploy` + `config pull` against the
 // local-mode server. It is self-contained: it declares SMOKE_MESSAGE (already
-// present, kept by the full sync) plus CONFIG_SMOKE, verifies both commands and
-// the value-free pull, then removes CONFIG_SMOKE.
+// present, kept by the full sync) plus CONFIG_SMOKE, which is not shared,
+// verifies both commands and the value-free pull, deploys the pull back, then
+// removes CONFIG_SMOKE.
 func runLocalModeConfigSmoke(t *testing.T, binary string, env []string, projectDir string) {
 	t.Helper()
 	writeLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"), `
@@ -268,10 +271,15 @@ variables:
     value: hello-from-volcano-cli
   - name: CONFIG_SMOKE
     value: from-config-deploy
+    shared: false
 functions:
   - name: hello
     visibility: public
 `)
+
+	dryRunOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy", "--dry-run")
+	requireContains(t, dryRunOutput, "Dry run: projected actions, nothing was applied.")
+	requireContains(t, dryRunOutput, "variables: 1 created")
 
 	deployOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy")
 	requireContains(t, deployOutput, "Configuration deployed from volcano-config.yaml")
@@ -279,16 +287,51 @@ functions:
 
 	variablesAfterConfig := runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "list")
 	requireContains(t, variablesAfterConfig, "CONFIG_SMOKE")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "CONFIG_SMOKE"), "Shared: no")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "SMOKE_MESSAGE"), "Shared: yes")
 
+	// The pull carries membership as the shared_variables list, without values,
+	// so the variable that is not shared is absent from it. Deploying the pull
+	// back changes nothing.
 	configPullOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "pull", "--force")
 	requireContains(t, configPullOutput, "Configuration written to")
 	pulledConfig := readLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"))
-	requireContains(t, pulledConfig, "CONFIG_SMOKE")
+	requireContains(t, pulledConfig, "shared_variables:")
+	requireContains(t, pulledConfig, "SMOKE_MESSAGE")
+	requireNotContains(t, pulledConfig, "CONFIG_SMOKE")
 	requireNotContains(t, pulledConfig, "from-config-deploy")
 	requireContains(t, pulledConfig, "version: 1")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy"), "Summary: 0 created, 0 updated, 0 deleted")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "CONFIG_SMOKE"), "Shared: no")
 
 	configDeleteOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "delete", "CONFIG_SMOKE", "--yes")
 	requireContains(t, configDeleteOutput, "deleted")
+}
+
+// requireLocalModeSavesVariablesNotShared saves an env file's variables with
+// --shared=false, checks that a later deploy without the flag keeps them not
+// shared and that --shared shares them, then removes them.
+func requireLocalModeSavesVariablesNotShared(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	writeLocalModeE2EFile(t, dir, "not-shared.env", "LOCAL_NOT_SHARED=fake-value\n")
+	t.Cleanup(func() { _ = os.Remove(filepath.Join(dir, "not-shared.env")) })
+	deploy := func(flags ...string) string {
+		t.Helper()
+		return runVolcanoLocalModeE2E(t, binary, env, dir, append([]string{"variables", "deploy", "--file", "not-shared.env"}, flags...)...)
+	}
+	shared := func() string {
+		t.Helper()
+		return runVolcanoLocalModeE2E(t, binary, env, dir, "variables", "get", "LOCAL_NOT_SHARED")
+	}
+
+	requireContains(t, deploy("--shared=false"), "LOCAL_NOT_SHARED (saved, not shared)")
+	requireContains(t, shared(), "Shared: no")
+	requireContains(t, deploy(), "LOCAL_NOT_SHARED (saved)")
+	requireContains(t, shared(), "Shared: no")
+	requireContains(t, deploy("--shared"), "LOCAL_NOT_SHARED (saved, shared)")
+	requireContains(t, shared(), "Shared: yes")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "variables", "delete", "LOCAL_NOT_SHARED", "--yes"), "deleted")
 }
 
 // requireLocalModeFunctionVisibility moves hello through every level with

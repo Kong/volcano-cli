@@ -21,7 +21,7 @@ functions and frontends at runtime.
 
 | Operation | Command |
 |---|---|
-| Deploy from env file | `volcano cloud variables deploy [-f <path>]` |
+| Deploy from env file | `volcano cloud variables deploy [-f <path>] [--shared=false]` |
 | List | `volcano cloud variables list` |
 | Get | `volcano cloud variables get <name>` |
 | Delete | `volcano cloud variables delete <name>` |
@@ -33,12 +33,31 @@ than fall back to the cloud.
 `deploy` reads variables from the file only; `NAME=value` arguments are an
 error. It creates and updates variables and never deletes them.
 
+## Shared variables
+
+A shared variable reaches every function whose `variable_scope` is `all`, the
+default. Without `--shared`, `deploy` keeps today's default: new variables are
+shared and existing ones keep their setting.
+
+- `--shared=false` saves every variable in the file as not shared. A function
+  then receives one only when its `variable_scope` is `scoped` and it lists or
+  reads the name.
+- `--shared` saves every variable in the file as shared.
+
+`variables get` shows whether a variable is shared. This setting applies to
+functions; frontends use `frontend_shared_variables`. In the manifest, set
+`shared` on a variable entry instead; see
+[Shared variable names](project-configuration.md#shared-variable-names).
+
 ## Examples
 
 ```bash
 # Deploy variables from volcano/volcano.env (or a custom file)
 volcano cloud variables deploy
 volcano cloud variables deploy -f ./secrets.env
+
+# Save them as not shared, for scoped functions that select them
+volcano cloud variables deploy -f ./secrets.env --shared=false
 
 # Inspect and remove
 volcano cloud variables list
