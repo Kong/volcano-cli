@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
+	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
@@ -23,7 +25,9 @@ type deployOptions struct {
 	// shared is nil when --shared was not passed, which leaves the server's
 	// default: a new variable is shared and an existing one keeps its setting.
 	shared *bool
-	out    io.Writer
+	// in is read when file is envfile.Stdin.
+	in  io.Reader
+	out io.Writer
 }
 
 type listOptions struct {
@@ -69,14 +73,17 @@ func newDeploy(deps cliruntime.Deps) *cobra.Command {
 		Short: "Deploy variables from volcano.env",
 		Long: fmt.Sprintf(`Sync environment variables from volcano.env to your project.
 Changed variables are saved immediately and then propagated asynchronously to
-affected functions and frontends. Use "%s" to see the latest
+affected functions and frontends. Use "%[1]s" to see the latest
 propagation status.
 
 By default, looks for volcano.env in these locations (in order):
   1. volcano/volcano.env (recommended)
   2. ./volcano.env (project root)
 
-Use --file to specify a custom path.
+Use --file to specify a custom path, or --file - to read the file from
+standard input, so a secret manager's output never touches disk:
+
+  op inject -i volcano.env.tpl | %[2]s --file -
 
 Creates new variables and updates existing ones.
 
@@ -84,12 +91,13 @@ A shared variable reaches every function whose variable scope is all, the
 default. Pass --shared=false to save the file's variables as not shared: a
 function then receives one only when its variable scope is scoped and it lists
 or reads the name. --shared saves them as shared. Without the flag, new
-variables are shared and existing ones keep their setting.`, cliruntime.CommandPath(deps, "variables list")),
+variables are shared and existing ones keep their setting.`, cliruntime.CommandPath(deps, "variables list"), cliruntime.CommandPath(deps, "variables deploy")),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts := deployOptions{
 				deps: deps,
 				file: file,
+				in:   cmd.InOrStdin(),
 				out:  cmd.OutOrStdout(),
 			}
 			if cmd.Flags().Changed("shared") {
@@ -98,7 +106,7 @@ variables are shared and existing ones keep their setting.`, cliruntime.CommandP
 			return runDeploy(cmd.Context(), opts)
 		},
 	}
-	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to env file (default: volcano/volcano.env or ./volcano.env)")
+	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to env file, or - for standard input (default: volcano/volcano.env or ./volcano.env)")
 	cmd.Flags().BoolVar(&shared, "shared", false, "Save the variables as shared (--shared) or not shared (--shared=false); omit to keep the default: new variables shared, existing ones unchanged")
 	return cmd
 }
@@ -106,11 +114,11 @@ variables are shared and existing ones keep their setting.`, cliruntime.CommandP
 // Deploy saves every variable in the env file at path, as "variables deploy"
 // does. An empty path uses the default lookup. out must not be nil.
 func Deploy(ctx context.Context, deps cliruntime.Deps, path string, out io.Writer) error {
-	return runDeploy(ctx, deployOptions{deps: deps, file: path, out: out})
+	return runDeploy(ctx, deployOptions{deps: deps, file: path, in: os.Stdin, out: out})
 }
 
 func runDeploy(ctx context.Context, opts deployOptions) error {
-	envFile, err := envfile.Load(opts.file)
+	envFile, err := loadEnvFile(opts)
 	if err != nil {
 		return err
 	}
@@ -143,6 +151,20 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	fmt.Fprintln(opts.out)
 	output.Success(opts.out, "%d variable(s) saved and propagation started", len(vars))
 	return nil
+}
+
+// loadEnvFile reads the env file the options name. With --file - it reads
+// standard input, unless that is a terminal, where it would wait for input no
+// one is piping in.
+func loadEnvFile(opts deployOptions) (*envfile.File, error) {
+	if opts.file != envfile.Stdin {
+		return envfile.Load(opts.file)
+	}
+	if f, ok := opts.in.(*os.File); ok && term.IsTerminal(f.Fd()) {
+		return nil, fmt.Errorf("--file - reads the env file from standard input, which is a terminal here; pipe the file in, such as: op inject -i volcano.env.tpl | %s --file -",
+			cliruntime.CommandPath(opts.deps, "variables deploy"))
+	}
+	return envfile.Read(envfile.StdinName, opts.in)
 }
 
 func newList(deps cliruntime.Deps) *cobra.Command {

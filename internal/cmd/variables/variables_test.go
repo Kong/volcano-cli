@@ -250,6 +250,64 @@ func TestVariableGetShowsWhetherItIsShared(t *testing.T) {
 	assert.NotContains(t, out, secretSentinelAPINewValue)
 }
 
+// --file - reads the env file from standard input, as a pipe from a secret
+// manager provides it, and never echoes a value.
+func TestVariablesDeployReadsStandardInput(t *testing.T) {
+	setVariableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	saveVariableCommandTestConfig(t, &cliconfig.Config{
+		UserToken:      "token",
+		CurrentProject: &cliconfig.ProjectConfig{ID: variableProjectID, Name: "Beta"},
+	})
+	var bodies []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		bodies = append(bodies, body)
+		writeVariableCommandJSON(t, w, http.StatusCreated, variableCommandPayload(variableProjectID, body["name"].(string), body["value"].(string)))
+	}))
+	defer server.Close()
+
+	for _, flag := range []string{"--file", "-f"} {
+		bodies = nil
+		cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+		cmd.SetIn(strings.NewReader("API_KEY=" + secretSentinelAPINewValue + "\nDEBUG=" + secretSentinelDebugValue + "\n"))
+		out, err := executeVariableCommand(t, cmd, "deploy", flag, "-")
+		require.NoError(t, err, flag)
+		assert.ElementsMatch(t, []map[string]any{
+			{"name": "API_KEY", "value": secretSentinelAPINewValue},
+			{"name": "DEBUG", "value": secretSentinelDebugValue},
+		}, bodies, flag)
+		assert.Contains(t, out, "Reading standard input...", flag)
+		assert.Contains(t, out, "2 variable(s) saved", flag)
+		assert.NotContains(t, out, secretSentinelAPINewValue, flag)
+		assert.NotContains(t, out, secretSentinelDebugValue, flag)
+	}
+	entries, err := os.ReadDir(".")
+	require.NoError(t, err)
+	assert.Empty(t, entries, "nothing is written to disk")
+}
+
+func TestVariablesDeployFromEmptyStandardInput(t *testing.T) {
+	setVariableCommandTestHome(t)
+	cmd := New(cliruntime.Deps{})
+	cmd.SetIn(strings.NewReader(""))
+	out, err := executeVariableCommand(t, cmd, "deploy", "--file", "-")
+	require.NoError(t, err)
+	assert.Contains(t, out, "No variables found in standard input")
+}
+
+// The parser's message quotes the input, which holds values, so it is left out.
+func TestVariablesDeployStandardInputParseErrorHidesValues(t *testing.T) {
+	setVariableCommandTestHome(t)
+	cmd := New(cliruntime.Deps{})
+	cmd.SetIn(strings.NewReader("API_KEY=\"" + secretSentinelAPINewValue + "\nDEBUG\n"))
+	out, err := executeVariableCommand(t, cmd, "deploy", "--file", "-")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read standard input: it is not a valid env file")
+	assert.NotContains(t, out+err.Error(), secretSentinelAPINewValue)
+}
+
 func TestVariablesDeployEmptyEnvFile(t *testing.T) {
 	setVariableCommandTestHome(t)
 	t.Chdir(t.TempDir())

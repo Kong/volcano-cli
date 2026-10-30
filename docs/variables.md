@@ -33,6 +33,19 @@ than fall back to the cloud.
 `deploy` reads variables from the file only; `NAME=value` arguments are an
 error. It creates and updates variables and never deletes them.
 
+`--file -` reads the env file from standard input, so a secret manager's output
+reaches Volcano without being written to disk:
+
+```bash
+op inject -i volcano.env.tpl | volcano cloud variables deploy --file -
+```
+
+The values are never printed. If the input is not a valid env file, the error
+leaves out the parser's message, which would quote the input. When standard
+input is a terminal, `--file -` refuses rather than wait for input.
+A process substitution such as `--file <(op inject -i volcano.env.tpl)` works
+too.
+
 ## Shared variables
 
 A shared variable reaches every function whose `variable_scope` is `all`, the

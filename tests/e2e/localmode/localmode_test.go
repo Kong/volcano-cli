@@ -84,6 +84,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, variableGetOutput, "Name: SMOKE_MESSAGE")
 	requireContains(t, variableGetOutput, "Shared: yes")
 	requireLocalModeSavesVariablesNotShared(t, volcanoBin, env, projectDir)
+	requireLocalModeDeploysVariablesFromStandardInput(t, volcanoBin, env, projectDir)
 
 	functionDeployOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "deploy", "--all")
 	requireContains(t, functionDeployOutput, "Packaging hello")
@@ -332,6 +333,29 @@ func requireLocalModeSavesVariablesNotShared(t *testing.T, binary string, env []
 	requireContains(t, shared(), "Shared: yes")
 
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "variables", "delete", "LOCAL_NOT_SHARED", "--yes"), "deleted")
+}
+
+// requireLocalModeDeploysVariablesFromStandardInput pipes an env file into
+// `variables deploy --file -`, checks the variable was saved without its value
+// being printed, then removes it.
+func requireLocalModeDeploysVariablesFromStandardInput(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binary, "variables", "deploy", "--file", "-")
+	cmd.Env = env
+	cmd.Dir = dir
+	cmd.Stdin = strings.NewReader("LOCAL_FROM_STDIN=fake-stdin-value\n")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("volcano variables deploy --file - failed: %v\n%s", err, output)
+	}
+	requireContains(t, string(output), "Reading standard input...")
+	requireContains(t, string(output), "LOCAL_FROM_STDIN (saved)")
+	requireNotContains(t, string(output), "fake-stdin-value")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "variables", "get", "LOCAL_FROM_STDIN"), "Name: LOCAL_FROM_STDIN")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "variables", "delete", "LOCAL_FROM_STDIN", "--yes"), "deleted")
 }
 
 // requireLocalModeFunctionVisibility moves hello through every level with
