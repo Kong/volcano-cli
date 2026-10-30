@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 )
 
@@ -71,4 +72,17 @@ func TestStatusJSONSaysTheSettingsAndTheRepository(t *testing.T) {
 		"settings":         defaultLavaflowSettings(),
 		"repository_state": clilavaflow.RepositoryNotConnected,
 	}, decodeJSON(t, out))
+}
+
+// A caller who can't change the settings is told so, and isn't told to turn
+// LavaFlow on.
+func TestStatusSaysWhenTheCallerCantChangeIt(t *testing.T) {
+	_, deps := newLavaflowServer(t)
+	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"secret")
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "You can change it: no")
+	assert.Contains(t, out, clilavaflow.OnDescription)
+	assert.NotContains(t, out, "Turn it on")
 }

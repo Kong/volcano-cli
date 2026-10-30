@@ -24899,7 +24899,7 @@ components:
         - open_pr
     LavaflowSettings:
       type: object
-      required: [enabled, autonomy, custom_context, system_prompt, updated_at]
+      required: [enabled, autonomy, custom_context, system_prompt, updated_at, can_update]
       properties:
         enabled:
           type: boolean
@@ -24917,6 +24917,9 @@ components:
         updated_by:
           type: string
           nullable: true
+        can_update:
+          type: boolean
+          description: Whether this caller can change the settings. Always false for a project access token.
     LavaflowSettingsUpdate:
       type: object
       additionalProperties: false

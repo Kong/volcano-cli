@@ -8518,12 +8518,15 @@ type LavaflowRunSummary struct {
 
 // LavaflowSettings defines model for LavaflowSettings.
 type LavaflowSettings struct {
-	Autonomy      LavaflowAutonomy `json:"autonomy"`
-	CustomContext string           `json:"custom_context"`
-	Enabled       bool             `json:"enabled"`
-	SystemPrompt  string           `json:"system_prompt"`
-	UpdatedAt     time.Time        `json:"updated_at"`
-	UpdatedBy     *string          `json:"updated_by,omitempty"`
+	Autonomy LavaflowAutonomy `json:"autonomy"`
+
+	// CanUpdate Whether this caller can change the settings. Always false for a project access token.
+	CanUpdate     bool      `json:"can_update"`
+	CustomContext string    `json:"custom_context"`
+	Enabled       bool      `json:"enabled"`
+	SystemPrompt  string    `json:"system_prompt"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	UpdatedBy     *string   `json:"updated_by,omitempty"`
 }
 
 // LavaflowSettingsUpdate defines model for LavaflowSettingsUpdate.

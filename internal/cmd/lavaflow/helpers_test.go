@@ -3,6 +3,7 @@ package lavaflow
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -86,7 +87,7 @@ func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
 func defaultLavaflowSettings() map[string]any {
 	return map[string]any{
 		"enabled": false, "autonomy": "open_pr", "custom_context": "", "system_prompt": "",
-		"updated_at": "2026-10-20T10:00:00Z",
+		"updated_at": "2026-10-20T10:00:00Z", "can_update": true,
 	}
 }
 
@@ -121,7 +122,12 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.queries[route] = append(s.queries[route], r.URL.Query())
 	switch {
 	case r.Method == http.MethodGet && route == "":
-		s.write(w, http.StatusOK, s.settings)
+		settings := maps.Clone(s.settings)
+		// The API says a project access token can't change the settings.
+		if strings.HasPrefix(r.Header.Get("Authorization"), "Bearer "+cliconfig.ProjectTokenPrefix) {
+			settings["can_update"] = false
+		}
+		s.write(w, http.StatusOK, settings)
 	case r.Method == http.MethodPut && route == "":
 		var update map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
@@ -277,6 +283,19 @@ func summaries(runs []map[string]any) []any {
 		items = append(items, summary)
 	}
 	return items
+}
+
+// executeLavaflowCommandSplit runs a command with stdin and returns its
+// stdout and stderr apart.
+func executeLavaflowCommandSplit(t *testing.T, cmd *cobra.Command, stdin io.Reader, args ...string) (string, string, error) {
+	t.Helper()
+	var out, errOut bytes.Buffer
+	cmd.SetIn(stdin)
+	cmd.SetOut(&out)
+	cmd.SetErr(&errOut)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return out.String(), errOut.String(), err
 }
 
 func executeLavaflowCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {

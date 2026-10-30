@@ -163,14 +163,24 @@ func repository(ctx context.Context, authenticated *clisession.ProjectSession) (
 	}
 }
 
-// SetEnabled turns LavaFlow on or off for the current project, sending
-// enabled alone so the other settings keep their values.
-func (s Service) SetEnabled(ctx context.Context, enabled bool) (*apiclient.LavaflowSettings, error) {
-	verb := "turn LavaFlow off"
-	if enabled {
-		verb = "turn LavaFlow on"
-	}
-	return s.update(ctx, verb, apiclient.LavaflowSettingsUpdate{Enabled: &enabled})
+// EnableNotice is what enable says before it turns LavaFlow on, whether or
+// not it then asks, in the wording approved for it. Keep it verbatim.
+const EnableNotice = "LavaFlow sends this resource's logs and source code to an AI service that Volcano operates."
+
+// Enable turns LavaFlow on for the current project, sending enabled alone so
+// the other settings keep their values. confirm runs once the checks that
+// need no answer have passed and before anything changes; an error from it
+// stops the change and is returned as is.
+func (s Service) Enable(ctx context.Context, confirm func() error) (*apiclient.LavaflowSettings, error) {
+	enabled := true
+	return s.update(ctx, "turn LavaFlow on", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, confirm)
+}
+
+// Disable turns LavaFlow off for the current project, sending enabled alone
+// so the other settings keep their values.
+func (s Service) Disable(ctx context.Context) (*apiclient.LavaflowSettings, error) {
+	enabled := false
+	return s.update(ctx, "turn LavaFlow off", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, nil)
 }
 
 // UpdateSettings changes the fields update sets and keeps the rest.
@@ -183,12 +193,12 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 			return nil, fmt.Errorf("the %s is %d characters long: the most is %d", name, len([]rune(*text)), MaxTextLength)
 		}
 	}
-	return s.update(ctx, "change LavaFlow's settings", update)
+	return s.update(ctx, "change LavaFlow's settings", update, nil)
 }
 
 // update refuses a project access token before sending anything, the
-// capabilities read included.
-func (s Service) update(ctx context.Context, verb string, update apiclient.LavaflowSettingsUpdate) (*apiclient.LavaflowSettings, error) {
+// capabilities read included. A non-nil confirm runs just before the change.
+func (s Service) update(ctx context.Context, verb string, update apiclient.LavaflowSettingsUpdate, confirm func() error) (*apiclient.LavaflowSettings, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
@@ -198,6 +208,11 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	}
 	if err := requireAvailable(ctx, authenticated); err != nil {
 		return nil, err
+	}
+	if confirm != nil {
+		if err := confirm(); err != nil {
+			return nil, err
+		}
 	}
 	settings, err := authenticated.API.UpdateLavaflowSettings(ctx, authenticated.ProjectID, update)
 	if err != nil {

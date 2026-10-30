@@ -2,10 +2,12 @@
 package lavaflow
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -68,7 +70,27 @@ func isHelpFlag(arg string) bool {
 }
 
 func writeJSON(w io.Writer, value any) error {
-	encoder := json.NewEncoder(w)
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(value)
+	if err := encoder.Encode(value); err != nil {
+		return err
+	}
+	_, err := io.WriteString(w, escapeJSONControls(buf.String()))
+	return err
+}
+
+// escapeJSONControls writes DEL and the C1 controls, which encoding/json
+// passes through, as \u escapes, like the C0 controls it already escapes.
+// They can only appear inside a JSON string, where the escape means the same.
+func escapeJSONControls(encoded string) string {
+	var b strings.Builder
+	for _, r := range encoded {
+		if r == 0x7f || (r >= 0x80 && r <= 0x9f) {
+			fmt.Fprintf(&b, "\\u%04x", r)
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }

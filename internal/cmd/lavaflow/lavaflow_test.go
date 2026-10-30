@@ -63,7 +63,7 @@ func TestEveryCommandSaysWhenLavaFlowIsNotAvailable(t *testing.T) {
 	} {
 		for _, args := range [][]string{
 			{"status"},
-			{"enable"},
+			{"enable", "--yes"},
 			{"disable"},
 			{"settings"},
 			{"settings", "set", "--autonomy", "diagnose_only"},

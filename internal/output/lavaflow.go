@@ -38,8 +38,15 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 	kv(w, on, "Updated", "%s", formatLavaflowTime(settings.UpdatedAt))
+	if !settings.CanUpdate {
+		kv(w, on, "You can change it", "no: that needs a person's session with the project's settings role")
+	}
 	if !settings.Enabled {
-		Note(w, "%s Turn it on with %s.", details.Description, theme.Command(details.EnableCommand, on))
+		if settings.CanUpdate {
+			Note(w, "%s Turn it on with %s.", details.Description, theme.Command(details.EnableCommand, on))
+		} else {
+			Note(w, "%s", details.Description)
+		}
 		return
 	}
 	if details.RepositoryState == "not_connected" && settings.Autonomy == apiclient.OpenPr {
@@ -167,6 +174,10 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 		// The API words each failure code itself, so it is printed as given.
 		Warning(w, "%s", clean(*run.Failure.Message))
 	}
+	if lavaflowTextCleared(run, time.Now()) {
+		Note(w, "Details were cleared after %d days", LavaflowTextRetentionDays)
+		return
+	}
 	if diagnosis := run.Diagnosis; diagnosis != nil {
 		if diagnosis.Summary != nil {
 			block(w, on, "Diagnosis", *diagnosis.Summary)
@@ -196,6 +207,24 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	}
 }
 
+// LavaflowTextRetentionDays is how long Volcano keeps a run's text: its
+// diagnosis, log lines and diff. The run, its pull request and the stats stay.
+const LavaflowTextRetentionDays = 90
+
+// lavaflowTextCleared reports a run past the days its text is kept that came
+// back without that text.
+func lavaflowTextCleared(run *apiclient.LavaflowRun, now time.Time) bool {
+	if now.Sub(run.CreatedAt) < LavaflowTextRetentionDays*24*time.Hour {
+		return false
+	}
+	if run.Diff != nil && *run.Diff != "" {
+		return false
+	}
+	diagnosis := run.Diagnosis
+	return diagnosis == nil || (stringOr(diagnosis.Summary, "") == "" && stringOr(diagnosis.RootCause, "") == "" &&
+		(diagnosis.Evidence == nil || len(*diagnosis.Evidence) == 0) && (diagnosis.LogLines == nil || len(*diagnosis.LogLines) == 0))
+}
+
 func block(w io.Writer, on bool, title, text string) {
 	fmt.Fprintf(w, "\n%s\n", theme.Title(title, on))
 	if strings.TrimSpace(text) == "" {
@@ -207,10 +236,26 @@ func block(w io.Writer, on bool, title, text string) {
 	}
 }
 
-// clean drops control characters from text the API returns, which can come
-// from logs or a repository, so it can't rewrite the terminal.
+// clean prints text from the API, which can come from logs or a repository,
+// as plain text: each control character other than tab, such as an escape,
+// a carriage return or a C1 code, prints as a visible escape like \x1b, so
+// the text can't move the cursor, change colors or set links or the title.
+// A newline is escaped too; block splits text into lines before this.
 func clean(text string) string {
-	return theme.StripControl(text)
+	var b strings.Builder
+	for _, r := range text {
+		switch {
+		case r == '\t':
+			b.WriteRune(r)
+		case r < 0x20 || r == 0x7f:
+			fmt.Fprintf(&b, "\\x%02x", r)
+		case r >= 0x80 && r <= 0x9f:
+			fmt.Fprintf(&b, "\\u%04x", r)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func setOrNot(text string) string {

@@ -13,7 +13,7 @@ const lavaflowNotYours = "LavaFlow isn't available to your account yet"
 // lavaflowCommands is every LavaFlow command, each with --json.
 var lavaflowCommands = [][]string{
 	{"lavaflow", "status", "--json"},
-	{"lavaflow", "enable", "--json"},
+	{"lavaflow", "enable", "--yes", "--json"},
 	{"lavaflow", "disable", "--json"},
 	{"lavaflow", "settings", "--json"},
 	{"lavaflow", "settings", "set", "--autonomy", "diagnose_only", "--json"},
@@ -50,7 +50,8 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 
 	env.runCloudCLI(t, "lavaflow", "status").requireSuccess(t, "LavaFlow: off", "Repository: none connected",
 		"Turn it on with volcano cloud lavaflow enable")
-	env.runCloudCLI(t, "lavaflow", "enable").requireSuccess(t, "LavaFlow is on")
+	env.runCloudCLI(t, "lavaflow", "enable", "--yes").requireSuccess(t,
+		"LavaFlow sends this resource's logs and source code to an AI service that Volcano operates.", "LavaFlow is on")
 	env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only",
 		"--custom-context", "cli-e2e context").requireSuccess(t, "LavaFlow's settings are saved")
 

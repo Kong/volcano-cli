@@ -43,18 +43,57 @@ func TestShowPrintsTheFailureAsTheAPIWordsIt(t *testing.T) {
 	assert.NotContains(t, out, "source_unavailable")
 }
 
-// Text from a run can come from logs or a repository, so control characters
-// never reach the terminal.
-func TestShowDropsControlCharacters(t *testing.T) {
+// Run text prints as plain text: a control character in a log line, such as
+// a color, a terminal link or a carriage return, prints as a visible escape,
+// and --json keeps the text as a JSON string.
+func TestShowPrintsRunTextAsPlainText(t *testing.T) {
+	line := "\x1b[31mred\x1b[0m \x1b]8;;https://example.com\x1b\\link\x1b]8;;\x1b\\ done\rover\u009b2J\x7f\x07"
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
-		s.runs[0]["diagnosis"].(map[string]any)["summary"] = "Fine\x1b[2J\x1b]0;owned\x07 text"
+		diagnosis := s.runs[0]["diagnosis"].(map[string]any)
+		diagnosis["log_lines"] = []any{map[string]any{"timestamp": "2026-10-30T08:59:00Z", "level": "error", "message": line}}
+		diagnosis["summary"] = "**Bold** _claim_ with \x1b[2J\nsecond line"
 	})
 
 	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
-	assert.NotContains(t, out, "\x1b")
-	assert.NotContains(t, out, "\x07")
+	assert.Contains(t, out, `\x1b[31mred\x1b[0m \x1b]8;;https://example.com\x1b\link\x1b]8;;\x1b\ done\x0dover\u009b2J\x7f\x07`)
+	assert.Contains(t, out, "Diagnosis\n  **Bold** _claim_ with \\x1b[2J\n  second line\n", "Markdown prints as written")
+	for _, raw := range []string{"\x1b", "\r", "\x07", "\x7f", "\u009b"} {
+		assert.NotContains(t, out, raw)
+	}
+
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+	require.NoError(t, err)
+	for _, raw := range []string{"\x1b", "\r", "\x07", "\x7f", "\u009b"} {
+		assert.NotContains(t, out, raw)
+	}
+	logLines := decodeJSON(t, out)["diagnosis"].(map[string]any)["log_lines"].([]any)
+	assert.Equal(t, line, logLines[0].(map[string]any)["message"], "the JSON string decodes to the text as the API sent it")
+}
+
+// A run's text is kept for 90 days. An older run comes back without it and
+// says so, while its pull request still shows.
+func TestShowSaysAnOldRunsDetailsWereCleared(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		run := s.runs[0]
+		run["created_at"], run["finished_at"] = "2025-01-10T09:00:00Z", "2025-01-10T09:03:00Z"
+		delete(run, "diff")
+		run["diagnosis"] = map[string]any{}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Note: Details were cleared after 90 days")
+	assert.Contains(t, out, "Pull request: #42 (open) https://github.com/acme/shop/pull/42")
+	assert.NotContains(t, out, "Diagnosis")
+
+	// A recent run without a diagnosis yet says nothing about clearing.
+	fake.set(func(s *lavaflowServer) { s.runs[0]["created_at"] = "2099-01-01T00:00:00Z" })
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.NotContains(t, out, "cleared")
 }
 
 // The run's log lines need the permission to read the project's logs; the

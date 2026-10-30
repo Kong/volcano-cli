@@ -37,7 +37,7 @@ why and exits with code 4:
 | Operation | Command |
 |---|---|
 | Show whether LavaFlow is on | `volcano cloud lavaflow status [--json]` |
-| Turn LavaFlow on | `volcano cloud lavaflow enable [--json]` |
+| Turn LavaFlow on | `volcano cloud lavaflow enable [--yes] [--json]` |
 | Turn LavaFlow off | `volcano cloud lavaflow disable [--json]` |
 | Show the settings in full | `volcano cloud lavaflow settings [--json]` |
 | Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--json]` |
@@ -47,6 +47,11 @@ why and exits with code 4:
 | Show a run | `volcano cloud lavaflow show <run-id> [--json]` |
 
 Every command takes `--json` for the API's own fields and values.
+
+Text from a run, such as its diagnosis, log lines, diff and title, prints as
+plain text. A control character in it, such as a color code or a carriage
+return in a log line, prints as a visible escape such as `\x1b`, and with
+`--json` it stays escaped inside the JSON string.
 
 Turning LavaFlow on or off and changing its settings need a person's session:
 a project access token is refused before anything is sent, and the command
@@ -62,12 +67,20 @@ volcano cloud lavaflow enable
 ```
 
 ```text
+LavaFlow sends this resource's logs and source code to an AI service that Volcano operates.
+Turn LavaFlow on? Type 'y' or 'yes' to confirm: y
 ✓ LavaFlow is on
 LavaFlow: on
 Autonomy: open fix pull requests
 Custom context: not set
 System prompt: not set
 ```
+
+`enable` says where LavaFlow sends the project's data, then asks before it
+turns LavaFlow on. `--yes` skips the question, not the sentence, which goes
+to stderr so `--json` output stays JSON. Without `--yes`, `enable` needs a
+terminal to answer: in a script or CI job it exits non-zero and changes
+nothing.
 
 `disable` turns it off. No new run starts; past runs and their pull requests
 stay readable.
@@ -88,6 +101,8 @@ Updated: 2026-10-30 12:00
 ```
 
 While LavaFlow is off, the status says what it does and how to turn it on.
+When you can't change the settings, such as with a project access token, the
+status says so instead.
 When it is set to open pull requests and no repository is connected, the
 status says to run `volcano git connect`. With `--json`, `repository_state`
 is `connected`, `not_connected`, or `unknown` when the connection could not
@@ -159,6 +174,10 @@ volcano cloud lavaflow list --status failed
 `show` prints a run's diagnosis and root cause, the evidence and log lines it
 read, its review, the fix pull request, and the diff. A run that failed says
 why. Reading a run needs the permission to read the project's logs.
+
+Volcano keeps a run's text, its diagnosis, log lines and diff, for 90 days.
+For an older run, `show` prints "Details were cleared after 90 days" in their
+place. The run, its pull request and the stats stay.
 
 ```bash
 volcano cloud lavaflow show 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c

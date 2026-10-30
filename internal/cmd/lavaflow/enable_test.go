@@ -2,6 +2,9 @@ package lavaflow
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,7 +21,7 @@ func TestEnableAndDisableChangeOnlyWhetherLavaFlowIsOn(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) { s.settings["autonomy"] = "diagnose_only" })
 
-	out, err := executeLavaflowCommand(t, New(deps), "enable")
+	out, err := executeLavaflowCommand(t, New(deps), "enable", "--yes")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
 	assert.Contains(t, out, "LavaFlow is on")
@@ -34,7 +37,7 @@ func TestEnableAndDisableChangeOnlyWhetherLavaFlowIsOn(t *testing.T) {
 func TestEnableJSONIsTheSavedSettings(t *testing.T) {
 	_, deps := newLavaflowServer(t)
 
-	out, err := executeLavaflowCommand(t, New(deps), "enable", "--json")
+	out, _, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""), "enable", "--yes", "--json")
 	require.NoError(t, err)
 	value := decodeJSON(t, out)
 	assert.Equal(t, true, value["enabled"])
@@ -106,10 +109,58 @@ func TestEnablePassesTheAPIsRefusalThrough(t *testing.T) {
 		s.refusal = map[string]any{"error": "you can't change this project's settings", "code": "forbidden"}
 	})
 
-	_, err := executeLavaflowCommand(t, New(deps), "enable")
+	_, err := executeLavaflowCommand(t, New(deps), "enable", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to turn LavaFlow on")
 	assert.Contains(t, err.Error(), "you can't change this project's settings")
 	assert.NotContains(t, err.Error(), "isn't available")
 	assert.Equal(t, http.StatusForbidden, api.Status(err))
+}
+
+// enable says where LavaFlow sends the project's data before it changes
+// anything, --yes included, on stderr so --json stays JSON.
+func TestEnableSaysWhereTheDataGoesEvenWithYes(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+
+	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""), "enable", "--yes", "--json")
+	require.NoError(t, err)
+	assert.Equal(t, clilavaflow.EnableNotice+"\n", errOut)
+	assert.Equal(t, "LavaFlow sends this resource's logs and source code to an AI service that Volcano operates.",
+		clilavaflow.EnableNotice, "the approved wording, word for word")
+	assert.Equal(t, true, decodeJSON(t, out)["enabled"])
+	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
+}
+
+func TestEnableAsksFirst(t *testing.T) {
+	for answer, wantOn := range map[string]bool{"y\n": true, "yes\n": true, "n\n": false, "\n": false} {
+		fake, deps := newLavaflowServer(t)
+
+		out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(answer), "enable")
+		require.NoError(t, err, "%q", answer)
+		assert.True(t, strings.HasPrefix(errOut, clilavaflow.EnableNotice+"\nTurn LavaFlow on? "), "%q: %q", answer, errOut)
+		if wantOn {
+			assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t), "%q", answer)
+			assert.Contains(t, out, "LavaFlow is on", "%q", answer)
+		} else {
+			assert.Empty(t, fake.updates, "%q", answer)
+			assert.Contains(t, errOut, "Cancelled.", "%q", answer)
+			assert.Empty(t, out, "%q", answer)
+		}
+	}
+}
+
+// Nothing can answer a prompt on a stdin that isn't a terminal, so enable
+// refuses rather than read that as a no and exit 0.
+func TestEnableWithoutATerminalNeedsYes(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	path := filepath.Join(t.TempDir(), "stdin")
+	require.NoError(t, os.WriteFile(path, []byte("y\n"), 0o600))
+	stdin, err := os.Open(path)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = stdin.Close() })
+
+	_, _, err = executeLavaflowCommandSplit(t, New(deps), stdin, "enable")
+	require.Error(t, err)
+	assert.Equal(t, clilavaflow.EnableNotice+"\n\nstdin is not a terminal: confirmation required; pass --yes", err.Error())
+	assert.Empty(t, fake.updates)
 }
