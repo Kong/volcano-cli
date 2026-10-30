@@ -176,19 +176,31 @@ func requireLogoutCanBeRetried(t *testing.T, err error) {
 }
 
 func TestLogoutRemovesTheLoginWhenTheServerRefuses(t *testing.T) {
-	for _, status := range []int{http.StatusNotFound, http.StatusForbidden} {
-		t.Run(http.StatusText(status), func(t *testing.T) {
+	for _, tc := range []struct {
+		status int
+		advice string
+	}{
+		// A server without the route: a session can still be ended elsewhere.
+		{http.StatusNotFound, "The token stays valid until it expires. " +
+			"If it came from a sign-in, end that session with volcano account sessions revoke <id> from another login. " +
+			"Ending a token not tied to a session from the CLI isn't available yet."},
+		// The route refuses a project access token with 403.
+		{http.StatusForbidden, "This login held a project access token, which stays valid until it expires. " +
+			"Revoke it with volcano cloud access-tokens revoke <name-or-id> from a login that can manage the project"},
+	} {
+		t.Run(http.StatusText(tc.status), func(t *testing.T) {
 			setAuthTestHome(t)
 			saveAuthTestConfig(t, &cliconfig.Config{UserToken: "pk-saved"})
-			_, deps := newRevokeAPI(t, status)
+			_, deps := newRevokeAPI(t, tc.status)
 
 			_, err := executeAuthCommand(t, NewLogout(deps))
 			require.Error(t, err)
 
 			assert.Contains(t, err.Error(), "logged out of this machine, but the server did not end this login")
-			assert.Contains(t, err.Error(), "The token stays valid until it expires")
-			assert.Contains(t, err.Error(), "If it came from a sign-in, end that session with volcano account sessions revoke <id> from another login. "+
-				"Ending a token not tied to a session from the CLI isn't available yet.")
+			assert.Contains(t, err.Error(), tc.advice)
+			if tc.status == http.StatusForbidden {
+				assert.NotContains(t, err.Error(), "account sessions", "a project access token is no account session")
+			}
 			assert.NotContains(t, err.Error(), "dashboard")
 			requireLoggedOut(t)
 		})

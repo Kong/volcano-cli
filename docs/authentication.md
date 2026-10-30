@@ -112,7 +112,8 @@ non-zero, and keeps the login saved on this machine. Run `volcano logout` again
 to end it, or end it with `volcano account sessions revoke <id>`. If the server
 refuses to revoke the login, `volcano logout` removes it from this machine
 anyway and exits non-zero. The token then stays valid until it expires. If it
-came from a sign-in, end that session from another login with
+was a project access token, revoke it with `volcano cloud access-tokens revoke`.
+If it came from a sign-in, end that session from another login with
 `volcano account sessions revoke <id>`; see [account.md](account.md). Ending a
 token that isn't tied to a session isn't available from the CLI yet.
 
