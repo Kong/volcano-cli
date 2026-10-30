@@ -224,7 +224,7 @@ func TestConnectReportsNoGitHubConnection(t *testing.T) {
 	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
 	require.Error(t, err)
 
-	assert.Contains(t, err.Error(), "No GitHub account is connected to your Volcano account.")
+	assert.Contains(t, err.Error(), "no GitHub account is connected to your Volcano account")
 	assert.Contains(t, err.Error(), "The CLI cannot connect a GitHub account yet.")
 	assertNoWebsitePointer(t, err)
 }

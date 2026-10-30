@@ -272,11 +272,9 @@ App's access to it — pushes simply stop deploying.
 
 ## Prerequisites the CLI cannot set up
 
-Connecting a GitHub account is a browser redirect bound to a short-lived cookie,
-which no API route starts yet, so the CLI cannot connect one. If no account is
-connected, the CLI says so. If the Volcano GitHub App cannot see the
-repository, the CLI says so and asks you to grant the App access to it in
-GitHub.
+The CLI cannot connect a GitHub account yet. If no account is connected, the
+CLI says so. If the Volcano GitHub App cannot see the repository, the CLI says
+so and asks you to grant the App access to it in GitHub.
 
 The App being installed for **selected repositories** rather than all of them is
 the usual cause of a repository the CLI can otherwise see in your remote but

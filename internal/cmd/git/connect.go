@@ -108,8 +108,6 @@ Re-running connect for the same repository keeps a pinned branch.`, cliruntime.C
 
 func runConnect(ctx context.Context, opts connectOptions) error {
 	service := gitconnect.NewService(opts.deps)
-	// A web URL failure only costs the guidance links, and every error path
-	// below still reports what went wrong, so it is not worth failing over.
 
 	if opts.rootDirectorySet {
 		if err := validateRootDirectory("--root-directory", opts.rootDirectory); err != nil {

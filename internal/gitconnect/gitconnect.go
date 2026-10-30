@@ -26,7 +26,7 @@ var (
 	// ErrNoGitHubConnection indicates the caller has no usable GitHub
 	// connection. The CLI cannot create one: the connect flow is a browser
 	// redirect bound to an HttpOnly cookie, which no API route starts yet.
-	ErrNoGitHubConnection = errors.New("no GitHub account is connected")
+	ErrNoGitHubConnection = errors.New("no GitHub account is connected to your Volcano account")
 	// ErrRepositoryNotAccessible indicates the repository is real as far as the
 	// local remote is concerned, but the Volcano GitHub App cannot see it
 	// through any of the caller's installations.

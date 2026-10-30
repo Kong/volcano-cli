@@ -64,7 +64,7 @@ func guide(deps cliruntime.Deps, err error) error {
 			"%w\n\nIf this is local mode, that is expected: the local stack ships without GitHub "+
 				"App settings. Run against the cloud API", err)
 	case errors.Is(err, gitconnect.ErrNoGitHubConnection):
-		return fmt.Errorf("%w\n\n%s", err, noGitHubConnection)
+		return fmt.Errorf("%w\n\n%s", err, cannotConnectGitHub)
 	case errors.Is(err, gitconnect.ErrNotAuthenticated):
 		// The session first, because that is the cause the contract documents for
 		// this 401. A revoked GitHub connection is not documented on these routes
@@ -90,7 +90,4 @@ func guide(deps cliruntime.Deps, err error) error {
 // Connecting a GitHub account is a browser redirect bound to an HttpOnly
 // cookie, which no API route starts yet. Name what is missing rather than send
 // anyone to a web page; the CLI gains the step when the API does.
-const (
-	cannotConnectGitHub = "The CLI cannot connect a GitHub account yet."
-	noGitHubConnection  = "No GitHub account is connected to your Volcano account. " + cannotConnectGitHub
-)
+const cannotConnectGitHub = "The CLI cannot connect a GitHub account yet."
