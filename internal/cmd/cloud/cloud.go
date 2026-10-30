@@ -8,6 +8,7 @@ import (
 	configcmd "github.com/Kong/volcano-cli/internal/cmd/config"
 	databasescmd "github.com/Kong/volcano-cli/internal/cmd/databases"
 	deploycmd "github.com/Kong/volcano-cli/internal/cmd/deploy"
+	deploymentscmd "github.com/Kong/volcano-cli/internal/cmd/deployments"
 	domainscmd "github.com/Kong/volcano-cli/internal/cmd/domains"
 	durablecmd "github.com/Kong/volcano-cli/internal/cmd/durable"
 	frontendscmd "github.com/Kong/volcano-cli/internal/cmd/frontends"
@@ -47,6 +48,7 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 		configcmd.New(deps),
 		databasescmd.New(deps),
 		deploycmd.New(deps),
+		deploymentscmd.New(deps),
 		domainscmd.New(deps),
 		durablecmd.New(deps),
 		frontendscmd.New(deps),
