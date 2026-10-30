@@ -2,7 +2,8 @@
 'use strict';
 
 // Launcher shim: exec the platform-specific Volcano CLI binary, forwarding all
-// arguments, stdio, the descriptors the arguments name, and the exit code. If
+// arguments, stdio, the inherited descriptors the arguments name, and the exit
+// code. If
 // the binary is missing (e.g. install ran with --ignore-scripts, or the
 // postinstall download failed) it is fetched and verified on demand.
 
@@ -30,35 +31,39 @@ async function resolveBinary() {
 
 // A path such as /dev/fd/63, which a shell's process substitution passes
 // (`volcano variables deploy -f <(...)`), names a descriptor this process
-// inherited. spawn hands the binary only stdin, stdout and stderr, so each
-// descriptor an argument names is passed through at the same number, or the
-// binary finds it closed. The path may be a whole argument, follow `=` as in
+// inherited. The path may be a whole argument, follow `=` as in
 // --file=/dev/fd/63, or follow a short flag as in -f/dev/fd/63.
-//
-// Limit: an inherited descriptor can't be told apart from one Node opened for
-// itself, and Node opens a few at low numbers as it starts. So a low number
-// this process never inherited, such as one a wrapper in between closed,
-// reaches the binary as one of Node's descriptors rather than as a closed one.
 const DESCRIPTOR_PATH = /(?:^|=|^-[A-Za-z])\/(?:dev\/fd|proc\/self\/fd)\/(\d+)$/;
 
-function isOpen(fd) {
+// O_CLOEXEC as /proc/self/fdinfo reports it in a descriptor's flags.
+const O_CLOEXEC = 0o2000000;
+
+// inherited reports whether fd came from the process that started this one.
+// Node opens each of its own descriptors close-on-exec and an inherited one is
+// not, but only Linux shows that flag (through /proc/self/fdinfo), so
+// elsewhere nothing counts as inherited. Node also marks the low inherited
+// descriptors (below about 20) close-on-exec as it starts, so those can't be
+// told from its own and aren't passed: bash's process substitution (63 and
+// down) gets through, zsh's (11 and up) doesn't.
+function inherited(fd) {
   try {
-    fs.fstatSync(fd);
-    return true;
+    const flags = /^flags:\s*([0-7]+)$/m.exec(fs.readFileSync(`/proc/self/fdinfo/${fd}`, 'utf8'));
+    return flags !== null && (parseInt(flags[1], 8) & O_CLOEXEC) === 0;
   } catch {
     return false;
   }
 }
 
+// stdioFor maps each inherited descriptor an argument names to the same number
+// in the binary, since spawn hands it only stdin, stdout and stderr otherwise.
+// One the launcher can't show was inherited isn't passed, so the binary finds
+// it closed rather than reading one of Node's own.
 function stdioFor(args) {
   const stdio = ['inherit', 'inherit', 'inherit'];
-  if (process.platform === 'win32') {
-    return stdio;
-  }
   for (const arg of args) {
     const match = DESCRIPTOR_PATH.exec(arg);
     const fd = match ? Number(match[1]) : -1;
-    if (fd < 3 || !isOpen(fd)) {
+    if (fd < 3 || !inherited(fd)) {
       continue;
     }
     while (stdio.length < fd) {
@@ -69,10 +74,28 @@ function stdioFor(args) {
   return stdio;
 }
 
+// execBinary replaces this process with the binary where Node can (22.15 and
+// 23.11 on, not on Windows). Every descriptor still open without close-on-exec
+// was inherited, so exec passes exactly those and closes Node's own, with the
+// same limit for low descriptors as inherited. The binary's exit code and
+// signals then reach the caller directly. It returns only when it can't exec.
+function execBinary(bin, args) {
+  if (process.platform === 'win32' || typeof process.execve !== 'function') {
+    return;
+  }
+  try {
+    process.execve(bin, [bin, ...args], process.env);
+  } catch (err) {
+    console.error(`volcano: failed to launch binary: ${err.message}`);
+    process.exit(1);
+  }
+}
+
 async function main() {
   const bin = await resolveBinary();
   const args = process.argv.slice(2);
-  const child = spawn(bin, args, { stdio: stdioFor(args) });
+  execBinary(bin, args);
+  const child = spawn(bin, args, { stdio: process.platform === 'win32' ? 'inherit' : stdioFor(args) });
 
   child.on('error', (err) => {
     console.error(`volcano: failed to launch binary: ${err.message}`);

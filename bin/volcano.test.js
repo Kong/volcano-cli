@@ -53,63 +53,104 @@ function run(stdio, ...args) {
   });
 }
 
-test('passes a process substitution through to the binary', { skip: !unix }, (t) => {
-  const shim = fakePackage(t);
-  const result = spawnSync('bash', ['-c', `"${process.execPath}" "$0" -f <(printf '${fakeEnv.trim()}\\n')`, shim], { encoding: 'utf8' });
-  assert.equal(result.stderr, '');
-  assert.equal(result.status, 0);
-  assert.equal(result.stdout, fakeEnv);
-});
+// The shim execs the binary where Node has process.execve and spawns it
+// otherwise, so each case runs both ways. Spawning can show a descriptor was
+// inherited only on Linux; elsewhere it passes none on.
+//
+// Node marks inherited descriptors below about 20 close-on-exec as it starts,
+// so the inherited one here is above that, as bash's process substitution is.
+const INHERITED_FD = 40;
 
-test('passes an inherited descriptor named in --file= through to the binary', { skip: !unix }, async (t) => {
-  const shim = fakePackage(t);
+function stdioWith(fd) {
+  const stdio = ['ignore', 'pipe', 'pipe'];
+  while (stdio.length < INHERITED_FD) {
+    stdio.push('ignore');
+  }
+  stdio[INHERITED_FD] = fd;
+  return stdio;
+}
+const modes = [
+  { name: 'exec', skip: !unix || typeof process.execve !== 'function', passesDescriptors: true },
+  { name: 'spawn', skip: !unix, passesDescriptors: process.platform === 'linux' },
+];
+
+// nodeArgs runs the shim, first removing process.execve for the spawn mode.
+function nodeArgs(t, mode, shim, ...args) {
+  if (mode.name === 'exec') {
+    return [shim, ...args];
+  }
+  const preload = path.join(path.dirname(shim), 'no-execve.js');
+  fs.writeFileSync(preload, 'process.execve = undefined;\n');
+  return ['--require', preload, shim, ...args];
+}
+
+function fakeEnvFile(t, shim) {
   const file = path.join(path.dirname(shim), 'fake.env');
   fs.writeFileSync(file, fakeEnv);
   const fd = fs.openSync(file, 'r');
   t.after(() => fs.closeSync(fd));
+  return fd;
+}
 
-  const result = await run(['ignore', 'pipe', 'pipe', 'ignore', fd], shim, '--file=/dev/fd/4');
-  assert.equal(result.stderr, '');
-  assert.equal(result.code, 0);
-  assert.equal(result.stdout, fakeEnv);
-});
+function assertPassedThrough(mode, result) {
+  if (mode.passesDescriptors) {
+    assert.equal(result.stderr, '');
+    assert.equal(result.code ?? result.status, 0);
+    assert.equal(result.stdout, fakeEnv);
+  } else {
+    assert.equal(result.code ?? result.status, 3);
+    assert.equal(result.stdout, '');
+  }
+}
 
-test('passes a descriptor named after an attached short flag through to the binary', { skip: !unix }, async (t) => {
-  const shim = fakePackage(t);
-  const file = path.join(path.dirname(shim), 'fake.env');
-  fs.writeFileSync(file, fakeEnv);
-  const fd = fs.openSync(file, 'r');
-  t.after(() => fs.closeSync(fd));
+for (const mode of modes) {
+  test(`${mode.name}: passes a process substitution through to the binary`, { skip: mode.skip }, (t) => {
+    const shim = fakePackage(t);
+    const args = nodeArgs(t, mode, shim).map((arg) => `"${arg}"`).join(' ');
+    const result = spawnSync('bash', ['-c', `"${process.execPath}" ${args} -f <(printf '${fakeEnv.trim()}\\n')`], { encoding: 'utf8' });
+    assertPassedThrough(mode, result);
+  });
 
-  const result = await run(['ignore', 'pipe', 'pipe', 'ignore', fd], shim, '-f/dev/fd/4');
-  assert.equal(result.stderr, '');
-  assert.equal(result.code, 0);
-  assert.equal(result.stdout, fakeEnv);
-});
+  test(`${mode.name}: passes an inherited descriptor named in --file= through to the binary`, { skip: mode.skip }, async (t) => {
+    const shim = fakePackage(t);
+    const fd = fakeEnvFile(t, shim);
+    const result = await run(stdioWith(fd), ...nodeArgs(t, mode, shim, `--file=/dev/fd/${INHERITED_FD}`));
+    assertPassedThrough(mode, result);
+  });
 
-// Node's own descriptors sit at low numbers, so this uses one above them: a
-// low number the shim was not given can't be told from one of Node's (see the
-// limit in volcano.js).
-test('a descriptor above Node\'s own that the shim was not given stays closed', { skip: !unix }, async (t) => {
-  const shim = fakePackage(t);
-  const result = await run(['ignore', 'pipe', 'pipe'], shim, '--file=/dev/fd/200');
-  assert.equal(result.code, 3);
-  assert.equal(result.stdout, '');
-});
+  test(`${mode.name}: passes a descriptor named after an attached short flag through to the binary`, { skip: mode.skip }, async (t) => {
+    const shim = fakePackage(t);
+    const fd = fakeEnvFile(t, shim);
+    const result = await run(stdioWith(fd), ...nodeArgs(t, mode, shim, `-f/dev/fd/${INHERITED_FD}`));
+    assertPassedThrough(mode, result);
+  });
 
-test('passes stdin and the exit code through', { skip: !unix }, async (t) => {
-  const shim = fakePackage(t);
-  // A file rather than spawn's input option: on Linux that is a socket, which
-  // /dev/stdin can't open.
-  const file = path.join(path.dirname(shim), 'fake.env');
-  fs.writeFileSync(file, fakeEnv);
-  const fd = fs.openSync(file, 'r');
-  t.after(() => fs.closeSync(fd));
-  const piped = await run([fd, 'pipe', 'pipe'], shim, '--file', '/dev/stdin');
-  assert.equal(piped.stderr, '');
-  assert.equal(piped.code, 0);
-  assert.equal(piped.stdout, fakeEnv);
+  // Node opens its own descriptors at low numbers, so a low one the shim was
+  // not given must reach the binary closed, never as one of Node's. So must a
+  // low inherited one, which can't be told from Node's.
+  test(`${mode.name}: a descriptor the shim was not given stays closed`, { skip: mode.skip }, async (t) => {
+    const shim = fakePackage(t);
+    for (const fd of [3, 4, 5, 6, 7, 8, 9, 10, 11, 200]) {
+      const result = await run(['ignore', 'pipe', 'pipe'], ...nodeArgs(t, mode, shim, `--file=/dev/fd/${fd}`));
+      assert.equal(result.code, 3, `descriptor ${fd}`);
+      assert.equal(result.stdout, '', `descriptor ${fd}`);
+    }
+    const inherited = await run(['ignore', 'pipe', 'pipe', 'ignore', fakeEnvFile(t, shim)], ...nodeArgs(t, mode, shim, '--file=/dev/fd/4'));
+    assert.equal(inherited.code, 3, 'a low inherited descriptor');
+    assert.equal(inherited.stdout, '', 'a low inherited descriptor');
+  });
 
-  const result = await run(['ignore', 'pipe', 'pipe'], shim, '--exit=7');
-  assert.equal(result.code, 7);
-});
+  test(`${mode.name}: passes stdin and the exit code through`, { skip: mode.skip }, async (t) => {
+    const shim = fakePackage(t);
+    // A file rather than spawn's input option: on Linux that is a socket,
+    // which /dev/stdin can't open.
+    const fd = fakeEnvFile(t, shim);
+    const piped = await run([fd, 'pipe', 'pipe'], ...nodeArgs(t, mode, shim, '--file', '/dev/stdin'));
+    assert.equal(piped.stderr, '');
+    assert.equal(piped.code, 0);
+    assert.equal(piped.stdout, fakeEnv);
+
+    const result = await run(['ignore', 'pipe', 'pipe'], ...nodeArgs(t, mode, shim, '--exit=7'));
+    assert.equal(result.code, 7);
+  });
+}
