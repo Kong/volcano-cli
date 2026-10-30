@@ -24,9 +24,6 @@ type LocalCreateDefaultsFunc func(context.Context) (LocalCreateDefaults, error)
 // LocalOptions configures the local databases command.
 type LocalOptions struct {
 	CreateDefaults LocalCreateDefaultsFunc
-	// ServiceKeyDeps authenticate with the local service key, which the
-	// database API requires. Without them, ping is not offered.
-	ServiceKeyDeps *cliruntime.Deps
 }
 
 // New returns the databases command.
@@ -43,7 +40,6 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newRegions(deps))
 	cmd.AddCommand(newVersions(deps))
 	cmd.AddCommand(newResize(deps))
-	cmd.AddCommand(newPing(deps))
 	cmd.AddCommand(branchcmd.New(deps))
 	cmd.AddCommand(backupcmd.New(deps))
 	cmd.AddCommand(backupcmd.NewRestore(deps))
@@ -70,9 +66,6 @@ func NewLocalWithOptions(deps cliruntime.Deps, opts LocalOptions) *cobra.Command
 	cmd.AddCommand(newGet(deps))
 	cmd.AddCommand(newDelete(deps))
 	cmd.AddCommand(newVersions(deps))
-	if opts.ServiceKeyDeps != nil {
-		cmd.AddCommand(newLocalPing(*opts.ServiceKeyDeps))
-	}
 	cmd.AddCommand(migrationcmd.New(deps))
 	cmd.AddCommand(cloudOnlyBecause("resize", "a local database runs on your machine and has no size to change"))
 	cmd.AddCommand(cloudOnlyBecause("regions", "a local database runs on your machine, so 'databases create' needs no --region"))

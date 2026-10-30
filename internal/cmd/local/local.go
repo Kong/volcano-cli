@@ -43,13 +43,11 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 	usageDeps := localDeps
 	// Project usage requires the local user token, not the Sandbox service key.
 	usageDeps.LocalMode = false
-	serviceKeyDeps := withLocalServiceKey(deps, cache)
 
 	return []*cobra.Command{
-		sandboxescmd.NewLocal(serviceKeyDeps, usageDeps),
+		sandboxescmd.NewLocal(withLocalSandboxConfig(deps, cache), usageDeps),
 		databasescmd.NewLocalWithOptions(localDeps, databasescmd.LocalOptions{
 			CreateDefaults: cache.databaseCreateDefaults,
-			ServiceKeyDeps: &serviceKeyDeps,
 		}),
 		migrationcmd.NewLocal(localDeps),
 		storagecmd.New(localDeps),
@@ -139,9 +137,8 @@ func (c *infoCache) load(ctx context.Context) (localmode.Info, error) {
 	return c.info, c.err
 }
 
-// Sandbox APIs and the database API authenticate with the local service key,
-// unlike the function harness.
-func withLocalServiceKey(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
+// Sandbox APIs retain authentication locally, unlike the function harness.
+func withLocalSandboxConfig(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
 	local := withLocalConfig(deps, cache)
 	load := local.ConfigLoader
 	local.LocalMode = false

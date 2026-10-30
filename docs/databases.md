@@ -27,7 +27,6 @@ it using its connection string.
 | Get | `volcano databases get <name> [--show-connection-string]` |
 | Delete | `volcano databases delete <name>` |
 | List regions and PostgreSQL versions | `volcano cloud databases regions`, `volcano databases versions` |
-| Test a connection | `volcano databases ping <name> [--branch <branch>]` |
 | Change size (cloud) | `volcano cloud databases resize <name> --type <size>` |
 | Apply local migrations | `volcano migrations deploy --all -d <db>` |
 | Apply cloud migrations | `volcano cloud databases migration up --all -d <db>` |
@@ -63,27 +62,6 @@ Both lists are public, so they work before you sign in. Pass `--json` to read
 them from a script. In local development a database runs on your machine:
 `databases create` needs no `--region`, `databases regions` is refused, and
 `databases versions` lists only the version the local server runs.
-
-## Test a connection
-
-`databases ping` runs `SELECT 1` against a database through the database API
-and reports the round trip. It exits non-zero with the reason when the database
-cannot take queries, such as while it is still provisioning.
-
-```bash
-volcano cloud databases ping app
-volcano cloud databases ping app --branch feature_x --json
-```
-
-```text
-✓ Connected to database 'app' in 41ms
-```
-
-The database API takes a service key rather than your sign-in. The test uses
-`VOLCANO_TOKEN` when that is a service key, and otherwise the project's
-`volcano-cli-data-plane` key, which function invoke and storage commands share
-and which is created on first use. The key is never printed. Local development
-uses its own service key and has no branches.
 
 ## Change a database's size
 
@@ -262,9 +240,6 @@ volcano databases create app --type volcano-db-s --region us-east-1
 
 # Show the connection string
 volcano databases get app --show-connection-string
-
-# Check the database accepts queries
-volcano databases ping app
 
 # Apply migration files from volcano/migrations to the "app" database
 volcano migrations deploy --all -d app

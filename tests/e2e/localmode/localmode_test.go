@@ -53,7 +53,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, databasesAfterCreate, "app")
 
 	requireLocalModeOmitsProviderOnlyDatabaseCommands(t, volcanoBin, env, projectDir)
-	requireLocalModeTestsDatabaseConnections(t, volcanoBin, env, projectDir)
+	requireLocalModeListsCreateOptions(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsDurableFunctions(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsDurableApprovals(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsSandboxes(t, volcanoBin, env, projectDir)

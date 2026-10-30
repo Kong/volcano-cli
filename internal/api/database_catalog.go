@@ -91,26 +91,6 @@ func (c *Client) UpdateDatabaseType(ctx context.Context, projectID uuid.UUID, da
 	return apiResult(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON200)
 }
 
-// PingDatabase runs the database API's connectivity probe, a SELECT 1, against
-// a database, or against one of its branches when branchName is set. The
-// client must carry a credential the database API accepts, such as a service
-// key.
-func (c *Client) PingDatabase(ctx context.Context, databaseName, branchName string) error {
-	databaseName, branchName = strings.TrimSpace(databaseName), strings.TrimSpace(branchName)
-	if branchName == "" {
-		resp, err := c.client.QueryDatabasePingWithResponse(ctx, databaseName)
-		if err != nil {
-			return err
-		}
-		return apiOK(resp.StatusCode(), resp.Body, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON429)
-	}
-	resp, err := c.client.QueryDatabaseBranchPingWithResponse(ctx, databaseName, branchName)
-	if err != nil {
-		return err
-	}
-	return apiOK(resp.StatusCode(), resp.Body, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON429, resp.JSON503)
-}
-
 // deref returns what value points to, or the zero value for an absent field.
 func deref[T any](value *T) T {
 	if value == nil {
