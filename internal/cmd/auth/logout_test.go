@@ -139,8 +139,8 @@ func TestLogoutWhereTheServerKeepsNoSession(t *testing.T) {
 
 // A revoke the server refuses or fails still logs this machine out, but the
 // token stays valid there, so the command says so and exits non-zero.
-func TestLogoutSaysSoWhenTheServerDoesNotRevoke(t *testing.T) {
-	for _, status := range []int{http.StatusInternalServerError, http.StatusNotFound, http.StatusForbidden} {
+func TestLogoutKeepsTheLoginWhenTheRevokeCanPass(t *testing.T) {
+	for _, status := range []int{http.StatusInternalServerError, http.StatusServiceUnavailable, http.StatusTooManyRequests} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			setAuthTestHome(t)
 			saveAuthTestConfig(t, &cliconfig.Config{UserToken: "pk-saved"})
@@ -149,10 +149,46 @@ func TestLogoutSaysSoWhenTheServerDoesNotRevoke(t *testing.T) {
 			_, err := executeAuthCommand(t, NewLogout(deps))
 			require.Error(t, err)
 
-			assert.Contains(t, err.Error(), "logged out of this machine, but the server did not revoke this login")
+			requireLogoutCanBeRetried(t, err)
+		})
+	}
+}
+
+func TestLogoutKeepsTheLoginWhenTheServerCannotBeReached(t *testing.T) {
+	setAuthTestHome(t)
+	saveAuthTestConfig(t, &cliconfig.Config{UserToken: "pk-saved"})
+	server := httptest.NewServer(http.NotFoundHandler())
+	server.Close()
+
+	_, err := executeAuthCommand(t, NewLogout(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}))
+	require.Error(t, err)
+
+	requireLogoutCanBeRetried(t, err)
+}
+
+func requireLogoutCanBeRetried(t *testing.T, err error) {
+	t.Helper()
+	assert.Contains(t, err.Error(), "the server did not end this login")
+	assert.Contains(t, err.Error(), "The login is still saved on this machine. Run volcano logout again, "+
+		"or end it with volcano account sessions revoke <id>")
+	assert.NotContains(t, err.Error(), "dashboard")
+	assert.Equal(t, "pk-saved", loadAuthTestConfig(t).UserToken, "the login stays saved for another try")
+}
+
+func TestLogoutRemovesTheLoginWhenTheServerRefuses(t *testing.T) {
+	for _, status := range []int{http.StatusNotFound, http.StatusForbidden} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			setAuthTestHome(t)
+			saveAuthTestConfig(t, &cliconfig.Config{UserToken: "pk-saved"})
+			_, deps := newRevokeAPI(t, status)
+
+			_, err := executeAuthCommand(t, NewLogout(deps))
+			require.Error(t, err)
+
+			assert.Contains(t, err.Error(), "logged out of this machine, but the server did not end this login")
 			assert.Contains(t, err.Error(), "The token stays valid until it expires")
-			assert.Contains(t, err.Error(), "End it with volcano account sessions revoke <id> from another login, "+
-				"or in the dashboard under Account, Sessions")
+			assert.Contains(t, err.Error(), "End it with volcano account sessions revoke <id> from another login")
+			assert.NotContains(t, err.Error(), "dashboard")
 			requireLoggedOut(t)
 		})
 	}

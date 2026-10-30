@@ -26,10 +26,12 @@ Only this login ends. Your other CLI logins and browser sessions stay signed
 in: list them with '%[2]s', and end one with
 '%[3]s'.
 
-If the server can't revoke the login, the command says so, still removes it
-from this machine, and exits non-zero. The token then stays valid until it
-expires, so end it with '%[3]s' from another login,
-or in the dashboard under Account, Sessions.
+If the server can't be reached or fails, the command says so, exits non-zero,
+and keeps the login saved, so running it again can end it, as can
+'%[3]s'. If the server refuses to revoke the login, the
+command removes it from this machine anyway and exits non-zero; the token then
+stays valid until it expires, so end it with '%[3]s'
+from another login.
 
 A project access token (pt-) is removed from this machine but not revoked:
 revoke it with '%[1]s'. A token in VOLCANO_TOKEN was never saved,
@@ -59,19 +61,20 @@ func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
 	case cliauth.LogoutUnreadable:
 		output.Success(w, "Logged out")
 		output.Warning(w, "The saved login could not be read, so nothing was revoked on the server. "+
-			"If it is still valid, end it with %s from another login, or in the dashboard under Account, Sessions.",
+			"If it is still valid, end it with %s from another login.",
 			cliruntime.CommandPath(deps, "account sessions revoke <id>"))
 	case cliauth.LogoutProjectToken:
 		output.Success(w, "Logged out")
 		output.Note(w, "The project access token stays valid: revoke it with %s.",
 			cliruntime.CommandPath(deps, "access-tokens revoke"))
 	case cliauth.LogoutNotRevoked:
-		if err != nil {
-			return fmt.Errorf("logged out of this machine, but the server did not revoke this login: %w\n\n"+
-				"The token stays valid until it expires. End it with %s from another login, "+
-				"or in the dashboard under Account, Sessions",
-				err, cliruntime.CommandPath(deps, "account sessions revoke <id>"))
-		}
+		return fmt.Errorf("the server did not end this login: %w\n\n"+
+			"The login is still saved on this machine. Run %s again, or end it with %s",
+			err, cliruntime.CommandPath(deps, "logout"), cliruntime.CommandPath(deps, "account sessions revoke <id>"))
+	case cliauth.LogoutRefused:
+		return fmt.Errorf("logged out of this machine, but the server did not end this login: %w\n\n"+
+			"The token stays valid until it expires. End it with %s from another login",
+			err, cliruntime.CommandPath(deps, "account sessions revoke <id>"))
 	}
 	if err != nil {
 		return fmt.Errorf("failed to clear credentials: %w", err)
