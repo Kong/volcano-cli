@@ -109,6 +109,19 @@ func Deploy(ctx context.Context, deps cliruntime.Deps, path string, out io.Write
 	return runDeploy(ctx, deployOptions{deps: deps, file: path, out: out})
 }
 
+// sharedNotApplied explains a saved variable whose response does not carry the
+// --shared value asked for: a server that predates the field accepts the
+// request, ignores it, and keeps its default, so reporting the value as set
+// would be wrong about which functions receive the variable.
+func sharedNotApplied(deps cliruntime.Deps, name string, shared bool) error {
+	msg := fmt.Sprintf("%s was saved, but the server did not apply --shared=%t: "+
+		"it does not support choosing whether a variable is shared yet", name, shared)
+	if deps.LocalMode {
+		msg += "; upgrade your local-mode server image"
+	}
+	return fmt.Errorf("%s. Check it with %s", msg, cliruntime.CommandPath(deps, "variables get "+name))
+}
+
 func runDeploy(ctx context.Context, opts deployOptions) error {
 	envFile, err := envfile.Load(opts.file)
 	if err != nil {
@@ -134,8 +147,12 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		}
 	}
 	for name, value := range vars {
-		if _, err := service.Create(ctx, name, value, opts.shared); err != nil {
+		created, err := service.Create(ctx, name, value, opts.shared)
+		if err != nil {
 			return err
+		}
+		if opts.shared != nil && (created.Shared == nil || *created.Shared != *opts.shared) {
+			return sharedNotApplied(opts.deps, name, *opts.shared)
 		}
 		fmt.Fprintf(opts.out, "  + %s (%s)\n", name, saved)
 	}

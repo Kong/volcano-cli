@@ -185,7 +185,12 @@ func TestVariablesDeployShared(t *testing.T) {
 				var body map[string]any
 				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 				bodies = append(bodies, body)
-				writeVariableCommandJSON(t, w, http.StatusCreated, variableCommandPayload(variableProjectID, body["name"].(string), body["value"].(string)))
+				payload := variableCommandPayload(variableProjectID, body["name"].(string), body["value"].(string))
+				payload["shared"] = true
+				if shared, sent := body["shared"]; sent {
+					payload["shared"] = shared
+				}
+				writeVariableCommandJSON(t, w, http.StatusCreated, payload)
 			}))
 			defer server.Close()
 
@@ -228,6 +233,45 @@ func TestVariablesDeployShowsTheServersRefusalOfNotShared(t *testing.T) {
 	assert.Contains(t, err.Error(), "shared variable membership changes are temporarily unavailable")
 	assert.NotContains(t, out, "saved")
 	assert.NotContains(t, out+err.Error(), secretSentinelAPINewValue)
+}
+
+// A server that predates shared accepts the field, ignores it, and saves the
+// variable with its default. The CLI must not report the value it asked for.
+func TestVariablesDeployRefusesToReportSharedTheServerIgnored(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		returned any
+	}{
+		{"no shared in the response", nil},
+		{"the default in the response", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setVariableCommandTestHome(t)
+			t.Chdir(t.TempDir())
+			require.NoError(t, os.MkdirAll("volcano", 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join("volcano", "volcano.env"), []byte("API_KEY="+secretSentinelAPINewValue+"\n"), 0o600))
+			saveVariableCommandTestConfig(t, &cliconfig.Config{
+				UserToken:      "token",
+				CurrentProject: &cliconfig.ProjectConfig{ID: variableProjectID, Name: "Beta"},
+			})
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				payload := variableCommandPayload(variableProjectID, "API_KEY", secretSentinelAPINewValue)
+				if tc.returned != nil {
+					payload["shared"] = tc.returned
+				}
+				writeVariableCommandJSON(t, w, http.StatusCreated, payload)
+			}))
+			defer server.Close()
+
+			out, err := executeVariableCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "--shared=false")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "API_KEY was saved, but the server did not apply --shared=false")
+			assert.Contains(t, err.Error(), "Check it with volcano variables get API_KEY")
+			assert.NotContains(t, out, "not shared")
+			assert.NotContains(t, out, "propagation started")
+			assert.NotContains(t, out+err.Error(), secretSentinelAPINewValue)
+		})
+	}
 }
 
 func TestVariableGetShowsWhetherItIsShared(t *testing.T) {
