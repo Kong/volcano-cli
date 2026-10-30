@@ -133,6 +133,9 @@ volcano projects usage             # current-month and all-time usage totals
 volcano projects delete my-app     # delete
 ```
 
+When your account has no projects, `volcano projects list` says so and
+suggests `volcano projects create <name>`.
+
 Inside a directory linked with `volcano connect`, commands use the linked
 project. See [connect.md](connect.md#linked-directories).
 
