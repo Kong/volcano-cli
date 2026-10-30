@@ -17,8 +17,9 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 
 - Belongs to a **project**; one project binds to one repository.
 - Requires a **GitHub account connected to your Volcano account**, and the
-  Volcano GitHub App installed with access to the repository. Both are set up in
-  the dashboard, not from the CLI.
+  Volcano GitHub App installed with access to the repository. The CLI cannot
+  set up either yet; see
+  [Prerequisites the CLI cannot set up](#prerequisites-the-cli-cannot-set-up).
 - `connect` reads that account-wide GitHub connection, so it needs an account
   token (`pk-`) and says so when run with a project access token. Which
   repository a project deploys from is a person's choice.
@@ -272,9 +273,10 @@ App's access to it — pushes simply stop deploying.
 ## Prerequisites the CLI cannot set up
 
 Connecting a GitHub account is a browser redirect bound to a short-lived cookie,
-so it has to happen in the dashboard. If no account is connected, or the Volcano
-GitHub App cannot see the repository, the CLI says so and prints the dashboard
-URL to fix it at.
+which no API route starts yet, so the CLI cannot connect one. If no account is
+connected, the CLI says so. If the Volcano GitHub App cannot see the
+repository, the CLI says so and asks you to grant the App access to it in
+GitHub.
 
 The App being installed for **selected repositories** rather than all of them is
 the usual cause of a repository the CLI can otherwise see in your remote but

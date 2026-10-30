@@ -466,7 +466,7 @@ func (s Service) DecideApproval(
 // credential. The API's 403 is left out: its generic body would add a hint
 // about the token's project, which is not the problem here.
 var errApprovalNeedsAPerson = api.WithCause(errors.New(
-	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard"),
+	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, then decide again"),
 	config.ErrAccountTokenRequired)
 
 // RequirePerson refuses a credential the CLI knows is a project access token,

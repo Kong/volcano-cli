@@ -110,7 +110,6 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	service := gitconnect.NewService(opts.deps)
 	// A web URL failure only costs the guidance links, and every error path
 	// below still reports what went wrong, so it is not worth failing over.
-	webURL, _ := service.WebURL()
 
 	if opts.rootDirectorySet {
 		if err := validateRootDirectory("--root-directory", opts.rootDirectory); err != nil {
@@ -155,7 +154,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// how to select a different one — is the whole of what the user can act on.
 	existing, err := currentConnection(ctx, service)
 	if err != nil {
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 
 	// Resolve before deciding anything. repo_full_name is cached at connect
@@ -180,7 +179,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 			return fmt.Errorf("%w\n\nTo change only the root directory of the connected repository with this token, run:\n  %s",
 				err, rootDirectoryCommand(opts.deps, opts.rootDirectory))
 		}
-		return resolveError(opts.deps, webURL, existing, repository, err)
+		return resolveError(opts.deps, existing, repository, err)
 	}
 
 	// Nothing to change: report the binding and stop. Connecting is idempotent
@@ -230,7 +229,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		connection, err = service.Connect(ctx, *target, rootDirectoryFor(existing, target, opts), existing)
 	}
 	if err != nil {
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 
 	if replacing {
@@ -452,11 +451,10 @@ func confirmConnect(opts connectOptions, project gitconnect.ProjectRef, wanted s
 // resolveError explains the one resolve failure a user can act on — the App
 // cannot see the repository — and hands everything else to guide.
 func resolveError(
-	deps cliruntime.Deps, webURL string,
-	existing *apiclient.ProjectGitConnection, repository localgit.Repository, err error,
+	deps cliruntime.Deps, existing *apiclient.ProjectGitConnection, repository localgit.Repository, err error,
 ) error {
 	if !errors.Is(err, gitconnect.ErrRepositoryNotAccessible) {
-		return guide(deps, webURL, err)
+		return guide(deps, err)
 	}
 
 	cause := fmt.Sprintf(
@@ -471,6 +469,5 @@ func resolveError(
 			"\nThis project is connected to %s, so the local remote may also simply be out of date.",
 			existing.RepoFullName)
 	}
-	return fmt.Errorf("%w\n\n%s\n\n%s", err, cause,
-		dashboardStep(webURL, "Grant it access, then run this command again:"))
+	return fmt.Errorf("%w\n\n%s\n\nGrant the App access to it in GitHub, then run this command again", err, cause)
 }

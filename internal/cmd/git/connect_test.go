@@ -224,8 +224,17 @@ func TestConnectReportsNoGitHubConnection(t *testing.T) {
 	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
 	require.Error(t, err)
 
-	assert.Contains(t, err.Error(), "no GitHub account is connected")
-	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")
+	assert.Contains(t, err.Error(), "No GitHub account is connected to your Volcano account.")
+	assert.Contains(t, err.Error(), "The CLI cannot connect a GitHub account yet.")
+	assertNoWebsitePointer(t, err)
+}
+
+// No CLI message sends anyone to the website; a step the CLI cannot take yet is
+// named as missing instead.
+func assertNoWebsitePointer(t *testing.T, err error) {
+	t.Helper()
+	assert.NotContains(t, err.Error(), "dashboard")
+	assert.NotContains(t, err.Error(), "https://volcano.test")
 }
 
 func TestConnectReportsARepositoryTheAppCannotSee(t *testing.T) {
@@ -239,7 +248,8 @@ func TestConnectReportsARepositoryTheAppCannotSee(t *testing.T) {
 	assert.Contains(t, err.Error(), "not accessible through your GitHub connection")
 	assert.Contains(t, err.Error(), "octo/storefront")
 	assert.Contains(t, err.Error(), "selected repositories")
-	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")
+	assert.Contains(t, err.Error(), "Grant the App access to it in GitHub")
+	assertNoWebsitePointer(t, err)
 }
 
 // An installation scoped to selected repositories can carry a repo its account
@@ -1226,14 +1236,15 @@ func TestConnectGuidesASignInOnA401(t *testing.T) {
 	require.Error(t, err)
 
 	// Signing in comes first, because that is the cause the contract documents
-	// for this 401 on every route the flow calls. Leading with the dashboard sent
-	// users to fix something that was not broken.
+	// for this 401 on every route the flow calls. Leading with a GitHub
+	// reconnect sent users to fix something that was not broken.
 	assert.Contains(t, err.Error(), "your CLI session may have expired")
-	assert.Contains(t, err.Error(), "volcano login")
 	signIn := strings.Index(err.Error(), "volcano login")
-	dashboard := strings.Index(err.Error(), "https://volcano.test/dashboard/project-settings/git")
-	require.Positive(t, dashboard, "the dashboard is still offered as the fallback")
-	assert.Less(t, signIn, dashboard, "signing in is the first thing offered")
+	revoked := strings.Index(err.Error(), "your GitHub connection may have been revoked")
+	require.Positive(t, signIn)
+	require.Positive(t, revoked, "a revoked GitHub connection is still named as the fallback")
+	assert.Less(t, signIn, revoked, "signing in is the first thing offered")
+	assertNoWebsitePointer(t, err)
 }
 
 // A push remote naming neither a remote nor a URL leaves nothing to connect, and
