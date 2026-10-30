@@ -89,11 +89,12 @@ how an empty repository is prepared for 'volcano git export'.`, cliruntime.Comma
 				strings.TrimSpace(raw) == "" {
 				return errors.New("--remote is only whitespace; pass the name of a Git remote")
 			}
-			// Both say where the repository comes from and the URL wins, so
-			// taking the pair would silently ignore what the user asked for.
+			// Whitespace is an unset variable, never a branch.
 			if cmd.Flags().Changed("production-branch") && strings.TrimSpace(productionBranch) == "" {
 				return errors.New("--production-branch is empty; name the branch a push must land on to deploy, such as main")
 			}
+			// Both say where the repository comes from and the URL wins, so
+			// taking the pair would silently ignore what the user asked for.
 			if gitURL != "" && cmd.Flags().Changed("remote") {
 				return errors.New(
 					"--remote cannot be combined with a repository URL: both say where the repository comes from")
@@ -277,17 +278,19 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 
 // checkProductionBranch refuses, before anything is asked, a connect whose
 // branch the platform cannot bind. A repository with no commits has no default
-// branch to follow, so it needs one named. A named branch belongs to a new
-// binding: on the repository already connected, production-branch changes it,
-// and the platform refuses a branch other than the new repository's default
-// in the same request that changes repository.
+// branch to follow, so it needs one named, whether it is a first connect or a
+// replacement: the platform accepts any branch for such a repository, since it
+// has none to echo. A named branch otherwise belongs to a new binding: on the
+// repository already connected, production-branch changes it, and the platform
+// refuses a branch other than the new repository's default in the same request
+// that changes repository.
 func checkProductionBranch(opts connectOptions, existing *apiclient.ProjectGitConnection, target *gitconnect.Target) error {
 	branch, repository := opts.productionBranch, target.Repository
 	sameRepository := existing != nil && existing.RepoId == repository.Id
 	switch {
 	case branch == "" && !sameRepository && repository.DefaultBranch == "":
 		return fmt.Errorf("%s has no commits, so it has no default branch for pushes to follow. Nothing was connected\n\n"+
-			"Name the branch a push must land on:\n  %s", repository.FullName, connectCommand(opts, "main"))
+			"Name the branch a push must land on:\n  %s", repository.FullName, connectCommand(opts, repository.FullName, "main"))
 	case branch != "" && sameRepository && branch != existing.ProductionBranch:
 		return fmt.Errorf("%s is already connected, deploying from %s. Nothing was changed\n\n"+
 			"Change its branch with %s", repository.FullName, existing.ProductionBranch,
@@ -301,14 +304,19 @@ func checkProductionBranch(opts connectOptions, existing *apiclient.ProjectGitCo
 	}
 }
 
-// connectCommand is the connect the user ran, naming branch.
-func connectCommand(opts connectOptions, branch string) string {
+// connectCommand is the connect the user ran, naming branch. The repository is
+// named by its resolved name rather than the URL given, which can carry a
+// credential, and a root directory the user asked for is kept.
+func connectCommand(opts connectOptions, fullName, branch string) string {
 	command := "git connect"
-	if opts.gitURL != "" {
-		command += " " + opts.gitURL
+	switch {
+	case opts.gitURL != "":
+		command += " https://github.com/" + fullName
+	case opts.remote != "":
+		command += " --remote " + cliruntime.ShellQuote(opts.remote)
 	}
-	if opts.remote != "" {
-		command += " --remote " + opts.remote
+	if opts.rootDirectorySet {
+		command += " --root-directory " + cliruntime.ShellQuote(opts.rootDirectory)
 	}
 	return cliruntime.CommandPath(opts.deps, command+" --production-branch "+branch)
 }

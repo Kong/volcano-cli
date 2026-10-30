@@ -159,6 +159,20 @@ volcano git connect --root-directory apps/api
 volcano git connect --root-directory ""     # back to the repository root
 ```
 
+A repository with no commits, such as one made to receive
+`volcano git export`, has no default branch for pushes to follow, so name the
+branch when you connect it. The CLI refuses to connect one without it:
+
+```bash
+volcano git connect https://github.com/octo/new-site --production-branch main
+```
+
+`--production-branch` sets the branch of a new binding only. On the repository
+already connected, change it with `volcano git production-branch`. When
+replacing a binding with a repository that has commits, the new binding starts
+on that repository's default branch; connect without the flag, then pin
+another.
+
 Connecting is idempotent: running it again on a project already bound to the
 same repository reports that nothing changed and writes nothing. "The same" means
 every part of the binding — the repository, the App installation, the root
