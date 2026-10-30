@@ -68,7 +68,7 @@ func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer, noRevoke 
 	if result.Outcome == cliauth.LogoutNotRevoked {
 		return fmt.Errorf("the server did not end this login: %w\n\n"+
 			"The login is still saved on this machine. Run %s again, or end it from another login with %s, "+
-				"or run %s to remove it from this machine only",
+			"or run %s to remove it from this machine only",
 			result.RevokeErr, cliruntime.CommandPath(deps, "logout"), cliruntime.CommandPath(deps, "account sessions revoke <id>"),
 			cliruntime.CommandPath(deps, "logout --no-revoke"))
 	}

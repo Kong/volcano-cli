@@ -60,9 +60,11 @@ from it `--all-others` signs out every session. A token copied from a
 before it asks.
 
 Signing out sessions revokes only the tokens exchanged from them. A token not
-tied to a session, such as one created in the dashboard, keeps working. Revoke the one this CLI uses with
-`volcano logout`. Revoking your other platform tokens from the CLI is not
-available yet. The command reminds you of this when it finishes.
+tied to a session, such as one created in the dashboard, keeps working. Revoke
+the one this CLI uses with `volcano logout`, unless it comes from
+`VOLCANO_TOKEN`, which logout doesn't revoke. Revoking your other platform
+tokens from the CLI is not available yet. The command reminds you of this when
+it finishes.
 
 Use it when a token or a device may be in the wrong hands. Afterwards, every
 browser asks you to sign in again; run `volcano login` on each machine you still

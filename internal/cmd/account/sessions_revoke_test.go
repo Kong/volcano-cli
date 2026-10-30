@@ -204,3 +204,17 @@ func TestSessionsRevokeAllOthersWithoutATerminalNeedsYes(t *testing.T) {
 type nopWriter struct{}
 
 func (*nopWriter) Write(p []byte) (int, error) { return len(p), nil }
+
+// logout revokes the saved login, so the note after --all-others doesn't send
+// a VOLCANO_TOKEN user there.
+func TestSessionsRevokeAllOthersNoteThroughVolcanoToken(t *testing.T) {
+	setAccountTestHome(t, "")
+	t.Setenv("VOLCANO_TOKEN", accountToken)
+	api := newSessionsAPI(t)
+
+	out, err := executeAccountCommand(t, api.serve(), "", "sessions", "revoke", "--all-others", "--yes")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "This CLI uses the token in VOLCANO_TOKEN, which volcano logout doesn't revoke.")
+	assert.NotContains(t, out, "Revoke the one this CLI uses")
+}
