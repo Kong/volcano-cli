@@ -156,6 +156,35 @@ functions:
 	})
 }
 
+// A variables key with no value is refused rather than read as omitted, which
+// would keep the function's current selection, as config deploy and Git push
+// refuse it.
+func TestFunctionVariableDeclarationsRefuseVariablesWithNoValue(t *testing.T) {
+	for name, entry := range map[string]string{
+		"bare":  "    variables:\n",
+		"null":  "    variables: null\n",
+		"tilde": "    variables: ~\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			withTempWorkingDir(t, func(_ string) {
+				require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\nfunctions:\n  - name: scoped-fn\n    variable_scope: scoped\n"+entry), 0o644))
+
+				_, err := FunctionVariableDeclarations("")
+				require.ErrorIs(t, err, ErrFunctionVariablesNull)
+				assert.Contains(t, err.Error(), `function "scoped-fn": variables has no value`)
+			})
+		})
+	}
+
+	withTempWorkingDir(t, func(_ string) {
+		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\nfunctions:\n  - name: scoped-fn\n    variables: []\n"), 0o644))
+		declarations, err := FunctionVariableDeclarations("")
+		require.NoError(t, err)
+		require.NotNil(t, declarations["scoped-fn"].Variables)
+		assert.Empty(t, *declarations["scoped-fn"].Variables, "[] still declares no names")
+	})
+}
+
 // No manifest anywhere means nothing was declared. Function deploy is not a
 // config command, so this must not fail it.
 func TestFunctionVariableDeclarationsAbsentManifest(t *testing.T) {
