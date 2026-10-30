@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	accountcmd "github.com/Kong/volcano-cli/internal/cmd/account"
 	authcmd "github.com/Kong/volcano-cli/internal/cmd/auth"
 	cloudcmd "github.com/Kong/volcano-cli/internal/cmd/cloud"
 	connectcmd "github.com/Kong/volcano-cli/internal/cmd/connect"
@@ -55,6 +56,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	root.AddCommand(authcmd.NewLogin(deps))
 	root.AddCommand(authcmd.NewSignup(deps))
 	root.AddCommand(authcmd.NewLogout(deps))
+	root.AddCommand(accountcmd.New(deps))
 	root.AddCommand(connectcmd.New(deps))
 	root.AddCommand(initcmd.New())
 	root.AddCommand(setupcmd.New(deps))

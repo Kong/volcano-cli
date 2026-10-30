@@ -2014,6 +2014,164 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /user/sessions:
+    get:
+      tags:
+        - Account Sessions
+      summary: List your account's sign-in sessions
+      description: |
+        Lists the sign-in sessions of the account that owns the calling
+        platform token: dashboard sign-ins (`kind: browser`) and CLI logins
+        (`kind: cli`). The session the calling token was exchanged from is
+        marked `is_current: true`. A token created with `volcano login --token`
+        or in the dashboard has no session, so no session is current.
+
+        Ordering and pagination match `GET /auth/user/sessions`.
+
+        Only a platform token (`pk-`) can call it. A project access token is
+        refused with `403`.
+      operationId: listAccountSessions
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/SessionListPage'
+        - $ref: '#/components/parameters/SessionListLimit'
+        - $ref: '#/components/parameters/SessionListSort'
+        - $ref: '#/components/parameters/SessionListStatus'
+        - $ref: '#/components/parameters/SessionListCursor'
+        - $ref: '#/components/parameters/SessionListEndingBefore'
+        - $ref: '#/components/parameters/SessionListOffset'
+      responses:
+        '200':
+          description: A page of the account's sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionList'
+        '400':
+          description: Invalid or conflicting pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated, or not a platform token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - a project access token cannot read account sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Account sessions are unavailable in local mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Account Sessions
+      summary: Sign out every other session
+      description: |
+        Ends every session of the account except the one the calling token
+        was exchanged from, and revokes the platform tokens exchanged from
+        them. When the calling token has no session, every session ends.
+
+        Platform tokens that were never linked to a session, such as one
+        created in the dashboard or passed to `volcano login --token`, keep
+        working. Revoke each with `DELETE /user/tokens/current`.
+      operationId: revokeOtherAccountSessions
+      security:
+        - UserToken: []
+      responses:
+        '204':
+          description: Every other session ended
+        '401':
+          description: Not authenticated, or not a platform token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - a project access token cannot end account sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to end sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Account sessions are unavailable in local mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /user/sessions/{sessionId}:
+    delete:
+      tags:
+        - Account Sessions
+      summary: Sign out one session
+      description: |
+        Ends one of the account's sessions and revokes the platform tokens
+        exchanged from it. A session that is not the account's, or does not
+        exist, answers `404`.
+      operationId: revokeAccountSession
+      security:
+        - UserToken: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: The session ID, from `GET /user/sessions`
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Session ended
+        '401':
+          description: Not authenticated, or not a platform token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - a project access token cannot end account sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to end the session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Account sessions are unavailable in local mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /github/callback:
     get:
       tags:
@@ -17961,6 +18119,76 @@ components:
         type: string
         format: uuid
       description: Frontend deployment ID
+    SessionListPage:
+      name: page
+      in: query
+      description: Page number (1-indexed)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    SessionListLimit:
+      name: limit
+      in: query
+      description: Number of sessions per page (max 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    SessionListSort:
+      name: sort
+      in: query
+      description: |
+        Sort key. `last_activity` (default) orders by most recent activity and
+        supports offset pagination only. `created_at` orders by session start
+        and supports both offset and cursor pagination.
+      schema:
+        type: string
+        enum:
+          - last_activity
+          - created_at
+        default: last_activity
+    SessionListStatus:
+      name: status
+      in: query
+      description: |
+        Filter by whether the session can still be refreshed. Omit for every
+        stored session, including expired ones. `expired` is not supported
+        with cursor pagination.
+      schema:
+        type: string
+        enum:
+          - active
+          - expired
+    SessionListCursor:
+      name: cursor
+      in: query
+      description: |
+        Opaque keyset cursor from a previous response's `next_cursor`. Requires
+        `sort=created_at`; mutually exclusive with `page` and `ending_before`.
+      schema:
+        type: string
+    SessionListEndingBefore:
+      name: ending_before
+      in: query
+      description: |
+        Opaque keyset cursor from a previous response's `prev_cursor`, paging
+        backward. Requires `sort=created_at`; mutually exclusive with `page`
+        and `cursor`.
+      schema:
+        type: string
+    SessionListOffset:
+      name: offset
+      in: query
+      description: |
+        Bounded number of rows to skip past the cursor anchor (the hybrid
+        jump, maximum 100000). Ignored unless `cursor` or `ending_before` is
+        supplied.
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 100000
     VariableEnvironmentId:
       name: environmentId
       in: path
@@ -19625,15 +19853,21 @@ components:
           description: The user this session belongs to
         provider:
           type: string
-          description: Authentication provider used to create this session
-          enum:
-            - email
-            - google
-            - github
-            - microsoft
-            - apple
-            - anonymous
+          description: |
+            How the session was created: `email`, `google`, `github`,
+            `microsoft`, `apple`, `anonymous`, or `device:<client_id>` for a
+            device-code login such as the `volcano` CLI. More values may be
+            added; use `kind` to tell CLI logins from browser sign-ins.
           example: email
+        kind:
+          type: string
+          description: |
+            `cli` for a device-code login, such as `volcano login`, and
+            `browser` for every other sign-in.
+          enum:
+            - cli
+            - browser
+          example: browser
         user_agent:
           type: string
           description: Browser/device user agent string
@@ -19674,9 +19908,47 @@ components:
         - id
         - user_id
         - provider
+        - kind
         - expires_at
         - is_active
         - is_current
+    AuthSessionList:
+      type: object
+      description: |
+        A page of sessions. Without `sort` the body is the legacy
+        `sessions`/`total`/`page`/`limit`/`total_pages` shape; with
+        `sort=created_at` and a cursor it is the shared `data` envelope.
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthSession'
+        total:
+          type: integer
+          description: Total number of sessions
+        page:
+          type: integer
+          description: Current page number
+        limit:
+          type: integer
+          description: Number of sessions per page
+        total_pages:
+          type: integer
+          description: Total number of pages
+        data:
+          type: array
+          description: Sessions for this page (cursor pagination only)
+          items:
+            $ref: '#/components/schemas/AuthSession'
+        has_more:
+          type: boolean
+          description: Whether a further page exists (cursor pagination only)
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page (cursor pagination only)
+        prev_cursor:
+          type: string
+          description: Opaque cursor for the previous page (cursor pagination only). Send as `ending_before`.
     AuthSignupResponse:
       type: object
       description: |

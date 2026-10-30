@@ -109,7 +109,9 @@ other CLI logins and browser sessions stay signed in.
 
 If the server can't revoke the login, `volcano logout` says so, still removes
 the login from this machine, and exits non-zero. The token then stays valid
-until it expires. End it in the dashboard under Account → Sessions.
+until it expires. End it from another login with `volcano account sessions
+revoke <id>`, or in the dashboard under Account → Sessions. See
+[account.md](account.md).
 
 Local development keeps no sign-in session on the server, so there
 `volcano logout` only removes the login from this machine.

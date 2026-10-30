@@ -98,7 +98,8 @@ enable`. Turn it off on its own with `volcano feedback disable`. See
 | Element | CLI can… | Commands | Details |
 |---|---|---|---|
 | Get started | sign in, create a project, and link a directory in one step | `connect` | [connect.md](connect.md) |
-| Account / auth | sign up, log in/out | `signup`, `login`, `logout` | [authentication.md](authentication.md) |
+| Account / auth | sign up, log in, log out and end the login on the server | `signup`, `login`, `logout` | [authentication.md](authentication.md) |
+| Account sessions | list browser and CLI sessions, sign out one or every other | `account sessions …` | [account.md](account.md) |
 | Access tokens | create, list, get, revoke project credentials | `cloud access-tokens …` | [access-tokens.md](access-tokens.md) |
 | Project | create, list, get, rename, delete, select, get keys and usage | `projects …`, `use` | below |
 | Whole project | deploy variables, migrations, functions, frontends, and config in one run | `deploy`, `cloud deploy` | [deploy.md](deploy.md) |

@@ -151,7 +151,8 @@ func TestLogoutSaysSoWhenTheServerDoesNotRevoke(t *testing.T) {
 
 			assert.Contains(t, err.Error(), "logged out of this machine, but the server did not revoke this login")
 			assert.Contains(t, err.Error(), "The token stays valid until it expires")
-			assert.Contains(t, err.Error(), "End it in the dashboard under Account, Sessions")
+			assert.Contains(t, err.Error(), "End it with volcano account sessions revoke <id> from another login, "+
+				"or in the dashboard under Account, Sessions")
 			requireLoggedOut(t)
 		})
 	}
