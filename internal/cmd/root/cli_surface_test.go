@@ -25,66 +25,78 @@ var cliSurfacePath = filepath.Join("..", "..", "..", "openapi", "cli-surface.yam
 
 type cliSurface struct {
 	Reasons    map[string]string              `yaml:"reasons"`
-	Gaps       map[string]string              `yaml:"gaps"`
 	Operations map[string]cliSurfaceOperation `yaml:"operations"`
 }
 
+// cliSurfaceOperation is one route's entry, keyed by "METHOD /path". Hosting's
+// test owns the rules for reasons and their links; this CLI checks only what it
+// can answer: that the named command, flags and manifest section exist.
 type cliSurfaceOperation struct {
-	Command  string `yaml:"command"`
-	Manifest string `yaml:"manifest"`
-	Reason   string `yaml:"reason"`
-	Gap      string `yaml:"gap"`
+	Command  string   `yaml:"command"`
+	Flags    []string `yaml:"flags"`
+	Manifest string   `yaml:"manifest"`
+	Reason   string   `yaml:"reason"`
+	Issue    string   `yaml:"issue"`
+	PR       string   `yaml:"pr"`
 }
 
-// TestCLISurfaceCommandsExist fails when Hosting counts an operation as covered
-// by a command this CLI does not have.
+// TestCLISurfaceCommandsExist fails when Hosting counts a route as covered by a
+// command or flag this CLI does not have.
 func TestCLISurfaceCommandsExist(t *testing.T) {
 	surface := loadCLISurface(t)
 	root := New(cliruntime.Deps{})
 
-	for _, operationID := range sortedOperationIDs(surface) {
-		command := surface.Operations[operationID].Command
-		if command == "" {
+	for _, route := range sortedRoutes(surface) {
+		operation := surface.Operations[route]
+		if operation.Command == "" {
 			continue
 		}
-		t.Run(operationID, func(t *testing.T) {
-			assertSurfaceCommand(t, root, command)
+		t.Run(route, func(t *testing.T) {
+			cmd := findSurfaceCommand(t, root, operation.Command)
+			if cmd == nil {
+				return
+			}
+			for _, flag := range operation.Flags {
+				name := strings.TrimPrefix(flag, "--")
+				found := cmd.Flags().Lookup(name) != nil || cmd.InheritedFlags().Lookup(name) != nil
+				assert.Truef(t, found, "%q has no flag %s", operation.Command, flag)
+			}
 		})
 	}
 }
 
-// TestCLISurfaceManifestSectionsExist fails when Hosting counts an operation as
+// TestCLISurfaceManifestSectionsExist fails when Hosting counts a route as
 // covered by a manifest section this CLI cannot decode.
 func TestCLISurfaceManifestSectionsExist(t *testing.T) {
 	surface := loadCLISurface(t)
 	manifestType := reflect.TypeFor[projectconfig.Manifest]()
 
-	for _, operationID := range sortedOperationIDs(surface) {
-		section := surface.Operations[operationID].Manifest
+	for _, route := range sortedRoutes(surface) {
+		section := surface.Operations[route].Manifest
 		if section == "" {
 			continue
 		}
 		assert.Truef(t, manifestHasSection(manifestType, section),
-			"%s: the CLI manifest has no %q section", operationID, section)
+			"%s: the CLI manifest has no %q section", route, section)
 	}
 }
 
 func TestCLISurfaceOperationsAreWellFormed(t *testing.T) {
 	surface := loadCLISurface(t)
-	for _, operationID := range sortedOperationIDs(surface) {
-		operation := surface.Operations[operationID]
+	for _, route := range sortedRoutes(surface) {
+		operation := surface.Operations[route]
 		set := 0
-		for _, value := range []string{operation.Command, operation.Manifest, operation.Reason, operation.Gap} {
+		for _, value := range []string{operation.Command, operation.Manifest, operation.Reason} {
 			if value != "" {
 				set++
 			}
 		}
-		assert.Equalf(t, 1, set, "%s: needs exactly one of command, manifest, reason or gap", operationID)
-		if operation.Reason != "" {
-			assert.Containsf(t, surface.Reasons, operation.Reason, "%s: unknown reason", operationID)
+		assert.Equalf(t, 1, set, "%s: needs exactly one of command, manifest or reason", route)
+		if operation.Command == "" {
+			assert.Emptyf(t, operation.Flags, "%s: flags need a command", route)
 		}
-		if operation.Gap != "" {
-			assert.Containsf(t, surface.Gaps, operation.Gap, "%s: unknown gap", operationID)
+		if operation.Reason != "" {
+			assert.Containsf(t, surface.Reasons, operation.Reason, "%s: unknown reason", route)
 		}
 	}
 }
@@ -102,32 +114,35 @@ func loadCLISurface(t *testing.T) cliSurface {
 	return surface
 }
 
-func sortedOperationIDs(surface cliSurface) []string {
-	ids := make([]string, 0, len(surface.Operations))
-	for id := range surface.Operations {
-		ids = append(ids, id)
+func sortedRoutes(surface cliSurface) []string {
+	routes := make([]string, 0, len(surface.Operations))
+	for route := range surface.Operations {
+		routes = append(routes, route)
 	}
-	sort.Strings(ids)
-	return ids
+	sort.Strings(routes)
+	return routes
 }
 
-// assertSurfaceCommand resolves a full command path such as
+// findSurfaceCommand resolves a full command path such as
 // "volcano cloud databases branches create" in the cobra tree.
-func assertSurfaceCommand(t *testing.T, root *cobra.Command, path string) {
+func findSurfaceCommand(t *testing.T, root *cobra.Command, path string) *cobra.Command {
 	t.Helper()
 	words := strings.Fields(path)
 	if !assert.Greaterf(t, len(words), 1, "%q is not a subcommand", path) ||
 		!assert.Equalf(t, root.Name(), words[0], "%q must start with %q", path, root.Name()) {
-		return
+		return nil
 	}
 	cmd, rest, err := root.Find(words[1:])
 	require.NoErrorf(t, err, "%q is not a command", path)
 	if !assert.Emptyf(t, rest, "%q is not a command: %q has no subcommand %q", path, cmd.CommandPath(), strings.Join(rest, " ")) ||
 		!assert.Equalf(t, path, cmd.CommandPath(), "name the command by its canonical path, not an alias") {
-		return
+		return nil
 	}
 	// Local-mode stand-ins for cloud commands are hidden and take raw args.
-	assert.Falsef(t, cmd.Hidden && cmd.DisableFlagParsing, "%q is a stand-in that only refuses; name the cloud command", path)
+	if !assert.Falsef(t, cmd.Hidden && cmd.DisableFlagParsing, "%q is a stand-in that only refuses; name the cloud command", path) {
+		return nil
+	}
+	return cmd
 }
 
 // manifestHasSection follows a dotted path such as "auth.providers.oauth"
