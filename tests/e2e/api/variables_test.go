@@ -69,7 +69,10 @@ variables:
     value: fake-value
     shared: false
 `)
-	env.runCloudCLI(t, "config", "deploy", "--dry-run").requireSuccess(t, "Dry run: projected actions, nothing was applied.")
+	// --shared just shared it, so the manifest changes sharing alone: the dry
+	// run counts that as an update and leaves the variable shared.
+	env.runCloudCLI(t, "config", "deploy", "--dry-run").requireSuccess(t, "Dry run: projected actions, nothing was applied.", "variables: 1 updated")
+	shared().requireSuccess(t, "Shared: yes")
 	env.runCloudCLI(t, "config", "deploy").requireSuccess(t, "Configuration deployed from")
 	shared().requireSuccess(t, "Shared: no")
 	env.runCloudCLI(t, "config", "pull", "--force").requireSuccess(t, "Configuration written to")
@@ -82,6 +85,19 @@ variables:
 	}
 	env.runCloudCLI(t, "config", "deploy").requireSuccess(t, "Configuration deployed from")
 	shared().requireSuccess(t, "Shared: no")
+
+	// shared: true shares it again: one update in the dry run, which changes
+	// nothing, then applied by the deploy.
+	writeAPIE2EFile(t, filepath.Join(env.projectDir, "volcano", "volcano-config.yaml"), `version: 1
+variables:
+  - name: NOT_SHARED_SMOKE
+    value: fake-value
+    shared: true
+`)
+	env.runCloudCLI(t, "config", "deploy", "--dry-run").requireSuccess(t, "Dry run: projected actions, nothing was applied.", "variables: 1 updated")
+	shared().requireSuccess(t, "Shared: no")
+	env.runCloudCLI(t, "config", "deploy").requireSuccess(t, "Configuration deployed from")
+	shared().requireSuccess(t, "Shared: yes")
 
 	env.runCloudCLI(t, "variables", "delete", "NOT_SHARED_SMOKE", "--yes").requireSuccess(t, "deleted")
 }

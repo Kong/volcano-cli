@@ -304,6 +304,25 @@ functions:
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy"), "Summary: 0 created, 0 updated, 0 deleted")
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "CONFIG_SMOKE"), "Shared: no")
 
+	// shared: true shares it again: one update in the dry run, which changes
+	// nothing, then applied by the deploy.
+	writeLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"), `
+version: 1
+variables:
+  - name: SMOKE_MESSAGE
+    value: hello-from-volcano-cli
+  - name: CONFIG_SMOKE
+    value: from-config-deploy
+    shared: true
+functions:
+  - name: hello
+    visibility: public
+`)
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy", "--dry-run"), "variables: 1 updated")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "CONFIG_SMOKE"), "Shared: no")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy"), "Configuration deployed from volcano-config.yaml")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "CONFIG_SMOKE"), "Shared: yes")
+
 	configDeleteOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "delete", "CONFIG_SMOKE", "--yes")
 	requireContains(t, configDeleteOutput, "deleted")
 }

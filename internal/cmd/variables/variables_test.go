@@ -240,10 +240,12 @@ func TestVariablesDeployShowsTheServersRefusalOfNotShared(t *testing.T) {
 func TestVariablesDeployRefusesToReportSharedTheServerIgnored(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
+		flag     string
 		returned any
 	}{
-		{"no shared in the response", nil},
-		{"the default in the response", true},
+		{"no shared in the response", "--shared=false", nil},
+		{"the default in the response", "--shared=false", true},
+		{"not shared in the response to --shared", "--shared=true", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			setVariableCommandTestHome(t)
@@ -263,11 +265,11 @@ func TestVariablesDeployRefusesToReportSharedTheServerIgnored(t *testing.T) {
 			}))
 			defer server.Close()
 
-			out, err := executeVariableCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "--shared=false")
+			out, err := executeVariableCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", tc.flag)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "API_KEY was saved, but the server did not apply --shared=false")
+			assert.Contains(t, err.Error(), "API_KEY was saved, but the server did not apply "+tc.flag)
 			assert.Contains(t, err.Error(), "Check it with volcano variables get API_KEY")
-			assert.NotContains(t, out, "not shared")
+			assert.NotContains(t, out, "(saved")
 			assert.NotContains(t, out, "propagation started")
 			assert.NotContains(t, out+err.Error(), secretSentinelAPINewValue)
 		})
