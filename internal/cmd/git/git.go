@@ -26,6 +26,7 @@ connection. Pushing stays your own "git push", with the credentials already on
 your machine.`,
 	}
 	cmd.AddCommand(newStatus(deps))
+	cmd.AddCommand(newRepos(deps))
 	cmd.AddCommand(newConnect(deps))
 	cmd.AddCommand(newRootDirectory(deps))
 	cmd.AddCommand(newProductionBranch(deps))

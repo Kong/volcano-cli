@@ -38,6 +38,7 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 | Operation | Command |
 |---|---|
 | Show the connection | `volcano git status` |
+| List the repositories you can connect | `volcano git repos` |
 | Connect | `volcano git connect [git-url]` |
 | Change the root directory | `volcano git root-directory <path>` |
 | Change the branch that deploys | `volcano git production-branch <branch>` |
@@ -68,6 +69,31 @@ A project with nothing connected is not an error: it says so and exits 0, so the
 command is usable in a conditional. A project that does not exist — a deleted
 one, or a deprecated `VOLCANO_PROJECT_ID` naming nothing — is an error, and is reported as
 one rather than as an unbound project.
+
+## Listing the repositories you can connect
+
+```bash
+volcano git repos
+```
+
+```text
+GitHub account: octo
+
+octo (user, all repositories)
+  octo/storefront private, default branch main
+
+acme (organization, selected repositories)
+  acme/new-site public, empty
+
+Connect one with volcano git connect https://github.com/<owner>/<repo>
+```
+
+This lists every repository your GitHub connection reaches, grouped by the
+Volcano GitHub App installation that grants access. An installation scoped to
+selected repositories lists only those. A repository marked `empty` has no
+commits, so it can receive the project's source with `volcano git export`. Like
+`connect`, it reads your account's GitHub connection, so it needs an account
+token. `--json` prints each installation with its `repositories`.
 
 ## Connecting
 
@@ -345,8 +371,8 @@ cannot connect.
 ## Local mode
 
 Git connections are a cloud-only feature: the local stack ships without GitHub
-App settings, so `volcano git connect` reports that the integration is not
-configured. Run these commands against the cloud API.
+App settings, so `volcano git connect` and `volcano git repos` report that the
+integration is not configured. Run these commands against the cloud API.
 
 `volcano git disconnect` reads only the project's own binding, which does not
 touch GitHub, so it reports that the project has nothing connected instead.

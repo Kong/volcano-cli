@@ -5,12 +5,12 @@ import (
 	"testing"
 )
 
-// requireLocalModeLeavesGitToTheCloud points the git subcommands that change a
-// connected repository's settings at the local stack and checks each says why
-// it cannot work there: the local stack has no GitHub App, so no repository can
-// be connected for a root directory, a production branch or a deploy setting
-// to belong to. Source export says so too: local mode stores no source to
-// export.
+// requireLocalModeLeavesGitToTheCloud points the git subcommands that list
+// repositories or change a connected repository's settings at the local stack
+// and checks each says why it cannot work there: the local stack has no GitHub
+// App, so there are no repositories to list, and none can be connected for a
+// root directory, a production branch or a deploy setting to belong to. Source
+// export says so too: local mode stores no source to export.
 func requireLocalModeLeavesGitToTheCloud(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
 	info := fetchVolcanoLocalModeE2EInfo(t, env)
@@ -21,6 +21,7 @@ func requireLocalModeLeavesGitToTheCloud(t *testing.T, binary string, env []stri
 	)
 
 	for _, args := range [][]string{
+		{"git", "repos"},
 		{"git", "root-directory", "apps/web"},
 		{"git", "production-branch", "release"},
 		{"git", "auto-deploy", "on"},

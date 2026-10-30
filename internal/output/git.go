@@ -385,3 +385,58 @@ func frontendTarget(settings *apiclient.ProjectGitDeploySettings) string {
 	}
 	return frontend
 }
+
+// GitInstallationListing is one GitHub App installation and the repositories
+// it grants, as `volcano git repos` reports it.
+type GitInstallationListing struct {
+	// GitHubAccount is the connected GitHub account the installation was
+	// reached through.
+	GitHubAccount       string                    `json:"github_account"`
+	ID                  int64                     `json:"id"`
+	AccountLogin        string                    `json:"account_login"`
+	AccountType         string                    `json:"account_type"`
+	RepositorySelection string                    `json:"repository_selection"`
+	Repositories        []apiclient.GitRepository `json:"repositories"`
+}
+
+// GitRepositories renders the repositories each installation grants, marking
+// the empty ones an export can write to.
+func GitRepositories(w io.Writer, installations []GitInstallationListing, connectCommand string) {
+	on := theme.On(w)
+	if len(installations) == 0 {
+		fmt.Fprintln(w, theme.Dim("The Volcano GitHub App is not installed on any account your GitHub connection can reach.", on))
+		return
+	}
+	account := ""
+	for _, installation := range installations {
+		if installation.GitHubAccount != account {
+			account = installation.GitHubAccount
+			kv(w, on, "GitHub account", "%s", account)
+		}
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "%s %s\n", installation.AccountLogin,
+			theme.Dim(fmt.Sprintf("(%s, %s repositories)", strings.ToLower(installation.AccountType),
+				installation.RepositorySelection), on))
+		if len(installation.Repositories) == 0 {
+			fmt.Fprintf(w, "  %s\n", theme.Dim("no repositories", on))
+		}
+		for _, repository := range installation.Repositories {
+			detail := []string{visibility(repository.Private)}
+			if repository.IsEmpty {
+				detail = append(detail, "empty")
+			} else if repository.DefaultBranch != "" {
+				detail = append(detail, "default branch "+repository.DefaultBranch)
+			}
+			fmt.Fprintf(w, "  %s %s\n", repository.FullName, theme.Dim(strings.Join(detail, ", "), on))
+		}
+	}
+	fmt.Fprintf(w, "\n%s%s\n", theme.Dim("Connect one with ", on),
+		theme.Command(connectCommand+" https://github.com/<owner>/<repo>", on))
+}
+
+func visibility(private bool) string {
+	if private {
+		return "private"
+	}
+	return "public"
+}
