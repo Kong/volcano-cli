@@ -31,6 +31,7 @@ account (auth)
     ├── git connection ........ push-to-deploy from GitHub     → git.md
     ├── access tokens ......... project-scoped CI credentials  → access-tokens.md
     ├── notifications ......... alerts when schedulers fail    → notifications.md
+    ├── logs .................. search, tail, count runtime logs → logs.md
     └── declarative config .... one YAML syncing the above     → ../project-configuration.md
 ```
 

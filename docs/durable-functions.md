@@ -61,7 +61,7 @@ existing function's scope alone.
 | List | `volcano cloud durable list [--page 1] [--limit 100]` |
 | Get | `volcano cloud durable get <name-or-id>` |
 | Delete | `volcano cloud durable delete <name-or-id> [--yes]` |
-| Logs | `volcano cloud durable logs <name-or-id> --type build\|runtime [--follow] [--limit 100]` |
+| Logs | `volcano cloud durable logs <name-or-id> [deployment-id] --type build\|runtime [--follow] [--limit 100]` |
 | Start an execution | `volcano cloud durable start <function> [--input …] [--name …]` |
 | List executions | `volcano cloud durable executions list <function> [--status …] [--page 1] [--limit 100]` |
 | Get one execution | `volcano cloud durable executions get <function> <execution-id>` |
@@ -140,9 +140,14 @@ volcano cloud durable logs order-pipeline --type runtime --follow
 ```
 
 `--type build` reads the deployment the function is on, which is the one that
-just failed. `--type runtime` spans every execution, including every resume: the
-code between context operations runs again each time, so a line logged there
-appears once per resume while a line inside a completed `step` does not.
+just failed. Name an earlier deployment to read its build logs instead:
+`volcano cloud durable logs order-pipeline <deployment-id> --type build`.
+
+`--type runtime` spans every execution, including every resume: the code
+between context operations runs again each time, so a line logged there appears
+once per resume while a line inside a completed `step` does not. To filter
+runtime logs by level, text or time, or read several durable functions at once,
+use [`volcano cloud logs --kind durable`](logs.md).
 
 `--follow` works on both, and stops at a different point for each: following
 build logs ends when the deploy does, following runtime logs runs until you

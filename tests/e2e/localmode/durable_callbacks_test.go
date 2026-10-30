@@ -97,6 +97,7 @@ functions:
 	requireContains(t, execution, "Status: succeeded")
 	requireContains(t, execution, `"charge_id": "ch_4417"`)
 	requireContains(t, execution, `"type": "CardDeclined"`)
+	requireLocalModeSearchesProjectLogs(t, binary, env, dir)
 
 	unknown, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir,
 		"durable", "callbacks", "heartbeat", "vcb_0000000000000000000000000000000000000000000")
