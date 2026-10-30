@@ -105,6 +105,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 
 	runLocalModeConfigSmoke(t, volcanoBin, env, projectDir)
 	requireLocalModeConfigFunctionVisibility(t, volcanoBin, env, projectDir)
+	requireLocalModeConfigRoundTripsManagedPagesAppearance(t, volcanoBin, env, projectDir)
 
 	variableDeleteOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "delete", "SMOKE_MESSAGE", "--yes")
 	requireContains(t, variableDeleteOutput, "deleted")
@@ -355,6 +356,41 @@ func requireLocalModeConfigFunctionVisibility(t *testing.T, binary string, env [
 	requireContains(t, output, "visibility and the deprecated public flag disagree")
 
 	deploy("    visibility: private\n", "private", "")
+}
+
+// requireLocalModeConfigRoundTripsManagedPagesAppearance deploys a managed-page
+// theme and layout, pulls the project back, and deploys the pulled file again.
+// Local projects run on PRO, which the appearance needs, so this is the round
+// trip a user makes against a real server: the second deploy changes nothing.
+func requireLocalModeConfigRoundTripsManagedPagesAppearance(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	manifest := filepath.Join("volcano", "volcano-config.yaml")
+	writeLocalModeE2EFile(t, dir, manifest, `version: 1
+auth:
+  managed_pages:
+    appearance:
+      theme:
+        version: 1
+        colors:
+          background: '#f7f5f2'
+          surface: '#ffffff'
+          text: '#1a1a1a'
+          accent: '#1d4ed8'
+          accent_text: '#ffffff'
+        font: humanist
+        scale: large
+        density: spacious
+        radius: large
+      layouts:
+        login: split-left
+`)
+	runVolcanoLocalModeE2E(t, binary, env, dir, "config", "deploy")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "config", "pull", "--force"), "Configuration written to")
+	pulled := readLocalModeE2EFile(t, dir, manifest)
+	requireContains(t, pulled, "appearance:")
+	requireContains(t, pulled, "split-left")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "config", "deploy"), "Summary: 0 created, 0 updated, 0 deleted")
 }
 
 // requireLocalModeOmitsProviderOnlyDatabaseCommands checks against the running
