@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.60.0](https://github.com/Kong/volcano-cli/compare/v0.59.0...v0.60.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **lavaflow:** The `volcano lavaflow` commands are removed. LavaFlow is now a standalone app.
+
+### Features
+
+* **databases:** list regions and versions, and resize ([#394](https://github.com/Kong/volcano-cli/issues/394)) ([02980ab](https://github.com/Kong/volcano-cli/commit/02980abe65cf39a5872766bae0cdeac80355eb78))
+* **deployments:** list, show and summarize project deployments ([#393](https://github.com/Kong/volcano-cli/issues/393)) ([c9b729d](https://github.com/Kong/volcano-cli/commit/c9b729dd8bcd57f73838faf0cd95fa967823ae5b))
+* **git:** export a project's source and list connectable repositories ([#391](https://github.com/Kong/volcano-cli/issues/391)) ([2ede8ef](https://github.com/Kong/volcano-cli/commit/2ede8efdf134a080f15ad154476be051beeeda0d))
+* **lavaflow:** remove the volcano lavaflow commands ([#368](https://github.com/Kong/volcano-cli/issues/368)) ([394006b](https://github.com/Kong/volcano-cli/commit/394006bb98f99bea925ac6a2d2aa939a48ca0ad8))
+* **logs:** search, tail and count project logs with filters ([#392](https://github.com/Kong/volcano-cli/issues/392)) ([26518b1](https://github.com/Kong/volcano-cli/commit/26518b1297c80912e19793ea8393a292fe6da979))
+* **variables:** save variables as not shared with --shared=false or a manifest entry's shared ([#373](https://github.com/Kong/volcano-cli/issues/373)) ([071a097](https://github.com/Kong/volcano-cli/commit/071a097b4ba59ff90830c2ebdfb2fb64307cc2b9))
+
+
+### Bug Fixes
+
+* **auth:** only default signup email to a usable git email ([#334](https://github.com/Kong/volcano-cli/issues/334)) ([6e7207c](https://github.com/Kong/volcano-cli/commit/6e7207c5515a63d8527f12dfc7061e29033dbd3f))
+* **config:** accept the managed-page appearance and page types the server exports ([#390](https://github.com/Kong/volcano-cli/issues/390)) ([4478453](https://github.com/Kong/volcano-cli/commit/44784536193ec4dae8aa6bf742d48206ee465297))
+* **git:** name what is missing instead of pointing at the dashboard ([#396](https://github.com/Kong/volcano-cli/issues/396)) ([3c1c4f2](https://github.com/Kong/volcano-cli/commit/3c1c4f22b3057c9f45f0f3bde84c867731adfc8e))
+* **npm:** pass the descriptors an argument names through to the binary ([#374](https://github.com/Kong/volcano-cli/issues/374)) ([35211d4](https://github.com/Kong/volcano-cli/commit/35211d4cf89c27f4f1b65394786e7de5e7734cc0))
+* **projects:** suggest projects create when the account has none ([#395](https://github.com/Kong/volcano-cli/issues/395)) ([1effa85](https://github.com/Kong/volcano-cli/commit/1effa8556c61c365824865b3acbb57c2bd3ea7b8))
+
 ## [0.59.0](https://github.com/Kong/volcano-cli/compare/v0.58.0...v0.59.0) (2026-10-29)
 
 
