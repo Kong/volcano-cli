@@ -32,8 +32,8 @@ and exits non-zero; the token then stays valid until it expires.
 
 A project access token (pt-) is removed from this machine but not revoked:
 revoke it with '%s'. A token in VOLCANO_TOKEN was never saved,
-so logout neither revokes nor unsets it.`,
-			cliruntime.CommandPath(deps, "access-tokens revoke"),
+so logout doesn't unset it, and revokes it only when it is the saved token.`,
+			cliruntime.CommandPath(deps, "cloud access-tokens revoke"),
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -43,8 +43,16 @@ so logout neither revokes nor unsets it.`,
 }
 
 func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
-	outcome, err := cliauth.NewService(deps).Logout(ctx)
-	switch outcome {
+	result := cliauth.NewService(deps).Logout(ctx)
+	if result.Outcome == cliauth.LogoutNotRevoked {
+		return fmt.Errorf("the server did not end this login: %w\n\n"+
+			"The login is still saved on this machine. Run %s again",
+			result.RevokeErr, cliruntime.CommandPath(deps, "logout"))
+	}
+	if result.ClearErr != nil {
+		return clearFailed(result)
+	}
+	switch result.Outcome {
 	case cliauth.LogoutRevoked:
 		output.Success(w, "Logged out: this login's token and session were revoked on the server")
 	case cliauth.LogoutAlreadyEnded:
@@ -59,21 +67,32 @@ func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
 	case cliauth.LogoutProjectToken:
 		output.Success(w, "Logged out")
 		output.Note(w, "The project access token stays valid: revoke it with %s.",
-			cliruntime.CommandPath(deps, "access-tokens revoke"))
-	case cliauth.LogoutNotRevoked:
-		return fmt.Errorf("the server did not end this login: %w\n\n"+
-			"The login is still saved on this machine. Run %s again",
-			err, cliruntime.CommandPath(deps, "logout"))
+			cliruntime.CommandPath(deps, "cloud access-tokens revoke"))
 	case cliauth.LogoutRefused:
 		return fmt.Errorf("logged out of this machine, but the server did not end this login: %w\n\n"+
-			"The token stays valid until it expires", err)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to clear credentials: %w", err)
+			"The token stays valid until it expires", result.RevokeErr)
 	}
 	output.Note(w, "Removed the login from ~/.volcano/config.json.")
-	if (&config.Config{}).TokenFromEnv() {
+	switch {
+	case result.EnvTokenEnded:
+		output.Note(w, "%s holds the token this login used, which the server no longer accepts, "+
+			"so commands that use it now fail. Unset it.", config.TokenEnv)
+	case (&config.Config{}).TokenFromEnv():
 		output.Note(w, "%s is still set, so commands keep using it. Logout neither revokes nor unsets it.", config.TokenEnv)
 	}
 	return nil
+}
+
+// clearFailed explains a login the server answered for but this machine could
+// not remove, saying first what the server did.
+func clearFailed(result cliauth.LogoutResult) error {
+	switch result.Outcome {
+	case cliauth.LogoutRevoked, cliauth.LogoutAlreadyEnded:
+		return fmt.Errorf("the server ended this login, but removing it from this machine failed: %w", result.ClearErr)
+	case cliauth.LogoutRefused:
+		return fmt.Errorf("the server did not end this login (%w), and removing it from this machine failed: %w",
+			result.RevokeErr, result.ClearErr)
+	default:
+		return fmt.Errorf("failed to remove the login from this machine: %w", result.ClearErr)
+	}
 }

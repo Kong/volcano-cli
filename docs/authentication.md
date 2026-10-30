@@ -119,7 +119,8 @@ Local development keeps no sign-in session on the server, so there
 Two credentials stay valid after `volcano logout`:
 
 - A project access token (`pt-`) is removed from this machine but not revoked.
-  Revoke it with `volcano access-tokens revoke`. See
+  Revoke it with `volcano cloud access-tokens revoke`. See
   [access-tokens.md](access-tokens.md).
-- A token in `VOLCANO_TOKEN` was never saved, so `volcano logout` neither
-  revokes nor unsets it, and commands keep using it.
+- A token in `VOLCANO_TOKEN` was never saved, so `volcano logout` doesn't unset
+  it, and commands keep using it. If it is the same token as the saved login,
+  logout revokes it with the login, and the command tells you to unset it.

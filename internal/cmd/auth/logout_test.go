@@ -137,8 +137,8 @@ func TestLogoutWhereTheServerKeepsNoSession(t *testing.T) {
 	requireLoggedOut(t)
 }
 
-// A revoke the server refuses or fails still logs this machine out, but the
-// token stays valid there, so the command says so and exits non-zero.
+// A revoke that can pass keeps the login saved, so the command says to run
+// logout again and exits non-zero.
 func TestLogoutKeepsTheLoginWhenTheRevokeCanPass(t *testing.T) {
 	for _, status := range []int{http.StatusInternalServerError, http.StatusServiceUnavailable, http.StatusTooManyRequests} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
@@ -204,7 +204,7 @@ func TestLogoutLeavesAProjectAccessTokenToAccessTokensRevoke(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Empty(t, api.requests())
-	assert.Contains(t, out, "The project access token stays valid: revoke it with volcano access-tokens revoke.")
+	assert.Contains(t, out, "The project access token stays valid: revoke it with volcano cloud access-tokens revoke.")
 	requireLoggedOut(t)
 }
 
@@ -217,6 +217,81 @@ func TestLogoutWithNothingSaved(t *testing.T) {
 
 	assert.Empty(t, api.requests())
 	assert.Contains(t, out, "Logged out: no login was saved, so nothing was revoked")
+}
+
+// After `volcano login --token "$VOLCANO_TOKEN"` the saved token and the
+// environment's are the same, so revoking one ends both.
+func TestLogoutSaysVolcanoTokenEndedWhenItIsTheSavedToken(t *testing.T) {
+	setAuthTestHome(t)
+	saveAuthTestConfig(t, &cliconfig.Config{UserToken: "pk-saved"})
+	t.Setenv("VOLCANO_TOKEN", "pk-saved\n")
+	_, deps := newRevokeAPI(t, http.StatusNoContent)
+
+	out, err := executeAuthCommand(t, NewLogout(deps))
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "VOLCANO_TOKEN holds the token this login used, which the server no longer accepts, "+
+		"so commands that use it now fail. Unset it.")
+	assert.NotContains(t, out, "commands keep using it")
+}
+
+// Logout never uses the project link, so a broken one in the working directory
+// must not stop it from reading and revoking the saved login.
+func TestLogoutRevokesDespiteABadProjectLink(t *testing.T) {
+	setAuthTestHome(t)
+	saveAuthTestConfig(t, &cliconfig.Config{UserToken: "pk-saved"})
+	t.Chdir(t.TempDir())
+	require.NoError(t, os.MkdirAll(".volcano", 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(".volcano", "project.json"), []byte("<<<<<<< HEAD\n"), 0o644))
+	api, deps := newRevokeAPI(t, http.StatusNoContent)
+
+	out, err := executeAuthCommand(t, NewLogout(deps))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"DELETE /user/tokens/current Bearer pk-saved"}, api.requests())
+	assert.Contains(t, out, "Logged out: this login's token and session were revoked on the server")
+	requireLoggedOut(t)
+}
+
+// When the config can't be removed, the command says what the server did and
+// that the login is still on this machine, never that it logged out.
+func TestLogoutSaysSoWhenTheLoginCannotBeRemoved(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	for _, tc := range []struct {
+		status int
+		want   string
+	}{
+		{http.StatusNoContent, "the server ended this login, but removing it from this machine failed"},
+		{http.StatusNotFound, "the server did not end this login (HTTP 404: Not Found), and removing it from this machine failed"},
+	} {
+		t.Run(http.StatusText(tc.status), func(t *testing.T) {
+			setAuthTestHome(t)
+			saveAuthTestConfig(t, &cliconfig.Config{UserToken: "pk-saved"})
+			path, err := cliconfig.Path()
+			require.NoError(t, err)
+			// The config's lock file points into a directory nobody can write,
+			// so reading the login works and removing it can't take the lock.
+			readOnly := t.TempDir()
+			require.NoError(t, os.Chmod(readOnly, 0o500))
+			t.Cleanup(func() { _ = os.Chmod(readOnly, 0o700) })
+			if f, err := os.Create(filepath.Join(readOnly, "probe")); err == nil {
+				_ = f.Close()
+				t.Skip("running as a user that can write any directory")
+			}
+			require.NoError(t, os.Remove(path+".lock"))
+			require.NoError(t, os.Symlink(filepath.Join(readOnly, "lock"), path+".lock"))
+			_, deps := newRevokeAPI(t, tc.status)
+
+			out, err := executeAuthCommand(t, NewLogout(deps))
+			require.Error(t, err)
+
+			assert.Contains(t, err.Error(), tc.want)
+			assert.NotContains(t, out, "Logged out")
+			assert.NotContains(t, err.Error(), "logged out of this machine")
+		})
+	}
 }
 
 func TestLogoutRemovesUnparseableConfig(t *testing.T) {
