@@ -66,11 +66,11 @@ func newLocalPing(deps cliruntime.Deps) *cobra.Command {
 
 func newPingCommand(opts pingOptions) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ping <name>",
-		Short: "Test a database connection",
-		Long:  opts.long,
+		Use:     "ping <name>",
+		Short:   "Test a database connection",
+		Long:    opts.long,
 		Example: pingExample(opts),
-		Args: cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.name, opts.out = strings.TrimSpace(args[0]), cmd.OutOrStdout()
 			return runPing(cmd.Context(), opts)
