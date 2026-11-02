@@ -15,11 +15,12 @@ other.
 Where LavaFlow isn't available, every `volcano cloud lavaflow` command says
 why:
 
-- When the project owner's plan doesn't include LavaFlow, every command says
-  "LavaFlow needs a plan that includes it, and the project owner's plan
-  doesn't" and exits with code 5.
 - When LavaFlow isn't open to the project or its owner yet, every command
   says "LavaFlow isn't available for this project yet" and exits with code 4.
+  Volcano checks this before the owner's plan.
+- When LavaFlow is open to the project but the owner's plan doesn't include
+  it, every command says "LavaFlow needs a plan that includes it, and the
+  project owner's plan doesn't" and exits with code 5.
 - On a Volcano API that has no LavaFlow, every command says "LavaFlow isn't
   available on this Volcano API" and exits with code 4.
 
