@@ -618,7 +618,7 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 
 	var pollCount atomic.Int32
 	var openedURL string
-	var exchangeAuth string
+	var exchangeAuth, userAuth string
 	timeoutTimer := newAuthFakeTicker()
 	pollTicker := newAuthFakeTicker()
 	dotTicker := newAuthFakeTicker()
@@ -652,6 +652,11 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 				"token_type":    "bearer",
 				"expires_in":    3600,
 				"refresh_token": "auth-refresh-token",
+			})
+		case "/auth/user":
+			userAuth = r.Header.Get("Authorization")
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{
+				"user": map[string]any{"id": "33333333-3333-4333-8333-333333333333", "email": "account@volcano.dev"},
 			})
 		case "/auth/platform/exchange":
 			exchangeAuth = r.Header.Get("Authorization")
@@ -712,9 +717,10 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 
 	result := <-done
 	require.NoError(t, result.err, "output:\n%s", out.String())
-	assert.Equal(t, Credentials{Token: "platform-token", UserID: "platform-user-1", APIURL: server.URL}, result.credentials)
+	assert.Equal(t, Credentials{Token: "platform-token", UserID: "platform-user-1", Email: "account@volcano.dev", APIURL: server.URL}, result.credentials)
 	assert.Equal(t, "https://volcano.dev/device?user_code=ABCD-EFGH", openedURL)
 	assert.Equal(t, "Bearer auth-access-token", exchangeAuth)
+	assert.Equal(t, "Bearer auth-access-token", userAuth)
 	assert.Contains(t, out.String(), "Code: ABCD-EFGH")
 	assert.Contains(t, out.String(), ".")
 }

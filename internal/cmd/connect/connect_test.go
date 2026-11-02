@@ -1633,3 +1633,8 @@ func assertGitIgnored(t *testing.T, dir string, paths ...string) {
 		assert.NoError(t, err, "%s is not gitignored: %s", path, out)
 	}
 }
+
+func TestSignedInMessageNamesTheAccountWhenKnown(t *testing.T) {
+	assert.Equal(t, "Signed in as account@volcano.dev", signedInMessage("account@volcano.dev"))
+	assert.Equal(t, "Signed in", signedInMessage(""))
+}
