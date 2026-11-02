@@ -204,9 +204,11 @@ func (r *runner) waitForScheduledFunctions(ctx context.Context, scheduled map[st
 			}
 			switch status {
 			case string(apiclient.FunctionStatusActive):
-			case string(apiclient.FunctionStatusFailed), string(apiclient.FunctionStatusDeleting):
-				return fmt.Errorf("%s %s is %s, so its schedulers can't be applied. See the build log:\n  %s",
-					d.kind, d.name, status, r.logsCommand(d))
+			case string(apiclient.FunctionStatusFailed):
+				return fmt.Errorf("%s %s failed to deploy, so its schedulers can't be applied. See the build log:\n  %s",
+					d.kind, d.name, r.logsCommand(d))
+			case string(apiclient.FunctionStatusDeleting):
+				return fmt.Errorf("%s %s is being deleted, so its schedulers can't be applied", d.kind, d.name)
 			default:
 				inactive = append(inactive, d)
 			}
@@ -215,11 +217,11 @@ func (r *runner) waitForScheduledFunctions(ctx context.Context, scheduled map[st
 			return nil
 		}
 		waiting = inactive
+		names := make([]string, 0, len(waiting))
+		for _, d := range waiting {
+			names = append(names, d.name)
+		}
 		if !announced {
-			names := make([]string, 0, len(waiting))
-			for _, d := range waiting {
-				names = append(names, d.name)
-			}
 			fmt.Fprintf(r.opts.out, "Waiting for %s to become active before applying schedulers...\n", strings.Join(names, ", "))
 			announced = true
 		}
@@ -227,7 +229,7 @@ func (r *runner) waitForScheduledFunctions(ctx context.Context, scheduled map[st
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timeout.C():
-			return fmt.Errorf("stopped waiting after %s for functions with schedulers to become active", waitTimeout)
+			return fmt.Errorf("stopped waiting after %s for %s to become active", waitTimeout, strings.Join(names, ", "))
 		case <-ticker.C():
 		}
 	}

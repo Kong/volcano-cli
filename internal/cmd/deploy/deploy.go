@@ -114,7 +114,7 @@ Usage:
 	cmd.Flags().BoolVar(&opts.noEnvFile, "no-env-file", false, "Deploy no env file, even when volcano/volcano.env exists")
 	cmd.Flags().StringArrayVarP(&opts.configs, "config", "c", nil, "Manifest to apply; repeat to apply several in order (default: volcano/volcano-config.yaml or ./volcano-config.yaml)")
 	cmd.Flags().BoolVar(&opts.noFrontends, "no-frontends", false, "Skip frontends")
-	cmd.Flags().BoolVar(&opts.noWait, "no-wait", false, "Return without waiting for deployments to finish")
+	cmd.Flags().BoolVar(&opts.noWait, "no-wait", false, "Return without waiting for deployments to finish (still waits for functions with schedulers before the config step)")
 	return cmd
 }
 

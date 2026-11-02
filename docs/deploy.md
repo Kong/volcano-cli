@@ -84,7 +84,7 @@ its status is `provisioning`.
 | `--no-env-file` | Deploy no env file, even when `volcano/volcano.env` exists. Use it when a manifest's `variables` section holds the project's variables. |
 | `-c, --config` | Manifest to apply. Repeat it to apply several, in order. Passing any `-c` replaces the default `volcano/volcano-config.yaml` or `./volcano-config.yaml`. |
 | `--no-frontends` | Skip frontends. Useful while `npm run dev` is your edit loop, or when only function code changed. |
-| `--no-wait` | Return without waiting for deployments to finish. |
+| `--no-wait` | Return without waiting for deployments to finish. Still waits for functions with schedulers before the config step. |
 
 `-d` without `--with-migrations` is refused, since it would do nothing.
 

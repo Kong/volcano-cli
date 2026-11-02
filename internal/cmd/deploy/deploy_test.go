@@ -700,6 +700,34 @@ func TestDeployWaitsForAScheduledFunctionBeforeTheConfig(t *testing.T) {
 	assert.Contains(t, out, "Waiting for hello to become active before applying schedulers...")
 }
 
+func TestDeployWaitsForAScheduledDurableFunctionBeforeTheConfig(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeFullProject(t)
+	writeDeployProjectFile(t, "volcano/volcano-config.yaml", `version: 1
+functions:
+  - name: hello
+  - name: order-pipeline
+    kind: durable
+    schedulers:
+      - name: nightly
+        cron: "0 0 * * *"
+        enabled: true
+`)
+	fake := newFakeVolcano(t)
+	fake.durableStatuses = map[string][]string{"order-pipeline": {"provisioning", "provisioning", "active"}}
+	server := fake.start()
+	deps := fake.cloudDeps(server)
+	deps.NewTicker = func(time.Duration) cliruntime.Ticker { return tickNow{} }
+
+	out, err := executeDeployCommand(t, New(deps), "--no-wait")
+	require.NoError(t, err, out)
+
+	assert.Equal(t, 3, fake.durableReads["order-pipeline"])
+	assert.Zero(t, fake.functionReads["hello"])
+	assert.Contains(t, fake.recorded(), "config")
+	assert.Contains(t, out, "Waiting for order-pipeline to become active before applying schedulers...")
+}
+
 func TestDeployDoesNotWaitForAFunctionWithoutSchedulers(t *testing.T) {
 	setDeployCommandTestHome(t)
 	writeFullProject(t)
@@ -725,7 +753,7 @@ func TestDeployStopsBeforeTheConfigWhenAScheduledFunctionFails(t *testing.T) {
 	require.Error(t, err)
 
 	assert.NotContains(t, fake.recorded(), "config")
-	assert.Contains(t, err.Error(), "config: function hello is failed, so its schedulers can't be applied")
+	assert.Contains(t, err.Error(), "config: function hello failed to deploy, so its schedulers can't be applied")
 	assert.Contains(t, err.Error(), "volcano cloud functions logs hello --type build")
 	assert.Contains(t, err.Error(), "volcano cloud config deploy -f volcano/volcano-config.yaml")
 	assert.NotContains(t, out, "Waiting for")
