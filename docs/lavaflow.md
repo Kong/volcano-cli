@@ -188,10 +188,11 @@ durable function  nightly-report                  never                  0      
 
 A run works on one issue. `list` shows the newest first, with the resource,
 the run's title, and the fix pull request. A run's title is the title of the
-fix it proposed or, before there is one, its diagnosis summary; until LavaFlow
-has either, the title shows `-`. Narrow it with `--status` (`queued`,
-`diagnosing` while it runs, `pr_open`, `completed`, `failed` or `cancelled`)
-or `--resource` with an ID from `resources --json`. When there are more, the
+pull request it opened, else of the fix it proposed, else its diagnosis
+summary; until LavaFlow has one, the title shows `-`. Narrow it with
+`--status` (`queued`, `diagnosing`, `fixing`, `reviewing`, `pr_open`,
+`completed`, `failed` or `cancelled`) or `--resource` with an ID from
+`resources --json`. When there are more, the
 list ends with the command for the next page. With `--json`, pass
 `next_cursor` to `--cursor`, with the same `--limit`, `--status` and
 `--resource`.
@@ -200,9 +201,15 @@ list ends with the command for the next page. With `--json`, pass
 volcano cloud lavaflow list --status failed
 ```
 
+A running run's status says which stage it is in: "Running: finding the root
+cause" (`diagnosing`), "Running: writing the fix" (`fixing`) or "Running:
+reviewing the fix" (`reviewing`). An open pull request shows as "PR open". A
+status the CLI doesn't know prints as the API gives it.
+
 `show` prints a run's diagnosis and root cause, the evidence and log lines it
-read, its review, the fix pull request, and the diff when the run has one. A
-run that failed says why.
+read, its review, the fix pull request and when it opened, and the diff when
+the run has one. A pull request opened before LavaFlow recorded the time has
+no open time. A run that failed says why.
 
 ```bash
 volcano cloud lavaflow show 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
@@ -215,6 +222,7 @@ Resource: function checkout
 Title: Load the cart before checkout reads it
 Started: 2026-10-30 09:00
 Pull request: #42 (open) https://github.com/acme/shop/pull/42
+Pull request opened: 2026-10-30 09:03
 Review: passed after 2 round(s)
 
 Diagnosis

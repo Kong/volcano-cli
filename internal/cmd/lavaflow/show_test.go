@@ -100,3 +100,19 @@ func TestShowRefusesARunIDThatIsntOne(t *testing.T) {
 	require.EqualError(t, err, `invalid run ID "latest": use an ID from 'volcano cloud lavaflow list'`)
 	assert.Empty(t, fake.queries)
 }
+
+// show says when the run opened its pull request, and leaves the line out
+// for a pull request opened before LavaFlow recorded the time.
+func TestShowSaysWhenThePullRequestOpened(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Regexp(t, `Pull request opened: 2026-10-30 \d\d:03`, out)
+
+	fake.set(func(s *lavaflowServer) { s.runs[0]["pull_request"].(map[string]any)["opened_at"] = nil })
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Pull request: #42 (open) https://github.com/acme/shop/pull/42")
+	assert.NotContains(t, out, "Pull request opened")
+}

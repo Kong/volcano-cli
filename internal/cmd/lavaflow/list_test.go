@@ -43,8 +43,8 @@ func TestListRefusesABadFilterBeforeSending(t *testing.T) {
 		{[]string{"--resource", "checkout"}, `invalid --resource "checkout": use a resource ID from 'volcano cloud lavaflow resources --json'`},
 		{[]string{"--limit", "0"}, "--limit must be between 1 and 100"},
 		{[]string{"--limit", "101"}, "--limit must be between 1 and 100"},
-		{[]string{"--status", "succeeded"}, `invalid --status "succeeded": use one of queued, diagnosing, pr_open, ` +
-			"completed, failed, cancelled"},
+		{[]string{"--status", "succeeded"}, `invalid --status "succeeded": use one of queued, diagnosing, fixing, ` +
+			"reviewing, pr_open, completed, failed, cancelled"},
 	} {
 		fake, deps := newLavaflowServer(t)
 
@@ -61,4 +61,29 @@ func TestListSaysWhenThereAreNoRuns(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "list")
 	require.NoError(t, err)
 	assert.Equal(t, "No runs\n", out)
+}
+
+// A running run says which stage it is in, in list and show alike, and a
+// status the CLI doesn't know prints as the API gives it.
+func TestARunsStatusSaysWhatItIsDoing(t *testing.T) {
+	for status, want := range map[string]string{
+		"queued":       "queued",
+		"diagnosing":   "Running: finding the root cause",
+		"fixing":       "Running: writing the fix",
+		"reviewing":    "Running: reviewing the fix",
+		"pr_open":      "PR open",
+		"completed":    "completed",
+		"waiting_room": "waiting_room",
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) { s.runs[0]["status"] = status })
+
+		out, err := executeLavaflowCommand(t, New(deps), "list")
+		require.NoError(t, err, status)
+		assert.Contains(t, out, lavaflowRunID+"  "+want+" ", status)
+
+		out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, status)
+		assert.Contains(t, out, "Status: "+want+"\n", status)
+	}
 }

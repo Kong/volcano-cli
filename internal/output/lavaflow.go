@@ -138,11 +138,11 @@ func LavaflowRuns(w io.Writer, page LavaflowRunsPage) {
 		fmt.Fprintln(w, "No runs")
 		return
 	}
-	tableHead(w, on, false, 120, "%-36s  %-10s  %-24s  %-30s  %-16s  %s",
+	tableHead(w, on, false, 140, "%-36s  %-31s  %-24s  %-30s  %-16s  %s",
 		"ID", "Status", "Resource", "Title", "Started", "PR")
 	for _, run := range page.Runs {
-		fmt.Fprintf(w, "%-36s  %-10s  %-24s  %-30s  %-16s  %s\n",
-			run.Id.String(), lavaflowRunStatus(run.Status), Truncate(clean(run.Resource.Name), 24),
+		fmt.Fprintf(w, "%-36s  %-31s  %-24s  %-30s  %-16s  %s\n",
+			run.Id.String(), Truncate(lavaflowRunStatus(run.Status), 31), Truncate(clean(run.Resource.Name), 24),
 			Truncate(clean(stringOr(run.Title, "-")), 30), formatLavaflowTime(run.CreatedAt), lavaflowPullRequestCell(run.PullRequest))
 	}
 	summary(w, on, "Showing %d run(s)", len(page.Runs))
@@ -168,6 +168,9 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	}
 	if run.PullRequest != nil {
 		kv(w, on, "Pull request", "#%d (%s) %s", run.PullRequest.Number, clean(string(run.PullRequest.State)), clean(run.PullRequest.Url))
+		if run.PullRequest.OpenedAt != nil {
+			kv(w, on, "Pull request opened", "%s", formatLavaflowTime(*run.PullRequest.OpenedAt))
+		}
 	}
 	if run.Review != nil {
 		kv(w, on, "Review", "%s after %d round(s)", clean(strings.ReplaceAll(string(run.Review.Verdict), "_", " ")), run.Review.Rounds)
@@ -260,11 +263,21 @@ func lavaflowAutonomy(autonomy apiclient.LavaflowAutonomy) string {
 	}
 }
 
+// lavaflowRunStatus labels a run's status. The running stages say what the
+// run is doing; a status the CLI doesn't know prints as the API gives it.
 func lavaflowRunStatus(status apiclient.LavaflowRunStatus) string {
-	if status == apiclient.LavaflowRunStatusPrOpen {
+	switch status {
+	case apiclient.LavaflowRunStatusDiagnosing:
+		return "Running: finding the root cause"
+	case apiclient.LavaflowRunStatusFixing:
+		return "Running: writing the fix"
+	case apiclient.LavaflowRunStatusReviewing:
+		return "Running: reviewing the fix"
+	case apiclient.LavaflowRunStatusPrOpen:
 		return "PR open"
+	default:
+		return clean(string(status))
 	}
-	return clean(string(status))
 }
 
 func lavaflowResourceType(kind string) string {
