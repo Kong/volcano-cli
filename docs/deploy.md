@@ -63,9 +63,10 @@ hand they could deploy a durable function as a standard one.
 
 The server only adds or changes a scheduler on an active function, and a
 function the run just deployed is usually still building when the config step
-runs. So the config step leaves out the schedulers of each such function and
-applies the rest of the manifest. After the wait, the command applies the
-manifests again with the schedulers. With `--no-wait`, or when one of those
+runs. When a manifest adds or changes a scheduler on such a function, the
+config step leaves out that function's schedulers and applies the rest of the
+manifest. After the wait, the command applies the manifests again with the
+schedulers. Schedulers that don't change apply in the config step as usual. With `--no-wait`, or when one of those
 functions fails to deploy, it prints the `config deploy` commands that apply
 the schedulers later.
 

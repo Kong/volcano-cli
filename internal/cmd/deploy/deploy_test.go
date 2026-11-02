@@ -696,6 +696,7 @@ func TestDeployAppliesSchedulersAfterTheFunctionDeploys(t *testing.T) {
 	writeScheduledProject(t)
 	fake := newFakeVolcano(t)
 	fake.functionStatuses = map[string][]string{"hello": {"provisioning", "active"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
 	server := fake.start()
 	deps := fake.cloudDeps(server)
 	deps.NewTicker = func(time.Duration) cliruntime.Ticker { return tickNow{} }
@@ -709,6 +710,7 @@ func TestDeployAppliesSchedulersAfterTheFunctionDeploys(t *testing.T) {
 		"durable order-pipeline",
 		"frontend web",
 		"read function hello",
+		"config dry run",
 		"config",
 		"read function hello",
 		"config",
@@ -716,7 +718,7 @@ func TestDeployAppliesSchedulersAfterTheFunctionDeploys(t *testing.T) {
 	require.Len(t, fake.configs, 2)
 	assert.NotContains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
 	assert.Contains(t, functionEntry(t, fake.configs[1], "hello"), "schedulers")
-	assert.Contains(t, out, "Schedulers for hello will be applied once it finishes deploying")
+	assert.Contains(t, out, "Schedulers for hello wait until it finishes deploying")
 	assert.Contains(t, out, "Applying schedulers")
 	assert.Contains(t, out, "Deployed in")
 }
@@ -735,11 +737,30 @@ func TestDeployAppliesSchedulersInOnePassWhenTheFunctionIsActive(t *testing.T) {
 	assert.NotContains(t, out, "Applying schedulers")
 }
 
+// A redeploy puts the function back in provisioning, but the server accepts
+// schedulers that don't change, so the config applies in one pass.
+func TestDeployAppliesUnchangedSchedulersInOnePassWhileTheFunctionBuilds(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning"}}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.NoError(t, err, out)
+
+	assert.Contains(t, fake.recorded(), "config dry run")
+	require.Len(t, fake.configs, 1)
+	assert.Contains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
+	assert.NotContains(t, out, "Schedulers for")
+}
+
 func TestDeployNoWaitPrintsTheCommandThatAppliesTheSchedulers(t *testing.T) {
 	setDeployCommandTestHome(t)
 	writeScheduledProject(t)
 	fake := newFakeVolcano(t)
 	fake.functionStatuses = map[string][]string{"hello": {"provisioning"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
 	server := fake.start()
 
 	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
@@ -756,6 +777,7 @@ func TestDeployLeavesSchedulersOutWhenTheFunctionFails(t *testing.T) {
 	writeScheduledProject(t)
 	fake := newFakeVolcano(t)
 	fake.functionStatuses = map[string][]string{"hello": {"provisioning", "failed"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
 	fake.statuses = map[string][]string{"hello": {"failed"}}
 	server := fake.start()
 
@@ -783,6 +805,7 @@ functions:
 `)
 	fake := newFakeVolcano(t)
 	fake.durableStatuses = map[string][]string{"order-pipeline": {"provisioning", "provisioning", "active"}}
+	fake.refusedSchedulers = map[string]bool{"order-pipeline": true}
 	server := fake.start()
 	deps := fake.cloudDeps(server)
 	deps.NewTicker = func(time.Duration) cliruntime.Ticker { return tickNow{} }

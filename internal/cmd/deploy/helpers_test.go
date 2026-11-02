@@ -107,6 +107,10 @@ type fakeVolcano struct {
 	// functionStatuses are the statuses a function read reports per name, one
 	// per read; the last one repeats. Unlisted names are active.
 	functionStatuses map[string][]string
+	// refusedSchedulers names the functions whose schedulers a dry run of the
+	// config refuses, as the server does while a function builds and the
+	// scheduler is new or changed.
+	refusedSchedulers map[string]bool
 
 	mu        sync.Mutex
 	calls     []string
@@ -196,6 +200,31 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 		f.writeJSON(w, http.StatusCreated, map[string]any{
 			"id": uuid.NewString(), "project_id": deployProjectID, "name": body["name"], "value": body["value"],
 			"created_at": "2026-10-01T00:00:00Z", "updated_at": "2026-10-01T00:00:00Z",
+		})
+	case r.Method == http.MethodPut && path == project+"/config" && r.URL.Query().Get("dry_run") == "true":
+		var body map[string]any
+		require.NoError(f.t, json.NewDecoder(r.Body).Decode(&body))
+		f.calls = append(f.calls, "config dry run")
+		var refusals []any
+		entries, _ := body["functions"].([]any)
+		for _, entry := range entries {
+			fields, _ := entry.(map[string]any)
+			name, _ := fields["name"].(string)
+			if _, listed := fields["schedulers"]; listed && f.refusedSchedulers[name] {
+				refusals = append(refusals, map[string]any{
+					"section": "functions.schedulers",
+					"name":    name + "/every-minute",
+					"message": "function scheduler requires active function (status: provisioning)",
+				})
+			}
+		}
+		if len(refusals) > 0 {
+			f.writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "validation failed", "errors": refusals})
+			return
+		}
+		f.writeJSON(w, http.StatusOK, map[string]any{
+			"results": []any{}, "skipped": []any{}, "missing": []any{}, "dry_run": true,
+			"summary": map[string]any{"created": 0, "updated": 0, "deleted": 0, "unchanged": 0, "errors": 0, "skipped": 0, "missing": 0},
 		})
 	case r.Method == http.MethodPut && path == project+"/config":
 		var body map[string]any

@@ -771,9 +771,13 @@ func (b planBuilder) config() step {
 	manifests := b.manifests
 	commands := s.manual
 	s.run = func(ctx context.Context, r *runner) error {
-		deferred, err := r.inactiveScheduledFunctions(ctx, scheduledFunctions(manifests))
+		inactive, err := r.inactiveScheduledFunctions(ctx, scheduledFunctions(manifests))
 		if err != nil {
 			return err
+		}
+		var deferred []startedDeployment
+		if len(inactive) > 0 {
+			deferred = r.refusedSchedulers(ctx, manifests, inactive)
 		}
 		held := map[string]bool{}
 		for _, d := range deferred {
@@ -790,7 +794,7 @@ func (b planBuilder) config() step {
 		}
 		if len(deferred) > 0 {
 			r.deferred, r.manifests, r.configCommands = deferred, manifests, commands
-			fmt.Fprintf(r.opts.out, "Schedulers for %s will be applied once %s deploying\n",
+			fmt.Fprintf(r.opts.out, "Schedulers for %s wait until %s deploying\n",
 				strings.Join(deploymentNames(deferred), ", "), plural(len(deferred), "it finishes", "they finish"))
 		}
 		return nil

@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	configcmd "github.com/Kong/volcano-cli/internal/cmd/config"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
@@ -16,6 +17,7 @@ import (
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
 	"github.com/Kong/volcano-cli/internal/project"
+	"github.com/Kong/volcano-cli/internal/projectconfig"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
@@ -26,6 +28,9 @@ const (
 	// clockSkew widens the deployment listing so a client clock ahead of the
 	// server's does not hide the deployments this run started.
 	clockSkew = time.Hour
+	// schedulersSection is the manifest section the server files scheduler
+	// errors under, each named "<function>/<scheduler>".
+	schedulersSection = "functions.schedulers"
 )
 
 type resourceKind string
@@ -201,6 +206,42 @@ func (r *runner) inactiveScheduledFunctions(ctx context.Context, scheduled map[s
 		}
 	}
 	return inactive, nil
+}
+
+// refusedSchedulers dry-runs each manifest and returns the inactive functions
+// whose schedulers the server refuses. An unchanged scheduler is accepted
+// while its function builds, so a redeploy usually needs no second pass. Any
+// other failure is left for the real apply to report.
+func (r *runner) refusedSchedulers(ctx context.Context, manifests []manifestFile, inactive []startedDeployment) []startedDeployment {
+	names := map[string]bool{}
+	for _, d := range inactive {
+		names[d.name] = true
+	}
+	refused := map[string]bool{}
+	configs := projectconfig.NewService(r.opts.deps)
+	for _, m := range manifests {
+		_, err := configs.Deploy(ctx, m.manifest, true)
+		validation, ok := errors.AsType[*api.ProjectConfigValidationError](err)
+		if !ok {
+			continue
+		}
+		for _, e := range validation.Errors {
+			if e.Section != schedulersSection || e.Name == nil {
+				continue
+			}
+			function, _, _ := strings.Cut(*e.Name, "/")
+			if names[function] {
+				refused[function] = true
+			}
+		}
+	}
+	var held []startedDeployment
+	for _, d := range inactive {
+		if refused[d.name] {
+			held = append(held, d)
+		}
+	}
+	return held
 }
 
 // applyDeferredSchedulers applies the manifests again, schedulers included,
