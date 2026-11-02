@@ -155,7 +155,7 @@ func TestEveryCommandWritesTheAPIsValuesAsJSON(t *testing.T) {
 		{[]string{"resources"}, func(v map[string]any) {
 			assert.Len(t, v["data"], 2)
 			first := v["data"].([]any)[0].(map[string]any)
-			assert.Equal(t, lavaflowResourceID, first["id"])
+			assert.Equal(t, checkoutResource(), first["resource"])
 			assert.Equal(t, map[string]any{"flagged": true, "reason": "6 issues in the last 24 hours, 4 times the daily average"}, first["anomaly"])
 		}},
 		{[]string{"list"}, func(v map[string]any) {

@@ -181,21 +181,46 @@ func TestChangesBySomeoneWhoIsntTheOwnerAreRefusedFirst(t *testing.T) {
 	}
 }
 
-// The API's refusal of a change is read by its code, not its status.
-func TestARefusedChangeSaysWhoCanMakeIt(t *testing.T) {
-	for code, want := range map[string]error{
-		"person_required": clilavaflow.ErrPersonDecides,
-		"owner_required":  clilavaflow.ErrOwnerDecides,
+// The API's refusal of a change is read by its code, not its status, and a
+// 403 without a code keeps the API's own words.
+func TestARefusedChangeSaysWhy(t *testing.T) {
+	for code, want := range map[string]string{
+		"person_required": "changing LavaFlow's settings needs a person's session",
+		"plan_required":   "turning LavaFlow on needs a plan that includes LavaFlow",
+		"":                "failed to turn LavaFlow on: HTTP 403: project ownership required",
 	} {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
 			s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
-			s.refusal = map[string]any{"error": "refused", "code": code}
+			s.refusal = map[string]any{"error": "project ownership required"}
+			if code != "" {
+				s.refusal["code"] = code
+			}
 		})
 
-		_, err := executeLavaflowCommand(t, New(deps), "disable")
-		require.ErrorIs(t, err, want, code)
+		_, err := executeLavaflowCommand(t, New(deps), "enable", "--yes")
+		require.Error(t, err, code)
+		assert.Contains(t, err.Error(), want, code)
 		assert.Equal(t, http.StatusForbidden, api.Status(err), code)
-		assert.Equal(t, code, api.Code(err), code)
+	}
+}
+
+// A person who isn't the project's owner gets the API's codeless 403 from
+// every route, reads included, with its words and the exit code of a
+// permission refused.
+func TestSomeoneWhoIsntTheOwnerGetsTheAPIsRefusal(t *testing.T) {
+	for _, args := range lavaflowCommandArgs() {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse = http.StatusForbidden
+			s.refusal = map[string]any{"error": "project ownership required"}
+		})
+
+		_, err := executeLavaflowCommand(t, New(deps), args...)
+		require.Error(t, err, "%q", args)
+		assert.Contains(t, err.Error(), "project ownership required", "%q", args)
+		assert.NotContains(t, err.Error(), "isn't available", "%q", args)
+		assert.Equal(t, http.StatusForbidden, api.Status(err), "%q", args)
+		assert.Empty(t, fake.updates, "%q", args)
 	}
 }

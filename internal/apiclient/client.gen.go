@@ -2211,21 +2211,21 @@ func (e LavaflowPullRequestState) Valid() bool {
 	}
 }
 
-// Defines values for LavaflowResourceType.
+// Defines values for LavaflowResourceReferenceType.
 const (
-	LavaflowResourceTypeDurableFunction LavaflowResourceType = "durable_function"
-	LavaflowResourceTypeFrontend        LavaflowResourceType = "frontend"
-	LavaflowResourceTypeFunction        LavaflowResourceType = "function"
+	LavaflowResourceReferenceTypeDurableFunction LavaflowResourceReferenceType = "durable_function"
+	LavaflowResourceReferenceTypeFrontend        LavaflowResourceReferenceType = "frontend"
+	LavaflowResourceReferenceTypeFunction        LavaflowResourceReferenceType = "function"
 )
 
-// Valid indicates whether the value is a known member of the LavaflowResourceType enum.
-func (e LavaflowResourceType) Valid() bool {
+// Valid indicates whether the value is a known member of the LavaflowResourceReferenceType enum.
+func (e LavaflowResourceReferenceType) Valid() bool {
 	switch e {
-	case LavaflowResourceTypeDurableFunction:
+	case LavaflowResourceReferenceTypeDurableFunction:
 		return true
-	case LavaflowResourceTypeFrontend:
+	case LavaflowResourceReferenceTypeFrontend:
 		return true
-	case LavaflowResourceTypeFunction:
+	case LavaflowResourceReferenceTypeFunction:
 		return true
 	default:
 		return false
@@ -5756,7 +5756,7 @@ type BatchFunctionDeployResponse struct {
 
 // Capability A product capability and whether it accepts new work in this environment.
 type Capability struct {
-	// Id Stable capability ID, such as `sandboxes`, `sandboxes.sessions`, or `sandboxes.custom_templates`. New IDs may appear at any time.
+	// Id Stable capability ID, such as `sandboxes`, `sandboxes.sessions`, `sandboxes.custom_templates`, or `issues`. New IDs may appear at any time.
 	Id string `json:"id"`
 
 	// Status `available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`. Treat any other value as `unavailable`.
@@ -7392,7 +7392,7 @@ type EmailTemplateTemplateType string
 
 // Error defines model for Error.
 type Error struct {
-	// Code Stable machine-readable error code when a specific recovery path is available.
+	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
 	Code  *string `json:"code,omitempty"`
 	Error string  `json:"error"`
 }
@@ -7559,7 +7559,7 @@ type FrontendCandidateList struct {
 
 // FrontendCustomDomainConflictError defines model for FrontendCustomDomainConflictError.
 type FrontendCustomDomainConflictError struct {
-	// Code Stable machine-readable error code when a specific recovery path is available.
+	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
 	Code  *string `json:"code,omitempty"`
 	Error string  `json:"error"`
 
@@ -8405,38 +8405,54 @@ type LavaFlowTriggerIssue struct {
 
 // LavaflowAnomaly defines model for LavaflowAnomaly.
 type LavaflowAnomaly struct {
-	Flagged bool    `json:"flagged"`
-	Reason  *string `json:"reason,omitempty"`
+	Flagged bool `json:"flagged"`
+
+	// Reason Why the resource is flagged, null when it is not.
+	Reason *string `json:"reason"`
 }
 
-// LavaflowAutonomy defines model for LavaflowAutonomy.
+// LavaflowAutonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. LavaFlow never merges.
 type LavaflowAutonomy string
+
+// LavaflowDayCounts defines model for LavaflowDayCounts.
+type LavaflowDayCounts struct {
+	Date openapi_types.Date `json:"date"`
+
+	// IssuesOpened Issues LavaFlow took on that UTC day.
+	IssuesOpened int64 `json:"issues_opened"`
+
+	// PullRequestsOpened Pull requests with a fix LavaFlow opened that UTC day.
+	PullRequestsOpened int64 `json:"pull_requests_opened"`
+}
 
 // LavaflowDiagnosis defines model for LavaflowDiagnosis.
 type LavaflowDiagnosis struct {
-	Evidence  *[]string          `json:"evidence,omitempty"`
-	LogLines  *[]LavaflowLogLine `json:"log_lines,omitempty"`
-	RootCause *string            `json:"root_cause,omitempty"`
-	Summary   *string            `json:"summary,omitempty"`
+	Evidence  []string          `json:"evidence"`
+	LogLines  []LavaflowLogLine `json:"log_lines"`
+	RootCause string            `json:"root_cause"`
+	Summary   string            `json:"summary"`
 }
 
 // LavaflowFailure defines model for LavaflowFailure.
 type LavaflowFailure struct {
-	Code    *string `json:"code,omitempty"`
-	Message *string `json:"message,omitempty"`
+	// Code Stable code, such as `timed_out` or `feature_paused`.
+	Code string `json:"code"`
+
+	// Message Fixed text for the code.
+	Message string `json:"message"`
 }
 
 // LavaflowLogLine defines model for LavaflowLogLine.
 type LavaflowLogLine struct {
-	Level     *string    `json:"level,omitempty"`
-	Message   *string    `json:"message,omitempty"`
-	Timestamp *time.Time `json:"timestamp,omitempty"`
+	Level     string     `json:"level"`
+	Message   string     `json:"message"`
+	Timestamp *time.Time `json:"timestamp"`
 }
 
 // LavaflowPullRequest defines model for LavaflowPullRequest.
 type LavaflowPullRequest struct {
-	Number   int                      `json:"number"`
-	OpenedAt *time.Time               `json:"opened_at,omitempty"`
+	Number   int64                    `json:"number"`
+	OpenedAt *time.Time               `json:"opened_at"`
 	State    LavaflowPullRequestState `json:"state"`
 	Url      string                   `json:"url"`
 }
@@ -8446,13 +8462,19 @@ type LavaflowPullRequestState string
 
 // LavaflowResource defines model for LavaflowResource.
 type LavaflowResource struct {
-	Anomaly            LavaflowAnomaly      `json:"anomaly"`
-	Id                 string               `json:"id"`
-	IssuesOpened       int                  `json:"issues_opened"`
-	LastAnalyzedAt     *time.Time           `json:"last_analyzed_at,omitempty"`
-	Name               string               `json:"name"`
-	PullRequestsOpened int                  `json:"pull_requests_opened"`
-	Type               LavaflowResourceType `json:"type"`
+	Anomaly LavaflowAnomaly `json:"anomaly"`
+
+	// IssuesOpened Issues LavaFlow took on in the window.
+	IssuesOpened int64 `json:"issues_opened"`
+
+	// LastAnalyzedAt When a LavaFlow run last started on the resource, null if never.
+	LastAnalyzedAt *time.Time `json:"last_analyzed_at"`
+
+	// PullRequestsOpened Pull requests with a fix LavaFlow opened in the window.
+	PullRequestsOpened int64 `json:"pull_requests_opened"`
+
+	// Resource The function, durable function or frontend an issue came from.
+	Resource LavaflowResourceReference `json:"resource"`
 }
 
 // LavaflowResourceList defines model for LavaflowResourceList.
@@ -8460,85 +8482,107 @@ type LavaflowResourceList struct {
 	Data []LavaflowResource `json:"data"`
 }
 
-// LavaflowResourceRef defines model for LavaflowResourceRef.
-type LavaflowResourceRef struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
-	Type string `json:"type"`
+// LavaflowResourceReference The function, durable function or frontend an issue came from.
+type LavaflowResourceReference struct {
+	Id   openapi_types.UUID            `json:"id"`
+	Name string                        `json:"name"`
+	Type LavaflowResourceReferenceType `json:"type"`
 }
 
-// LavaflowResourceType defines model for LavaflowResourceType.
-type LavaflowResourceType string
+// LavaflowResourceReferenceType defines model for LavaflowResourceReference.Type.
+type LavaflowResourceReferenceType string
 
 // LavaflowReview defines model for LavaflowReview.
 type LavaflowReview struct {
-	Rounds  *int                   `json:"rounds,omitempty"`
-	Verdict *LavaflowReviewVerdict `json:"verdict,omitempty"`
+	Rounds int `json:"rounds"`
+
+	// Verdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding.
+	Verdict LavaflowReviewVerdict `json:"verdict"`
 }
 
-// LavaflowReviewVerdict defines model for LavaflowReview.Verdict.
+// LavaflowReviewVerdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding.
 type LavaflowReviewVerdict string
 
 // LavaflowRun defines model for LavaflowRun.
 type LavaflowRun struct {
 	CreatedAt time.Time `json:"created_at"`
 
-	// DetailsClearedAt When retention cleared the run's diagnosis, log lines, diff and review text, which are then null.
-	DetailsClearedAt *time.Time `json:"details_cleared_at,omitempty"`
+	// DetailsClearedAt When the run's text was cleared, null until it is.
+	DetailsClearedAt *time.Time `json:"details_cleared_at"`
 
-	// DetailsExpireAt When the run's diagnosis, log lines, diff and review text are cleared, 90 days after it completed. Null while the run is active.
-	DetailsExpireAt *time.Time           `json:"details_expire_at,omitempty"`
-	Diagnosis       *LavaflowDiagnosis   `json:"diagnosis,omitempty"`
-	Diff            *string              `json:"diff,omitempty"`
-	Failure         *LavaflowFailure     `json:"failure,omitempty"`
-	FinishedAt      *time.Time           `json:"finished_at,omitempty"`
-	Id              string               `json:"id"`
-	IssueId         *string              `json:"issue_id,omitempty"`
-	PullRequest     *LavaflowPullRequest `json:"pull_request,omitempty"`
-	Resource        LavaflowResourceRef  `json:"resource"`
-	Review          *LavaflowReview      `json:"review,omitempty"`
-	Status          LavaflowRunStatus    `json:"status"`
-	Title           *string              `json:"title,omitempty"`
+	// DetailsExpireAt When the run's text is cleared, 90 days after it completes; null while it runs.
+	DetailsExpireAt *time.Time         `json:"details_expire_at"`
+	Diagnosis       *LavaflowDiagnosis `json:"diagnosis"`
+
+	// Diff The fix as a unified diff, with secrets masked.
+	Diff *string `json:"diff"`
+
+	// Failure Why the run stopped or waits, null when nothing went wrong.
+	Failure     *LavaflowFailure     `json:"failure"`
+	FinishedAt  *time.Time           `json:"finished_at"`
+	Id          openapi_types.UUID   `json:"id"`
+	IssueId     openapi_types.UUID   `json:"issue_id"`
+	PullRequest *LavaflowPullRequest `json:"pull_request"`
+
+	// Resource The function, durable function or frontend an issue came from.
+	Resource LavaflowResourceReference `json:"resource"`
+	Review   *LavaflowReview           `json:"review"`
+
+	// Status Where a run is. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
+	Status LavaflowRunStatus `json:"status"`
+
+	// Title The title of the run's pull request, or its diagnosis' summary, null while neither is known.
+	Title *string `json:"title"`
 }
 
-// LavaflowRunList defines model for LavaflowRunList.
-type LavaflowRunList struct {
-	Data       []LavaflowRunSummary `json:"data"`
-	HasMore    bool                 `json:"has_more"`
-	Limit      int                  `json:"limit"`
-	NextCursor *string              `json:"next_cursor,omitempty"`
-}
-
-// LavaflowRunStatus defines model for LavaflowRunStatus.
+// LavaflowRunStatus Where a run is. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 type LavaflowRunStatus string
 
 // LavaflowRunSummary defines model for LavaflowRunSummary.
 type LavaflowRunSummary struct {
 	CreatedAt   time.Time            `json:"created_at"`
-	FinishedAt  *time.Time           `json:"finished_at,omitempty"`
-	Id          string               `json:"id"`
-	IssueId     *string              `json:"issue_id,omitempty"`
-	PullRequest *LavaflowPullRequest `json:"pull_request,omitempty"`
-	Resource    LavaflowResourceRef  `json:"resource"`
-	Status      LavaflowRunStatus    `json:"status"`
-	Title       *string              `json:"title,omitempty"`
+	FinishedAt  *time.Time           `json:"finished_at"`
+	Id          openapi_types.UUID   `json:"id"`
+	IssueId     openapi_types.UUID   `json:"issue_id"`
+	PullRequest *LavaflowPullRequest `json:"pull_request"`
+
+	// Resource The function, durable function or frontend an issue came from.
+	Resource LavaflowResourceReference `json:"resource"`
+
+	// Status Where a run is. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
+	Status LavaflowRunStatus `json:"status"`
+
+	// Title The title of the run's pull request, or its diagnosis' summary, null while neither is known.
+	Title *string `json:"title"`
 }
 
-// LavaflowSettings defines model for LavaflowSettings.
+// LavaflowSettings A project's LavaFlow settings. LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
 type LavaflowSettings struct {
+	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. LavaFlow never merges.
 	Autonomy LavaflowAutonomy `json:"autonomy"`
 
-	// CanUpdate Whether this caller can change the settings. True only for the project owner's own session; false for any project access token.
-	CanUpdate     bool      `json:"can_update"`
-	CustomContext string    `json:"custom_context"`
-	Enabled       bool      `json:"enabled"`
-	SystemPrompt  string    `json:"system_prompt"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	UpdatedBy     *string   `json:"updated_by,omitempty"`
+	// CanUpdate Whether the caller can save the settings: true only for the project's owner with a platform token, false for any project access token.
+	CanUpdate bool `json:"can_update"`
+
+	// CustomContext Context about the project that every run gets. Empty when unset.
+	CustomContext string `json:"custom_context"`
+
+	// Enabled Whether LavaFlow works on the project's issues. Off by default.
+	Enabled bool `json:"enabled"`
+
+	// SystemPrompt Instructions every run gets after LavaFlow's own, which take precedence. Empty when unset.
+	SystemPrompt string `json:"system_prompt"`
+
+	// UpdatedAt When the settings were last saved, null until they first are.
+	UpdatedAt *time.Time `json:"updated_at"`
+
+	// UpdatedBy The user ID of the person who last saved the settings.
+	UpdatedBy *string `json:"updated_by"`
 }
 
-// LavaflowSettingsUpdate defines model for LavaflowSettingsUpdate.
+// LavaflowSettingsUpdate The fields to change. An omitted field keeps its saved value.
 type LavaflowSettingsUpdate struct {
+	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. LavaFlow never merges.
 	Autonomy      *LavaflowAutonomy `json:"autonomy,omitempty"`
 	CustomContext *string           `json:"custom_context,omitempty"`
 	Enabled       *bool             `json:"enabled,omitempty"`
@@ -8547,25 +8591,18 @@ type LavaflowSettingsUpdate struct {
 
 // LavaflowStats defines model for LavaflowStats.
 type LavaflowStats struct {
-	Days        []LavaflowStatsDay  `json:"days"`
-	Totals      LavaflowStatsTotals `json:"totals"`
-	WindowEnd   openapi_types.Date  `json:"window_end"`
-	WindowStart openapi_types.Date  `json:"window_start"`
-}
+	// Days One entry per UTC day, oldest first, zeros included.
+	Days   []LavaflowDayCounts `json:"days"`
+	Totals struct {
+		IssuesOpened       int64 `json:"issues_opened"`
+		PullRequestsOpened int64 `json:"pull_requests_opened"`
+	} `json:"totals"`
 
-// LavaflowStatsDay defines model for LavaflowStatsDay.
-type LavaflowStatsDay struct {
-	Date         openapi_types.Date `json:"date"`
-	IssuesOpened int                `json:"issues_opened"`
+	// WindowEnd The last UTC day in the window, today.
+	WindowEnd openapi_types.Date `json:"window_end"`
 
-	// PullRequestsOpened Fix pull requests LavaFlow opened that day. Merges are not counted.
-	PullRequestsOpened int `json:"pull_requests_opened"`
-}
-
-// LavaflowStatsTotals defines model for LavaflowStatsTotals.
-type LavaflowStatsTotals struct {
-	IssuesOpened       int `json:"issues_opened"`
-	PullRequestsOpened int `json:"pull_requests_opened"`
+	// WindowStart The first UTC day in the window.
+	WindowStart openapi_types.Date `json:"window_start"`
 }
 
 // LiveLogLevel Canonical lowercase function runtime log level.
@@ -9196,6 +9233,20 @@ type PaginatedFunctions struct {
 // PaginatedLavaFlowRuns defines model for PaginatedLavaFlowRuns.
 type PaginatedLavaFlowRuns struct {
 	Data []LavaFlowRun `json:"data"`
+
+	// HasMore Whether a next page exists
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page (present if has_more is true)
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// PaginatedLavaflowRuns defines model for PaginatedLavaflowRuns.
+type PaginatedLavaflowRuns struct {
+	Data []LavaflowRunSummary `json:"data"`
 
 	// HasMore Whether a next page exists
 	HasMore bool `json:"has_more"`
@@ -11952,6 +12003,21 @@ type IssueId = openapi_types.UUID
 // LavaFlowRunId defines model for LavaFlowRunId.
 type LavaFlowRunId = openapi_types.UUID
 
+// LavaflowDays defines model for LavaflowDays.
+type LavaflowDays = int
+
+// LavaflowResourceIdFilter defines model for LavaflowResourceIdFilter.
+type LavaflowResourceIdFilter = openapi_types.UUID
+
+// LavaflowRunId defines model for LavaflowRunId.
+type LavaflowRunId = openapi_types.UUID
+
+// LavaflowRunLimit defines model for LavaflowRunLimit.
+type LavaflowRunLimit = int
+
+// LavaflowRunStatusFilter Where a run is. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
+type LavaflowRunStatusFilter = LavaflowRunStatus
+
 // Limit defines model for Limit.
 type Limit = int
 
@@ -13497,22 +13563,30 @@ type ListFunctionDeploymentsParams struct {
 
 // ListLavaflowResourcesParams defines parameters for ListLavaflowResources.
 type ListLavaflowResourcesParams struct {
-	// Days Days in the window, counting today. 1 to 90; defaults to 30.
-	Days *int `form:"days,omitempty" json:"days,omitempty"`
+	// Days Number of UTC days in the window, ending today.
+	Days *LavaflowDays `form:"days,omitempty" json:"days,omitempty"`
 }
 
 // ListLavaflowRunsParams defines parameters for ListLavaflowRuns.
 type ListLavaflowRunsParams struct {
-	Cursor     *string            `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Limit      *int               `form:"limit,omitempty" json:"limit,omitempty"`
-	Status     *LavaflowRunStatus `form:"status,omitempty" json:"status,omitempty"`
-	ResourceId *string            `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+	// Limit Number of runs per page (max 100)
+	Limit *LavaflowRunLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor from a previous response's `next_cursor`. Pages forward;
+	// keep the same filters while paging.
+	Cursor *IssueCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Status Only runs in this status.
+	Status *LavaflowRunStatusFilter `form:"status,omitempty" json:"status,omitempty"`
+
+	// ResourceId Only runs for issues of this resource.
+	ResourceId *LavaflowResourceIdFilter `form:"resource_id,omitempty" json:"resource_id,omitempty"`
 }
 
 // GetLavaflowStatsParams defines parameters for GetLavaflowStats.
 type GetLavaflowStatsParams struct {
-	// Days Days in the window, counting today. 1 to 90; defaults to 30.
-	Days *int `form:"days,omitempty" json:"days,omitempty"`
+	// Days Number of UTC days in the window, ending today.
+	Days *LavaflowDays `form:"days,omitempty" json:"days,omitempty"`
 }
 
 // UploadProjectLogoMultipartBody defines parameters for UploadProjectLogo.
@@ -16626,7 +16700,7 @@ type ClientInterface interface {
 	ListLavaflowRuns(ctx context.Context, id ProjectId, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLavaflowRun request
-	GetLavaflowRun(ctx context.Context, id ProjectId, runId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLavaflowRun(ctx context.Context, id ProjectId, runId LavaflowRunId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLavaflowStats request
 	GetLavaflowStats(ctx context.Context, id ProjectId, params *GetLavaflowStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -20965,7 +21039,7 @@ func (c *Client) ListLavaflowRuns(ctx context.Context, id ProjectId, params *Lis
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLavaflowRun(ctx context.Context, id ProjectId, runId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLavaflowRun(ctx context.Context, id ProjectId, runId LavaflowRunId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLavaflowRunRequest(c.Server, id, runId)
 	if err != nil {
 		return nil, err
@@ -35353,9 +35427,9 @@ func NewListLavaflowRunsRequest(server string, id ProjectId, params *ListLavaflo
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
 
-		if params.Cursor != nil {
+		if params.Limit != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -35365,9 +35439,9 @@ func NewListLavaflowRunsRequest(server string, id ProjectId, params *ListLavaflo
 
 		}
 
-		if params.Limit != nil {
+		if params.Cursor != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -35391,7 +35465,7 @@ func NewListLavaflowRunsRequest(server string, id ProjectId, params *ListLavaflo
 
 		if params.ResourceId != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_id", *params.ResourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_id", *params.ResourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -35416,7 +35490,7 @@ func NewListLavaflowRunsRequest(server string, id ProjectId, params *ListLavaflo
 }
 
 // NewGetLavaflowRunRequest generates requests for GetLavaflowRun
-func NewGetLavaflowRunRequest(server string, id ProjectId, runId string) (*http.Request, error) {
+func NewGetLavaflowRunRequest(server string, id ProjectId, runId LavaflowRunId) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -35428,7 +35502,7 @@ func NewGetLavaflowRunRequest(server string, id ProjectId, runId string) (*http.
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "runId", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "runId", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
 	if err != nil {
 		return nil, err
 	}
@@ -41391,7 +41465,7 @@ type ClientWithResponsesInterface interface {
 	ListLavaflowRunsWithResponse(ctx context.Context, id ProjectId, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*ListLavaflowRunsClientResponse, error)
 
 	// GetLavaflowRunWithResponse request
-	GetLavaflowRunWithResponse(ctx context.Context, id ProjectId, runId string, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error)
+	GetLavaflowRunWithResponse(ctx context.Context, id ProjectId, runId LavaflowRunId, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error)
 
 	// GetLavaflowStatsWithResponse request
 	GetLavaflowStatsWithResponse(ctx context.Context, id ProjectId, params *GetLavaflowStatsParams, reqEditors ...RequestEditorFn) (*GetLavaflowStatsClientResponse, error)
@@ -46044,7 +46118,7 @@ type ListProjectCapabilitiesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *CapabilityList
-	JSON403      *Error
+	JSON401      *Error
 	JSON404      *Error
 }
 
@@ -49840,6 +49914,7 @@ type UpdateLavaflowSettingsClientResponse struct {
 	JSON400      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -49902,7 +49977,7 @@ func (r ListLavaflowResourcesClientResponse) ContentType() string {
 type ListLavaflowRunsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *LavaflowRunList
+	JSON200      *PaginatedLavaflowRuns
 	JSON400      *Error
 	JSON403      *Error
 	JSON404      *Error
@@ -55933,7 +56008,7 @@ func (c *ClientWithResponses) ListLavaflowRunsWithResponse(ctx context.Context, 
 }
 
 // GetLavaflowRunWithResponse request returning *GetLavaflowRunClientResponse
-func (c *ClientWithResponses) GetLavaflowRunWithResponse(ctx context.Context, id ProjectId, runId string, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error) {
+func (c *ClientWithResponses) GetLavaflowRunWithResponse(ctx context.Context, id ProjectId, runId LavaflowRunId, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error) {
 	rsp, err := c.GetLavaflowRun(ctx, id, runId, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -62758,12 +62833,12 @@ func ParseListProjectCapabilitiesClientResponse(rsp *http.Response) (*ListProjec
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON403 = &dest
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -68596,6 +68671,13 @@ func ParseUpdateLavaflowSettingsClientResponse(rsp *http.Response) (*UpdateLavaf
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
 	}
 
 	return response, nil
@@ -68663,7 +68745,7 @@ func ParseListLavaflowRunsClientResponse(rsp *http.Response) (*ListLavaflowRunsC
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest LavaflowRunList
+		var dest PaginatedLavaflowRuns
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -25,6 +25,7 @@ const (
 	lavaflowRunID      = "44444444-4444-4444-8444-444444444444"
 	lavaflowFailedID   = "55555555-5555-4555-8555-555555555555"
 	lavaflowResourceID = "66666666-6666-4666-8666-666666666666"
+	lavaflowIssueID    = "88888888-8888-4888-8888-888888888888"
 	lavaflowRepo       = "acme/shop"
 	// lavaflowIssueTitle is a real issue title: Volcano groups errors by a
 	// template of their message, with values replaced by placeholders.
@@ -85,12 +86,12 @@ func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
 	return fake, cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, CommandPathPrefix: "volcano cloud"}
 }
 
-// defaultLavaflowSettings is what the API returns for a project that never
-// saved settings.
+// defaultLavaflowSettings is what the API returns to the owner for a project
+// that never saved settings.
 func defaultLavaflowSettings() map[string]any {
 	return map[string]any{
 		"enabled": false, "autonomy": "open_pr", "custom_context": "", "system_prompt": "",
-		"updated_at": "2026-10-20T10:00:00Z", "can_update": true,
+		"updated_at": nil, "updated_by": nil, "can_update": true,
 	}
 }
 
@@ -143,7 +144,7 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		// An omitted field keeps its saved value.
 		maps.Copy(s.settings, update)
-		s.settings["updated_at"] = "2026-10-30T12:00:00Z"
+		s.settings["updated_at"], s.settings["updated_by"] = "2026-10-30T12:00:00Z", "11111111-1111-4111-8111-111111111111"
 		s.write(w, http.StatusOK, s.settings)
 	case r.Method == http.MethodGet && route == "/stats":
 		s.write(w, http.StatusOK, s.stats)
@@ -230,13 +231,16 @@ func lavaflowStats() map[string]any {
 func lavaflowResources() []map[string]any {
 	return []map[string]any{
 		{
-			"id": lavaflowResourceID, "type": "function", "name": "checkout",
+			"resource":         checkoutResource(),
 			"last_analyzed_at": "2026-10-30T09:00:00Z", "issues_opened": 6, "pull_requests_opened": 3,
 			"anomaly": map[string]any{"flagged": true, "reason": "6 issues in the last 24 hours, 4 times the daily average"},
 		},
 		{
-			"id": "77777777-7777-4777-8777-777777777777", "type": "durable_function", "name": "nightly-report",
-			"issues_opened": 0, "pull_requests_opened": 0, "anomaly": map[string]any{"flagged": false},
+			"resource": map[string]any{
+				"id": "77777777-7777-4777-8777-777777777777", "type": "durable_function", "name": "nightly-report",
+			},
+			"last_analyzed_at": nil, "issues_opened": 0, "pull_requests_opened": 0,
+			"anomaly": map[string]any{"flagged": false, "reason": nil},
 		},
 	}
 }
@@ -249,7 +253,7 @@ func checkoutResource() map[string]any {
 // passed review.
 func fixedRun() map[string]any {
 	return map[string]any{
-		"id": lavaflowRunID, "status": "pr_open", "title": lavaflowIssueTitle, "issue_id": "issue-1",
+		"id": lavaflowRunID, "status": "pr_open", "title": lavaflowIssueTitle, "issue_id": lavaflowIssueID,
 		"resource":   checkoutResource(),
 		"created_at": "2026-10-30T09:00:00Z", "finished_at": "2026-10-30T09:03:00Z",
 		"pull_request": map[string]any{
@@ -273,7 +277,9 @@ func fixedRun() map[string]any {
 // failedRun is a run that stopped, with the API's fixed text for its code.
 func failedRun() map[string]any {
 	return map[string]any{
-		"id": lavaflowFailedID, "status": "failed", "resource": checkoutResource(),
+		"id": lavaflowFailedID, "status": "failed", "resource": checkoutResource(), "issue_id": lavaflowIssueID,
+		"title": nil, "pull_request": nil, "diagnosis": nil, "diff": nil, "review": nil,
+		"details_expire_at": "2027-01-27T09:01:00Z", "details_cleared_at": nil,
 		"created_at": "2026-10-29T09:00:00Z", "finished_at": "2026-10-29T09:01:00Z",
 		"failure": map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},
 	}

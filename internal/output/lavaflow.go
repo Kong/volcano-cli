@@ -40,7 +40,7 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	}
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
-	kv(w, on, "Updated", "%s", formatLavaflowTime(settings.UpdatedAt))
+	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	if !settings.CanUpdate {
 		kv(w, on, "You can change it", "no: only the project's owner can, from their own session")
 	}
@@ -68,7 +68,7 @@ func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings) {
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
-	kv(w, on, "Updated", "%s", formatLavaflowTime(settings.UpdatedAt))
+	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
 	block(w, on, "System prompt", settings.SystemPrompt)
 }
@@ -112,14 +112,14 @@ func LavaflowResources(w io.Writer, resources *apiclient.LavaflowResourceList, d
 			mark = theme.Warn("issue rate jumped", on)
 		}
 		fmt.Fprintf(w, "%-16s  %-30s  %-16s  %6d  %7d  %s\n",
-			lavaflowResourceType(string(resource.Type)), Truncate(clean(resource.Name), 30),
+			lavaflowResourceType(string(resource.Resource.Type)), Truncate(clean(resource.Resource.Name), 30),
 			formatLavaflowTimePtr(resource.LastAnalyzedAt, "never"),
 			resource.IssuesOpened, resource.PullRequestsOpened, mark)
 	}
 	summary(w, on, "%d resource(s), last %d day(s)", len(resources.Data), days)
 	for _, resource := range resources.Data {
 		if resource.Anomaly.Flagged && resource.Anomaly.Reason != nil {
-			Warning(w, "%s: %s", clean(resource.Name), clean(*resource.Anomaly.Reason))
+			Warning(w, "%s: %s", clean(resource.Resource.Name), clean(*resource.Anomaly.Reason))
 		}
 	}
 }
@@ -142,7 +142,7 @@ func LavaflowRuns(w io.Writer, page LavaflowRunsPage) {
 		"ID", "Status", "Resource", "Title", "Started", "PR")
 	for _, run := range page.Runs {
 		fmt.Fprintf(w, "%-36s  %-10s  %-24s  %-30s  %-16s  %s\n",
-			clean(run.Id), lavaflowRunStatus(run.Status), Truncate(clean(run.Resource.Name), 24),
+			run.Id.String(), lavaflowRunStatus(run.Status), Truncate(clean(run.Resource.Name), 24),
 			Truncate(clean(stringOr(run.Title, "-")), 30), formatLavaflowTime(run.CreatedAt), lavaflowPullRequestCell(run.PullRequest))
 	}
 	summary(w, on, "Showing %d run(s)", len(page.Runs))
@@ -155,15 +155,13 @@ func LavaflowRuns(w io.Writer, page LavaflowRunsPage) {
 // pull request, any failure in the API's own words, and the diff.
 func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	on := theme.On(w)
-	kv(w, on, "Run", "%s", clean(run.Id))
+	kv(w, on, "Run", "%s", run.Id)
 	kv(w, on, "Status", "%s", lavaflowRunStatus(run.Status))
-	kv(w, on, "Resource", "%s %s", lavaflowResourceType(run.Resource.Type), clean(run.Resource.Name))
+	kv(w, on, "Resource", "%s %s", lavaflowResourceType(string(run.Resource.Type)), clean(run.Resource.Name))
 	if run.Title != nil {
 		kv(w, on, "Title", "%s", clean(*run.Title))
 	}
-	if run.IssueId != nil {
-		kv(w, on, "Issue", "%s", clean(*run.IssueId))
-	}
+	kv(w, on, "Issue", "%s", run.IssueId)
 	kv(w, on, "Started", "%s", formatLavaflowTime(run.CreatedAt))
 	if run.FinishedAt != nil {
 		kv(w, on, "Finished", "%s", formatLavaflowTime(*run.FinishedAt))
@@ -171,16 +169,12 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	if run.PullRequest != nil {
 		kv(w, on, "Pull request", "#%d (%s) %s", run.PullRequest.Number, run.PullRequest.State, clean(run.PullRequest.Url))
 	}
-	if run.Review != nil && run.Review.Verdict != nil {
-		rounds := 0
-		if run.Review.Rounds != nil {
-			rounds = *run.Review.Rounds
-		}
-		kv(w, on, "Review", "%s after %d round(s)", strings.ReplaceAll(string(*run.Review.Verdict), "_", " "), rounds)
+	if run.Review != nil {
+		kv(w, on, "Review", "%s after %d round(s)", strings.ReplaceAll(string(run.Review.Verdict), "_", " "), run.Review.Rounds)
 	}
-	if run.Failure != nil && run.Failure.Message != nil {
+	if run.Failure != nil && run.Failure.Message != "" {
 		// The API words each failure code itself, so it is printed as given.
-		Warning(w, "%s", clean(*run.Failure.Message))
+		Warning(w, "%s", clean(run.Failure.Message))
 	}
 	if run.DetailsClearedAt != nil {
 		Note(w, "Details were cleared after 90 days, on %s", formatLavaflowTime(*run.DetailsClearedAt))
@@ -190,26 +184,30 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 		kv(w, on, "Details kept until", "%s", formatLavaflowTime(*run.DetailsExpireAt))
 	}
 	if diagnosis := run.Diagnosis; diagnosis != nil {
-		if diagnosis.Summary != nil {
-			block(w, on, "Diagnosis", *diagnosis.Summary)
+		if diagnosis.Summary != "" {
+			block(w, on, "Diagnosis", diagnosis.Summary)
 		}
-		if diagnosis.RootCause != nil {
-			block(w, on, "Root cause", *diagnosis.RootCause)
+		if diagnosis.RootCause != "" {
+			block(w, on, "Root cause", diagnosis.RootCause)
 		}
-		if diagnosis.Evidence != nil && len(*diagnosis.Evidence) > 0 {
+		if len(diagnosis.Evidence) > 0 {
 			fmt.Fprintf(w, "\n%s\n", theme.Title("Evidence", on))
-			for _, item := range *diagnosis.Evidence {
+			for _, item := range diagnosis.Evidence {
 				fmt.Fprintf(w, "  - %s\n", clean(item))
 			}
 		}
-		if diagnosis.LogLines != nil && len(*diagnosis.LogLines) > 0 {
+		if len(diagnosis.LogLines) > 0 {
 			fmt.Fprintf(w, "\n%s\n", theme.Title("Log lines", on))
-			for _, line := range *diagnosis.LogLines {
+			for _, line := range diagnosis.LogLines {
 				stamp := ""
 				if line.Timestamp != nil {
 					stamp = line.Timestamp.UTC().Format(time.RFC3339) + " "
 				}
-				fmt.Fprintf(w, "  %s%s %s\n", stamp, strings.ToUpper(clean(stringOr(line.Level, "-"))), clean(stringOr(line.Message, "")))
+				level := line.Level
+				if level == "" {
+					level = "-"
+				}
+				fmt.Fprintf(w, "  %s%s %s\n", stamp, strings.ToUpper(clean(level)), clean(line.Message))
 			}
 		}
 	}

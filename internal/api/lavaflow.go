@@ -15,7 +15,7 @@ func (c *Client) ListProjectCapabilities(ctx context.Context, projectID uuid.UUI
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403, resp.JSON404)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON401, resp.JSON404)
 }
 
 // GetLavaflowSettings returns a project's LavaFlow settings.
@@ -28,7 +28,8 @@ func (c *Client) GetLavaflowSettings(ctx context.Context, projectID uuid.UUID) (
 }
 
 // UpdateLavaflowSettings changes a project's LavaFlow settings. An omitted
-// field keeps its value. Only a person may: a project access token gets 403.
+// field keeps its value. Only the project's owner may, with a platform token:
+// a project access token gets 403 person_required.
 func (c *Client) UpdateLavaflowSettings(
 	ctx context.Context, projectID uuid.UUID, body apiclient.LavaflowSettingsUpdate,
 ) (*apiclient.LavaflowSettings, error) {
@@ -36,11 +37,11 @@ func (c *Client) UpdateLavaflowSettings(
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON403, resp.JSON404)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON403, resp.JSON404, resp.JSON503)
 }
 
-// GetLavaflowStats returns the issues and resolutions LavaFlow opened per
-// day over the last days days, today included.
+// GetLavaflowStats returns the issues LavaFlow took on and the fix pull
+// requests it opened per day over the last days days, today included.
 func (c *Client) GetLavaflowStats(ctx context.Context, projectID uuid.UUID, days int) (*apiclient.LavaflowStats, error) {
 	resp, err := c.client.GetLavaflowStatsWithResponse(ctx, projectID, &apiclient.GetLavaflowStatsParams{Days: &days})
 	if err != nil {
@@ -63,7 +64,7 @@ func (c *Client) ListLavaflowResources(ctx context.Context, projectID uuid.UUID,
 // first.
 func (c *Client) ListLavaflowRuns(
 	ctx context.Context, projectID uuid.UUID, params apiclient.ListLavaflowRunsParams,
-) (*apiclient.LavaflowRunList, error) {
+) (*apiclient.PaginatedLavaflowRuns, error) {
 	resp, err := c.client.ListLavaflowRunsWithResponse(ctx, projectID, &params)
 	if err != nil {
 		return nil, err
@@ -72,8 +73,8 @@ func (c *Client) ListLavaflowRuns(
 }
 
 // GetLavaflowRun returns one LavaFlow run with its diagnosis, diff and
-// review. It needs the permission the project's logs need.
-func (c *Client) GetLavaflowRun(ctx context.Context, projectID uuid.UUID, runID string) (*apiclient.LavaflowRun, error) {
+// review. It takes the access the project's log routes take.
+func (c *Client) GetLavaflowRun(ctx context.Context, projectID, runID uuid.UUID) (*apiclient.LavaflowRun, error) {
 	resp, err := c.client.GetLavaflowRunWithResponse(ctx, projectID, runID)
 	if err != nil {
 		return nil, err

@@ -114,3 +114,11 @@ func TestShowPassesTheAPIsRefusalThrough(t *testing.T) {
 		assert.Equal(t, status, api.Status(err))
 	}
 }
+
+func TestShowRefusesARunIDThatIsntOne(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+
+	_, err := executeLavaflowCommand(t, New(deps), "show", "latest")
+	require.EqualError(t, err, `invalid run ID "latest": use an ID from 'lavaflow list'`)
+	assert.Empty(t, fake.queries)
+}

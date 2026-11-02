@@ -60,13 +60,16 @@ plain text. A control character in it, such as a color code or a carriage
 return in a log line, prints as a visible escape such as `\x1b`, and with
 `--json` it stays escaped inside the JSON string.
 
-Only the project's owner can turn LavaFlow on or off and change its settings,
-from their own session. `enable`, `disable` and `settings set` check that
-before they ask or send anything, and exit with code 5 for anyone else. A
-project access token is refused the same way: sign in with `volcano login`
-instead, and if `VOLCANO_TOKEN` holds a project access token, unset it first.
-Anyone who can see the project, and a project access token, can run every
-other command.
+LavaFlow belongs to the project's owner. Anyone else gets the API's refusal
+from every command, and the command exits with code 5. A project access token
+can run the read commands, but only the owner's own session can turn LavaFlow
+on or off and change its settings: `enable`, `disable` and `settings set`
+refuse a project access token before they ask or send anything, also with
+code 5. Sign in with `volcano login` instead, and if `VOLCANO_TOKEN` holds a
+project access token, unset it first.
+
+Turning LavaFlow on also needs a plan that includes it. Otherwise `enable`
+says so and exits with code 5; changing other settings needs no plan.
 
 ## Turn it on
 
@@ -183,7 +186,7 @@ volcano cloud lavaflow list --status failed
 
 `show` prints a run's diagnosis and root cause, the evidence and log lines it
 read, its review, the fix pull request, and the diff. A run that failed says
-why. Reading a run needs the permission to read the project's logs.
+why.
 
 Volcano keeps a run's text, its diagnosis, log lines, diff and review, for 90
 days after the run completes, and `show` says until when. Once they are

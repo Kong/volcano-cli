@@ -20,6 +20,7 @@ func TestStatusOffSaysWhatLavaFlowDoesAndHowToTurnItOn(t *testing.T) {
 	assert.Contains(t, out, "Autonomy: open fix pull requests")
 	assert.Contains(t, out, "Repository: "+lavaflowRepo)
 	assert.Contains(t, out, "Custom context: not set")
+	assert.Contains(t, out, "Updated: not saved yet")
 	assert.Contains(t, out, clilavaflow.OnDescription)
 	assert.Contains(t, out, "Turn it on with volcano cloud lavaflow enable.")
 	assertLavaFlowWording(t, out)

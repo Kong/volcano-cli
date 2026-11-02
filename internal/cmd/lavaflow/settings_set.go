@@ -32,8 +32,8 @@ func newSettingsSet(deps cliruntime.Deps) *cobra.Command {
 		Use:   "set",
 		Short: "Change LavaFlow's settings",
 		Long: fmt.Sprintf(`Change LavaFlow's settings for the current project. A setting you don't pass
-keeps its value. It needs a person's session: a project access token is
-refused.
+keeps its value. Only the project's owner can, from their own session: a
+project access token is refused.
 
 --autonomy decides how far LavaFlow goes: %[1]s diagnoses issues and leaves
 any fix to a person; %[2]s also opens fix pull requests for review.

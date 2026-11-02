@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/config"
@@ -42,9 +44,14 @@ var ErrNotAvailableToAccount = errors.New("LavaFlow isn't available to your acco
 // says so before asking.
 var ErrPersonDecides = errors.New("changing LavaFlow's settings needs a person's session: a project access token can't")
 
-// ErrOwnerDecides refuses changing LavaFlow's settings for a person who isn't
-// the project's owner. The settings say so before the CLI asks to change them.
+// ErrOwnerDecides refuses changing LavaFlow's settings when the settings say
+// the caller can't, before the CLI asks or sends anything. Only the project's
+// owner can, from their own session.
 var ErrOwnerDecides = errors.New("only the project's owner can change LavaFlow's settings, from their own session")
+
+// ErrPlanRequired reports turning LavaFlow on refused by the project owner's
+// plan.
+var ErrPlanRequired = errors.New("turning LavaFlow on needs a plan that includes LavaFlow")
 
 // capabilityID is LavaFlow's entry in a project's capabilities.
 const capabilityID = "lavaflow"
@@ -53,7 +60,7 @@ const capabilityID = "lavaflow"
 const (
 	codeFeatureUnavailable = "feature_unavailable"
 	codePersonRequired     = "person_required"
-	codeOwnerRequired      = "owner_required"
+	codePlanRequired       = "plan_required"
 )
 
 // Limits the API sets.
@@ -247,7 +254,7 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	}
 	if !current.CanUpdate {
 		return nil, api.WithCause(ErrOwnerDecides,
-			&api.Error{StatusCode: http.StatusForbidden, Message: ErrOwnerDecides.Error(), Code: codeOwnerRequired})
+			&api.Error{StatusCode: http.StatusForbidden, Message: ErrOwnerDecides.Error()})
 	}
 	if confirm != nil {
 		if err := confirm(); err != nil {
@@ -262,13 +269,14 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 }
 
 // refused says why the API refused a change, by its code rather than its
-// status, keeping the refusal as the cause for the exit code.
+// status, keeping the refusal as the cause for the exit code. A 403 without a
+// code, such as for a person who isn't the owner, keeps the API's words.
 func refused(cfg *config.Config, err error) error {
 	switch api.Code(err) {
 	case codePersonRequired:
 		return personDecides(cfg, err)
-	case codeOwnerRequired:
-		return api.WithCause(ErrOwnerDecides, err)
+	case codePlanRequired:
+		return api.WithCause(ErrPlanRequired, err)
 	}
 	return unavailable(err)
 }
@@ -285,8 +293,8 @@ func personDecides(cfg *config.Config, cause error) error {
 	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonDecides, how), cause)
 }
 
-// Stats returns the issues and resolutions LavaFlow opened per day over the
-// last days days, today included.
+// Stats returns the issues LavaFlow took on and the fix pull requests it
+// opened per day over the last days days, today included.
 func (s Service) Stats(ctx context.Context, days int) (*apiclient.LavaflowStats, error) {
 	if err := checkDays(days); err != nil {
 		return nil, err
@@ -327,7 +335,7 @@ func checkDays(days int) error {
 }
 
 // ListRuns returns one page of the current project's runs, newest first.
-func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.LavaflowRunList, error) {
+func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.PaginatedLavaflowRuns, error) {
 	if query.Limit < 1 || query.Limit > MaxRunsLimit {
 		return nil, fmt.Errorf("--limit must be between 1 and %d", MaxRunsLimit)
 	}
@@ -343,7 +351,11 @@ func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.Lava
 		params.Cursor = &query.Cursor
 	}
 	if query.ResourceID != "" {
-		params.ResourceId = &query.ResourceID
+		resourceID, err := uuid.Parse(query.ResourceID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --resource %q: use a resource ID from 'lavaflow resources --json'", query.ResourceID)
+		}
+		params.ResourceId = &resourceID
 	}
 	authenticated, err := s.project()
 	if err != nil {
@@ -372,11 +384,15 @@ func runStatuses() string {
 // GetRun returns one of the current project's runs with its diagnosis, diff
 // and review.
 func (s Service) GetRun(ctx context.Context, runID string) (*apiclient.LavaflowRun, error) {
+	id, err := uuid.Parse(runID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid run ID %q: use an ID from 'lavaflow list'", runID)
+	}
 	authenticated, err := s.project()
 	if err != nil {
 		return nil, err
 	}
-	run, err := authenticated.API.GetLavaflowRun(ctx, authenticated.ProjectID, runID)
+	run, err := authenticated.API.GetLavaflowRun(ctx, authenticated.ProjectID, id)
 	if err != nil {
 		return nil, unavailable(fmt.Errorf("failed to get LavaFlow run %s: %w", runID, err))
 	}
