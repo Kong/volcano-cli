@@ -75,12 +75,14 @@ needs:
 A step with nothing to deploy is skipped. The env file, the manifests, and the
 source layout are read and checked before anything changes; function sources
 and frontend directories are packaged in their own steps. The run stops at the
-first step that fails. Before the config step, the command waits for each
-function it deployed that a manifest gives schedulers to become active, since
-the server refuses a scheduler on a function that isn't; it waits even with
---no-wait. Afterwards the command waits for the deployments it started and
-prints each frontend's URL; --no-wait returns as soon as the config step is
-done.
+first step that fails. Afterwards the command waits for the deployments it
+started and prints each frontend's URL; --no-wait returns as soon as the config
+step is done.
+
+The server only adds or changes a scheduler on an active function. When a
+function this run deployed is still building, the config step leaves its
+schedulers out and applies them after the wait. With --no-wait, the command
+prints the config deploy command that applies them later.
 
 Variables come from the env file or from a manifest's variables section, never
 both: applying that section deletes every variable it does not list. Pass
@@ -114,7 +116,7 @@ Usage:
 	cmd.Flags().BoolVar(&opts.noEnvFile, "no-env-file", false, "Deploy no env file, even when volcano/volcano.env exists")
 	cmd.Flags().StringArrayVarP(&opts.configs, "config", "c", nil, "Manifest to apply; repeat to apply several in order (default: volcano/volcano-config.yaml or ./volcano-config.yaml)")
 	cmd.Flags().BoolVar(&opts.noFrontends, "no-frontends", false, "Skip frontends")
-	cmd.Flags().BoolVar(&opts.noWait, "no-wait", false, "Return without waiting for deployments to finish (still waits for functions with schedulers before the config step)")
+	cmd.Flags().BoolVar(&opts.noWait, "no-wait", false, "Return without waiting for deployments to finish")
 	return cmd
 }
 
@@ -143,10 +145,19 @@ func runDeploy(ctx context.Context, opts options) error {
 	if opts.noWait {
 		fmt.Fprintln(opts.out)
 		output.Success(opts.out, "Deployments started; not waiting for them to finish")
+		if len(r.deferred) > 0 {
+			fmt.Fprintln(opts.out, r.schedulerHint())
+		}
 		return nil
 	}
 	if err := r.wait(ctx, start); err != nil {
+		if len(r.deferred) > 0 {
+			return fmt.Errorf("%w\n\n%s", err, r.schedulerHint())
+		}
 		return err
+	}
+	if err := r.applyDeferredSchedulers(ctx); err != nil {
+		return fmt.Errorf("schedulers: %w\n\n%s", err, r.schedulerHint())
 	}
 	fmt.Fprintln(opts.out)
 	output.Success(opts.out, "Deployed in %s", now(opts.deps).Sub(start).Round(time.Second))

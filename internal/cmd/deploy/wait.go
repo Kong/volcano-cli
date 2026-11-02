@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	configcmd "github.com/Kong/volcano-cli/internal/cmd/config"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
@@ -46,6 +47,13 @@ type startedDeployment struct {
 type runner struct {
 	opts    options
 	started []startedDeployment
+	// deferred are the functions whose schedulers the config step left out
+	// because the functions were not active yet.
+	deferred []startedDeployment
+	// manifests and configCommands are what the config step applied, for the
+	// scheduler pass after the wait.
+	manifests      []manifestFile
+	configCommands []string
 }
 
 // track records a deployment to wait for. A deploy queued behind another one
@@ -174,21 +182,58 @@ func (r *runner) wait(ctx context.Context, start time.Time) error {
 	return nil
 }
 
-// waitForScheduledFunctions waits until each function this run deployed and
-// the manifests give schedulers is active. The server refuses to create or
-// change a scheduler on a function that isn't, and that rejects the whole
+// inactiveScheduledFunctions returns the functions this run deployed that the
+// manifests give schedulers and that are not active yet. The server refuses to
+// create or change a scheduler on such a function, and that rejects the whole
 // config.
-func (r *runner) waitForScheduledFunctions(ctx context.Context, scheduled map[string]bool) error {
-	var waiting []startedDeployment
+func (r *runner) inactiveScheduledFunctions(ctx context.Context, scheduled map[string]bool) ([]startedDeployment, error) {
+	var inactive []startedDeployment
 	for _, d := range r.started {
-		if (d.kind == kindFunction || d.kind == kindDurable) && scheduled[d.name] && d.resource != uuid.Nil {
-			waiting = append(waiting, d)
+		if (d.kind != kindFunction && d.kind != kindDurable) || !scheduled[d.name] || d.resource == uuid.Nil {
+			continue
+		}
+		status, err := r.functionStatus(ctx, d)
+		if err != nil {
+			return nil, err
+		}
+		if status != string(apiclient.FunctionStatusActive) {
+			inactive = append(inactive, d)
 		}
 	}
-	if len(waiting) == 0 {
+	return inactive, nil
+}
+
+// applyDeferredSchedulers applies the manifests again, schedulers included,
+// once the functions the config step left them out for are active.
+func (r *runner) applyDeferredSchedulers(ctx context.Context) error {
+	if len(r.deferred) == 0 {
 		return nil
 	}
+	fmt.Fprintf(r.opts.out, "\n%s\n", theme.Title("Applying schedulers", theme.On(r.opts.out)))
+	if err := r.waitForActive(ctx, r.deferred); err != nil {
+		return err
+	}
+	for _, m := range r.manifests {
+		if err := configcmd.DeployManifest(ctx, r.opts.deps, m.manifest, m.path, r.opts.out, r.opts.errOut); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+// schedulerHint says which schedulers were not applied and how to apply them.
+func (r *runner) schedulerHint() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Schedulers for %s were not applied. Once %s active, apply them with:",
+		strings.Join(deploymentNames(r.deferred), ", "), plural(len(r.deferred), "it is", "they are"))
+	for _, command := range r.configCommands {
+		b.WriteString("\n  " + command)
+	}
+	return b.String()
+}
+
+// waitForActive waits until each function is active.
+func (r *runner) waitForActive(ctx context.Context, waiting []startedDeployment) error {
 	ticker := cliruntime.NewTicker(r.opts.deps, pollInterval)
 	defer ticker.Stop()
 	timeout := cliruntime.NewTimer(r.opts.deps, waitTimeout)
@@ -217,12 +262,9 @@ func (r *runner) waitForScheduledFunctions(ctx context.Context, scheduled map[st
 			return nil
 		}
 		waiting = inactive
-		names := make([]string, 0, len(waiting))
-		for _, d := range waiting {
-			names = append(names, d.name)
-		}
+		names := deploymentNames(waiting)
 		if !announced {
-			fmt.Fprintf(r.opts.out, "Waiting for %s to become active before applying schedulers...\n", strings.Join(names, ", "))
+			fmt.Fprintf(r.opts.out, "Waiting for %s to become active...\n", strings.Join(names, ", "))
 			announced = true
 		}
 		select {
@@ -233,6 +275,21 @@ func (r *runner) waitForScheduledFunctions(ctx context.Context, scheduled map[st
 		case <-ticker.C():
 		}
 	}
+}
+
+func deploymentNames(deployments []startedDeployment) []string {
+	names := make([]string, 0, len(deployments))
+	for _, d := range deployments {
+		names = append(names, d.name)
+	}
+	return names
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 // functionStatus reads the status of a function or durable function this run

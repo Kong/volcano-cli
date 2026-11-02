@@ -61,12 +61,13 @@ the first manifest isn't the default one, it only says to run it again:
 `functions deploy` and `durable deploy` read the default manifest, so run by
 hand they could deploy a durable function as a standard one.
 
-The server refuses to add or change a scheduler on a function that isn't
-active yet, and then applies nothing from the manifest. So before the config
-step, the command waits for each function it deployed that a manifest gives
-schedulers to become active. It waits even with `--no-wait`. If one of those
-functions fails to deploy, the run stops before the config step and prints the
-command that shows its build log.
+The server only adds or changes a scheduler on an active function, and a
+function the run just deployed is usually still building when the config step
+runs. So the config step leaves out the schedulers of each such function and
+applies the rest of the manifest. After the wait, the command applies the
+manifests again with the schedulers. With `--no-wait`, or when one of those
+functions fails to deploy, it prints the `config deploy` commands that apply
+the schedulers later.
 
 A deployment can be redeployed while the run waits, for example when the config
 step changes a function's regions. The run then waits for the newer deployment,
@@ -84,7 +85,7 @@ its status is `provisioning`.
 | `--no-env-file` | Deploy no env file, even when `volcano/volcano.env` exists. Use it when a manifest's `variables` section holds the project's variables. |
 | `-c, --config` | Manifest to apply. Repeat it to apply several, in order. Passing any `-c` replaces the default `volcano/volcano-config.yaml` or `./volcano-config.yaml`. |
 | `--no-frontends` | Skip frontends. Useful while `npm run dev` is your edit loop, or when only function code changed. |
-| `--no-wait` | Return without waiting for deployments to finish. Still waits for functions with schedulers before the config step. |
+| `--no-wait` | Return without waiting for deployments to finish. |
 
 `-d` without `--with-migrations` is refused, since it would do nothing.
 

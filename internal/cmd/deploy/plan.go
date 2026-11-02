@@ -769,14 +769,29 @@ func (b planBuilder) config() step {
 	}
 	s.detail = strings.Join(paths, ", ")
 	manifests := b.manifests
+	commands := s.manual
 	s.run = func(ctx context.Context, r *runner) error {
-		if err := r.waitForScheduledFunctions(ctx, scheduledFunctions(manifests)); err != nil {
+		deferred, err := r.inactiveScheduledFunctions(ctx, scheduledFunctions(manifests))
+		if err != nil {
 			return err
 		}
+		held := map[string]bool{}
+		for _, d := range deferred {
+			held[d.name] = true
+		}
 		for _, m := range manifests {
-			if err := configcmd.DeployManifest(ctx, r.opts.deps, m.manifest, m.path, r.opts.out, r.opts.errOut); err != nil {
+			manifest := m.manifest
+			if len(held) > 0 {
+				manifest = manifest.WithoutSchedulers(held)
+			}
+			if err := configcmd.DeployManifest(ctx, r.opts.deps, manifest, m.path, r.opts.out, r.opts.errOut); err != nil {
 				return err
 			}
+		}
+		if len(deferred) > 0 {
+			r.deferred, r.manifests, r.configCommands = deferred, manifests, commands
+			fmt.Fprintf(r.opts.out, "Schedulers for %s will be applied once %s deploying\n",
+				strings.Join(deploymentNames(deferred), ", "), plural(len(deferred), "it finishes", "they finish"))
 		}
 		return nil
 	}
