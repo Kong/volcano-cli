@@ -26,6 +26,8 @@ it using its connection string.
 | List | `volcano databases list` |
 | Get | `volcano databases get <name> [--show-connection-string]` |
 | Delete | `volcano databases delete <name>` |
+| List regions and PostgreSQL versions | `volcano cloud databases regions`, `volcano databases versions` |
+| Change size (cloud) | `volcano cloud databases resize <name> --type <size>` |
 | Apply local migrations | `volcano migrations deploy --all -d <db>` |
 | Apply cloud migrations | `volcano cloud databases migration up --all -d <db>` |
 
@@ -38,6 +40,44 @@ migrations as part of a whole-project deploy.
 Each file runs as a single query, and the database proxy refuses a query with
 more than one statement, so put one SQL statement in each file. Files run in
 name order.
+
+## Regions and versions
+
+`databases create` in the cloud requires `--region` and `--pg-version`. List the
+values they accept:
+
+```bash
+volcano cloud databases regions
+volcano cloud databases versions
+```
+
+```text
+Version   Name              Notes
+--------------------------------------------
+18        PostgreSQL 18     default, recommended
+17        PostgreSQL 17
+```
+
+Both lists are public, so they work before you sign in. Pass `--json` to read
+them from a script. In local development a database runs on your machine:
+`databases create` needs no `--region`, `databases regions` is refused, and
+`databases versions` lists only the version the local server runs.
+
+## Change a database's size
+
+```bash
+volcano cloud databases resize app --type volcano-db-m
+```
+
+Sizes, smallest first: `volcano-db-xs`, `volcano-db-s`, `volcano-db-m`,
+`volcano-db-l`, `volcano-db-xl`, `volcano-db-2xl`. The database must be active,
+and active connections may drop briefly while it changes. The command asks for
+confirmation; pass `--yes` to skip it and `--json` to print the updated
+database, without its connection string. A plan can limit the sizes it allows. In local development a database
+runs on your machine and has no size to change.
+
+The manifest's `database_type` asserts a database's size but does not change
+it; resize it with this command.
 
 ## Branches
 

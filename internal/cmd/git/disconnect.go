@@ -46,14 +46,13 @@ By default this command prompts for confirmation. Use --yes to skip the prompt.`
 
 func runDisconnect(ctx context.Context, opts disconnectOptions) error {
 	service := gitconnect.NewService(opts.deps)
-	webURL, _ := service.WebURL()
 
 	// Read the binding first so the prompt can name the repository, and so a
 	// project with nothing connected says exactly that instead of reporting a
 	// 404 from the delete.
 	existing, err := service.Status(ctx)
 	if err != nil {
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 
 	project, err := service.Project()
@@ -70,7 +69,7 @@ func runDisconnect(ctx context.Context, opts disconnectOptions) error {
 	}
 
 	if err := service.Disconnect(ctx, existing); err != nil {
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 
 	output.GitDisconnected(opts.out, existing.RepoFullName)

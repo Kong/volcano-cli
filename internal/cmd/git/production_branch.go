@@ -83,7 +83,6 @@ func productionBranchArgument(args []string, followDefault bool) (string, error)
 
 func runProductionBranch(ctx context.Context, opts productionBranchOptions) error {
 	service := gitconnect.NewService(opts.deps)
-	webURL, _ := service.WebURL()
 
 	project, err := service.Project()
 	if err != nil {
@@ -100,7 +99,7 @@ func runProductionBranch(ctx context.Context, opts productionBranchOptions) erro
 				err = cannot
 			}
 		}
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 
 	// Read afterwards, like root-directory: the branch is set either way, and

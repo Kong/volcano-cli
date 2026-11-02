@@ -41,6 +41,10 @@ type GitBinding struct {
 	// Changed is the git subcommand that just ran, such as "frontend". Its own
 	// next step is left out, since naming it would only repeat the command.
 	Changed string
+	// Source is the project's source of truth, which only status reports. Nil
+	// with no SourceErr means the API has no source export to report on.
+	Source    *apiclient.ProjectSourceExportState
+	SourceErr error
 }
 
 // GitConnected renders a repository binding that was just made, followed by
@@ -67,6 +71,12 @@ func GitConnection(w io.Writer, binding GitBinding) {
 func GitStatus(w io.Writer, binding GitBinding) {
 	on := theme.On(w)
 	gitBindingDetail(w, on, binding)
+	switch {
+	case binding.Source != nil:
+		kv(w, on, "Source of truth", "%s", sourceOfTruth(binding.Source.Mode))
+	case binding.SourceErr != nil:
+		kv(w, on, "Source of truth", "unknown: %v", binding.SourceErr)
+	}
 	if settings := binding.Settings; settings != nil {
 		kv(w, on, "Auto-deploy", "%s", onOff(settings.AutoDeployEnabled))
 		kv(w, on, "Functions", "%s", onOff(settings.DeployFunctions))
@@ -77,6 +87,74 @@ func GitStatus(w io.Writer, binding GitBinding) {
 		kv(w, on, "Frontend", "%s", frontend)
 	}
 	gitDeploySettings(w, binding)
+	if source := binding.Source; source != nil &&
+		(source.Mode == apiclient.ProjectSourceExportStateModeGitExporting ||
+			source.Mode == apiclient.ProjectSourceExportStateModeGitPending) {
+		nextStep(w, on, binding, "Direct deploys are paused until it finishes. To resume them, run ", "export", "cancel")
+	}
+}
+
+// sourceOfTruth says what deploys a project's code. A project Volcano owns
+// deploys from both the CLI and pushes; once the repository owns it, only
+// pushes deploy code.
+func sourceOfTruth(mode apiclient.ProjectSourceExportStateMode) string {
+	switch mode {
+	case apiclient.ProjectSourceExportStateModePlatform:
+		return "Volcano (direct deploys and pushes both deploy)"
+	case apiclient.ProjectSourceExportStateModeGitExporting:
+		return "moving to the repository: the export is pushing its first commit"
+	case apiclient.ProjectSourceExportStateModeGitPending:
+		return "moving to the repository: the export's deployment is running"
+	case apiclient.ProjectSourceExportStateModeGit:
+		return "the repository (only pushes deploy code)"
+	default:
+		return string(mode)
+	}
+}
+
+// GitSourceExported renders the first commit an export pushed, what it could
+// not carry, and what happens next.
+func GitSourceExported(w io.Writer, result *apiclient.ProjectSourceExport, statusCommand string) {
+	on := theme.On(w)
+	files := "files"
+	if result.FileCount == 1 {
+		files = "file"
+	}
+	Success(w, "Exported %d %s to %s", result.FileCount, files, result.RepoFullName)
+	kv(w, on, "Branch", "%s", result.Branch)
+	kv(w, on, "Commit", "%s", result.CommitSha)
+	if len(result.Skipped) > 0 {
+		fmt.Fprintln(w)
+		Warning(w, "Skipped:")
+		for _, skip := range result.Skipped {
+			fmt.Fprintf(w, "  %s %s: %s\n", skip.Kind, skip.Name, skip.Reason)
+		}
+	}
+	if len(result.Omitted) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, theme.Dim("Left out of the commit:", on))
+		for _, omission := range result.Omitted {
+			line := omission.Kind + " " + omission.Path
+			if omission.Resource != "" {
+				line += " (" + omission.Resource + ")"
+			}
+			fmt.Fprintf(w, "  %s\n", line)
+		}
+	}
+	fmt.Fprintln(w)
+	Note(w, "The push is deploying. When it succeeds, the repository is the project's source of truth. "+
+		"Follow it with %s.", statusCommand)
+}
+
+// GitSourceExportCanceled renders a canceled export, and whether export can
+// still run: once its first commit was made, it cannot.
+func GitSourceExportCanceled(w io.Writer, consumed bool) {
+	Success(w, "Canceled the source export. Direct deploys work again.")
+	if consumed {
+		Note(w, "The repository and its first commit were not changed. Export cannot run again for this project.")
+		return
+	}
+	Note(w, "The repository was not changed.")
 }
 
 // GitNotConnected renders a project with no repository bound. This is a state,
@@ -306,4 +384,59 @@ func frontendTarget(settings *apiclient.ProjectGitDeploySettings) string {
 		frontend += " (" + *settings.FrontendAppRoot + ")"
 	}
 	return frontend
+}
+
+// GitInstallationListing is one GitHub App installation and the repositories
+// it grants, as `volcano git repos` reports it.
+type GitInstallationListing struct {
+	// GitHubAccount is the connected GitHub account the installation was
+	// reached through.
+	GitHubAccount       string                    `json:"github_account"`
+	ID                  int64                     `json:"id"`
+	AccountLogin        string                    `json:"account_login"`
+	AccountType         string                    `json:"account_type"`
+	RepositorySelection string                    `json:"repository_selection"`
+	Repositories        []apiclient.GitRepository `json:"repositories"`
+}
+
+// GitRepositories renders the repositories each installation grants, marking
+// the empty ones an export can write to.
+func GitRepositories(w io.Writer, installations []GitInstallationListing, connectCommand string) {
+	on := theme.On(w)
+	if len(installations) == 0 {
+		fmt.Fprintln(w, theme.Dim("The Volcano GitHub App is not installed on any account your GitHub connection can reach.", on))
+		return
+	}
+	account := ""
+	for _, installation := range installations {
+		if installation.GitHubAccount != account {
+			account = installation.GitHubAccount
+			kv(w, on, "GitHub account", "%s", account)
+		}
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "%s %s\n", installation.AccountLogin,
+			theme.Dim(fmt.Sprintf("(%s, %s repositories)", strings.ToLower(installation.AccountType),
+				installation.RepositorySelection), on))
+		if len(installation.Repositories) == 0 {
+			fmt.Fprintf(w, "  %s\n", theme.Dim("no repositories", on))
+		}
+		for _, repository := range installation.Repositories {
+			detail := []string{visibility(repository.Private)}
+			if repository.IsEmpty {
+				detail = append(detail, "empty")
+			} else if repository.DefaultBranch != "" {
+				detail = append(detail, "default branch "+repository.DefaultBranch)
+			}
+			fmt.Fprintf(w, "  %s %s\n", repository.FullName, theme.Dim(strings.Join(detail, ", "), on))
+		}
+	}
+	fmt.Fprintf(w, "\n%s%s\n", theme.Dim("Connect one with ", on),
+		theme.Command(connectCommand+" https://github.com/<owner>/<repo>", on))
+}
+
+func visibility(private bool) string {
+	if private {
+		return "private"
+	}
+	return "public"
 }

@@ -34,14 +34,16 @@ func (s Service) ListPage(ctx context.Context, page, limit int) (*apiclient.Pagi
 	return variables, nil
 }
 
-// Create creates a variable in the current project.
-func (s Service) Create(ctx context.Context, name, value string) (*apiclient.Variable, error) {
+// Create creates a variable in the current project, or updates the one with
+// that name. A nil shared leaves the server's default: a new variable is shared
+// and an existing one keeps its setting.
+func (s Service) Create(ctx context.Context, name, value string, shared *bool) (*apiclient.Variable, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
 
-	variable, err := authenticated.API.CreateVariable(ctx, authenticated.ProjectID, name, value)
+	variable, err := authenticated.API.CreateVariable(ctx, authenticated.ProjectID, name, value, shared)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create variable %q: %w", name, err)
 	}

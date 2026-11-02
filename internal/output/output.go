@@ -47,7 +47,7 @@ func Projects(w io.Writer, cfg *config.Config, page *apiclient.PaginatedProjects
 	if len(projects) == 0 {
 		if page.Total == 0 {
 			fmt.Fprintln(w, "No projects found")
-			fmt.Fprintln(w, "\nCreate a project in the Volcano dashboard: https://volcano.dev")
+			fmt.Fprintf(w, "\nCreate one with: %s\n", theme.Command("volcano projects create <name>", on))
 		} else {
 			fmt.Fprintf(w, "No projects found on page %d\n", page.Page)
 		}

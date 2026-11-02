@@ -20,18 +20,21 @@ func New(deps cliruntime.Deps) *cobra.Command {
 		Short: "Manage the Git repository connected to the current project",
 		Long: `Connect the current project to a GitHub repository so that pushes deploy.
 
-Volcano never pushes for you and never stores push credentials: connecting only
-binds the project to a repository you can already reach through your GitHub
-connection. Pushing stays your own "git push", with the credentials already on
-your machine.`,
+Volcano never stores push credentials: connecting only binds the project to a
+repository you can already reach through your GitHub connection. Pushing stays
+your own "git push", with the credentials already on your machine. The one
+exception is "volcano git export", which writes the project's stored source to
+an empty repository once; Volcano pushes that first commit itself.`,
 	}
 	cmd.AddCommand(newStatus(deps))
+	cmd.AddCommand(newRepos(deps))
 	cmd.AddCommand(newConnect(deps))
 	cmd.AddCommand(newRootDirectory(deps))
 	cmd.AddCommand(newProductionBranch(deps))
 	cmd.AddCommand(newAutoDeploy(deps))
 	cmd.AddCommand(newFunctions(deps))
 	cmd.AddCommand(newFrontend(deps))
+	cmd.AddCommand(newExport(deps))
 	cmd.AddCommand(newDisconnect(deps))
 	return cmd
 }
@@ -57,24 +60,25 @@ func ask(in io.Reader, out io.Writer, yes bool, warning, question string) (bool,
 // next, and returns anything else unchanged. The command layer returns these
 // like any other error: main prints them, so guidance belongs in the error
 // value rather than in output written alongside it.
-func guide(deps cliruntime.Deps, webURL string, err error) error {
+func guide(deps cliruntime.Deps, err error) error {
 	switch {
 	case errors.Is(err, gitconnect.ErrProviderNotConfigured):
 		return fmt.Errorf(
 			"%w\n\nIf this is local mode, that is expected: the local stack ships without GitHub "+
 				"App settings. Run against the cloud API", err)
+	case errors.Is(err, gitconnect.ErrSourceExportUnavailable):
+		return fmt.Errorf(
+			"%w\n\nIf this is local mode, that is expected: local mode serves functions from a directory "+
+				"on your machine, so Volcano stores no source to export. Run against the cloud API", err)
 	case errors.Is(err, gitconnect.ErrNoGitHubConnection):
-		return fmt.Errorf("%w\n\n%s", err,
-			dashboardStep(webURL, "Connect GitHub in the dashboard, then run this command again:"))
+		return fmt.Errorf("%w\n\n%s", err, cannotConnectGitHub)
 	case errors.Is(err, gitconnect.ErrNotAuthenticated):
 		// The session first, because that is the cause the contract documents for
-		// this 401. The dashboard is kept as the fallback only because a revoked
-		// GitHub connection is not documented on these routes at all, so it
-		// cannot be ruled out — not because anything says it is likelier.
-		return fmt.Errorf("%w\n\nSign in again, then run this command again:\n  %s\n\n%s",
-			err,
-			cliruntime.CommandPath(deps, "login"),
-			dashboardStep(webURL, "If you are already signed in, reconnect GitHub in the dashboard:"))
+		// this 401. A revoked GitHub connection is not documented on these routes
+		// at all, so it cannot be ruled out, and comes second.
+		return fmt.Errorf("%w\n\nSign in again, then run this command again:\n  %s\n\n"+
+			"If you are already signed in, your GitHub connection may have been revoked. %s",
+			err, cliruntime.CommandPath(deps, "login"), cannotConnectGitHub)
 	case errors.Is(err, gitconnect.ErrBindingChanged):
 		return fmt.Errorf("%w\n\nNothing was changed. Run %s to see where it stands",
 			err, cliruntime.CommandPath(deps, "git status"))
@@ -90,12 +94,7 @@ func guide(deps cliruntime.Deps, webURL string, err error) error {
 	}
 }
 
-// dashboardStep points at the page that owns a flow the CLI cannot run itself.
 // Connecting a GitHub account is a browser redirect bound to an HttpOnly
-// cookie, so it cannot be completed from a terminal.
-func dashboardStep(webURL, instruction string) string {
-	if webURL == "" {
-		return instruction
-	}
-	return fmt.Sprintf("%s\n  %s", instruction, webURL)
-}
+// cookie, which no API route starts yet. Name what is missing rather than send
+// anyone to a web page; the CLI gains the step when the API does.
+const cannotConnectGitHub = "The CLI cannot connect a GitHub account yet."

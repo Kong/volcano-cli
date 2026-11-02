@@ -104,6 +104,7 @@ enable`. Turn it off on its own with `volcano feedback disable`. See
 | Access tokens | create, list, get, revoke project credentials | `cloud access-tokens …` | [access-tokens.md](access-tokens.md) |
 | Project | create, list, get, rename, delete, select, get keys and usage | `projects …`, `use` | below |
 | Whole project | deploy variables, migrations, functions, frontends, and config in one run | `deploy`, `cloud deploy` | [deploy.md](deploy.md) |
+| Deployments | list, inspect and summarize every function and frontend deployment | `deployments …`, `cloud deployments …` | [deployments.md](deployments.md) |
 | Logs | search, tail and count logs across functions, frontends and databases | `logs …`, `cloud logs …` | [logs.md](logs.md) |
 | Functions | deploy, invoke, inspect, set visibility, schedule, alias | `functions …` | [functions.md](functions.md) |
 | Durable functions | deploy, start, inspect executions, read logs, schedule, decide approvals, send and read messages, answer callbacks | `durable …`, `cloud durable …` | [durable-functions.md](durable-functions.md) |
@@ -136,6 +137,9 @@ volcano projects keys service list # backend service-key metadata for the active
 volcano projects usage             # current-month and all-time usage totals
 volcano projects delete my-app     # delete
 ```
+
+When your account has no projects, `volcano projects list` says so and
+suggests `volcano projects create <name>`.
 
 Inside a directory linked with `volcano connect`, commands use the linked
 project. See [connect.md](connect.md#linked-directories).

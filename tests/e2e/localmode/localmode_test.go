@@ -53,6 +53,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, databasesAfterCreate, "app")
 
 	requireLocalModeOmitsProviderOnlyDatabaseCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeListsCreateOptions(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsDurableFunctions(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsDurableApprovals(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsSandboxes(t, volcanoBin, env, projectDir)
@@ -82,6 +83,8 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 
 	variableGetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "get", "SMOKE_MESSAGE")
 	requireContains(t, variableGetOutput, "Name: SMOKE_MESSAGE")
+	requireContains(t, variableGetOutput, "Shared: yes")
+	requireLocalModeSavesVariablesNotShared(t, volcanoBin, env, projectDir)
 
 	functionDeployOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "deploy", "--all")
 	requireContains(t, functionDeployOutput, "Packaging hello")
@@ -92,6 +95,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	waitForVolcanoLocalModeE2EContains(t, volcanoBin, env, projectDir, "hello", "functions", "list")
 	functionGetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "get", "hello")
 	requireContains(t, functionGetOutput, "Name: hello")
+	requireLocalModeListsDeployments(t, volcanoBin, env, projectDir)
 
 	info := fetchVolcanoLocalModeE2EInfo(t, env)
 	assertVolcanoLocalModeE2EPlanCannotDowngrade(t, env, info)
@@ -106,6 +110,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 
 	runLocalModeConfigSmoke(t, volcanoBin, env, projectDir)
 	requireLocalModeConfigFunctionVisibility(t, volcanoBin, env, projectDir)
+	requireLocalModeConfigRoundTripsManagedPagesAppearance(t, volcanoBin, env, projectDir)
 
 	variableDeleteOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "delete", "SMOKE_MESSAGE", "--yes")
 	requireContains(t, variableDeleteOutput, "deleted")
@@ -257,8 +262,9 @@ func readLocalModeE2EFile(t *testing.T, projectDir, relativePath string) string 
 
 // runLocalModeConfigSmoke exercises `config deploy` + `config pull` against the
 // local-mode server. It is self-contained: it declares SMOKE_MESSAGE (already
-// present, kept by the full sync) plus CONFIG_SMOKE, verifies both commands and
-// the value-free pull, then removes CONFIG_SMOKE.
+// present, kept by the full sync) plus CONFIG_SMOKE, which is not shared,
+// verifies both commands and the value-free pull, deploys the pull back, then
+// removes CONFIG_SMOKE.
 func runLocalModeConfigSmoke(t *testing.T, binary string, env []string, projectDir string) {
 	t.Helper()
 	writeLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"), `
@@ -268,10 +274,15 @@ variables:
     value: hello-from-volcano-cli
   - name: CONFIG_SMOKE
     value: from-config-deploy
+    shared: false
 functions:
   - name: hello
     visibility: public
 `)
+
+	dryRunOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy", "--dry-run")
+	requireContains(t, dryRunOutput, "Dry run: projected actions, nothing was applied.")
+	requireContains(t, dryRunOutput, "variables: 1 created")
 
 	deployOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy")
 	requireContains(t, deployOutput, "Configuration deployed from volcano-config.yaml")
@@ -279,16 +290,70 @@ functions:
 
 	variablesAfterConfig := runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "list")
 	requireContains(t, variablesAfterConfig, "CONFIG_SMOKE")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "CONFIG_SMOKE"), "Shared: no")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "SMOKE_MESSAGE"), "Shared: yes")
 
+	// The pull carries membership as the shared_variables list, without values,
+	// so the variable that is not shared is absent from it. Deploying the pull
+	// back changes nothing.
 	configPullOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "pull", "--force")
 	requireContains(t, configPullOutput, "Configuration written to")
 	pulledConfig := readLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"))
-	requireContains(t, pulledConfig, "CONFIG_SMOKE")
+	requireContains(t, pulledConfig, "shared_variables:")
+	requireContains(t, pulledConfig, "SMOKE_MESSAGE")
+	requireNotContains(t, pulledConfig, "CONFIG_SMOKE")
 	requireNotContains(t, pulledConfig, "from-config-deploy")
 	requireContains(t, pulledConfig, "version: 1")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy"), "Summary: 0 created, 0 updated, 0 deleted")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "CONFIG_SMOKE"), "Shared: no")
+
+	// shared: true shares it again: one update in the dry run, which changes
+	// nothing, then applied by the deploy.
+	writeLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"), `
+version: 1
+variables:
+  - name: SMOKE_MESSAGE
+    value: hello-from-volcano-cli
+  - name: CONFIG_SMOKE
+    value: from-config-deploy
+    shared: true
+functions:
+  - name: hello
+    visibility: public
+`)
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy", "--dry-run"), "variables: 1 updated")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "CONFIG_SMOKE"), "Shared: no")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy"), "Configuration deployed from volcano-config.yaml")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "CONFIG_SMOKE"), "Shared: yes")
 
 	configDeleteOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "delete", "CONFIG_SMOKE", "--yes")
 	requireContains(t, configDeleteOutput, "deleted")
+}
+
+// requireLocalModeSavesVariablesNotShared saves an env file's variables with
+// --shared=false, checks that a later deploy without the flag keeps them not
+// shared and that --shared shares them, then removes them.
+func requireLocalModeSavesVariablesNotShared(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	writeLocalModeE2EFile(t, dir, "not-shared.env", "LOCAL_NOT_SHARED=fake-value\n")
+	t.Cleanup(func() { _ = os.Remove(filepath.Join(dir, "not-shared.env")) })
+	deploy := func(flags ...string) string {
+		t.Helper()
+		return runVolcanoLocalModeE2E(t, binary, env, dir, append([]string{"variables", "deploy", "--file", "not-shared.env"}, flags...)...)
+	}
+	shared := func() string {
+		t.Helper()
+		return runVolcanoLocalModeE2E(t, binary, env, dir, "variables", "get", "LOCAL_NOT_SHARED")
+	}
+
+	requireContains(t, deploy("--shared=false"), "LOCAL_NOT_SHARED (saved, not shared)")
+	requireContains(t, shared(), "Shared: no")
+	requireContains(t, deploy(), "LOCAL_NOT_SHARED (saved)")
+	requireContains(t, shared(), "Shared: no")
+	requireContains(t, deploy("--shared"), "LOCAL_NOT_SHARED (saved, shared)")
+	requireContains(t, shared(), "Shared: yes")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "variables", "delete", "LOCAL_NOT_SHARED", "--yes"), "deleted")
 }
 
 // requireLocalModeFunctionVisibility moves hello through every level with
@@ -358,6 +423,41 @@ func requireLocalModeConfigFunctionVisibility(t *testing.T, binary string, env [
 	deploy("    visibility: private\n", "private", "")
 }
 
+// requireLocalModeConfigRoundTripsManagedPagesAppearance deploys a managed-page
+// theme and layout, pulls the project back, and deploys the pulled file again.
+// Local projects run on PRO, which the appearance needs, so this is the round
+// trip a user makes against a real server: the second deploy changes nothing.
+func requireLocalModeConfigRoundTripsManagedPagesAppearance(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	manifest := filepath.Join("volcano", "volcano-config.yaml")
+	writeLocalModeE2EFile(t, dir, manifest, `version: 1
+auth:
+  managed_pages:
+    appearance:
+      theme:
+        version: 1
+        colors:
+          background: '#f7f5f2'
+          surface: '#ffffff'
+          text: '#1a1a1a'
+          accent: '#1d4ed8'
+          accent_text: '#ffffff'
+        font: humanist
+        scale: large
+        density: spacious
+        radius: large
+      layouts:
+        login: split-left
+`)
+	runVolcanoLocalModeE2E(t, binary, env, dir, "config", "deploy")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "config", "pull", "--force"), "Configuration written to")
+	pulled := readLocalModeE2EFile(t, dir, manifest)
+	requireContains(t, pulled, "appearance:")
+	requireContains(t, pulled, "split-left")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "config", "deploy"), "Summary: 0 created, 0 updated, 0 deleted")
+}
+
 // requireLocalModeOmitsProviderOnlyDatabaseCommands checks against the running
 // stack what the unit tests check against the command tree: backups, restores,
 // and branches need the storage provider, which local development does not run.
@@ -366,7 +466,7 @@ func requireLocalModeConfigFunctionVisibility(t *testing.T, binary string, env [
 func requireLocalModeOmitsProviderOnlyDatabaseCommands(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
 	help := runVolcanoLocalModeE2E(t, binary, env, dir, "databases", "--help")
-	for _, command := range []string{"backups", "backup-schedule", "restore", "restores", "branches"} {
+	for _, command := range []string{"backups", "backup-schedule", "restore", "restores", "branches", "resize", "regions"} {
 		requireNotContains(t, help, command)
 	}
 
@@ -381,6 +481,8 @@ func requireLocalModeOmitsProviderOnlyDatabaseCommands(t *testing.T, binary stri
 		{"databases", "branches", "list", "app"},
 		{"databases", "branches", "create", "app", "feature"},
 		{"databases", "branch", "list", "app"},
+		{"databases", "resize", "app", "--type", "volcano-db-m"},
+		{"databases", "regions"},
 	} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
 		if err == nil {

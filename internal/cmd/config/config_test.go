@@ -814,6 +814,52 @@ func TestSharedVariablesPullDeployRoundTrip(t *testing.T) {
 	}
 }
 
+// A variable's own shared reaches the server on the dry run and the deploy
+// alike, so the dry run previews the membership the deploy writes.
+func TestDeploySendsEachVariablesShared(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+	t.Setenv("FAKE_STRIPE_KEY", "sk_test_fake")
+	manifest := `version: 1
+variables:
+  - name: LOG_LEVEL
+    value: debug
+  - name: STRIPE_SECRET_KEY
+    value: ${FAKE_STRIPE_KEY}
+    shared: false
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte(manifest), 0o600))
+
+	var queries []string
+	var uploads []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPut, r.Method)
+		require.Equal(t, projectConfigURL, r.URL.Path)
+		queries = append(queries, r.URL.RawQuery)
+		var uploaded map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&uploaded))
+		uploads = append(uploads, uploaded)
+		writeConfigCommandJSON(t, w, http.StatusOK, applyResultResponse())
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+
+	_, err := executeConfigCommand(t, New(deps), "deploy", "--dry-run")
+	require.NoError(t, err)
+	_, err = executeConfigCommand(t, New(deps), "deploy")
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"dry_run=true", ""}, queries)
+	want := []any{
+		map[string]any{"name": "LOG_LEVEL", "value": "debug"},
+		map[string]any{"name": "STRIPE_SECRET_KEY", "value": "sk_test_fake", "shared": false},
+	}
+	for _, uploaded := range uploads {
+		assert.Equal(t, want, uploaded["variables"])
+	}
+}
+
 func TestFrontendSharedVariablesPullDeployRoundTrip(t *testing.T) {
 	for _, tc := range []struct {
 		name, section string
@@ -925,4 +971,73 @@ frontends:
 		},
 		map[string]any{"name": "docs"},
 	}, uploads[0]["frontends"])
+}
+
+// A project with a saved managed-page theme and layouts exports them; deploying
+// the pulled file must upload the same configuration rather than refuse it.
+func TestPullThenDeployRoundTripsManagedPagesAppearance(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+
+	const exported = `version: 1
+auth:
+  managed_pages:
+    enabled: true
+    pages:
+      signup:
+        html: '<html>signup</html>'
+      verify_email:
+        html: '<html>verify</html>'
+    appearance:
+      theme:
+        version: 1
+        colors:
+          background: '#f7f5f2'
+          surface: '#ffffff'
+          text: '#1a1a1a'
+          accent: '#1d4ed8'
+          accent_text: '#ffffff'
+        font: humanist
+        scale: large
+        density: spacious
+        radius: large
+      layouts:
+        login: split-left
+        device: centered
+`
+	var uploaded map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != projectConfigURL {
+			http.NotFound(w, r)
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			w.Header().Set("Content-Type", "application/yaml")
+			_, _ = w.Write([]byte(exported))
+		case http.MethodPut:
+			assert.NoError(t, json.NewDecoder(r.Body).Decode(&uploaded))
+			writeConfigCommandJSON(t, w, http.StatusOK, map[string]any{
+				"results": []any{}, "summary": map[string]any{},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+
+	_, err := executeConfigCommand(t, New(deps), "pull")
+	require.NoError(t, err)
+	_, err = executeConfigCommand(t, New(deps), "deploy", "--file", filepath.Join(dir, "volcano-config.yaml"))
+	require.NoError(t, err)
+
+	var want map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(exported), &want))
+	wantJSON, err := json.Marshal(want)
+	require.NoError(t, err)
+	gotJSON, err := json.Marshal(uploaded)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(wantJSON), string(gotJSON))
 }

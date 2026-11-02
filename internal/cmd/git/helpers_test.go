@@ -29,6 +29,7 @@ const (
 	connectionPath  = "/projects/" + gitProjectID + "/git-connection"
 	deploySettings  = "/projects/" + gitProjectID + "/git-deploy-settings"
 	connectionsPath = "/user/git/connections"
+	sourceExport    = "/projects/" + gitProjectID + "/source-export"
 
 	originRemoteOutput = "origin\tgit@github.com:octo/storefront.git (fetch)\n" +
 		"origin\tgit@github.com:octo/storefront.git (push)\n"
@@ -208,8 +209,30 @@ type gitAPI struct {
 	settingsWriteStatus  int
 	settingsWriteMessage string
 
+	// sourceMode is the project's source of truth, "platform" when empty, and
+	// sourceExportedAt marks the one-time export as used.
+	sourceMode       string
+	sourceExportedAt string
+	// sourceStatus fails the source-state read, as local mode does with 501.
+	sourceStatus int
+	// exportStatus and exportMessage make the export refuse.
+	exportStatus  int
+	exportMessage string
+	// exportResult is what a successful export reports.
+	exportResult map[string]any
+	// cancelStatus and cancelMessage make the cancel refuse.
+	cancelStatus  int
+	cancelMessage string
+	// cancelConsumes marks the export as used when it is canceled, as the
+	// platform does once the first commit was reserved.
+	cancelConsumes bool
+
 	mu          sync.Mutex
 	connectBody map[string]any
+	// exportBody is what the export was sent; exports and cancels count calls.
+	exportBody map[string]any
+	exports    int
+	cancels    int
 	// rootBody is what the root-directory route was sent.
 	rootBody map[string]any
 	// settingsBody is what the deploy-settings write was sent.
@@ -281,6 +304,12 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 		a.serveProductionBranch(w, r)
 	case r.Method == http.MethodDelete && strings.HasSuffix(r.URL.Path, "/git-connection"):
 		a.serveDisconnect(w)
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/source-export"):
+		a.serveSourceState(w)
+	case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/source-export"):
+		a.serveExport(w, r)
+	case r.Method == http.MethodDelete && strings.HasSuffix(r.URL.Path, "/source-export"):
+		a.serveCancelExport(w)
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git-deploy-settings"):
 		a.serveDeploySettings(w)
 	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-deploy-settings"):
@@ -550,6 +579,100 @@ func (a *gitAPI) deploySettings() map[string]any {
 		settings["frontend_app_root"] = a.frontendRoot
 	}
 	return settings
+}
+
+func (a *gitAPI) serveSourceState(w http.ResponseWriter) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.sourceStatus != 0 {
+		writeGitJSON(a.t, w, a.sourceStatus, map[string]any{"error": "Source export is not available in this environment."})
+		return
+	}
+	writeGitJSON(a.t, w, http.StatusOK, a.sourceState())
+}
+
+func (a *gitAPI) sourceState() map[string]any {
+	mode := a.sourceMode
+	if mode == "" {
+		mode = "platform"
+	}
+	state := map[string]any{
+		"mode":                  mode,
+		"transition_started_at": nil,
+		"exported_at":           nil,
+		"handed_over_at":        nil,
+	}
+	if mode != "platform" {
+		state["transition_started_at"] = "2026-08-25T09:14:02Z"
+	}
+	if a.sourceExportedAt != "" {
+		state["exported_at"] = a.sourceExportedAt
+	}
+	return state
+}
+
+// serveExport refuses a branch other than the configured one, as the platform
+// does, so a test sending the wrong branch fails rather than passing.
+func (a *gitAPI) serveExport(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.exports++
+	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.exportBody))
+
+	if a.exportStatus != 0 {
+		writeGitJSON(a.t, w, a.exportStatus, map[string]any{"error": a.exportMessage})
+		return
+	}
+	branch := a.connectedBranch
+	if branch == "" {
+		branch = "main"
+	}
+	if a.exportBody["production_branch"] != branch {
+		writeGitJSON(a.t, w, http.StatusConflict, map[string]any{
+			"error": "The production branch changed before export started. Review the current branch and confirm export again.",
+		})
+		return
+	}
+	a.sourceMode = "git_exporting"
+	result := a.exportResult
+	if result == nil {
+		result = map[string]any{
+			"repo_full_name": a.connected,
+			"branch":         branch,
+			"commit_sha":     "6f2b1c9a4e8d3f7b0a5c2e9d1f4b8a6c3e7d0b25",
+			"file_count":     12,
+			"skipped":        []any{},
+			"omitted":        []any{},
+		}
+	}
+	writeGitJSON(a.t, w, http.StatusCreated, result)
+}
+
+func (a *gitAPI) serveCancelExport(w http.ResponseWriter) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.cancels++
+	if a.cancelStatus != 0 {
+		writeGitJSON(a.t, w, a.cancelStatus, map[string]any{"error": a.cancelMessage})
+		return
+	}
+	a.sourceMode = "platform"
+	if a.cancelConsumes {
+		a.sourceExportedAt = "2026-08-25T09:20:00Z"
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *gitAPI) sentExportBody() map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.exportBody
+}
+
+func (a *gitAPI) exportCalls() (exports, cancels int) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.exports, a.cancels
 }
 
 func (a *gitAPI) sentSettingsBody() map[string]any {

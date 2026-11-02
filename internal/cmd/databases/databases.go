@@ -37,6 +37,9 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newGet(deps))
 	cmd.AddCommand(newDelete(deps))
+	cmd.AddCommand(newRegions(deps))
+	cmd.AddCommand(newVersions(deps))
+	cmd.AddCommand(newResize(deps))
 	cmd.AddCommand(branchcmd.New(deps))
 	cmd.AddCommand(backupcmd.New(deps))
 	cmd.AddCommand(backupcmd.NewRestore(deps))
@@ -62,7 +65,10 @@ func NewLocalWithOptions(deps cliruntime.Deps, opts LocalOptions) *cobra.Command
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newGet(deps))
 	cmd.AddCommand(newDelete(deps))
+	cmd.AddCommand(newVersions(deps))
 	cmd.AddCommand(migrationcmd.New(deps))
+	cmd.AddCommand(cloudOnlyBecause("resize", "a local database runs on your machine and has no size to change"))
+	cmd.AddCommand(cloudOnlyBecause("regions", "a local database runs on your machine, so 'databases create' needs no --region"))
 	cmd.AddCommand(cloudOnly("backups", "backup"))
 	cmd.AddCommand(cloudOnly("backup-schedule"))
 	cmd.AddCommand(cloudOnly("restore"))
@@ -79,14 +85,19 @@ func NewLocalWithOptions(deps cliruntime.Deps, opts LocalOptions) *cobra.Command
 // arguments raw so `restore app --backup nightly` reaches it rather than
 // failing on an unknown flag.
 func cloudOnly(name string, aliases ...string) *cobra.Command {
+	return cloudOnlyBecause(name, "local development has no storage provider behind it", aliases...)
+}
+
+// cloudOnlyBecause is cloudOnly with its own reason the command is cloud-only.
+func cloudOnlyBecause(name, reason string, aliases ...string) *cobra.Command {
 	return &cobra.Command{
 		Use:                name,
 		Aliases:            aliases,
 		Hidden:             true,
 		DisableFlagParsing: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return fmt.Errorf("%q is a cloud command: local development has no storage provider behind it, "+
-				"so run 'volcano cloud databases %s' against a cloud project", name, name)
+			return fmt.Errorf("%q is a cloud command: %s, "+
+				"so run 'volcano cloud databases %s' against a cloud project", name, reason, name)
 		},
 	}
 }

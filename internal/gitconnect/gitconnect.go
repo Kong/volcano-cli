@@ -2,7 +2,9 @@
 //
 // The CLI never creates push credentials and never pushes: it resolves a local
 // remote to a repository the caller's GitHub connection can already see, and
-// asks the platform to bind it. Pushing stays the user's own `git push`.
+// asks the platform to bind it. Pushing stays the user's own `git push`, except
+// for a source export, where the platform pushes the first commit to an empty
+// repository.
 package gitconnect
 
 import (
@@ -25,9 +27,8 @@ import (
 var (
 	// ErrNoGitHubConnection indicates the caller has no usable GitHub
 	// connection. The CLI cannot create one: the connect flow is a browser
-	// redirect bound to an HttpOnly cookie, so it has to happen in the
-	// dashboard.
-	ErrNoGitHubConnection = errors.New("no GitHub account is connected")
+	// redirect bound to an HttpOnly cookie, which no API route starts yet.
+	ErrNoGitHubConnection = errors.New("no GitHub account is connected to your Volcano account")
 	// ErrRepositoryNotAccessible indicates the repository is real as far as the
 	// local remote is concerned, but the Volcano GitHub App cannot see it
 	// through any of the caller's installations.
@@ -286,7 +287,9 @@ func (s Service) resolveThroughConnection(
 }
 
 // Connect binds the current project to a resolved repository, provided its
-// binding is still expected — nil for a project that had none.
+// binding is still expected — nil for a project that had none. A non-empty
+// productionBranch is the branch it deploys from; empty follows the
+// repository's default, or keeps a branch pinned on the same repository.
 //
 // The bind is a full replace and names no prior state, so it overwrites whatever
 // is bound when it arrives. Everything the caller decided rests on a read taken
@@ -295,7 +298,7 @@ func (s Service) resolveThroughConnection(
 // it another actor can point the project somewhere the user was never shown.
 // Re-reading narrows that; the API has no conditional write to close it.
 func (s Service) Connect(
-	ctx context.Context, target Target, rootDirectory string, expected *apiclient.ProjectGitConnection,
+	ctx context.Context, target Target, rootDirectory, productionBranch string, expected *apiclient.ProjectGitConnection,
 ) (*apiclient.ProjectGitConnection, error) {
 	authenticated, err := s.current()
 	if err != nil {
@@ -320,7 +323,10 @@ func (s Service) Connect(
 	// Only for the same repository, though: a pin was chosen for the
 	// repository it belongs to, and naming it while changing repository is
 	// refused.
-	if expected != nil && expected.RepoId == repositoryID && !expected.ProductionBranchFollowsDefault {
+	switch {
+	case productionBranch != "":
+		body.ProductionBranch = &productionBranch
+	case expected != nil && expected.RepoId == repositoryID && !expected.ProductionBranchFollowsDefault:
 		branch := expected.ProductionBranch
 		body.ProductionBranch = &branch
 	}
@@ -599,19 +605,6 @@ func settingsError(projectID uuid.UUID, err error, action string) error {
 	return classify(err, action)
 }
 
-// WebURL returns the dashboard URL for the configured API, so callers can point
-// at the page that owns a flow the CLI cannot run itself.
-func (s Service) WebURL() (string, error) {
-	cfg, err := s.sessions.Config()
-	if err != nil {
-		return "", err
-	}
-	// Resolve the web URL from the API URL the session will actually use, so a
-	// runtime override does not produce a link to a different environment.
-	webURL := cfg.WebURLForAPIURL(s.sessions.APIURL(cfg))
-	return strings.TrimSuffix(webURL, "/") + "/dashboard/project-settings/git", nil
-}
-
 // githubConnections keeps the connections for the provider this CLI can bind.
 //
 // Status is deliberately not filtered on. The column is constrained to
@@ -658,8 +651,8 @@ func classifyProvider(err error, action string) error {
 		return ErrProviderNotConfigured
 	case http.StatusUnauthorized:
 		// Authentication, per the contract — see ErrNotAuthenticated. Reporting
-		// this as a GitHub reconnect sent users to the dashboard for a failure
-		// only signing in again can fix.
+		// this as a GitHub reconnect sent users after a failure only signing in
+		// again can fix.
 		return fmt.Errorf("%w: %w", ErrNotAuthenticated, err)
 	default:
 		return classify(err, action)
