@@ -103,6 +103,35 @@ Log out at any time:
 volcano logout
 ```
 
-This removes local credentials, the selected project, and function aliases,
-but does not revoke the token. Revoke it in the Volcano dashboard to fully cut
-off access.
+This ends the login on the server, then removes it from this machine. The
+server revokes the saved token and the session it came from, so the token
+stops working everywhere it was copied. The CLI then removes the token, the
+selected project, and function aliases from `~/.volcano/config.json`. Your
+other CLI logins and browser sessions stay signed in.
+
+If the server can't be reached or fails, `volcano logout` says so, exits
+non-zero, and keeps the login saved on this machine. Run `volcano logout` again
+to end it, or end it from another login with
+`volcano account sessions revoke <id>`. If the server
+refuses to revoke the login, `volcano logout` removes it from this machine
+anyway and exits non-zero. The token then stays valid until it expires. If it
+was a project access token, revoke it with `volcano cloud access-tokens revoke`.
+If it came from a sign-in, end that session from another login with
+`volcano account sessions revoke <id>`; see [account.md](account.md). Ending a
+token that isn't tied to a session isn't available from the CLI yet.
+
+To remove the login from this machine without reaching the server, for example
+while offline, run `volcano logout --no-revoke`. The token then stays valid
+until it expires.
+
+Local development keeps no sign-in session on the server, so there
+`volcano logout` only removes the login from this machine.
+
+Two credentials stay valid after `volcano logout`:
+
+- A project access token (`pt-`) is removed from this machine but not revoked.
+  Revoke it with `volcano cloud access-tokens revoke`. See
+  [access-tokens.md](access-tokens.md).
+- A token in `VOLCANO_TOKEN` was never saved, so `volcano logout` doesn't unset
+  it, and commands keep using it. If it is the same token as the saved login,
+  logout revokes it with the login, and the command tells you to unset it.

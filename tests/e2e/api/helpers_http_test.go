@@ -25,7 +25,14 @@ func createAPIE2EUser(t *testing.T, mgmtURL, userID string) {
 
 func createAPIE2EUserToken(t *testing.T, mgmtURL, userID string) string {
 	t.Helper()
-	tokenResp := apiE2EJSONRequest(t, http.MethodPost, mgmtURL+"/users/"+userID+"/tokens", "", map[string]string{"name": "cli-e2e-token"}, http.StatusCreated)
+	return createAPIE2ENamedUserToken(t, mgmtURL, userID, "cli-e2e-token")
+}
+
+// createAPIE2ENamedUserToken mints another platform token for userID. Token
+// names are unique per user, so a second token needs its own name.
+func createAPIE2ENamedUserToken(t *testing.T, mgmtURL, userID, name string) string {
+	t.Helper()
+	tokenResp := apiE2EJSONRequest(t, http.MethodPost, mgmtURL+"/users/"+userID+"/tokens", "", map[string]string{"name": name}, http.StatusCreated)
 	token, ok := tokenResp["token"].(string)
 	if !ok || strings.TrimSpace(token) == "" {
 		t.Fatalf("management token response did not include token: %#v", tokenResp)

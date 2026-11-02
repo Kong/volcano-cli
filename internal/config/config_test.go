@@ -489,3 +489,26 @@ func TestIsProjectToken(t *testing.T) {
 		})
 	}
 }
+
+// ClearLoginOf clears only the login holding the token it was given: one saved
+// in its place meanwhile stays.
+func TestClearLoginOfKeepsALoginSavedInItsPlace(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	require.NoError(t, (&Config{UserToken: "pk-new", CurrentProject: &ProjectConfig{ID: "project-123", Name: "P"}}).Save())
+
+	cleared, err := ClearLoginOf("pk-old")
+	require.NoError(t, err)
+	assert.False(t, cleared)
+	cfg, err := LoadWithoutLink()
+	require.NoError(t, err)
+	assert.Equal(t, "pk-new", cfg.UserToken)
+	assert.NotNil(t, cfg.CurrentProject)
+
+	cleared, err = ClearLoginOf("pk-new")
+	require.NoError(t, err)
+	assert.True(t, cleared)
+	cfg, err = LoadWithoutLink()
+	require.NoError(t, err)
+	assert.Empty(t, cfg.UserToken)
+	assert.Nil(t, cfg.CurrentProject)
+}

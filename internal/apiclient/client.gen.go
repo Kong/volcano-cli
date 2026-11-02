@@ -30,6 +30,24 @@ const (
 	UserTokenScopes           userTokenContextKey           = "UserToken.Scopes"
 )
 
+// Defines values for AccountSessionKind.
+const (
+	AccountSessionKindBrowser AccountSessionKind = "browser"
+	AccountSessionKindCli     AccountSessionKind = "cli"
+)
+
+// Valid indicates whether the value is a known member of the AccountSessionKind enum.
+func (e AccountSessionKind) Valid() bool {
+	switch e {
+	case AccountSessionKindBrowser:
+		return true
+	case AccountSessionKindCli:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuthConfigAllowedEmailDomainsMode.
 const (
 	AuthConfigAllowedEmailDomainsModeDisabled        AuthConfigAllowedEmailDomainsMode = "disabled"
@@ -3794,28 +3812,28 @@ func (e UploadSessionStatusResponseStatus) Valid() bool {
 
 // Defines values for VariableDeploySource.
 const (
-	VariableDeploySourceApi     VariableDeploySource = "api"
-	VariableDeploySourceCli     VariableDeploySource = "cli"
-	VariableDeploySourceGit     VariableDeploySource = "git"
-	VariableDeploySourceSystem  VariableDeploySource = "system"
-	VariableDeploySourceUnknown VariableDeploySource = "unknown"
-	VariableDeploySourceWeb     VariableDeploySource = "web"
+	Api     VariableDeploySource = "api"
+	Cli     VariableDeploySource = "cli"
+	Git     VariableDeploySource = "git"
+	System  VariableDeploySource = "system"
+	Unknown VariableDeploySource = "unknown"
+	Web     VariableDeploySource = "web"
 )
 
 // Valid indicates whether the value is a known member of the VariableDeploySource enum.
 func (e VariableDeploySource) Valid() bool {
 	switch e {
-	case VariableDeploySourceApi:
+	case Api:
 		return true
-	case VariableDeploySourceCli:
+	case Cli:
 		return true
-	case VariableDeploySourceGit:
+	case Git:
 		return true
-	case VariableDeploySourceSystem:
+	case System:
 		return true
-	case VariableDeploySourceUnknown:
+	case Unknown:
 		return true
-	case VariableDeploySourceWeb:
+	case Web:
 		return true
 	default:
 		return false
@@ -3933,6 +3951,42 @@ func (e DeploymentStatus) Valid() bool {
 	case DeploymentStatusQueued:
 		return true
 	case DeploymentStatusSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionListSort.
+const (
+	SessionListSortCreatedAt    SessionListSort = "created_at"
+	SessionListSortLastActivity SessionListSort = "last_activity"
+)
+
+// Valid indicates whether the value is a known member of the SessionListSort enum.
+func (e SessionListSort) Valid() bool {
+	switch e {
+	case SessionListSortCreatedAt:
+		return true
+	case SessionListSortLastActivity:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionListStatus.
+const (
+	SessionListStatusActive  SessionListStatus = "active"
+	SessionListStatusExpired SessionListStatus = "expired"
+)
+
+// Valid indicates whether the value is a known member of the SessionListStatus enum.
+func (e SessionListStatus) Valid() bool {
+	switch e {
+	case SessionListStatusActive:
+		return true
+	case SessionListStatusExpired:
 		return true
 	default:
 		return false
@@ -5050,6 +5104,122 @@ func (e StartGitConnectParamsProvider) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// Defines values for ListAccountSessionsParamsSort.
+const (
+	ListAccountSessionsParamsSortCreatedAt    ListAccountSessionsParamsSort = "created_at"
+	ListAccountSessionsParamsSortLastActivity ListAccountSessionsParamsSort = "last_activity"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountSessionsParamsSort enum.
+func (e ListAccountSessionsParamsSort) Valid() bool {
+	switch e {
+	case ListAccountSessionsParamsSortCreatedAt:
+		return true
+	case ListAccountSessionsParamsSortLastActivity:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAccountSessionsParamsStatus.
+const (
+	ListAccountSessionsParamsStatusActive  ListAccountSessionsParamsStatus = "active"
+	ListAccountSessionsParamsStatusExpired ListAccountSessionsParamsStatus = "expired"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountSessionsParamsStatus enum.
+func (e ListAccountSessionsParamsStatus) Valid() bool {
+	switch e {
+	case ListAccountSessionsParamsStatusActive:
+		return true
+	case ListAccountSessionsParamsStatusExpired:
+		return true
+	default:
+		return false
+	}
+}
+
+// AccountSession A sign-in to your Volcano account, from the CLI or a browser.
+type AccountSession struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// ExpiresAt When this session expires
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// Id Unique session identifier
+	Id openapi_types.UUID `json:"id"`
+
+	// IpAddress IP address of the client when the session was created
+	IpAddress *string `json:"ip_address,omitempty"`
+
+	// IsActive Whether the session is currently active (not expired)
+	IsActive bool `json:"is_active"`
+
+	// IsCurrent Whether this is the session making the current request
+	IsCurrent bool `json:"is_current"`
+
+	// Kind `cli` for a device-code login, such as `volcano login`, and
+	// `browser` for every other sign-in.
+	Kind AccountSessionKind `json:"kind"`
+
+	// LastActivityAt Last activity timestamp
+	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
+
+	// LastIpAddress IP address of the most recent activity (token refresh)
+	LastIpAddress *string `json:"last_ip_address,omitempty"`
+
+	// Provider How the session was created: `email`, `google`, `github`,
+	// `microsoft`, `apple`, or `device:<client_id>` for a device-code
+	// login such as the `volcano` CLI. More values may be added; use
+	// `kind` to tell CLI logins from browser sign-ins.
+	Provider string `json:"provider"`
+
+	// SessionStartedAt When the session was created
+	SessionStartedAt *time.Time `json:"session_started_at,omitempty"`
+	UpdatedAt        *time.Time `json:"updated_at,omitempty"`
+
+	// UserAgent Browser/device user agent string
+	UserAgent *string `json:"user_agent,omitempty"`
+
+	// UserId The account this session belongs to
+	UserId openapi_types.UUID `json:"user_id"`
+}
+
+// AccountSessionKind `cli` for a device-code login, such as `volcano login`, and
+// `browser` for every other sign-in.
+type AccountSessionKind string
+
+// AccountSessionList A page of sessions. Without `sort` the body is the legacy
+// `sessions`/`total`/`page`/`limit`/`total_pages` shape; with
+// `sort=created_at` and a cursor it is the shared `data` envelope.
+type AccountSessionList struct {
+	// Data Sessions for this page (cursor pagination only)
+	Data *[]AccountSession `json:"data,omitempty"`
+
+	// HasMore Whether a further page exists (cursor pagination only)
+	HasMore *bool `json:"has_more,omitempty"`
+
+	// Limit Number of sessions per page
+	Limit *int `json:"limit,omitempty"`
+
+	// NextCursor Opaque cursor for the next page (cursor pagination only)
+	NextCursor *string `json:"next_cursor,omitempty"`
+
+	// Page Current page number
+	Page *int `json:"page,omitempty"`
+
+	// PrevCursor Opaque cursor for the previous page (cursor pagination only). Send as `ending_before`.
+	PrevCursor *string           `json:"prev_cursor,omitempty"`
+	Sessions   *[]AccountSession `json:"sessions,omitempty"`
+
+	// Total Total number of sessions
+	Total *int `json:"total,omitempty"`
+
+	// TotalPages Total number of pages
+	TotalPages *int `json:"total_pages,omitempty"`
 }
 
 // AnonKey defines model for AnonKey.
@@ -11697,6 +11867,27 @@ type SchedulerId = openapi_types.UUID
 // Search defines model for Search.
 type Search = string
 
+// SessionListCursor defines model for SessionListCursor.
+type SessionListCursor = string
+
+// SessionListEndingBefore defines model for SessionListEndingBefore.
+type SessionListEndingBefore = string
+
+// SessionListLimit defines model for SessionListLimit.
+type SessionListLimit = int
+
+// SessionListOffset defines model for SessionListOffset.
+type SessionListOffset = int
+
+// SessionListPage defines model for SessionListPage.
+type SessionListPage = int
+
+// SessionListSort defines model for SessionListSort.
+type SessionListSort string
+
+// SessionListStatus defines model for SessionListStatus.
+type SessionListStatus string
+
 // TokenId defines model for TokenId.
 type TokenId = openapi_types.UUID
 
@@ -13653,6 +13844,45 @@ type StartImportConnectParams struct {
 	// CallbackUrl Same-origin browser callback used to relay provider parameters before completing the connection.
 	CallbackUrl *string `form:"callback_url,omitempty" json:"callback_url,omitempty"`
 }
+
+// ListAccountSessionsParams defines parameters for ListAccountSessions.
+type ListAccountSessionsParams struct {
+	// Page Page number (1-indexed)
+	Page *SessionListPage `form:"page,omitempty" json:"page,omitempty"`
+
+	// Limit Number of sessions per page (max 100)
+	Limit *SessionListLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Sort Sort key. `last_activity` (default) orders by most recent activity and
+	// supports offset pagination only. `created_at` orders by session start
+	// and supports both offset and cursor pagination.
+	Sort *ListAccountSessionsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Status Filter by whether the session can still be refreshed. Omit for every
+	// stored session, including expired ones. `expired` is not supported
+	// with cursor pagination.
+	Status *ListAccountSessionsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Cursor Opaque keyset cursor from a previous response's `next_cursor`. Requires
+	// `sort=created_at`; mutually exclusive with `page` and `ending_before`.
+	Cursor *SessionListCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// EndingBefore Opaque keyset cursor from a previous response's `prev_cursor`, paging
+	// backward. Requires `sort=created_at`; mutually exclusive with `page`
+	// and `cursor`.
+	EndingBefore *SessionListEndingBefore `form:"ending_before,omitempty" json:"ending_before,omitempty"`
+
+	// Offset Bounded number of rows to skip past the cursor anchor (the hybrid
+	// jump, maximum 100000). Ignored unless `cursor` or `ending_before` is
+	// supplied.
+	Offset *SessionListOffset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListAccountSessionsParamsSort defines parameters for ListAccountSessions.
+type ListAccountSessionsParamsSort string
+
+// ListAccountSessionsParamsStatus defines parameters for ListAccountSessions.
+type ListAccountSessionsParamsStatus string
 
 // AuthConfirmEmailJSONRequestBody defines body for AuthConfirmEmail for application/json ContentType.
 type AuthConfirmEmailJSONRequestBody AuthConfirmEmailJSONBody
@@ -16684,6 +16914,18 @@ type ClientInterface interface {
 
 	// DeleteImportConnection request
 	DeleteImportConnection(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeOtherAccountSessions request
+	RevokeOtherAccountSessions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAccountSessions request
+	ListAccountSessions(ctx context.Context, params *ListAccountSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeAccountSession request
+	RevokeAccountSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeCurrentUserToken request
+	RevokeCurrentUserToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) AuthConfirmEmailWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -22184,6 +22426,54 @@ func (c *Client) ListImportConnections(ctx context.Context, reqEditors ...Reques
 
 func (c *Client) DeleteImportConnection(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteImportConnectionRequest(c.Server, connectionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RevokeOtherAccountSessions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeOtherAccountSessionsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListAccountSessions(ctx context.Context, params *ListAccountSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAccountSessionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RevokeAccountSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeAccountSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RevokeCurrentUserToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeCurrentUserTokenRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -40007,6 +40297,220 @@ func NewDeleteImportConnectionRequest(server string, connectionId openapi_types.
 	return req, nil
 }
 
+// NewRevokeOtherAccountSessionsRequest generates requests for RevokeOtherAccountSessions
+func NewRevokeOtherAccountSessionsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAccountSessionsRequest generates requests for ListAccountSessions
+func NewListAccountSessionsRequest(server string, params *ListAccountSessionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EndingBefore != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ending_before", *params.EndingBefore, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRevokeAccountSessionRequest generates requests for RevokeAccountSession
+func NewRevokeAccountSessionRequest(server string, sessionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/sessions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRevokeCurrentUserTokenRequest generates requests for RevokeCurrentUserToken
+func NewRevokeCurrentUserTokenRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/tokens/current")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -41304,6 +41808,18 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteImportConnectionWithResponse request
 	DeleteImportConnectionWithResponse(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteImportConnectionClientResponse, error)
+
+	// RevokeOtherAccountSessionsWithResponse request
+	RevokeOtherAccountSessionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RevokeOtherAccountSessionsClientResponse, error)
+
+	// ListAccountSessionsWithResponse request
+	ListAccountSessionsWithResponse(ctx context.Context, params *ListAccountSessionsParams, reqEditors ...RequestEditorFn) (*ListAccountSessionsClientResponse, error)
+
+	// RevokeAccountSessionWithResponse request
+	RevokeAccountSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*RevokeAccountSessionClientResponse, error)
+
+	// RevokeCurrentUserTokenWithResponse request
+	RevokeCurrentUserTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RevokeCurrentUserTokenClientResponse, error)
 }
 
 type AuthConfirmEmailClientResponse struct {
@@ -52536,6 +53052,141 @@ func (r DeleteImportConnectionClientResponse) ContentType() string {
 	return ""
 }
 
+type RevokeOtherAccountSessionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeOtherAccountSessionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeOtherAccountSessionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeOtherAccountSessionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAccountSessionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AccountSessionList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAccountSessionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAccountSessionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAccountSessionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeAccountSessionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeAccountSessionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeAccountSessionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeAccountSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeCurrentUserTokenClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeCurrentUserTokenClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeCurrentUserTokenClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeCurrentUserTokenClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // AuthConfirmEmailWithBodyWithResponse request with arbitrary body returning *AuthConfirmEmailClientResponse
 func (c *ClientWithResponses) AuthConfirmEmailWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthConfirmEmailClientResponse, error) {
 	rsp, err := c.AuthConfirmEmailWithBody(ctx, contentType, body, reqEditors...)
@@ -56543,6 +57194,42 @@ func (c *ClientWithResponses) DeleteImportConnectionWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseDeleteImportConnectionClientResponse(rsp)
+}
+
+// RevokeOtherAccountSessionsWithResponse request returning *RevokeOtherAccountSessionsClientResponse
+func (c *ClientWithResponses) RevokeOtherAccountSessionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RevokeOtherAccountSessionsClientResponse, error) {
+	rsp, err := c.RevokeOtherAccountSessions(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeOtherAccountSessionsClientResponse(rsp)
+}
+
+// ListAccountSessionsWithResponse request returning *ListAccountSessionsClientResponse
+func (c *ClientWithResponses) ListAccountSessionsWithResponse(ctx context.Context, params *ListAccountSessionsParams, reqEditors ...RequestEditorFn) (*ListAccountSessionsClientResponse, error) {
+	rsp, err := c.ListAccountSessions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAccountSessionsClientResponse(rsp)
+}
+
+// RevokeAccountSessionWithResponse request returning *RevokeAccountSessionClientResponse
+func (c *ClientWithResponses) RevokeAccountSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*RevokeAccountSessionClientResponse, error) {
+	rsp, err := c.RevokeAccountSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeAccountSessionClientResponse(rsp)
+}
+
+// RevokeCurrentUserTokenWithResponse request returning *RevokeCurrentUserTokenClientResponse
+func (c *ClientWithResponses) RevokeCurrentUserTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RevokeCurrentUserTokenClientResponse, error) {
+	rsp, err := c.RevokeCurrentUserToken(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeCurrentUserTokenClientResponse(rsp)
 }
 
 // ParseAuthConfirmEmailClientResponse parses an HTTP response from a AuthConfirmEmailWithResponse call
@@ -71872,6 +72559,215 @@ func ParseDeleteImportConnectionClientResponse(rsp *http.Response) (*DeleteImpor
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeOtherAccountSessionsClientResponse parses an HTTP response from a RevokeOtherAccountSessionsWithResponse call
+func ParseRevokeOtherAccountSessionsClientResponse(rsp *http.Response) (*RevokeOtherAccountSessionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeOtherAccountSessionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAccountSessionsClientResponse parses an HTTP response from a ListAccountSessionsWithResponse call
+func ParseListAccountSessionsClientResponse(rsp *http.Response) (*ListAccountSessionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAccountSessionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccountSessionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeAccountSessionClientResponse parses an HTTP response from a RevokeAccountSessionWithResponse call
+func ParseRevokeAccountSessionClientResponse(rsp *http.Response) (*RevokeAccountSessionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeAccountSessionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeCurrentUserTokenClientResponse parses an HTTP response from a RevokeCurrentUserTokenWithResponse call
+func ParseRevokeCurrentUserTokenClientResponse(rsp *http.Response) (*RevokeCurrentUserTokenClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeCurrentUserTokenClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 
