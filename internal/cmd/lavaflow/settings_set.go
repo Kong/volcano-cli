@@ -38,10 +38,11 @@ project access token is refused.
 --autonomy decides how far LavaFlow goes: %[1]s diagnoses issues and leaves
 any fix to a person; %[2]s also opens fix pull requests for review.
 
---custom-context tells every run about the project, and --system-prompt adds
-instructions to LavaFlow's own. Each takes up to %[3]d characters, from the
-flag or a file (--custom-context-file, --system-prompt-file). Pass an empty
-value to clear one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength),
+--custom-context tells LavaFlow's runs about the project, and --system-prompt
+adds instructions to LavaFlow's own. LavaFlow saves both, but its runs don't
+use them yet. Each takes up to %[3]d characters, from the flag or a file
+(--custom-context-file, --system-prompt-file). Pass an empty value to clear
+one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength),
 		Example: "  " + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy diagnose_only") + "\n" +
 			"  " + cliruntime.CommandPath(deps, "lavaflow settings set --custom-context-file lavaflow-context.md"),
 		Args: cobra.NoArgs,
@@ -56,7 +57,7 @@ value to clear one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxT
 		},
 	}
 	cmd.Flags().StringVar(&opts.autonomy, "autonomy", "", "How far LavaFlow goes: diagnose_only or open_pr")
-	cmd.Flags().StringVar(&opts.customContext, "custom-context", "", "Context about the project given to every run")
+	cmd.Flags().StringVar(&opts.customContext, "custom-context", "", "Context about the project for LavaFlow's runs")
 	cmd.Flags().StringVar(&opts.customContextFile, "custom-context-file", "", "Read the custom context from a file")
 	cmd.Flags().StringVar(&opts.systemPrompt, "system-prompt", "", "Instructions added to LavaFlow's own")
 	cmd.Flags().StringVar(&opts.systemPromptFile, "system-prompt-file", "", "Read the system prompt from a file")

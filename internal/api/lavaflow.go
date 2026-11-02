@@ -28,7 +28,7 @@ func (c *Client) GetLavaflowSettings(ctx context.Context, projectID uuid.UUID) (
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON403, resp.JSON404)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404)
 }
 
 // UpdateLavaflowSettings changes a project's LavaFlow settings, naming the
@@ -43,7 +43,7 @@ func (c *Client) UpdateLavaflowSettings(
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON403, resp.JSON404)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON413)
 }
 
 // GetLavaflowStats returns the issues LavaFlow took on and the fix pull
@@ -53,7 +53,7 @@ func (c *Client) GetLavaflowStats(ctx context.Context, projectID uuid.UUID, days
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON403, resp.JSON404)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404)
 }
 
 // ListLavaflowResources returns every function, frontend and durable function
@@ -63,7 +63,7 @@ func (c *Client) ListLavaflowResources(ctx context.Context, projectID uuid.UUID,
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON403, resp.JSON404)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404)
 }
 
 // ListLavaflowRuns returns one page of a project's LavaFlow runs, newest
@@ -76,15 +76,17 @@ func (c *Client) ListLavaflowRuns(
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON403, resp.JSON404)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404)
 }
 
 // GetLavaflowRun returns one LavaFlow run with its diagnosis, diff and
-// review. It takes the access the project's log routes take.
+// review. It takes the access the project's log routes take. The run's own
+// project authorizes the read; naming projectID too answers a run of another
+// project as unknown.
 func (c *Client) GetLavaflowRun(ctx context.Context, projectID, runID uuid.UUID) (*apiclient.LavaflowRun, error) {
-	resp, err := c.client.GetLavaflowRunWithResponse(ctx, runID, &apiclient.GetLavaflowRunParams{ProjectId: projectID})
+	resp, err := c.client.GetLavaflowRunWithResponse(ctx, runID, &apiclient.GetLavaflowRunParams{ProjectId: &projectID})
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON403, resp.JSON404)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404)
 }

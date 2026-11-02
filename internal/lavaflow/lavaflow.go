@@ -42,6 +42,12 @@ var ErrNotAvailable = errors.New("LavaFlow isn't available for this project yet"
 // them, and can turn LavaFlow off, without it.
 var ErrPlanRequired = errors.New("LavaFlow needs a plan that includes it, and the project owner's plan doesn't")
 
+// ErrPlanUnreadable reports a route's 403 without a code: Volcano couldn't
+// read the owner's plan, so it couldn't tell whether the plan includes
+// LavaFlow. The API words this refusal like a plan refusal, so the CLI says
+// what happened instead.
+var ErrPlanUnreadable = errors.New("LavaFlow couldn't read the project owner's plan; try again later")
+
 // ErrCantTurnOn reports, before enable asks, that the project's capabilities
 // say LavaFlow can't be turned on for a project that has LavaFlow records.
 // The capability counts both the rollout and the owner's plan without saying
@@ -57,8 +63,9 @@ var ErrPersonDecides = errors.New("changing LavaFlow's settings needs a person's
 
 // ErrOwnerDecides refuses changing LavaFlow's settings when the settings say
 // the caller can't, before the CLI asks or sends anything. Only the project's
-// owner can, from their own session.
-var ErrOwnerDecides = errors.New("only the project's owner can change LavaFlow's settings, from their own session")
+// owner can, from their own session while their account is active.
+var ErrOwnerDecides = errors.New("only the project's owner can change LavaFlow's settings, " +
+	"from their own session while their account is active")
 
 // capabilityID is LavaFlow's entry in a project's capabilities.
 const capabilityID = "lavaflow"
@@ -219,9 +226,12 @@ func repository(ctx context.Context, authenticated *clisession.ProjectSession) (
 	}
 }
 
-// EnableNotice is what enable says before it turns LavaFlow on, whether or
-// not it then asks, in the wording approved for it. Keep it verbatim.
+// EnableNotice says where LavaFlow sends the project's data.
 const EnableNotice = "LavaFlow sends this project's logs and source code to an AI service that Volcano operates."
+
+// EnableDisclosure is what enable says before it turns LavaFlow on, whether
+// or not it then asks: the approved AI disclosure, then where the data goes.
+const EnableDisclosure = OnDescription + "\n" + EnableNotice
 
 // Enable turns LavaFlow on for the current project, sending enabled alone so
 // the other settings keep their values. confirm runs once the checks that
@@ -297,8 +307,7 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 }
 
 // refused says why the API refused a change, by its code rather than its
-// status, keeping the refusal as the cause for the exit code. A 403 without a
-// code, for a plan that couldn't be read, keeps the API's words.
+// status, keeping the refusal as the cause for the exit code.
 func refused(cfg *config.Config, err error) error {
 	if api.Code(err) == codePersonRequired {
 		return personDecides(cfg, err)
@@ -396,9 +405,8 @@ func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.Pagi
 
 func runStatuses() string {
 	statuses := []apiclient.LavaflowRunStatus{
-		apiclient.LavaflowRunStatusQueued, apiclient.LavaflowRunStatusDiagnosing, apiclient.LavaflowRunStatusFixing,
-		apiclient.LavaflowRunStatusReviewing, apiclient.LavaflowRunStatusPrOpen, apiclient.LavaflowRunStatusCompleted,
-		apiclient.LavaflowRunStatusFailed, apiclient.LavaflowRunStatusCancelled,
+		apiclient.LavaflowRunStatusQueued, apiclient.LavaflowRunStatusDiagnosing, apiclient.LavaflowRunStatusPrOpen,
+		apiclient.LavaflowRunStatusCompleted, apiclient.LavaflowRunStatusFailed, apiclient.LavaflowRunStatusCancelled,
 	}
 	names := make([]string, 0, len(statuses))
 	for _, status := range statuses {
@@ -427,14 +435,17 @@ func (s Service) GetRun(ctx context.Context, runID string) (*apiclient.LavaflowR
 
 // unavailable replaces a refusal that says LavaFlow is not on with the error
 // that says why, keeping the refusal so the exit code still reports it: 4 for
-// feature_unavailable, 5 for plan_required. A 404 without a code, for a
-// project the caller can't use, keeps the API's words.
+// feature_unavailable, 5 for plan_required and for a 403 without a code, which
+// on LavaFlow's routes means the owner's plan couldn't be read. A 404 without
+// a code, for a project the caller can't use, keeps the API's words.
 func unavailable(err error) error {
 	switch {
 	case api.Code(err) == codeFeatureUnavailable:
 		return api.WithCause(ErrNotAvailable, err)
 	case api.Code(err) == codePlanRequired:
 		return api.WithCause(ErrPlanRequired, err)
+	case api.Status(err) == http.StatusForbidden && api.Code(err) == "":
+		return api.WithCause(ErrPlanUnreadable, err)
 	case api.RouteMissing(err):
 		return api.WithCause(ErrUnavailable, err)
 	}

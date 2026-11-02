@@ -42,7 +42,7 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	if !settings.CanUpdate {
-		kv(w, on, "You can change it", "no: only the project's owner can, from their own session")
+		kv(w, on, "You can change it", "no: only the project's owner can, from their own session while their account is active")
 	}
 	if details.Available != nil && !*details.Available {
 		Note(w, "LavaFlow isn't available for this project, so it can't be turned on or changed. Its records stay readable, and the owner can still turn it off.")
@@ -175,13 +175,6 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	if run.Failure != nil && run.Failure.Message != "" {
 		// The API words each failure code itself, so it is printed as given.
 		Warning(w, "%s", clean(run.Failure.Message))
-	}
-	if run.DetailsClearedAt != nil {
-		Note(w, "Details were cleared after 90 days, on %s", formatLavaflowTime(*run.DetailsClearedAt))
-		return
-	}
-	if run.DetailsExpireAt != nil {
-		kv(w, on, "Details kept until", "%s", formatLavaflowTime(*run.DetailsExpireAt))
 	}
 	if diagnosis := run.Diagnosis; diagnosis != nil {
 		if diagnosis.Summary != "" {

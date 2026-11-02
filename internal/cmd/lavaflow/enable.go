@@ -34,7 +34,8 @@ func newEnable(deps cliruntime.Deps) *cobra.Command {
 		Short: "Turn LavaFlow on",
 		Long: clilavaflow.OnDescription + `
 
-This turns LavaFlow on for the current project. Before it does, it says:
+This turns LavaFlow on for the current project. Before it does, it prints
+the sentence above and:
 ` + clilavaflow.EnableNotice + `
 and asks you to confirm; --yes skips the question. Only the project's owner
 can turn it on, from their own session: a project access token is refused. The
@@ -72,18 +73,18 @@ func runEnable(ctx context.Context, opts enableOptions) error {
 	return nil
 }
 
-// confirmEnable says where LavaFlow sends the project's data, even with --yes,
-// and on stderr so --json output stays JSON. Without --yes it asks, and
+// confirmEnable says what LavaFlow does and where it sends the project's
+// data, even with --yes, and on stderr so --json output stays JSON. Without --yes it asks, and
 // refuses when nothing can answer rather than read that as a no.
 func confirmEnable(opts enableOptions) error {
 	if opts.yes {
-		fmt.Fprintln(opts.errOut, clilavaflow.EnableNotice)
+		fmt.Fprintln(opts.errOut, clilavaflow.EnableDisclosure)
 		return nil
 	}
 	if !confirm.CanPrompt(opts.in) {
-		return fmt.Errorf("%s\n\nstdin is not a terminal: confirmation required; pass --yes", clilavaflow.EnableNotice)
+		return fmt.Errorf("%s\n\nstdin is not a terminal: confirmation required; pass --yes", clilavaflow.EnableDisclosure)
 	}
-	confirmed, err := confirm.Action(opts.in, opts.errOut, clilavaflow.EnableNotice, "Turn LavaFlow on?")
+	confirmed, err := confirm.Action(opts.in, opts.errOut, clilavaflow.EnableDisclosure, "Turn LavaFlow on?")
 	if err != nil {
 		return err
 	}

@@ -7036,7 +7036,8 @@ paths:
       summary: Get LavaFlow settings
       description: |
         Returns whether LavaFlow works on the project's issues, how far it goes
-        on its own, and the context and instructions every run gets. A project
+        on its own, and its saved context and instructions, which runs do not
+        use yet. A project
         that never saved settings returns the defaults, with LavaFlow off.
         LavaFlow sends this project's logs and source code to an AI service
         that Volcano operates.
@@ -7059,6 +7060,12 @@ paths:
                 $ref: '#/components/schemas/LavaflowSettings'
         '400':
           description: '`project_id` is missing or not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
           content:
             application/json:
               schema:
@@ -7088,8 +7095,10 @@ paths:
         works in. LavaFlow sends this project's logs and source code to an AI
         service that Volcano operates.
 
-        Only the project's owner can save, with a platform token: a project
-        access token gets `403` with code `person_required`.
+        Only the project's owner can save, with a platform token, while their
+        account is active. A full-scope project access token gets `403` with
+        code `person_required`; a read-only one is refused as read-only first,
+        without a code, and so is the owner of a read-only account.
 
         Turning LavaFlow on needs a plan that includes it (`403`, code
         `plan_required`). LavaFlow is available where the project's
@@ -7121,14 +7130,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          description: Code `person_required` means a project access token made the request. Code `plan_required` means the owner's plan does not include LavaFlow. Without a code, the owner's plan could not be read and nothing was saved; retry later.
+          description: 'Code `person_required` means a full-scope project access token made the request. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and the save does not only turn LavaFlow off on a project with LavaFlow records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request body exceeds 131,072 bytes
           content:
             application/json:
               schema:
@@ -7160,6 +7181,12 @@ paths:
                 $ref: '#/components/schemas/LavaflowStats'
         '400':
           description: '`project_id` is missing or not a UUID, or `days` is outside 1 to 90.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
           content:
             application/json:
               schema:
@@ -7210,6 +7237,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Code `plan_required` means the owner's plan does not include LavaFlow and the project has no LavaFlow records. Without a code, the owner's plan could not be read; retry later.
           content:
@@ -7253,6 +7286,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Code `plan_required` means the owner's plan does not include LavaFlow and the project has no LavaFlow records. Without a code, the owner's plan could not be read; retry later.
           content:
@@ -7271,20 +7310,17 @@ paths:
         - LavaFlow
       summary: Get a LavaFlow run
       description: |
-        Returns a run of the project `project_id` names, with its diagnosis,
-        the log lines it cites, its diff and its review. The text holds the
-        project's logs and source code, so this endpoint takes the same access
-        as the project's log endpoints. A run keeps its text for 90 days after
-        it completes (`details_expire_at`); then the text is cleared
-        (`details_cleared_at`), and the run, its pull request and its outcome
-        stay.
+        Returns a run, with its diagnosis, the log lines it cites, its diff and
+        its review. The run's project authorizes the read, so `project_id` is
+        optional. The text holds the project's logs and source code, so this
+        endpoint takes the same access as the project's log endpoints.
       operationId: getLavaflowRun
       security:
         - UserToken: []
         - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/LavaflowRunId'
-        - $ref: '#/components/parameters/ProjectIdQuery'
+        - $ref: '#/components/parameters/ItemProjectIdQuery'
       responses:
         '200':
           description: The run
@@ -7293,7 +7329,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/LavaflowRun'
         '400':
-          description: '`project_id` is missing or not a UUID.'
+          description: '`project_id` is given and not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
           content:
             application/json:
               schema:
@@ -7305,7 +7347,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted, and a run of another project answers like one that doesn't exist. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
+          description: Not found. A run of a project the caller can't read, or of a project being deleted, answers exactly like one that doesn't exist, and so does a run of another project than a given `project_id`. Code `feature_unavailable` means LavaFlow is not available for the project and it has no LavaFlow records.
           content:
             application/json:
               schema:
@@ -18259,6 +18301,14 @@ components:
         type: string
         format: uuid
       description: The project to read. A project the caller can't read answers like one that doesn't exist.
+    ItemProjectIdQuery:
+      name: project_id
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
     TokenId:
       name: tokenId
       in: path
@@ -21064,7 +21114,7 @@ components:
           type: string
         code:
           type: string
-          description: 'Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner''s plan does not include the requested feature or option; upgrading the plan unlocks it. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner''s plan. Match on the code, not the message text.'
+          description: 'Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner''s plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project''s owner changes, with a platform token. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner''s plan. Match on the code, not the message text.'
       required:
         - error
     ImportProvider:
@@ -25049,11 +25099,11 @@ components:
         custom_context:
           type: string
           maxLength: 4000
-          description: Context about the project that every run gets. Empty when unset.
+          description: Context about the project for LavaFlow's runs. Empty when unset. Saved, but runs do not use it yet.
         system_prompt:
           type: string
           maxLength: 4000
-          description: Instructions every run gets after LavaFlow's own, which take precedence. Empty when unset.
+          description: Instructions for LavaFlow's runs, to follow after LavaFlow's own, which take precedence. Empty when unset. Saved, but runs do not use it yet.
         updated_at:
           type: string
           format: date-time
@@ -25065,7 +25115,7 @@ components:
           description: The user ID of the person who last saved the settings.
         can_update:
           type: boolean
-          description: 'Whether the caller can save the settings: true only for the project''s owner with a platform token, false for any project access token.'
+          description: 'Whether the caller can save the settings: true only for the project''s owner with a platform token while the owner''s account is active; false for any project access token and for a read-only account.'
       required:
         - project_id
         - enabled
@@ -25192,13 +25242,11 @@ components:
       enum:
         - queued
         - diagnosing
-        - fixing
-        - reviewing
         - pr_open
         - completed
         - failed
         - cancelled
-      description: Where a run is. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
+      description: Where a run is. `diagnosing` means it is running; runs do not report their later stages yet. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
     LavaflowPullRequest:
       type: object
       properties:
@@ -25218,6 +25266,7 @@ components:
           type: string
           format: date-time
           nullable: true
+          description: When the run opened the pull request. Not reported yet, so always null.
       required:
         - number
         - url
@@ -25243,7 +25292,7 @@ components:
         title:
           type: string
           nullable: true
-          description: The title of the run's pull request, or its diagnosis' summary, null while neither is known.
+          description: The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
         created_at:
           type: string
           format: date-time
@@ -25340,7 +25389,7 @@ components:
             diff:
               type: string
               nullable: true
-              description: The fix as a unified diff, with secrets masked. Null while the run has no proposed fix.
+              description: The fix as a unified diff, with secrets masked. Null for now; a run that opened a pull request links to the change in `pull_request`.
             review:
               allOf:
                 - $ref: '#/components/schemas/LavaflowReview'
@@ -25350,23 +25399,11 @@ components:
                 - $ref: '#/components/schemas/LavaflowFailure'
               nullable: true
               description: Why the run stopped or waits, null when nothing went wrong.
-            details_expire_at:
-              type: string
-              format: date-time
-              nullable: true
-              description: When the run's text is cleared, 90 days after it completes; null while it runs.
-            details_cleared_at:
-              type: string
-              format: date-time
-              nullable: true
-              description: When the run's text was cleared, null until it is.
           required:
             - diagnosis
             - diff
             - review
             - failure
-            - details_expire_at
-            - details_cleared_at
     GitRepositoryReference:
       type: object
       description: A GitHub repository, by its stable id and its name.
@@ -26543,7 +26580,7 @@ components:
     ProjectConfigLavaFlow:
       type: object
       deprecated: true
-      description: Ignored. The manifest does not configure LavaFlow; its settings change through the LavaFlow API. A manifest that still declares this section applies as if it were absent, and the result reports it as `unchanged` with a notice. Export never includes it.
+      description: Ignored. The manifest doesn't configure LavaFlow. A manifest that still declares this section applies as before, without it, and the result reports it as `unchanged` with a notice. Export never includes it.
     ProjectConfigScheduler:
       type: object
       additionalProperties: false

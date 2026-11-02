@@ -28,7 +28,8 @@ runs, keeps them readable while LavaFlow isn't available for it:
 `status`, `settings`, `stats`, `resources`, `list` and `show` still work, and
 `disable` still turns LavaFlow off. `enable` says "LavaFlow can't be turned on
 for this project: it isn't open to the owner's account, or the owner's plan
-doesn't include it" before it asks anything, and exits with code 4.
+doesn't include it" before it asks anything, and exits with code 4. It says
+the same when the owner's plan couldn't be read.
 `settings set` exits with the plan's code 5 or code 4, as above.
 
 ## How it relates
@@ -74,8 +75,8 @@ access token before they ask or send anything, with code 5. Sign in with
 `volcano login` instead, and if `VOLCANO_TOKEN` holds a project access token,
 unset it first.
 
-When Volcano can't read the owner's plan, a command says so in the API's
-words and exits with code 5. Run it again later.
+When the owner's plan can't be read, a command says "LavaFlow couldn't read
+the project owner's plan; try again later" and exits with code 5.
 
 ## Turn it on
 
@@ -85,6 +86,7 @@ volcano cloud lavaflow enable
 ```
 
 ```text
+LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, and opens fix pull requests in your connected repository.
 LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
 Turn LavaFlow on? Type 'y' or 'yes' to confirm: y
 ✓ LavaFlow is on
@@ -94,9 +96,9 @@ Custom context: not set
 System prompt: not set
 ```
 
-`enable` says where LavaFlow sends the project's data, then asks before it
-turns LavaFlow on. `--yes` skips the question, not the sentence, which goes
-to stderr so `--json` output stays JSON. Without `--yes`, `enable` needs a
+`enable` says what LavaFlow does and where it sends the project's data, then
+asks before it turns LavaFlow on. `--yes` skips the question, not those
+sentences, which go to stderr so `--json` output stays JSON. Without `--yes`, `enable` needs a
 terminal to answer: in a script or CI job it exits non-zero and changes
 nothing.
 
@@ -122,9 +124,14 @@ While LavaFlow is off, the status says what it does and how to turn it on.
 When you use a project access token, which can read but not change the
 settings, the status says so instead.
 When it is set to open pull requests and no repository is connected, the
-status says to run `volcano git connect`. With `--json`, `repository_state`
-is `connected`, `not_connected`, or `unknown` when the connection could not
-be read.
+status says to run `volcano git connect`. When LavaFlow isn't available for
+a project that has LavaFlow records, the status notes that it can't be turned
+on or changed, and that the owner can still turn it off.
+
+With `--json`, `repository_state` is `connected`, `not_connected`, or
+`unknown` when the connection could not be read. `available` is `true` when
+LavaFlow can be turned on and changed for the project and `false` when it
+can't; it is left out when the project's capabilities could not be read.
 
 ## Choose how far it goes
 
@@ -139,7 +146,7 @@ volcano cloud lavaflow settings set --autonomy diagnose_only
 - `diagnose_only`: LavaFlow diagnoses each issue and leaves any fix to a
   person.
 
-Two more settings shape every run:
+Two more settings are saved for LavaFlow's runs, which don't use them yet:
 
 - `--custom-context`: what LavaFlow should know about the project, such as
   which code is legacy or how it is deployed.
@@ -180,26 +187,22 @@ durable function  nightly-report                  never                  0      
 ## Follow the runs
 
 A run works on one issue. `list` shows the newest first, with the resource,
-the run's title, and the fix pull request. A run's title is its pull
-request's title or, before there is one, its diagnosis summary; until LavaFlow
-has either, the title shows `-`. Narrow it with `--status`
-(`queued`, `diagnosing`, `fixing`, `reviewing`, `pr_open`, `completed`,
-`failed` or `cancelled`) or `--resource` with an ID from
-`resources --json`. When there are more, the list ends with the command for
-the next page.
+the run's title, and the fix pull request. A run's title is the title of the
+fix it proposed or, before there is one, its diagnosis summary; until LavaFlow
+has either, the title shows `-`. Narrow it with `--status` (`queued`,
+`diagnosing` while it runs, `pr_open`, `completed`, `failed` or `cancelled`)
+or `--resource` with an ID from `resources --json`. When there are more, the
+list ends with the command for the next page. With `--json`, pass
+`next_cursor` to `--cursor`, with the same `--limit`, `--status` and
+`--resource`.
 
 ```bash
 volcano cloud lavaflow list --status failed
 ```
 
 `show` prints a run's diagnosis and root cause, the evidence and log lines it
-read, its review, the fix pull request, and the diff. A run that failed says
-why.
-
-Volcano keeps a run's text, its diagnosis, log lines, diff and review, for 90
-days after the run completes, and `show` says until when. Once they are
-cleared, `show` prints "Details were cleared after 90 days" with the date in
-their place. The run, its pull request and the stats stay.
+read, its review, the fix pull request, and the diff when the run has one. A
+run that failed says why.
 
 ```bash
 volcano cloud lavaflow show 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
