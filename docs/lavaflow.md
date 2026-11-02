@@ -115,8 +115,8 @@ Updated: 2026-10-30 12:00
 ```
 
 While LavaFlow is off, the status says what it does and how to turn it on.
-When you can't change the settings, because you aren't the project's owner or
-use a project access token, the status says so instead.
+When you use a project access token, which can read but not change the
+settings, the status says so instead.
 When it is set to open pull requests and no repository is connected, the
 status says to run `volcano git connect`. With `--json`, `repository_state`
 is `connected`, `not_connected`, or `unknown` when the connection could not
@@ -176,7 +176,9 @@ durable function  nightly-report                  never                  0      
 ## Follow the runs
 
 A run works on one issue. `list` shows the newest first, with the resource,
-the issue's title, and the fix pull request. Narrow it with `--status`
+the run's title, and the fix pull request. A run's title is its pull
+request's title or, before there is one, its diagnosis summary; until LavaFlow
+has either, the title shows `-`. Narrow it with `--status`
 (`queued`, `diagnosing`, `fixing`, `reviewing`, `pr_open`, `completed`,
 `failed` or `cancelled`) or `--resource` with an ID from
 `resources --json`. When there are more, the list ends with the command for
@@ -203,7 +205,7 @@ volcano cloud lavaflow show 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
 Run: 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
 Status: PR open
 Resource: function checkout
-Title: TypeError: Cannot read properties of undefined (reading <str>)
+Title: Load the cart before checkout reads it
 Started: 2026-10-30 09:00
 Pull request: #42 (open) https://github.com/acme/shop/pull/42
 Review: passed after 2 round(s)
@@ -211,6 +213,3 @@ Review: passed after 2 round(s)
 Diagnosis
   Checkout reads the cart before it loads.
 ```
-
-An issue's title is a template of its error message, with values replaced by
-placeholders such as `<str>`.

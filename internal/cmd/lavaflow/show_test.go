@@ -121,6 +121,6 @@ func TestShowRefusesARunIDThatIsntOne(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 
 	_, err := executeLavaflowCommand(t, New(deps), "show", "latest")
-	require.EqualError(t, err, `invalid run ID "latest": use an ID from 'lavaflow list'`)
+	require.EqualError(t, err, `invalid run ID "latest": use an ID from 'volcano cloud lavaflow list'`)
 	assert.Empty(t, fake.queries)
 }

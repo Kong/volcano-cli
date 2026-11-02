@@ -37,7 +37,8 @@ where it got to, and the fix pull request it opened. Show one with
 	cmd.Flags().IntVar(&opts.query.Limit, "limit", clilavaflow.DefaultLimit, "Runs per page (1 to 100)")
 	cmd.Flags().StringVar(&opts.query.Cursor, "cursor", "", "Start after this cursor, from the previous page")
 	cmd.Flags().StringVar(&opts.query.Status, "status", "", "Only runs with this status, such as failed or pr_open")
-	cmd.Flags().StringVar(&opts.query.ResourceID, "resource", "", "Only runs for this resource ID, from 'lavaflow resources --json'")
+	cmd.Flags().StringVar(&opts.query.ResourceID, "resource", "",
+		"Only runs for this resource ID, from '"+cliruntime.CommandPath(deps, "lavaflow resources --json")+"'")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON")
 	return cmd
 }

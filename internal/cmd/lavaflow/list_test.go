@@ -40,7 +40,7 @@ func TestListRefusesABadFilterBeforeSending(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"--resource", "checkout"}, `invalid --resource "checkout": use a resource ID from 'lavaflow resources --json'`},
+		{[]string{"--resource", "checkout"}, `invalid --resource "checkout": use a resource ID from 'volcano cloud lavaflow resources --json'`},
 		{[]string{"--limit", "0"}, "--limit must be between 1 and 100"},
 		{[]string{"--limit", "101"}, "--limit must be between 1 and 100"},
 		{[]string{"--status", "succeeded"}, `invalid --status "succeeded": use one of queued, diagnosing, fixing, ` +
