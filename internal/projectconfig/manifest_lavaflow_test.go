@@ -31,8 +31,8 @@ lavaflow:
 
 	var wire apiclient.ProjectConfig
 	require.NoError(t, json.Unmarshal(body, &wire))
+	// The API keeps the section in its contract, deprecated and ignored.
 	require.NotNil(t, wire.Lavaflow, "the API contract has to carry the section the manifest uploads")
-	assert.Equal(t, apiclient.LavaFlowStageDiagnose, *wire.Lavaflow.MaxStage)
 }
 
 // An omitted field keeps its saved value, so it must not reach the upload.
