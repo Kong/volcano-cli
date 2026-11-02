@@ -53,6 +53,8 @@ func TestShowPrintsRunTextAsPlainText(t *testing.T) {
 		diagnosis := s.runs[0]["diagnosis"].(map[string]any)
 		diagnosis["log_lines"] = []any{map[string]any{"timestamp": "2026-10-30T08:59:00Z", "level": "error", "message": line}}
 		diagnosis["summary"] = "**Bold** _claim_ with \x1b[2J\nsecond line"
+		s.runs[0]["pull_request"].(map[string]any)["state"] = "open\x1b[8m"
+		s.runs[0]["review"].(map[string]any)["verdict"] = "passed\x1b]0;title\x07"
 	})
 
 	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)

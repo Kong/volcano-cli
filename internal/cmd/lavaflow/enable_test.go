@@ -125,7 +125,7 @@ func TestEnableSaysWhereTheDataGoesEvenWithYes(t *testing.T) {
 	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""), "enable", "--yes", "--json")
 	require.NoError(t, err)
 	assert.Equal(t, clilavaflow.EnableNotice+"\n", errOut)
-	assert.Equal(t, "LavaFlow sends this resource's logs and source code to an AI service that Volcano operates.",
+	assert.Equal(t, "LavaFlow sends this project's logs and source code to an AI service that Volcano operates.",
 		clilavaflow.EnableNotice, "the approved wording, word for word")
 	assert.Equal(t, true, decodeJSON(t, out)["enabled"])
 	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
@@ -186,7 +186,6 @@ func TestChangesBySomeoneWhoIsntTheOwnerAreRefusedFirst(t *testing.T) {
 func TestARefusedChangeSaysWhy(t *testing.T) {
 	for code, want := range map[string]string{
 		"person_required": "changing LavaFlow's settings needs a person's session",
-		"plan_required":   "turning LavaFlow on needs a plan that includes LavaFlow",
 		"":                "failed to turn LavaFlow on: HTTP 403: project ownership required",
 	} {
 		fake, deps := newLavaflowServer(t)

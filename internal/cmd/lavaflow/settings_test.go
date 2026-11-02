@@ -84,3 +84,24 @@ func TestSettingsSetTakesTheLongestText(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, longest, fake.lastUpdate(t)["custom_context"])
 }
+
+// settings reads the settings alone: not the capabilities or the repository
+// connection status shows.
+func TestSettingsReadsOnlyTheSettings(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+
+	_, err := executeLavaflowCommand(t, New(deps), "settings", "--json")
+	require.NoError(t, err)
+	assert.Zero(t, fake.repoReads)
+	assert.Len(t, fake.queries[""], 1)
+}
+
+// The examples run the command in the tree it's in, so copying one works.
+func TestSettingsSetExamplesRunTheCloudCommand(t *testing.T) {
+	_, deps := newLavaflowServer(t)
+
+	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "  volcano cloud lavaflow settings set --autonomy diagnose_only\n")
+	assert.Contains(t, out, "  volcano cloud lavaflow settings set --custom-context-file lavaflow-context.md\n")
+}

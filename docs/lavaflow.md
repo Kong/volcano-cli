@@ -15,13 +15,15 @@ other.
 Where LavaFlow isn't available, every `volcano cloud lavaflow` command says
 why and exits with code 4:
 
-- While LavaFlow is open only to some accounts, every command on any other
-  account says "LavaFlow isn't available to your account yet".
+- When LavaFlow isn't open to the project owner's account, or the owner's
+  plan doesn't include it, every command says "LavaFlow isn't available for
+  this project: it isn't open to the owner's account, or the owner's plan
+  doesn't include it".
 - On a Volcano API that has no LavaFlow, every command says "LavaFlow isn't
   available on this Volcano API".
 
 A project that already has LavaFlow records, such as saved settings or past
-runs, keeps them readable while LavaFlow isn't available to its account:
+runs, keeps them readable while LavaFlow isn't available for it:
 `status`, `settings`, `stats`, `resources`, `list` and `show` still work, and
 `disable` still turns LavaFlow off. `enable` and `settings set` exit with
 code 4.
@@ -68,8 +70,8 @@ refuse a project access token before they ask or send anything, also with
 code 5. Sign in with `volcano login` instead, and if `VOLCANO_TOKEN` holds a
 project access token, unset it first.
 
-Turning LavaFlow on also needs a plan that includes it. Otherwise `enable`
-says so and exits with code 5; changing other settings needs no plan.
+Turning LavaFlow on and changing its settings need a plan that includes
+LavaFlow. Without one, `enable` and `settings set` exit with code 4, as above.
 
 ## Turn it on
 
@@ -79,7 +81,7 @@ volcano cloud lavaflow enable
 ```
 
 ```text
-LavaFlow sends this resource's logs and source code to an AI service that Volcano operates.
+LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
 Turn LavaFlow on? Type 'y' or 'yes' to confirm: y
 ✓ LavaFlow is on
 LavaFlow: on

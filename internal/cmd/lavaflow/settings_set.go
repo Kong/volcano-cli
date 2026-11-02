@@ -42,8 +42,8 @@ any fix to a person; %[2]s also opens fix pull requests for review.
 instructions to LavaFlow's own. Each takes up to %[3]d characters, from the
 flag or a file (--custom-context-file, --system-prompt-file). Pass an empty
 value to clear one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength),
-		Example: "  volcano lavaflow settings set --autonomy diagnose_only\n" +
-			"  volcano lavaflow settings set --custom-context-file lavaflow-context.md",
+		Example: "  " + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy diagnose_only") + "\n" +
+			"  " + cliruntime.CommandPath(deps, "lavaflow settings set --custom-context-file lavaflow-context.md"),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps

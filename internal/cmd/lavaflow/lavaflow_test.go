@@ -41,6 +41,10 @@ func TestTheHelpOpensWithTheAIDisclosure(t *testing.T) {
 	}
 }
 
+// lavaflowNotAvailable is what every command says where LavaFlow isn't
+// available for the project, whether its owner's account or plan is why.
+const lavaflowNotAvailable = "LavaFlow isn't available for this project: it isn't open to the owner's account, or the owner's plan doesn't include it"
+
 // A project without LavaFlow records gets feature_unavailable from every
 // route while LavaFlow is off for its account, and a platform release older
 // than LavaFlow has none of its routes. Every command says which rather than
@@ -55,7 +59,7 @@ func TestEveryCommandSaysWhenLavaFlowIsNotAvailable(t *testing.T) {
 			s.capability = "unavailable"
 			s.refuse = http.StatusNotFound
 			s.refusal = map[string]any{"error": "LavaFlow is not available", "code": "feature_unavailable"}
-		}, "LavaFlow isn't available to your account yet"},
+		}, lavaflowNotAvailable},
 		"no routes": {func(s *lavaflowServer) { s.routesMissing = true }, "LavaFlow isn't available on this Volcano API"},
 	} {
 		for _, args := range lavaflowCommandArgs() {
@@ -95,7 +99,7 @@ func TestChangesNeedLavaFlowAvailable(t *testing.T) {
 
 			_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), args...)
 			require.Error(t, err, "%q %q", capability, args)
-			assert.Equal(t, "LavaFlow isn't available to your account yet", err.Error(), "%q %q", capability, args)
+			assert.Equal(t, lavaflowNotAvailable, err.Error(), "%q %q", capability, args)
 			assert.Equal(t, http.StatusNotFound, api.Status(err))
 			assert.NotContains(t, errOut, clilavaflow.EnableNotice, "nothing is asked")
 			assert.Empty(t, fake.updates)
@@ -120,7 +124,7 @@ func TestAProjectWithRecordsReadsAndTurnsOffWhileUnavailable(t *testing.T) {
 
 	out, err := executeLavaflowCommand(t, New(deps), "status")
 	require.NoError(t, err)
-	assert.Contains(t, out, "LavaFlow isn't available to your account yet, so it can't be turned on or changed. "+
+	assert.Contains(t, out, "LavaFlow isn't available for this project, so it can't be turned on or changed. "+
 		"Its records stay readable, and the owner can still turn it off.")
 	out, err = executeLavaflowCommand(t, New(deps), "status", "--json")
 	require.NoError(t, err)

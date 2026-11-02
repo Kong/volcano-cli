@@ -33,10 +33,12 @@ var ErrUnavailable = errors.New("LavaFlow isn't available on this Volcano API")
 
 // ErrNotAvailableToAccount reports LavaFlow off for this project: the
 // project's capabilities say so before a change, or a route answers
-// feature_unavailable, while LavaFlow is open only to some accounts. A project
-// that already has LavaFlow records keeps reading them, and can turn LavaFlow
-// off, while it is unavailable.
-var ErrNotAvailableToAccount = errors.New("LavaFlow isn't available to your account yet")
+// feature_unavailable. That happens while LavaFlow isn't open to the owner's
+// account, or when the owner's plan doesn't include it; the API doesn't say
+// which, so neither does this. A project that already has LavaFlow records
+// keeps reading them, and can turn LavaFlow off, while it is unavailable.
+var ErrNotAvailableToAccount = errors.New("LavaFlow isn't available for this project: " +
+	"it isn't open to the owner's account, or the owner's plan doesn't include it")
 
 // ErrPersonDecides refuses changing LavaFlow's settings with a project access
 // token. Turning LavaFlow on, off or changing how far it goes is a person's
@@ -49,10 +51,6 @@ var ErrPersonDecides = errors.New("changing LavaFlow's settings needs a person's
 // owner can, from their own session.
 var ErrOwnerDecides = errors.New("only the project's owner can change LavaFlow's settings, from their own session")
 
-// ErrPlanRequired reports turning LavaFlow on refused by the project owner's
-// plan.
-var ErrPlanRequired = errors.New("turning LavaFlow on needs a plan that includes LavaFlow")
-
 // capabilityID is LavaFlow's entry in a project's capabilities.
 const capabilityID = "lavaflow"
 
@@ -60,7 +58,6 @@ const capabilityID = "lavaflow"
 const (
 	codeFeatureUnavailable = "feature_unavailable"
 	codePersonRequired     = "person_required"
-	codePlanRequired       = "plan_required"
 )
 
 // Limits the API sets.
@@ -164,6 +161,19 @@ func (s Service) Status(ctx context.Context) (*Status, error) {
 	return status, nil
 }
 
+// Settings returns the current project's LavaFlow settings.
+func (s Service) Settings(ctx context.Context) (*apiclient.LavaflowSettings, error) {
+	authenticated, err := s.project()
+	if err != nil {
+		return nil, err
+	}
+	settings, err := authenticated.API.GetLavaflowSettings(ctx, authenticated.ProjectID)
+	if err != nil {
+		return nil, unavailable(fmt.Errorf("failed to get LavaFlow settings: %w", err))
+	}
+	return settings, nil
+}
+
 // availability reads whether LavaFlow takes changes for the project. It is
 // detail the status adds, so a capabilities read that fails leaves it unknown;
 // a cancel or deadline still ends the command.
@@ -196,7 +206,7 @@ func repository(ctx context.Context, authenticated *clisession.ProjectSession) (
 
 // EnableNotice is what enable says before it turns LavaFlow on, whether or
 // not it then asks, in the wording approved for it. Keep it verbatim.
-const EnableNotice = "LavaFlow sends this resource's logs and source code to an AI service that Volcano operates."
+const EnableNotice = "LavaFlow sends this project's logs and source code to an AI service that Volcano operates."
 
 // Enable turns LavaFlow on for the current project, sending enabled alone so
 // the other settings keep their values. confirm runs once the checks that
@@ -272,11 +282,8 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 // status, keeping the refusal as the cause for the exit code. A 403 without a
 // code, such as for a person who isn't the owner, keeps the API's words.
 func refused(cfg *config.Config, err error) error {
-	switch api.Code(err) {
-	case codePersonRequired:
+	if api.Code(err) == codePersonRequired {
 		return personDecides(cfg, err)
-	case codePlanRequired:
-		return api.WithCause(ErrPlanRequired, err)
 	}
 	return unavailable(err)
 }

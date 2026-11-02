@@ -45,7 +45,7 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 		kv(w, on, "You can change it", "no: only the project's owner can, from their own session")
 	}
 	if details.Available != nil && !*details.Available {
-		Note(w, "LavaFlow isn't available to your account yet, so it can't be turned on or changed. Its records stay readable, and the owner can still turn it off.")
+		Note(w, "LavaFlow isn't available for this project, so it can't be turned on or changed. Its records stay readable, and the owner can still turn it off.")
 		return
 	}
 	if !settings.Enabled {
@@ -147,7 +147,7 @@ func LavaflowRuns(w io.Writer, page LavaflowRunsPage) {
 	}
 	summary(w, on, "Showing %d run(s)", len(page.Runs))
 	if page.NextCommand != "" {
-		nextPage(w, on, page.NextCommand)
+		nextPage(w, on, clean(page.NextCommand))
 	}
 }
 
@@ -167,10 +167,10 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 		kv(w, on, "Finished", "%s", formatLavaflowTime(*run.FinishedAt))
 	}
 	if run.PullRequest != nil {
-		kv(w, on, "Pull request", "#%d (%s) %s", run.PullRequest.Number, run.PullRequest.State, clean(run.PullRequest.Url))
+		kv(w, on, "Pull request", "#%d (%s) %s", run.PullRequest.Number, clean(string(run.PullRequest.State)), clean(run.PullRequest.Url))
 	}
 	if run.Review != nil {
-		kv(w, on, "Review", "%s after %d round(s)", strings.ReplaceAll(string(run.Review.Verdict), "_", " "), run.Review.Rounds)
+		kv(w, on, "Review", "%s after %d round(s)", clean(strings.ReplaceAll(string(run.Review.Verdict), "_", " ")), run.Review.Rounds)
 	}
 	if run.Failure != nil && run.Failure.Message != "" {
 		// The API words each failure code itself, so it is printed as given.
@@ -287,7 +287,7 @@ func lavaflowPullRequestCell(pr *apiclient.LavaflowPullRequest) string {
 	if pr == nil {
 		return "-"
 	}
-	return fmt.Sprintf("#%d %s", pr.Number, pr.State)
+	return fmt.Sprintf("#%d %s", pr.Number, clean(string(pr.State)))
 }
 
 func stringOr(value *string, fallback string) string {

@@ -37,8 +37,8 @@ func newEnable(deps cliruntime.Deps) *cobra.Command {
 This turns LavaFlow on for the current project. Before it does, it says:
 ` + clilavaflow.EnableNotice + `
 and asks you to confirm; --yes skips the question. Only the project's owner
-can turn it on, from their own session: a project access token is refused. It
-also needs a plan that includes LavaFlow. Connect a repository with 'volcano
+can turn it on, from their own session: a project access token is refused. The
+owner's plan has to include LavaFlow. Connect a repository with 'volcano
 git connect' so LavaFlow can open fix pull requests. Choose how far it goes
 with '` + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy") + `'.`,
 		Args: cobra.NoArgs,

@@ -56,9 +56,11 @@ type lavaflowServer struct {
 	queries       map[string][]url.Values
 	repoConnected bool
 	repoFailure   int
-	refuse        int
-	refuseMethod  string
-	refusal       map[string]any
+	// repoReads counts reads of the repository connection.
+	repoReads    int
+	refuse       int
+	refuseMethod string
+	refusal      map[string]any
 	// routesMissing answers every LavaFlow route, capabilities included,
 	// with the router's bare 404, as a platform release older than LavaFlow
 	// does.
@@ -171,6 +173,7 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *lavaflowServer) gitConnection(w http.ResponseWriter) {
+	s.repoReads++
 	if s.repoFailure != 0 {
 		s.write(w, s.repoFailure, map[string]any{"error": "git connection unavailable"})
 		return

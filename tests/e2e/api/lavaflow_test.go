@@ -8,11 +8,7 @@ import (
 
 // lavaflowNotYours is what every LavaFlow command says, with a nonzero exit,
 // where the project's capabilities leave LavaFlow out for the account.
-const lavaflowNotYours = "LavaFlow isn't available to your account yet"
-
-// lavaflowNeedsAPlan is what enable says when the owner's plan doesn't include
-// LavaFlow.
-const lavaflowNeedsAPlan = "turning LavaFlow on needs a plan that includes LavaFlow"
+const lavaflowNotYours = "LavaFlow isn't available for this project"
 
 // lavaflowCommands is every LavaFlow command, each with --json.
 var lavaflowCommands = [][]string{
@@ -32,8 +28,9 @@ var lavaflowCommands = [][]string{
 // no run starts and nothing can open a pull request; Kong/volcano-hosting's
 // cloud E2E covers runs.
 //
-// LavaFlow is open to a list of accounts. A fresh account is not on it, so
-// every command says LavaFlow isn't available to it and exits nonzero. Where
+// LavaFlow is open to a list of accounts, on plans that include it. A fresh
+// account is not on the list, so every command says LavaFlow isn't available
+// for the project and exits nonzero. Where
 // the environment opens LavaFlow to every account, the round trip runs
 // instead: settings saved by one command read back by the next, and a project
 // access token reads but can't change them.
@@ -54,16 +51,8 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 
 	env.runCloudCLI(t, "lavaflow", "status").requireSuccess(t, "LavaFlow: off", "Repository: none connected",
 		"Turn it on with volcano cloud lavaflow enable")
-	enabled := env.runCloudCLI(t, "lavaflow", "enable", "--yes")
-	if strings.Contains(enabled.output, lavaflowNeedsAPlan) {
-		// The test account's plan decides this, not the CLI: the refusal is
-		// the behavior to check, and nothing was turned on.
-		enabled.requireFailure(t, lavaflowNeedsAPlan)
-		env.runCloudCLI(t, "lavaflow", "status").requireSuccess(t, "LavaFlow: off")
-		return
-	}
-	enabled.requireSuccess(t,
-		"LavaFlow sends this resource's logs and source code to an AI service that Volcano operates.", "LavaFlow is on")
+	env.runCloudCLI(t, "lavaflow", "enable", "--yes").requireSuccess(t,
+		"LavaFlow sends this project's logs and source code to an AI service that Volcano operates.", "LavaFlow is on")
 	env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only",
 		"--custom-context", "cli-e2e context").requireSuccess(t, "LavaFlow's settings are saved")
 

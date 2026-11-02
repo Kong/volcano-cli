@@ -38,13 +38,13 @@ goes, and the custom context and system prompt in full. Change them with
 }
 
 func runSettings(ctx context.Context, opts settingsOptions) error {
-	status, err := clilavaflow.NewService(opts.deps).Status(ctx)
+	settings, err := clilavaflow.NewService(opts.deps).Settings(ctx)
 	if err != nil {
 		return err
 	}
 	if opts.jsonOutput {
-		return writeJSON(opts.out, status.Settings)
+		return writeJSON(opts.out, settings)
 	}
-	output.LavaflowSettings(opts.out, status.Settings)
+	output.LavaflowSettings(opts.out, settings)
 	return nil
 }
