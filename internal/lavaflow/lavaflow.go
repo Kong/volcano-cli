@@ -103,12 +103,13 @@ type RunsQuery struct {
 
 // Service performs LavaFlow workflows against the current project.
 type Service struct {
+	deps     cliruntime.Deps
 	sessions clisession.Factory
 }
 
 // NewService returns a LavaFlow service.
 func NewService(deps cliruntime.Deps) Service {
-	return Service{sessions: clisession.NewFactory(deps)}
+	return Service{deps: deps, sessions: clisession.NewFactory(deps)}
 }
 
 // project returns the current project's session. Reads don't ask the
@@ -360,7 +361,8 @@ func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.Pagi
 	if query.ResourceID != "" {
 		resourceID, err := uuid.Parse(query.ResourceID)
 		if err != nil {
-			return nil, fmt.Errorf("invalid --resource %q: use a resource ID from 'lavaflow resources --json'", query.ResourceID)
+			return nil, fmt.Errorf("invalid --resource %q: use a resource ID from '%s'",
+				query.ResourceID, cliruntime.CommandPath(s.deps, "lavaflow resources --json"))
 		}
 		params.ResourceId = &resourceID
 	}
@@ -393,7 +395,7 @@ func runStatuses() string {
 func (s Service) GetRun(ctx context.Context, runID string) (*apiclient.LavaflowRun, error) {
 	id, err := uuid.Parse(runID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid run ID %q: use an ID from 'lavaflow list'", runID)
+		return nil, fmt.Errorf("invalid run ID %q: use an ID from '%s'", runID, cliruntime.CommandPath(s.deps, "lavaflow list"))
 	}
 	authenticated, err := s.project()
 	if err != nil {
