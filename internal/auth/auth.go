@@ -31,6 +31,10 @@ const maxConsecutiveDevicePollFailures = 3
 // of the exchange that follows an approved device login.
 const maxPlatformExchangeAttempts = 3
 
+// accountEmailReadTimeout bounds the best-effort read of the account email
+// after a completed login, so a slow answer does not hold the login up.
+const accountEmailReadTimeout = 5 * time.Second
+
 var platformExchangeRetryDelay = 500 * time.Millisecond
 
 // Credentials are the platform credentials produced by a successful login.
@@ -694,9 +698,11 @@ func (p *devicePoller) poll(ctx context.Context) (credentials Credentials, done 
 		if p.readEmail {
 			// The login is complete and the email only labels it, so a failed
 			// read is not an error.
-			if email, emailErr := p.client.GetAuthUserEmail(ctx, status.AccessToken); emailErr == nil {
+			emailCtx, cancel := context.WithTimeout(ctx, accountEmailReadTimeout)
+			if email, emailErr := p.client.GetAuthUserEmail(emailCtx, status.AccessToken); emailErr == nil {
 				credentials.Email = email
 			}
+			cancel()
 		}
 		return credentials, true, nil
 	}
