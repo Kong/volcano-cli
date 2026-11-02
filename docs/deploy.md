@@ -61,6 +61,13 @@ the first manifest isn't the default one, it only says to run it again:
 `functions deploy` and `durable deploy` read the default manifest, so run by
 hand they could deploy a durable function as a standard one.
 
+The server refuses to add or change a scheduler on a function that isn't
+active yet, and then applies nothing from the manifest. So before the config
+step, the command waits for each function it deployed that a manifest gives
+schedulers to become active. It waits even with `--no-wait`. If one of those
+functions fails to deploy, the run stops before the config step and prints the
+command that shows its build log.
+
 A deployment can be redeployed while the run waits, for example when the config
 step changes a function's regions. The run then waits for the newer deployment,
 since that is the one that serves. A durable function also has to accept

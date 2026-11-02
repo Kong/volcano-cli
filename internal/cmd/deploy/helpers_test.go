@@ -104,6 +104,9 @@ type fakeVolcano struct {
 	// durableStatuses are the statuses a durable function read reports per
 	// name, one per read; the last one repeats. Unlisted names are active.
 	durableStatuses map[string][]string
+	// functionStatuses are the statuses a function read reports per name, one
+	// per read; the last one repeats. Unlisted names are active.
+	functionStatuses map[string][]string
 
 	mu        sync.Mutex
 	calls     []string
@@ -118,19 +121,22 @@ type fakeVolcano struct {
 	reads       []string
 	// durableReads counts the reads of each durable function.
 	durableReads map[string]int
+	// functionReads counts the reads of each function.
+	functionReads map[string]int
 }
 
 func newFakeVolcano(t *testing.T) *fakeVolcano {
 	t.Helper()
 	return &fakeVolcano{
-		t:            t,
-		sourceMode:   "platform",
-		frontends:    map[string]map[string][]string{},
-		archives:     map[string][]string{},
-		deployments:  map[string]uuid.UUID{},
-		successors:   map[string]uuid.UUID{},
-		resources:    map[string]uuid.UUID{},
-		durableReads: map[string]int{},
+		t:             t,
+		sourceMode:    "platform",
+		frontends:     map[string]map[string][]string{},
+		archives:      map[string][]string{},
+		deployments:   map[string]uuid.UUID{},
+		successors:    map[string]uuid.UUID{},
+		resources:     map[string]uuid.UUID{},
+		durableReads:  map[string]int{},
+		functionReads: map[string]int{},
 	}
 }
 
@@ -258,6 +264,24 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 			payload["visibility"] = "private"
 			payload["status"] = "active"
 			if sequence := f.durableStatuses[name]; len(sequence) > 0 {
+				payload["status"] = sequence[min(read, len(sequence)-1)]
+			}
+			f.writeJSON(w, http.StatusOK, payload)
+			return
+		}
+		http.NotFound(w, r)
+	case r.Method == http.MethodGet && strings.HasPrefix(path, project+"/functions/"):
+		id := strings.TrimPrefix(path, project+"/functions/")
+		for name, resource := range f.resources {
+			if resource.String() != id {
+				continue
+			}
+			read := f.functionReads[name]
+			f.functionReads[name]++
+			f.calls = append(f.calls, "read function "+name)
+			payload := f.deployed(name)
+			payload["status"] = "active"
+			if sequence := f.functionStatuses[name]; len(sequence) > 0 {
 				payload["status"] = sequence[min(read, len(sequence)-1)]
 			}
 			f.writeJSON(w, http.StatusOK, payload)

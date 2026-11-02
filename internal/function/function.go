@@ -230,6 +230,19 @@ func (s Service) Get(ctx context.Context, identifier string) (*apiclient.Functio
 	return got, nil
 }
 
+// GetByID returns one function by ID, without listing the project's functions.
+func (s Service) GetByID(ctx context.Context, functionID uuid.UUID) (*apiclient.Function, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+	got, err := authenticated.API.GetFunction(ctx, authenticated.ProjectID, functionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get function %s: %w", functionID, err)
+	}
+	return got, nil
+}
+
 // DeleteByID starts deleting one function by ID.
 func (s Service) DeleteByID(ctx context.Context, functionID uuid.UUID) error {
 	authenticated, err := s.sessions.CurrentProject()

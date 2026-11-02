@@ -12,6 +12,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
+	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
 	"github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -171,6 +172,82 @@ func (r *runner) wait(ctx context.Context, start time.Time) error {
 		return fmt.Errorf("%d deployment(s) failed: %s", len(failed), strings.Join(names, ", "))
 	}
 	return nil
+}
+
+// waitForScheduledFunctions waits until each function this run deployed and
+// the manifests give schedulers is active. The server refuses to create or
+// change a scheduler on a function that isn't, and that rejects the whole
+// config.
+func (r *runner) waitForScheduledFunctions(ctx context.Context, scheduled map[string]bool) error {
+	var waiting []startedDeployment
+	for _, d := range r.started {
+		if (d.kind == kindFunction || d.kind == kindDurable) && scheduled[d.name] && d.resource != uuid.Nil {
+			waiting = append(waiting, d)
+		}
+	}
+	if len(waiting) == 0 {
+		return nil
+	}
+
+	ticker := cliruntime.NewTicker(r.opts.deps, pollInterval)
+	defer ticker.Stop()
+	timeout := cliruntime.NewTimer(r.opts.deps, waitTimeout)
+	defer timeout.Stop()
+
+	announced := false
+	for {
+		var inactive []startedDeployment
+		for _, d := range waiting {
+			status, err := r.functionStatus(ctx, d)
+			if err != nil {
+				return err
+			}
+			switch status {
+			case string(apiclient.FunctionStatusActive):
+			case string(apiclient.FunctionStatusFailed), string(apiclient.FunctionStatusDeleting):
+				return fmt.Errorf("%s %s is %s, so its schedulers can't be applied. See the build log:\n  %s",
+					d.kind, d.name, status, r.logsCommand(d))
+			default:
+				inactive = append(inactive, d)
+			}
+		}
+		if len(inactive) == 0 {
+			return nil
+		}
+		waiting = inactive
+		if !announced {
+			names := make([]string, 0, len(waiting))
+			for _, d := range waiting {
+				names = append(names, d.name)
+			}
+			fmt.Fprintf(r.opts.out, "Waiting for %s to become active before applying schedulers...\n", strings.Join(names, ", "))
+			announced = true
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout.C():
+			return fmt.Errorf("stopped waiting after %s for functions with schedulers to become active", waitTimeout)
+		case <-ticker.C():
+		}
+	}
+}
+
+// functionStatus reads the status of a function or durable function this run
+// deployed.
+func (r *runner) functionStatus(ctx context.Context, d startedDeployment) (string, error) {
+	if d.kind == kindDurable {
+		fn, err := clidurable.NewService(r.opts.deps).Get(ctx, d.resource.String())
+		if err != nil {
+			return "", err
+		}
+		return string(fn.Status), nil
+	}
+	fn, err := clifunction.NewService(r.opts.deps).GetByID(ctx, d.resource)
+	if err != nil {
+		return "", err
+	}
+	return string(fn.Status), nil
 }
 
 // durableStillProvisioning reports whether a durable function whose deployment

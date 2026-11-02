@@ -75,9 +75,12 @@ needs:
 A step with nothing to deploy is skipped. The env file, the manifests, and the
 source layout are read and checked before anything changes; function sources
 and frontend directories are packaged in their own steps. The run stops at the
-first step that fails. Afterwards the command waits for the deployments it
-started and prints each frontend's URL; --no-wait returns as soon as the config
-step is done.
+first step that fails. Before the config step, the command waits for each
+function it deployed that a manifest gives schedulers to become active, since
+the server refuses a scheduler on a function that isn't; it waits even with
+--no-wait. Afterwards the command waits for the deployments it started and
+prints each frontend's URL; --no-wait returns as soon as the config step is
+done.
 
 Variables come from the env file or from a manifest's variables section, never
 both: applying that section deletes every variable it does not list. Pass

@@ -770,6 +770,9 @@ func (b planBuilder) config() step {
 	s.detail = strings.Join(paths, ", ")
 	manifests := b.manifests
 	s.run = func(ctx context.Context, r *runner) error {
+		if err := r.waitForScheduledFunctions(ctx, scheduledFunctions(manifests)); err != nil {
+			return err
+		}
 		for _, m := range manifests {
 			if err := configcmd.DeployManifest(ctx, r.opts.deps, m.manifest, m.path, r.opts.out, r.opts.errOut); err != nil {
 				return err
@@ -778,4 +781,20 @@ func (b planBuilder) config() step {
 		return nil
 	}
 	return s
+}
+
+// scheduledFunctions names the functions the manifests give schedulers.
+func scheduledFunctions(manifests []manifestFile) map[string]bool {
+	names := map[string]bool{}
+	for _, m := range manifests {
+		if m.manifest.Functions == nil {
+			continue
+		}
+		for _, fn := range *m.manifest.Functions {
+			if fn.Schedulers != nil && len(*fn.Schedulers) > 0 {
+				names[fn.Name] = true
+			}
+		}
+	}
+	return names
 }
