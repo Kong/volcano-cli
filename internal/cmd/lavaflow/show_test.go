@@ -3,6 +3,7 @@ package lavaflow
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -108,7 +109,10 @@ func TestShowSaysWhenThePullRequestOpened(t *testing.T) {
 
 	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
-	assert.Regexp(t, `Pull request opened: 2026-10-30 \d\d:03`, out)
+	// The CLI prints times in the machine's zone, so the expected line is
+	// built the same way rather than pinned to one zone.
+	opened := time.Date(2026, 10, 30, 9, 3, 0, 0, time.UTC).Local().Format("2006-01-02 15:04")
+	assert.Contains(t, out, "Pull request opened: "+opened+"\n")
 
 	fake.set(func(s *lavaflowServer) { s.runs[0]["pull_request"].(map[string]any)["opened_at"] = nil })
 	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
