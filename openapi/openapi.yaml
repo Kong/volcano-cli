@@ -26431,7 +26431,7 @@ components:
     ProjectConfigLavaFlow:
       type: object
       deprecated: true
-      description: Ignored. LavaFlow is no longer part of the platform. A manifest that still declares this section applies as before, without it, and the result reports it as `unchanged` with a notice. Export never includes it.
+      description: Ignored. The manifest does not configure LavaFlow; its settings change through the LavaFlow API. A manifest that still declares this section applies as if it were absent, and the result reports it as `unchanged` with a notice. Export never includes it.
     ProjectConfigScheduler:
       type: object
       additionalProperties: false

@@ -9303,7 +9303,7 @@ type ProjectConfig struct {
 	Frontends               *[]ProjectConfigFrontend `json:"frontends,omitempty"`
 	Functions               *[]ProjectConfigFunction `json:"functions,omitempty"`
 
-	// Lavaflow Ignored. LavaFlow is no longer part of the platform. A manifest that still declares this section applies as before, without it, and the result reports it as `unchanged` with a notice. Export never includes it.
+	// Lavaflow Ignored. The manifest does not configure LavaFlow; its settings change through the LavaFlow API. A manifest that still declares this section applies as if it were absent, and the result reports it as `unchanged` with a notice. Export never includes it.
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Lavaflow *ProjectConfigLavaFlow `json:"lavaflow,omitempty"`
 
@@ -9833,7 +9833,7 @@ type ProjectConfigHostedPages struct {
 	VerifyEmail    *ProjectConfigHostedPage `json:"verify_email,omitempty"`
 }
 
-// ProjectConfigLavaFlow Ignored. LavaFlow is no longer part of the platform. A manifest that still declares this section applies as before, without it, and the result reports it as `unchanged` with a notice. Export never includes it.
+// ProjectConfigLavaFlow Ignored. The manifest does not configure LavaFlow; its settings change through the LavaFlow API. A manifest that still declares this section applies as if it were absent, and the result reports it as `unchanged` with a notice. Export never includes it.
 type ProjectConfigLavaFlow = map[string]interface{}
 
 // ProjectConfigMissingResource defines model for ProjectConfigMissingResource.
