@@ -132,6 +132,10 @@ Key semantics:
   first `notifications.webhook.url` a deploy sets generates one that is never
   shown. To get a secret you can use, run `notifications rotate-webhook-secret`.
   See [notifications.md](notifications.md).
+- A top-level `lavaflow` section is refused, naming its line, and nothing is
+  sent. LavaFlow isn't part of the project configuration: delete the section,
+  and turn LavaFlow on or change its settings with `volcano cloud lavaflow`.
+  See [lavaflow.md](lavaflow.md).
 - `config pull` leaves `notifications.webhook` out, because its URL can carry
   the receiver's token. A manifest without it keeps the saved webhook; set
   `url: ""` to remove it, or declare the URL through a `${ENV_VAR}` reference.
