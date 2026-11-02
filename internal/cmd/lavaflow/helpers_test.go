@@ -45,10 +45,15 @@ type lavaflowServer struct {
 	// leaves the entry out.
 	capability string
 	// gateOff is LavaFlow unavailable for a project with records: the reads
-	// answer, and the PUT takes only turning it off.
-	gateOff       bool
-	settings      map[string]any
-	updates       []map[string]any
+	// answer, and the PUT takes only turning it off. planOff says the owner's
+	// plan is why, so the PUT answers plan_required instead of
+	// feature_unavailable.
+	gateOff  bool
+	planOff  bool
+	settings map[string]any
+	updates  []map[string]any
+	// projects is the project_id each LavaFlow request named.
+	projects      []string
 	stats         map[string]any
 	resources     []map[string]any
 	runs          []map[string]any
@@ -92,7 +97,7 @@ func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
 // that never saved settings.
 func defaultLavaflowSettings() map[string]any {
 	return map[string]any{
-		"enabled": false, "autonomy": "open_pr", "custom_context": "", "system_prompt": "",
+		"project_id": lavaflowProjectID, "enabled": false, "autonomy": "open_pr", "custom_context": "", "system_prompt": "",
 		"updated_at": nil, "updated_by": nil, "can_update": true,
 	}
 }
@@ -124,23 +129,49 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.write(w, s.refuse, s.refusal)
 		return
 	}
-	route := strings.TrimPrefix(r.URL.Path, project+"/lavaflow")
-	s.queries[route] = append(s.queries[route], r.URL.Query())
+	// Every LavaFlow route is top-level and names its project: in the query on
+	// a read, in the body on the PUT. The queries and updates recorded leave
+	// project_id out; projects keeps it.
+	route, found := strings.CutPrefix(r.URL.Path, "/lavaflow")
+	if !found {
+		http.NotFound(w, r)
+		return
+	}
+	query := r.URL.Query()
+	projectID := query.Get("project_id")
+	query.Del("project_id")
+	var update map[string]any
+	if r.Method == http.MethodPut {
+		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
+			s.t.Errorf("decode update: %v", err)
+		}
+		if _, inQuery := r.URL.Query()["project_id"]; inQuery {
+			s.t.Errorf("the PUT names its project in the query")
+		}
+		projectID, _ = update["project_id"].(string)
+		delete(update, "project_id")
+	}
+	s.queries[route] = append(s.queries[route], query)
+	s.projects = append(s.projects, projectID)
+	if projectID != lavaflowProjectID {
+		s.write(w, http.StatusNotFound, map[string]any{"error": "project not found"})
+		return
+	}
 	switch {
-	case r.Method == http.MethodGet && route == "":
+	case r.Method == http.MethodGet && route == "/settings":
 		settings := maps.Clone(s.settings)
 		// The API says a project access token can't change the settings.
 		if strings.HasPrefix(r.Header.Get("Authorization"), "Bearer "+cliconfig.ProjectTokenPrefix) {
 			settings["can_update"] = false
 		}
 		s.write(w, http.StatusOK, settings)
-	case r.Method == http.MethodPut && route == "":
-		var update map[string]any
-		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
-			s.t.Errorf("decode update: %v", err)
-		}
+	case r.Method == http.MethodPut && route == "/settings":
 		s.updates = append(s.updates, update)
 		if s.gateOff && !maps.Equal(update, map[string]any{"enabled": false}) {
+			if s.planOff {
+				s.write(w, http.StatusForbidden, map[string]any{"error": "LavaFlow needs a plan that includes it", "code": "plan_required"})
+				return
+			}
 			s.write(w, http.StatusNotFound, map[string]any{"error": "LavaFlow is not available", "code": "feature_unavailable"})
 			return
 		}
@@ -221,7 +252,7 @@ func (s *lavaflowServer) set(change func(*lavaflowServer)) {
 
 func lavaflowStats() map[string]any {
 	return map[string]any{
-		"window_start": "2026-10-28", "window_end": "2026-10-30",
+		"project_id": lavaflowProjectID, "window_start": "2026-10-28", "window_end": "2026-10-30",
 		"days": []any{
 			map[string]any{"date": "2026-10-28", "issues_opened": 2, "pull_requests_opened": 1},
 			map[string]any{"date": "2026-10-29", "issues_opened": 0, "pull_requests_opened": 0},
@@ -234,11 +265,12 @@ func lavaflowStats() map[string]any {
 func lavaflowResources() []map[string]any {
 	return []map[string]any{
 		{
-			"resource":         checkoutResource(),
+			"project_id": lavaflowProjectID, "resource": checkoutResource(),
 			"last_analyzed_at": "2026-10-30T09:00:00Z", "issues_opened": 6, "pull_requests_opened": 3,
 			"anomaly": map[string]any{"flagged": true, "reason": "6 issues in the last 24 hours, 4 times the daily average"},
 		},
 		{
+			"project_id": lavaflowProjectID,
 			"resource": map[string]any{
 				"id": "77777777-7777-4777-8777-777777777777", "type": "durable_function", "name": "nightly-report",
 			},
@@ -256,7 +288,8 @@ func checkoutResource() map[string]any {
 // passed review.
 func fixedRun() map[string]any {
 	return map[string]any{
-		"id": lavaflowRunID, "status": "pr_open", "title": lavaflowIssueTitle, "issue_id": lavaflowIssueID,
+		"id": lavaflowRunID, "project_id": lavaflowProjectID, "status": "pr_open", "title": lavaflowIssueTitle,
+		"issue_id":   lavaflowIssueID,
 		"resource":   checkoutResource(),
 		"created_at": "2026-10-30T09:00:00Z", "finished_at": "2026-10-30T09:03:00Z",
 		"pull_request": map[string]any{
@@ -280,8 +313,9 @@ func fixedRun() map[string]any {
 // failedRun is a run that stopped, with the API's fixed text for its code.
 func failedRun() map[string]any {
 	return map[string]any{
-		"id": lavaflowFailedID, "status": "failed", "resource": checkoutResource(), "issue_id": lavaflowIssueID,
-		"title": nil, "pull_request": nil, "diagnosis": nil, "diff": nil, "review": nil,
+		"id": lavaflowFailedID, "project_id": lavaflowProjectID, "status": "failed", "resource": checkoutResource(),
+		"issue_id": lavaflowIssueID,
+		"title":    nil, "pull_request": nil, "diagnosis": nil, "diff": nil, "review": nil,
 		"details_expire_at": "2027-01-27T09:01:00Z", "details_cleared_at": nil,
 		"created_at": "2026-10-29T09:00:00Z", "finished_at": "2026-10-29T09:01:00Z",
 		"failure": map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},

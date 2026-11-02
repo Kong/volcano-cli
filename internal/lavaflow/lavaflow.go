@@ -31,13 +31,22 @@ const OnDescription = "LavaFlow uses AI to diagnose this project's errors from t
 // answers, which otherwise reads as a missing project or run.
 var ErrUnavailable = errors.New("LavaFlow isn't available on this Volcano API")
 
-// ErrNotAvailableToAccount reports LavaFlow off for this project: the
-// project's capabilities say so before a change, or a route answers
-// feature_unavailable. That happens while LavaFlow isn't open to the owner's
-// account, or when the owner's plan doesn't include it; the API doesn't say
-// which, so neither does this. A project that already has LavaFlow records
-// keeps reading them, and can turn LavaFlow off, while it is unavailable.
-var ErrNotAvailableToAccount = errors.New("LavaFlow isn't available for this project: " +
+// ErrNotAvailable reports a route's feature_unavailable: LavaFlow isn't open
+// to this project or its owner yet. A project that already has LavaFlow
+// records keeps reading them, and can turn LavaFlow off, while it is
+// unavailable.
+var ErrNotAvailable = errors.New("LavaFlow isn't available for this project yet")
+
+// ErrPlanRequired reports a route's plan_required: the owner's plan doesn't
+// include LavaFlow. A project that already has LavaFlow records keeps reading
+// them, and can turn LavaFlow off, without it.
+var ErrPlanRequired = errors.New("LavaFlow needs a plan that includes it, and the project owner's plan doesn't")
+
+// ErrCantTurnOn reports, before enable asks, that the project's capabilities
+// say LavaFlow can't be turned on for a project that has LavaFlow records.
+// The capability counts both the rollout and the owner's plan without saying
+// which is why, so neither does this.
+var ErrCantTurnOn = errors.New("LavaFlow can't be turned on for this project: " +
 	"it isn't open to the owner's account, or the owner's plan doesn't include it")
 
 // ErrPersonDecides refuses changing LavaFlow's settings with a project access
@@ -57,6 +66,7 @@ const capabilityID = "lavaflow"
 // Codes of the API's refusals.
 const (
 	codeFeatureUnavailable = "feature_unavailable"
+	codePlanRequired       = "plan_required"
 	codePersonRequired     = "person_required"
 )
 
@@ -114,20 +124,24 @@ func NewService(deps cliruntime.Deps) Service {
 
 // project returns the current project's session. Reads don't ask the
 // project's capabilities first: a project with LavaFlow records reads them
-// while LavaFlow is unavailable, and a route answers feature_unavailable for
-// a project without any.
+// while LavaFlow is unavailable, and a route says why for a project without
+// any.
 func (s Service) project() (*clisession.ProjectSession, error) {
 	return s.sessions.CurrentProject()
 }
 
-func requireAvailable(ctx context.Context, authenticated *clisession.ProjectSession) error {
+// requireTurnOnAvailable stops enable before it asks when the project's
+// capabilities say LavaFlow can't be turned on. It runs after the settings
+// read, which already refused a project without LavaFlow records with the
+// route's reason, so this covers a project that has records.
+func requireTurnOnAvailable(ctx context.Context, authenticated *clisession.ProjectSession) error {
 	capabilities, err := authenticated.API.ListProjectCapabilities(ctx, authenticated.ProjectID)
 	if err != nil {
 		return unavailable(fmt.Errorf("failed to read the project's capabilities: %w", err))
 	}
 	if !availableIn(capabilities) {
-		return api.WithCause(ErrNotAvailableToAccount,
-			&api.Error{StatusCode: http.StatusNotFound, Message: ErrNotAvailableToAccount.Error(), Code: codeFeatureUnavailable})
+		return api.WithCause(ErrCantTurnOn,
+			&api.Error{StatusCode: http.StatusNotFound, Message: ErrCantTurnOn.Error(), Code: codeFeatureUnavailable})
 	}
 	return nil
 }
@@ -226,7 +240,9 @@ func (s Service) Disable(ctx context.Context) (*apiclient.LavaflowSettings, erro
 	return s.update(ctx, "turn LavaFlow off", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, false, nil)
 }
 
-// UpdateSettings changes the fields update sets and keeps the rest.
+// UpdateSettings changes the fields update sets and keeps the rest. It asks
+// nothing, so it doesn't check the capabilities first: the save says why when
+// LavaFlow isn't available.
 func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSettingsUpdate) (*apiclient.LavaflowSettings, error) {
 	if update.Autonomy != nil && !update.Autonomy.Valid() {
 		return nil, fmt.Errorf("invalid autonomy %q: use %s or %s", *update.Autonomy, apiclient.DiagnoseOnly, apiclient.OpenPr)
@@ -236,16 +252,17 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 			return nil, fmt.Errorf("the %s is %d characters long: the most is %d", name, len([]rune(*text)), MaxTextLength)
 		}
 	}
-	return s.update(ctx, "change LavaFlow's settings", update, true, nil)
+	return s.update(ctx, "change LavaFlow's settings", update, false, nil)
 }
 
-// update refuses a project access token before sending anything. A change
-// that needs LavaFlow available checks the project's capabilities, and every
-// change reads can_update before it asks or sends, so a person who isn't the
-// owner is told before the change is refused. A non-nil confirm runs just
-// before the change.
+// update refuses a project access token before sending anything. Every
+// change reads the settings first, which refuses a project without LavaFlow
+// records with the route's reason, and checks can_update before it asks or
+// sends. A change that turns LavaFlow on then checks the project's
+// capabilities, so it isn't asked for when it would be refused. A non-nil
+// confirm runs just before the change.
 func (s Service) update(ctx context.Context, verb string, update apiclient.LavaflowSettingsUpdate,
-	needsAvailable bool, confirm func() error,
+	turnsOn bool, confirm func() error,
 ) (*apiclient.LavaflowSettings, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
@@ -254,11 +271,6 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	if config.IsProjectToken(authenticated.Config.Token()) {
 		return nil, personDecides(authenticated.Config, config.ErrAccountTokenRequired)
 	}
-	if needsAvailable {
-		if err := requireAvailable(ctx, authenticated); err != nil {
-			return nil, err
-		}
-	}
 	current, err := authenticated.API.GetLavaflowSettings(ctx, authenticated.ProjectID)
 	if err != nil {
 		return nil, unavailable(fmt.Errorf("failed to get LavaFlow settings: %w", err))
@@ -266,6 +278,11 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	if !current.CanUpdate {
 		return nil, api.WithCause(ErrOwnerDecides,
 			&api.Error{StatusCode: http.StatusForbidden, Message: ErrOwnerDecides.Error()})
+	}
+	if turnsOn {
+		if err := requireTurnOnAvailable(ctx, authenticated); err != nil {
+			return nil, err
+		}
 	}
 	if confirm != nil {
 		if err := confirm(); err != nil {
@@ -281,7 +298,7 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 
 // refused says why the API refused a change, by its code rather than its
 // status, keeping the refusal as the cause for the exit code. A 403 without a
-// code, such as for a person who isn't the owner, keeps the API's words.
+// code, for a plan that couldn't be read, keeps the API's words.
 func refused(cfg *config.Config, err error) error {
 	if api.Code(err) == codePersonRequired {
 		return personDecides(cfg, err)
@@ -409,11 +426,15 @@ func (s Service) GetRun(ctx context.Context, runID string) (*apiclient.LavaflowR
 }
 
 // unavailable replaces a refusal that says LavaFlow is not on with the error
-// that says why, keeping the refusal so the exit code still reports it.
+// that says why, keeping the refusal so the exit code still reports it: 4 for
+// feature_unavailable, 5 for plan_required. A 404 without a code, for a
+// project the caller can't use, keeps the API's words.
 func unavailable(err error) error {
 	switch {
 	case api.Code(err) == codeFeatureUnavailable:
-		return api.WithCause(ErrNotAvailableToAccount, err)
+		return api.WithCause(ErrNotAvailable, err)
+	case api.Code(err) == codePlanRequired:
+		return api.WithCause(ErrPlanRequired, err)
 	case api.RouteMissing(err):
 		return api.WithCause(ErrUnavailable, err)
 	}

@@ -6,9 +6,13 @@ import (
 	"testing"
 )
 
-// lavaflowNotYours is what every LavaFlow command says, with a nonzero exit,
-// where the project's capabilities leave LavaFlow out for the account.
-const lavaflowNotYours = "LavaFlow isn't available for this project"
+// What every LavaFlow command says, with a nonzero exit, for a project
+// without LavaFlow records where LavaFlow isn't open to it or its owner, and
+// where the owner's plan doesn't include LavaFlow.
+const (
+	lavaflowNotOpen = "LavaFlow isn't available for this project yet"
+	lavaflowNoPlan  = "LavaFlow needs a plan that includes it"
+)
 
 // lavaflowCommands is every LavaFlow command, each with --json.
 var lavaflowCommands = [][]string{
@@ -29,20 +33,23 @@ var lavaflowCommands = [][]string{
 // cloud E2E covers runs.
 //
 // LavaFlow is open to a list of accounts, on plans that include it. A fresh
-// account is not on the list, so every command says LavaFlow isn't available
-// for the project and exits nonzero. Where
-// the environment opens LavaFlow to every account, the round trip runs
-// instead: settings saved by one command read back by the next, and a project
-// access token reads but can't change them.
+// account is not on the list, or its plan doesn't include LavaFlow, so every
+// command says which and exits nonzero. Where the environment opens LavaFlow
+// to every account, the round trip runs instead: settings saved by one command
+// read back by the next, and a project access token reads but can't change
+// them.
 func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env := setupAPIE2E(t, "cloud-lavaflow")
 	env.loginAndUse(t)
 
-	if probe := env.runCloudCLI(t, "lavaflow", "status"); strings.Contains(probe.output, lavaflowNotYours) {
-		for _, command := range lavaflowCommands {
-			env.runCloudCLI(t, command...).requireFailure(t, lavaflowNotYours)
+	probe := env.runCloudCLI(t, "lavaflow", "status")
+	for _, refusal := range []string{lavaflowNotOpen, lavaflowNoPlan} {
+		if strings.Contains(probe.output, refusal) {
+			for _, command := range lavaflowCommands {
+				env.runCloudCLI(t, command...).requireFailure(t, refusal)
+			}
+			return
 		}
-		return
 	}
 
 	// Registered after the project's own cleanup, so it runs first: LavaFlow is

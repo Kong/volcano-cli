@@ -93,7 +93,7 @@ func TestSettingsReadsOnlyTheSettings(t *testing.T) {
 	_, err := executeLavaflowCommand(t, New(deps), "settings", "--json")
 	require.NoError(t, err)
 	assert.Zero(t, fake.repoReads)
-	assert.Len(t, fake.queries[""], 1)
+	assert.Len(t, fake.queries["/settings"], 1)
 }
 
 // The examples run the command in the tree it's in, so copying one works.

@@ -22,7 +22,7 @@ tags:
   - name: Logs
     description: Project-scoped log search and activity APIs
   - name: LavaFlow
-    description: 'Preview, not generally available: LavaFlow diagnoses a project''s issues and opens pull requests that fix them. It never merges. LavaFlow sends this project''s logs and source code to an AI service that Volcano operates. Where LavaFlow is not available, every endpoint answers `404` with code `feature_unavailable` for a project that has no LavaFlow records. A project with records keeps reading them and can still turn LavaFlow off.'
+    description: 'Preview, not generally available: LavaFlow diagnoses a project''s issues and opens pull requests that fix them. It never merges. LavaFlow sends this project''s logs and source code to an AI service that Volcano operates. Every endpoint names one project with `project_id`. Where LavaFlow is not available, every endpoint refuses a project that has no LavaFlow records: `403` with code `plan_required` when the owner''s plan does not include LavaFlow, otherwise `404` with code `feature_unavailable`. A project with records keeps reading them and can still turn LavaFlow off.'
   - name: Functions
     description: Function deployment and management
   - name: Durable Functions
@@ -7029,7 +7029,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /projects/{id}/lavaflow:
+  /lavaflow/settings:
     get:
       tags:
         - LavaFlow
@@ -7049,7 +7049,7 @@ paths:
         - UserToken: []
         - ProjectAccessToken: []
       parameters:
-        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ProjectIdQuery'
       responses:
         '200':
           description: The project's LavaFlow settings
@@ -7057,14 +7057,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LavaflowSettings'
+        '400':
+          description: '`project_id` is missing or not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden - project ownership required
+          description: Code `plan_required` means the owner's plan does not include LavaFlow and the project has no LavaFlow records. Without a code, the owner's plan could not be read; retry later.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project not found. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
           content:
             application/json:
               schema:
@@ -7074,26 +7080,28 @@ paths:
         - LavaFlow
       summary: Update LavaFlow settings
       description: |
-        Changes the fields the request names; an omitted field keeps its saved
-        value, or its default when nothing is saved. `{"enabled": true}` turns
-        LavaFlow on for every function, frontend and durable function in the
-        project, and records the repository the project points at as the one
-        LavaFlow works in. LavaFlow sends this project's logs and source code
-        to an AI service that Volcano operates.
+        Changes the fields the request names for the project `project_id`
+        names; an omitted field keeps its saved value, or its default when
+        nothing is saved. `{"project_id": "…", "enabled": true}` turns LavaFlow
+        on for every function, frontend and durable function in the project,
+        and records the repository the project points at as the one LavaFlow
+        works in. LavaFlow sends this project's logs and source code to an AI
+        service that Volcano operates.
 
         Only the project's owner can save, with a platform token: a project
         access token gets `403` with code `person_required`.
 
-        LavaFlow is available where the project's `lavaflow` capability is,
-        which includes the owner's plan. Where it is not, a project with
-        LavaFlow records can still save `{"enabled": false}` and nothing else.
-        Any other save, and any save for a project without records, answers
-        `404` with code `feature_unavailable`.
+        Turning LavaFlow on needs a plan that includes it (`403`, code
+        `plan_required`). LavaFlow is available where the project's
+        `lavaflow` capability is, which includes the owner's plan. Where it is
+        not, a project with LavaFlow records can still turn LavaFlow off,
+        sending `enabled: false` and nothing else to change. Any other save,
+        and any save for a project without records, answers `403` with code
+        `plan_required` when the owner's plan does not include LavaFlow,
+        otherwise `404` with code `feature_unavailable`.
       operationId: updateLavaflowSettings
       security:
         - UserToken: []
-      parameters:
-        - $ref: '#/components/parameters/ProjectId'
       requestBody:
         required: true
         content:
@@ -7108,30 +7116,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/LavaflowSettings'
         '400':
-          description: 'The body is invalid: an unknown field or autonomy, or `custom_context` or `system_prompt` over 4000 characters.'
+          description: 'The body is invalid: `project_id` missing or not a UUID, no field to change, an unknown field or autonomy, or `custom_context` or `system_prompt` over 4000 characters.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Code `person_required` means a project access token made the request. Without a code, project ownership is required.
+          description: Code `person_required` means a project access token made the request. Code `plan_required` means the owner's plan does not include LavaFlow. Without a code, the owner's plan could not be read and nothing was saved; retry later.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: 'Project not found. Code `feature_unavailable` means LavaFlow is not available for this project and the save is not `{"enabled": false}` on a project with LavaFlow records.'
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and the save does not only turn LavaFlow off on a project with LavaFlow records.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '503':
-          description: Turning LavaFlow on needs the owner's plan, which could not be read. Nothing was saved. Retry later.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /projects/{id}/lavaflow/stats:
+  /lavaflow/stats:
     get:
       tags:
         - LavaFlow
@@ -7141,13 +7143,13 @@ paths:
         UTC day, oldest first, with every day in the window present. Merges
         never count. The window ends today, which is partial. The totals equal
         the sum of `days` and of the per-resource counts from
-        `GET /projects/{id}/lavaflow/resources` for the same `days`.
+        `GET /lavaflow/resources` for the same project and `days`.
       operationId: getLavaflowStats
       security:
         - UserToken: []
         - ProjectAccessToken: []
       parameters:
-        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ProjectIdQuery'
         - $ref: '#/components/parameters/LavaflowDays'
       responses:
         '200':
@@ -7157,24 +7159,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/LavaflowStats'
         '400':
-          description: '`days` is outside 1 to 90.'
+          description: '`project_id` is missing or not a UUID, or `days` is outside 1 to 90.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden - project ownership required
+          description: Code `plan_required` means the owner's plan does not include LavaFlow and the project has no LavaFlow records. Without a code, the owner's plan could not be read; retry later.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project not found. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /projects/{id}/lavaflow/resources:
+  /lavaflow/resources:
     get:
       tags:
         - LavaFlow
@@ -7183,7 +7185,7 @@ paths:
         Lists every function, durable function and frontend in the project with
         LavaFlow's activity in the window, zeros included, sorted by name. A
         removed resource with activity in the window is listed too, so the
-        counts add up to `GET /projects/{id}/lavaflow/stats`.
+        counts add up to `GET /lavaflow/stats`.
 
         `anomaly.flagged` is true when the last 24 hours have at least 3
         issues opened for the resource and at least 3 times its daily average
@@ -7193,7 +7195,7 @@ paths:
         - UserToken: []
         - ProjectAccessToken: []
       parameters:
-        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ProjectIdQuery'
         - $ref: '#/components/parameters/LavaflowDays'
       responses:
         '200':
@@ -7203,24 +7205,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/LavaflowResourceList'
         '400':
-          description: '`days` is outside 1 to 90.'
+          description: '`project_id` is missing or not a UUID, or `days` is outside 1 to 90.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden - project ownership required
+          description: Code `plan_required` means the owner's plan does not include LavaFlow and the project has no LavaFlow records. Without a code, the owner's plan could not be read; retry later.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project not found. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /projects/{id}/lavaflow/runs:
+  /lavaflow/runs:
     get:
       tags:
         - LavaFlow
@@ -7233,9 +7235,9 @@ paths:
         - UserToken: []
         - ProjectAccessToken: []
       parameters:
-        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ProjectIdQuery'
         - $ref: '#/components/parameters/LavaflowRunLimit'
-        - $ref: '#/components/parameters/IssueCursor'
+        - $ref: '#/components/parameters/LavaflowRunCursor'
         - $ref: '#/components/parameters/LavaflowRunStatusFilter'
         - $ref: '#/components/parameters/LavaflowResourceIdFilter'
       responses:
@@ -7246,42 +7248,43 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedLavaflowRuns'
         '400':
-          description: The cursor, limit or status is invalid.
+          description: '`project_id` is missing or not a UUID, or the cursor, limit or status is invalid.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden - project ownership required
+          description: Code `plan_required` means the owner's plan does not include LavaFlow and the project has no LavaFlow records. Without a code, the owner's plan could not be read; retry later.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project not found. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /projects/{id}/lavaflow/runs/{runId}:
+  /lavaflow/runs/{run_id}:
     get:
       tags:
         - LavaFlow
       summary: Get a LavaFlow run
       description: |
-        Returns a run with its diagnosis, the log lines it cites, its diff and
-        its review. The text holds the project's logs and source code, so this
-        endpoint takes the same access as the project's log endpoints. A run
-        keeps its text for 90 days after it completes (`details_expire_at`);
-        then the text is cleared (`details_cleared_at`), and the run, its pull
-        request and its outcome stay.
+        Returns a run of the project `project_id` names, with its diagnosis,
+        the log lines it cites, its diff and its review. The text holds the
+        project's logs and source code, so this endpoint takes the same access
+        as the project's log endpoints. A run keeps its text for 90 days after
+        it completes (`details_expire_at`); then the text is cleared
+        (`details_cleared_at`), and the run, its pull request and its outcome
+        stay.
       operationId: getLavaflowRun
       security:
         - UserToken: []
         - ProjectAccessToken: []
       parameters:
-        - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/LavaflowRunId'
+        - $ref: '#/components/parameters/ProjectIdQuery'
       responses:
         '200':
           description: The run
@@ -7289,14 +7292,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LavaflowRun'
+        '400':
+          description: '`project_id` is missing or not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden - project ownership required
+          description: Code `plan_required` means the owner's plan does not include LavaFlow and the project has no LavaFlow records. Without a code, the owner's plan could not be read; retry later.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project or run not found. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted, and a run of another project answers like one that doesn't exist. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
           content:
             application/json:
               schema:
@@ -18242,6 +18251,14 @@ components:
         type: string
         format: uuid
       description: Project ID
+    ProjectIdQuery:
+      name: project_id
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The project to read. A project the caller can't read answers like one that doesn't exist.
     TokenId:
       name: tokenId
       in: path
@@ -18316,13 +18333,23 @@ components:
         format: uuid
       description: Only runs for issues of this resource.
     LavaflowRunId:
-      name: runId
+      name: run_id
       in: path
       required: true
       schema:
         type: string
         format: uuid
       description: LavaFlow run ID
+    LavaflowRunCursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+      description: |
+        Opaque cursor from a previous response's `next_cursor`. Pages forward,
+        and works only for the same `project_id` and caller; keep the same
+        filters while paging.
     LavaflowRunLimit:
       name: limit
       in: query
@@ -24995,7 +25022,7 @@ components:
           description: Whether a next page exists
         next_cursor:
           type: string
-          description: Opaque cursor for the next page (present if has_more is true)
+          description: Opaque cursor for the next page, present if has_more is true. It works only for the same project_id and caller.
       required:
         - data
         - limit
@@ -25010,6 +25037,10 @@ components:
       type: object
       description: A project's LavaFlow settings. LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
       properties:
+        project_id:
+          type: string
+          format: uuid
+          description: The project the settings belong to.
         enabled:
           type: boolean
           description: Whether LavaFlow works on the project's issues. Off by default.
@@ -25036,6 +25067,7 @@ components:
           type: boolean
           description: 'Whether the caller can save the settings: true only for the project''s owner with a platform token, false for any project access token.'
       required:
+        - project_id
         - enabled
         - autonomy
         - custom_context
@@ -25046,9 +25078,13 @@ components:
     LavaflowSettingsUpdate:
       type: object
       additionalProperties: false
-      minProperties: 1
-      description: The fields to change. An omitted field keeps its saved value.
+      minProperties: 2
+      description: The project, and at least one field to change. An omitted field keeps its saved value.
       properties:
+        project_id:
+          type: string
+          format: uuid
+          description: The project whose settings to change.
         enabled:
           type: boolean
         autonomy:
@@ -25059,9 +25095,15 @@ components:
         system_prompt:
           type: string
           maxLength: 4000
+      required:
+        - project_id
     LavaflowStats:
       type: object
       properties:
+        project_id:
+          type: string
+          format: uuid
+          description: The project the counts are for.
         window_start:
           type: string
           format: date
@@ -25088,6 +25130,7 @@ components:
             - issues_opened
             - pull_requests_opened
       required:
+        - project_id
         - window_start
         - window_end
         - days
@@ -25107,6 +25150,10 @@ components:
     LavaflowResource:
       type: object
       properties:
+        project_id:
+          type: string
+          format: uuid
+          description: The project the resource belongs to.
         resource:
           $ref: '#/components/schemas/LavaflowResourceReference'
         last_analyzed_at:
@@ -25125,6 +25172,7 @@ components:
         anomaly:
           $ref: '#/components/schemas/LavaflowAnomaly'
       required:
+        - project_id
         - resource
         - last_analyzed_at
         - issues_opened
@@ -25181,6 +25229,10 @@ components:
         id:
           type: string
           format: uuid
+        project_id:
+          type: string
+          format: uuid
+          description: The project the run belongs to.
         status:
           $ref: '#/components/schemas/LavaflowRunStatus'
         resource:
@@ -25205,6 +25257,7 @@ components:
           nullable: true
       required:
         - id
+        - project_id
         - status
         - resource
         - issue_id
@@ -25287,7 +25340,7 @@ components:
             diff:
               type: string
               nullable: true
-              description: The fix as a unified diff, with secrets masked.
+              description: The fix as a unified diff, with secrets masked. Null while the run has no proposed fix.
             review:
               allOf:
                 - $ref: '#/components/schemas/LavaflowReview'
