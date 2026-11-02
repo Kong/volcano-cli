@@ -2058,8 +2058,10 @@ const (
 	LavaflowRunStatusCompleted  LavaflowRunStatus = "completed"
 	LavaflowRunStatusDiagnosing LavaflowRunStatus = "diagnosing"
 	LavaflowRunStatusFailed     LavaflowRunStatus = "failed"
+	LavaflowRunStatusFixing     LavaflowRunStatus = "fixing"
 	LavaflowRunStatusPrOpen     LavaflowRunStatus = "pr_open"
 	LavaflowRunStatusQueued     LavaflowRunStatus = "queued"
+	LavaflowRunStatusReviewing  LavaflowRunStatus = "reviewing"
 )
 
 // Valid indicates whether the value is a known member of the LavaflowRunStatus enum.
@@ -2073,9 +2075,13 @@ func (e LavaflowRunStatus) Valid() bool {
 		return true
 	case LavaflowRunStatusFailed:
 		return true
+	case LavaflowRunStatusFixing:
+		return true
 	case LavaflowRunStatusPrOpen:
 		return true
 	case LavaflowRunStatusQueued:
+		return true
+	case LavaflowRunStatusReviewing:
 		return true
 	default:
 		return false
@@ -8074,7 +8080,7 @@ type LavaflowLogLine struct {
 type LavaflowPullRequest struct {
 	Number int64 `json:"number"`
 
-	// OpenedAt When the run opened the pull request. Not reported yet, so always null.
+	// OpenedAt When the run opened the pull request, null for one opened before LavaFlow recorded the time.
 	OpenedAt *time.Time               `json:"opened_at"`
 	State    LavaflowPullRequestState `json:"state"`
 	Url      string                   `json:"url"`
@@ -8151,14 +8157,14 @@ type LavaflowRun struct {
 	Resource LavaflowResourceReference `json:"resource"`
 	Review   *LavaflowReview           `json:"review"`
 
-	// Status Where a run is. `diagnosing` means it is running; runs do not report their later stages yet. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
+	// Status Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 	Status LavaflowRunStatus `json:"status"`
 
-	// Title The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
+	// Title The title of the pull request the run opened, else of the fix it proposed, else its diagnosis' summary. Null while none is known.
 	Title *string `json:"title"`
 }
 
-// LavaflowRunStatus Where a run is. `diagnosing` means it is running; runs do not report their later stages yet. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
+// LavaflowRunStatus Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 type LavaflowRunStatus string
 
 // LavaflowRunSummary defines model for LavaflowRunSummary.
@@ -8175,10 +8181,10 @@ type LavaflowRunSummary struct {
 	// Resource The function, durable function or frontend an issue came from.
 	Resource LavaflowResourceReference `json:"resource"`
 
-	// Status Where a run is. `diagnosing` means it is running; runs do not report their later stages yet. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
+	// Status Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 	Status LavaflowRunStatus `json:"status"`
 
-	// Title The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
+	// Title The title of the pull request the run opened, else of the fix it proposed, else its diagnosis' summary. Null while none is known.
 	Title *string `json:"title"`
 }
 
@@ -11624,7 +11630,7 @@ type LavaflowRunId = openapi_types.UUID
 // LavaflowRunLimit defines model for LavaflowRunLimit.
 type LavaflowRunLimit = int
 
-// LavaflowRunStatusFilter Where a run is. `diagnosing` means it is running; runs do not report their later stages yet. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
+// LavaflowRunStatusFilter Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 type LavaflowRunStatusFilter = LavaflowRunStatus
 
 // Limit defines model for Limit.

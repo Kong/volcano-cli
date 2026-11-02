@@ -22,7 +22,7 @@ tags:
   - name: Logs
     description: Project-scoped log search and activity APIs
   - name: LavaFlow
-    description: 'Preview, not generally available: LavaFlow diagnoses a project''s issues and opens pull requests that fix them. It never merges. LavaFlow sends this project''s logs and source code to an AI service that Volcano operates. Every endpoint names one project with `project_id`. Where LavaFlow is not available, every endpoint refuses a project that has no LavaFlow records: `403` with code `plan_required` when the owner''s plan does not include LavaFlow, otherwise `404` with code `feature_unavailable`. A project with records keeps reading them and can still turn LavaFlow off.'
+    description: 'Preview, not generally available: LavaFlow diagnoses a project''s issues and opens pull requests that fix them. It never merges. LavaFlow sends this project''s logs and source code to an AI service that Volcano operates. Every endpoint names one project with `project_id`. Where LavaFlow is not available, every endpoint refuses a project that has no LavaFlow records: `404` with code `feature_unavailable` while LavaFlow is not offered to the project, and `403` with code `plan_required` when it is but the owner''s plan does not include it. A project with records keeps reading them and can still turn LavaFlow off.'
   - name: Functions
     description: Function deployment and management
   - name: Durable Functions
@@ -7105,9 +7105,10 @@ paths:
         `lavaflow` capability is, which includes the owner's plan. Where it is
         not, a project with LavaFlow records can still turn LavaFlow off,
         sending `enabled: false` and nothing else to change. Any other save,
-        and any save for a project without records, answers `403` with code
-        `plan_required` when the owner's plan does not include LavaFlow,
-        otherwise `404` with code `feature_unavailable`.
+        and any save for a project without records, answers `404` with code
+        `feature_unavailable` while LavaFlow is not offered to the project, and
+        `403` with code `plan_required` when it is but the owner's plan does
+        not include it.
       operationId: updateLavaflowSettings
       security:
         - UserToken: []
@@ -25242,11 +25243,13 @@ components:
       enum:
         - queued
         - diagnosing
+        - fixing
+        - reviewing
         - pr_open
         - completed
         - failed
         - cancelled
-      description: Where a run is. `diagnosing` means it is running; runs do not report their later stages yet. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
+      description: Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
     LavaflowPullRequest:
       type: object
       properties:
@@ -25266,7 +25269,7 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: When the run opened the pull request. Not reported yet, so always null.
+          description: When the run opened the pull request, null for one opened before LavaFlow recorded the time.
       required:
         - number
         - url
@@ -25292,7 +25295,7 @@ components:
         title:
           type: string
           nullable: true
-          description: The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
+          description: The title of the pull request the run opened, else of the fix it proposed, else its diagnosis' summary. Null while none is known.
         created_at:
           type: string
           format: date-time

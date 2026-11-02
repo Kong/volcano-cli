@@ -405,8 +405,9 @@ func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.Pagi
 
 func runStatuses() string {
 	statuses := []apiclient.LavaflowRunStatus{
-		apiclient.LavaflowRunStatusQueued, apiclient.LavaflowRunStatusDiagnosing, apiclient.LavaflowRunStatusPrOpen,
-		apiclient.LavaflowRunStatusCompleted, apiclient.LavaflowRunStatusFailed, apiclient.LavaflowRunStatusCancelled,
+		apiclient.LavaflowRunStatusQueued, apiclient.LavaflowRunStatusDiagnosing, apiclient.LavaflowRunStatusFixing,
+		apiclient.LavaflowRunStatusReviewing, apiclient.LavaflowRunStatusPrOpen, apiclient.LavaflowRunStatusCompleted,
+		apiclient.LavaflowRunStatusFailed, apiclient.LavaflowRunStatusCancelled,
 	}
 	names := make([]string, 0, len(statuses))
 	for _, status := range statuses {
