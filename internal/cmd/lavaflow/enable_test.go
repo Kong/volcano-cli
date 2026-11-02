@@ -99,8 +99,7 @@ func TestAProjectTokenReadsLavaFlow(t *testing.T) {
 	}
 }
 
-// A person without the role that changes settings is refused by the API,
-// whose words and status come through.
+// A refusal the CLI has no words for keeps the API's words and status.
 func TestEnablePassesTheAPIsRefusalThrough(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
@@ -165,8 +164,8 @@ func TestEnableWithoutATerminalNeedsYes(t *testing.T) {
 	assert.Empty(t, fake.updates)
 }
 
-// Only the project's owner can change LavaFlow. The settings say so first, so
-// a person who isn't the owner is refused before anything is asked or sent.
+// Only the project's owner can change LavaFlow. When the settings say the
+// caller can't, the change is refused before anything is asked or sent.
 func TestChangesBySomeoneWhoIsntTheOwnerAreRefusedFirst(t *testing.T) {
 	for _, args := range [][]string{{"enable"}, {"disable"}, {"settings", "set", "--autonomy", "open_pr"}} {
 		fake, deps := newLavaflowServer(t)
@@ -182,16 +181,18 @@ func TestChangesBySomeoneWhoIsntTheOwnerAreRefusedFirst(t *testing.T) {
 }
 
 // The API's refusal of a change is read by its code, not its status, and a
-// 403 without a code keeps the API's own words.
+// 403 without a code, for a plan that couldn't be read, keeps the API's own
+// words.
 func TestARefusedChangeSaysWhy(t *testing.T) {
 	for code, want := range map[string]string{
 		"person_required": "changing LavaFlow's settings needs a person's session",
-		"":                "failed to turn LavaFlow on: HTTP 403: project ownership required",
+		"plan_required":   lavaflowPlanRequired,
+		"":                "failed to turn LavaFlow on: HTTP 403: the owner's plan could not be read; retry later",
 	} {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
 			s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
-			s.refusal = map[string]any{"error": "project ownership required"}
+			s.refusal = map[string]any{"error": "the owner's plan could not be read; retry later"}
 			if code != "" {
 				s.refusal["code"] = code
 			}
@@ -204,20 +205,20 @@ func TestARefusedChangeSaysWhy(t *testing.T) {
 	}
 }
 
-// A person who isn't the project's owner gets the API's codeless 403 from
-// every route, reads included, with its words and the exit code of a
-// permission refused.
-func TestSomeoneWhoIsntTheOwnerGetsTheAPIsRefusal(t *testing.T) {
+// A 403 without a code, for an owner's plan that couldn't be read, comes
+// through from every route, reads included, with the API's words and the exit
+// code of a permission refused.
+func TestAPlanThatCantBeReadKeepsTheAPIsWords(t *testing.T) {
 	for _, args := range lavaflowCommandArgs() {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
 			s.refuse = http.StatusForbidden
-			s.refusal = map[string]any{"error": "project ownership required"}
+			s.refusal = map[string]any{"error": "the owner's plan could not be read; retry later"}
 		})
 
 		_, err := executeLavaflowCommand(t, New(deps), args...)
 		require.Error(t, err, "%q", args)
-		assert.Contains(t, err.Error(), "project ownership required", "%q", args)
+		assert.Contains(t, err.Error(), "the owner's plan could not be read; retry later", "%q", args)
 		assert.NotContains(t, err.Error(), "isn't available", "%q", args)
 		assert.Equal(t, http.StatusForbidden, api.Status(err), "%q", args)
 		assert.Empty(t, fake.updates, "%q", args)

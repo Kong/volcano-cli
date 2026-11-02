@@ -41,37 +41,87 @@ func TestTheHelpOpensWithTheAIDisclosure(t *testing.T) {
 	}
 }
 
-// lavaflowNotAvailable is what every command says where LavaFlow isn't
-// available for the project, whether its owner's account or plan is why.
-const lavaflowNotAvailable = "LavaFlow isn't available for this project: it isn't open to the owner's account, or the owner's plan doesn't include it"
+// lavaflowNotAvailable is what every command says where LavaFlow isn't open
+// to a project without LavaFlow records or its owner yet.
+const lavaflowNotAvailable = "LavaFlow isn't available for this project yet"
+
+// lavaflowPlanRequired is what every command says where the owner's plan
+// doesn't include LavaFlow and the project has no LavaFlow records.
+const lavaflowPlanRequired = "LavaFlow needs a plan that includes it, and the project owner's plan doesn't"
 
 // A project without LavaFlow records gets feature_unavailable from every
-// route while LavaFlow is off for its account, and a platform release older
-// than LavaFlow has none of its routes. Every command says which rather than
-// report a missing project or run, and exits nonzero with the 404 as the
-// cause.
+// route while LavaFlow isn't open to it, and plan_required while the owner's
+// plan doesn't include LavaFlow; a platform release older than LavaFlow has
+// none of its routes. Every command says which rather than report a missing
+// project or run, and exits nonzero with the refusal as the cause: 4 for a
+// 404, 5 for the plan's 403.
 func TestEveryCommandSaysWhenLavaFlowIsNotAvailable(t *testing.T) {
 	for name, tc := range map[string]struct {
-		off  func(*lavaflowServer)
-		want string
+		off    func(*lavaflowServer)
+		want   string
+		status int
 	}{
-		"no records": {func(s *lavaflowServer) {
+		"not open": {func(s *lavaflowServer) {
 			s.capability = "unavailable"
 			s.refuse = http.StatusNotFound
 			s.refusal = map[string]any{"error": "LavaFlow is not available", "code": "feature_unavailable"}
-		}, lavaflowNotAvailable},
-		"no routes": {func(s *lavaflowServer) { s.routesMissing = true }, "LavaFlow isn't available on this Volcano API"},
+		}, lavaflowNotAvailable, http.StatusNotFound},
+		"no plan": {func(s *lavaflowServer) {
+			s.capability = "unavailable"
+			s.refuse = http.StatusForbidden
+			s.refusal = map[string]any{"error": "LavaFlow needs a plan that includes it", "code": "plan_required"}
+		}, lavaflowPlanRequired, http.StatusForbidden},
+		"no routes": {func(s *lavaflowServer) { s.routesMissing = true }, "LavaFlow isn't available on this Volcano API", http.StatusNotFound},
 	} {
 		for _, args := range lavaflowCommandArgs() {
 			fake, deps := newLavaflowServer(t)
 			fake.set(tc.off)
 
-			_, err := executeLavaflowCommand(t, New(deps), append(args, "--json")...)
+			_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), append(args, "--json")...)
 			require.Error(t, err, "%s %q", name, args)
 			assert.Equal(t, tc.want, err.Error(), "%s %q", name, args)
-			assert.Equal(t, http.StatusNotFound, api.Status(err), "%s %q", name, args)
+			assert.Equal(t, tc.status, api.Status(err), "%s %q", name, args)
+			assert.NotContains(t, errOut, clilavaflow.EnableNotice, "%s %q: nothing is asked", name, args)
 			assert.Empty(t, fake.updates, "%s %q", name, args)
 		}
+	}
+}
+
+// Every LavaFlow request names the current project: in the query on a read,
+// in the body on the settings save.
+func TestEveryRequestNamesTheProject(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	for _, args := range lavaflowCommandArgs() {
+		_, err := executeLavaflowCommand(t, New(deps), args...)
+		require.NoError(t, err, "%q", args)
+	}
+
+	fake.set(func(s *lavaflowServer) {
+		assert.Len(t, s.updates, 3, "enable, disable and settings set saved")
+		require.NotEmpty(t, s.projects)
+		for _, project := range s.projects {
+			assert.Equal(t, lavaflowProjectID, project)
+		}
+	})
+}
+
+// A project the caller can't use, such as another owner's, answers 404
+// project not found from every route, as one that doesn't exist does. The
+// API's words come through with the exit code of a missing resource.
+func TestAProjectTheCallerCantUseIsNotFound(t *testing.T) {
+	for _, args := range lavaflowCommandArgs() {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse = http.StatusNotFound
+			s.refusal = map[string]any{"error": "project not found"}
+		})
+
+		_, err := executeLavaflowCommand(t, New(deps), args...)
+		require.Error(t, err, "%q", args)
+		assert.Contains(t, err.Error(), "project not found", "%q", args)
+		assert.NotContains(t, err.Error(), "isn't available", "%q", args)
+		assert.Equal(t, http.StatusNotFound, api.Status(err), "%q", args)
+		assert.Empty(t, fake.updates, "%q", args)
 	}
 }
 
@@ -89,31 +139,42 @@ func lavaflowCommandArgs() [][]string {
 	}
 }
 
-// Turning LavaFlow on and changing its settings need it available, which the
-// project's capabilities say before anything is asked or sent.
-func TestChangesNeedLavaFlowAvailable(t *testing.T) {
-	for _, capability := range []string{"unavailable", "", "limited"} {
-		for _, args := range [][]string{{"enable"}, {"settings", "set", "--autonomy", "diagnose_only"}} {
-			fake, deps := newLavaflowServer(t)
-			fake.set(func(s *lavaflowServer) { s.capability = capability })
+// lavaflowCantTurnOn is what enable says, before it asks, when the project's
+// capabilities say LavaFlow can't be turned on for a project with records.
+const lavaflowCantTurnOn = "LavaFlow can't be turned on for this project: " +
+	"it isn't open to the owner's account, or the owner's plan doesn't include it"
 
-			_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), args...)
-			require.Error(t, err, "%q %q", capability, args)
-			assert.Equal(t, lavaflowNotAvailable, err.Error(), "%q %q", capability, args)
-			assert.Equal(t, http.StatusNotFound, api.Status(err))
-			assert.NotContains(t, errOut, clilavaflow.EnableNotice, "nothing is asked")
-			assert.Empty(t, fake.updates)
-		}
+// Turning LavaFlow on needs it available, which the project's capabilities
+// say before anything is asked or sent.
+func TestEnableNeedsLavaFlowAvailable(t *testing.T) {
+	for _, capability := range []string{"unavailable", "", "limited"} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) { s.capability = capability })
+
+		_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "enable")
+		require.Error(t, err, "%q", capability)
+		assert.Equal(t, lavaflowCantTurnOn, err.Error(), "%q", capability)
+		assert.Equal(t, http.StatusNotFound, api.Status(err))
+		assert.NotContains(t, errOut, clilavaflow.EnableNotice, "nothing is asked")
+		assert.Empty(t, fake.updates)
 	}
 }
 
 // A project that has LavaFlow records keeps reading them, and can turn
-// LavaFlow off, while LavaFlow is unavailable for its account. Turning it on
-// and changing other settings exit 4.
+// LavaFlow off, while LavaFlow is unavailable for it. enable stops before it
+// asks; settings set asks nothing, so the save says why: 4 while LavaFlow
+// isn't open to the project, 5 for the owner's plan.
 func TestAProjectWithRecordsReadsAndTurnsOffWhileUnavailable(t *testing.T) {
+	for _, planOff := range []bool{false, true} {
+		testAProjectWithRecordsWhileUnavailable(t, planOff)
+	}
+}
+
+func testAProjectWithRecordsWhileUnavailable(t *testing.T, planOff bool) {
+	t.Helper()
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
-		s.capability, s.gateOff = "unavailable", true
+		s.capability, s.gateOff, s.planOff = "unavailable", true, planOff
 		s.settings["enabled"] = true
 	})
 
@@ -135,12 +196,21 @@ func TestAProjectWithRecordsReadsAndTurnsOffWhileUnavailable(t *testing.T) {
 	assert.Contains(t, out, "LavaFlow is off")
 	assert.Equal(t, map[string]any{"enabled": false}, fake.lastUpdate(t))
 
-	for _, args := range [][]string{{"enable", "--yes"}, {"settings", "set", "--system-prompt", "x"}} {
-		_, err := executeLavaflowCommand(t, New(deps), args...)
-		require.Error(t, err, "%q", args)
-		assert.Equal(t, http.StatusNotFound, api.Status(err), "%q", args)
+	_, err = executeLavaflowCommand(t, New(deps), "enable", "--yes")
+	require.Error(t, err)
+	assert.Equal(t, lavaflowCantTurnOn, err.Error())
+	assert.Equal(t, http.StatusNotFound, api.Status(err))
+	assert.Len(t, fake.updates, 1, "enable sent nothing")
+
+	_, err = executeLavaflowCommand(t, New(deps), "settings", "set", "--system-prompt", "x")
+	require.Error(t, err)
+	want, status := lavaflowNotAvailable, http.StatusNotFound
+	if planOff {
+		want, status = lavaflowPlanRequired, http.StatusForbidden
 	}
-	assert.Len(t, fake.updates, 1, "only disable reached the API")
+	assert.Equal(t, want, err.Error(), "plan off: %v", planOff)
+	assert.Equal(t, status, api.Status(err), "plan off: %v", planOff)
+	assert.Equal(t, map[string]any{"system_prompt": "x"}, fake.lastUpdate(t), "the save said why")
 }
 
 // Every command answers --json with the API's own fields and values, the

@@ -13,20 +13,23 @@ bring. LavaFlow never merges: you review and merge its pull requests like any
 other.
 
 Where LavaFlow isn't available, every `volcano cloud lavaflow` command says
-why and exits with code 4:
+why:
 
-- When LavaFlow isn't open to the project owner's account, or the owner's
-  plan doesn't include it, every command says "LavaFlow isn't available for
-  this project: it isn't open to the owner's account, or the owner's plan
-  doesn't include it".
+- When the project owner's plan doesn't include LavaFlow, every command says
+  "LavaFlow needs a plan that includes it, and the project owner's plan
+  doesn't" and exits with code 5.
+- When LavaFlow isn't open to the project or its owner yet, every command
+  says "LavaFlow isn't available for this project yet" and exits with code 4.
 - On a Volcano API that has no LavaFlow, every command says "LavaFlow isn't
-  available on this Volcano API".
+  available on this Volcano API" and exits with code 4.
 
 A project that already has LavaFlow records, such as saved settings or past
 runs, keeps them readable while LavaFlow isn't available for it:
 `status`, `settings`, `stats`, `resources`, `list` and `show` still work, and
-`disable` still turns LavaFlow off. `enable` and `settings set` exit with
-code 4.
+`disable` still turns LavaFlow off. `enable` says "LavaFlow can't be turned on
+for this project: it isn't open to the owner's account, or the owner's plan
+doesn't include it" before it asks anything, and exits with code 4.
+`settings set` exits with the plan's code 5 or code 4, as above.
 
 ## How it relates
 
@@ -62,16 +65,17 @@ plain text. A control character in it, such as a color code or a carriage
 return in a log line, prints as a visible escape such as `\x1b`, and with
 `--json` it stays escaped inside the JSON string.
 
-LavaFlow belongs to the project's owner. Anyone else gets the API's refusal
-from every command, and the command exits with code 5. A project access token
-can run the read commands, but only the owner's own session can turn LavaFlow
-on or off and change its settings: `enable`, `disable` and `settings set`
-refuse a project access token before they ask or send anything, also with
-code 5. Sign in with `volcano login` instead, and if `VOLCANO_TOKEN` holds a
-project access token, unset it first.
+LavaFlow belongs to the project's owner. For anyone else, every command says
+"project not found", as for a project that doesn't exist, and exits with
+code 4. A project access token can run the read commands for its own
+project, but only the owner's own session can turn LavaFlow on or off and
+change its settings: `enable`, `disable` and `settings set` refuse a project
+access token before they ask or send anything, with code 5. Sign in with
+`volcano login` instead, and if `VOLCANO_TOKEN` holds a project access token,
+unset it first.
 
-Turning LavaFlow on and changing its settings need a plan that includes
-LavaFlow. Without one, `enable` and `settings set` exit with code 4, as above.
+When Volcano can't read the owner's plan, a command says so in the API's
+words and exits with code 5. Run it again later.
 
 ## Turn it on
 
