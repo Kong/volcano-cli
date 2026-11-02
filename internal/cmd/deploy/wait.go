@@ -209,15 +209,19 @@ func (r *runner) inactiveScheduledFunctions(ctx context.Context, scheduled map[s
 }
 
 // refusedSchedulers dry-runs each manifest and returns the inactive functions
-// whose schedulers the server refuses. An unchanged scheduler is accepted
-// while its function builds, so a redeploy usually needs no second pass. Any
-// other failure is left for the real apply to report.
+// whose schedulers the server refuses only because the function is not
+// deployed yet. An unchanged scheduler is accepted while its function builds,
+// so a redeploy usually needs no second pass. A function with any other
+// scheduler error, such as an invalid cron, is not held back, so the real
+// apply reports that error now. Any other failure is left for the real apply
+// too.
 func (r *runner) refusedSchedulers(ctx context.Context, manifests []manifestFile, inactive []startedDeployment) []startedDeployment {
 	names := map[string]bool{}
 	for _, d := range inactive {
 		names[d.name] = true
 	}
 	refused := map[string]bool{}
+	invalid := map[string]bool{}
 	configs := projectconfig.NewService(r.opts.deps)
 	for _, m := range manifests {
 		_, err := configs.Deploy(ctx, m.manifest, true)
@@ -230,18 +234,29 @@ func (r *runner) refusedSchedulers(ctx context.Context, manifests []manifestFile
 				continue
 			}
 			function, _, _ := strings.Cut(*e.Name, "/")
-			if names[function] {
+			if !names[function] {
+				continue
+			}
+			if refusedUntilDeployed(e.Message) {
 				refused[function] = true
+			} else {
+				invalid[function] = true
 			}
 		}
 	}
 	var held []startedDeployment
 	for _, d := range inactive {
-		if refused[d.name] {
+		if refused[d.name] && !invalid[d.name] {
 			held = append(held, d)
 		}
 	}
 	return held
+}
+
+// refusedUntilDeployed reports whether a scheduler error is one the server
+// stops returning once the function is active with deployed regions.
+func refusedUntilDeployed(message string) bool {
+	return strings.Contains(message, "active function") || strings.Contains(message, "no deployed regions")
 }
 
 // applyDeferredSchedulers applies the manifests again, schedulers included,

@@ -772,6 +772,41 @@ func TestDeployNoWaitPrintsTheCommandThatAppliesTheSchedulers(t *testing.T) {
 		"  volcano cloud config deploy -f volcano/volcano-config.yaml")
 }
 
+func TestDeployReportsAnInvalidSchedulerWhileTheFunctionBuilds(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning"}}
+	fake.invalidSchedulers = map[string]string{"hello": "cron: invalid cron expression"}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.Error(t, err, out)
+
+	require.Len(t, fake.configs, 1)
+	assert.Contains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
+	assert.Contains(t, out, "cron: invalid cron expression")
+	assert.NotContains(t, out+err.Error(), "were not applied")
+}
+
+func TestDeployDoesNotHoldBackSchedulersWhenOneIsInvalid(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
+	fake.invalidSchedulers = map[string]string{"hello": "cron: invalid cron expression"}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.Error(t, err, out)
+
+	require.Len(t, fake.configs, 1)
+	assert.Contains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
+	assert.Contains(t, out, "cron: invalid cron expression")
+	assert.NotContains(t, out+err.Error(), "were not applied")
+}
+
 func TestDeployLeavesSchedulersOutWhenTheFunctionFails(t *testing.T) {
 	setDeployCommandTestHome(t)
 	writeScheduledProject(t)

@@ -111,6 +111,9 @@ type fakeVolcano struct {
 	// config refuses, as the server does while a function builds and the
 	// scheduler is new or changed.
 	refusedSchedulers map[string]bool
+	// invalidSchedulers maps a function name to a scheduler error that both a
+	// dry run and a real apply of the config return, such as an invalid cron.
+	invalidSchedulers map[string]string
 
 	mu        sync.Mutex
 	calls     []string
@@ -205,19 +208,7 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		require.NoError(f.t, json.NewDecoder(r.Body).Decode(&body))
 		f.calls = append(f.calls, "config dry run")
-		var refusals []any
-		entries, _ := body["functions"].([]any)
-		for _, entry := range entries {
-			fields, _ := entry.(map[string]any)
-			name, _ := fields["name"].(string)
-			if _, listed := fields["schedulers"]; listed && f.refusedSchedulers[name] {
-				refusals = append(refusals, map[string]any{
-					"section": "functions.schedulers",
-					"name":    name + "/every-minute",
-					"message": "function scheduler requires active function (status: provisioning)",
-				})
-			}
-		}
+		refusals := f.schedulerErrors(body, true)
 		if len(refusals) > 0 {
 			f.writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "validation failed", "errors": refusals})
 			return
@@ -231,6 +222,10 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 		require.NoError(f.t, json.NewDecoder(r.Body).Decode(&body))
 		f.calls = append(f.calls, "config")
 		f.configs = append(f.configs, body)
+		if refusals := f.schedulerErrors(body, false); len(refusals) > 0 {
+			f.writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "validation failed", "errors": refusals})
+			return
+		}
 		f.writeJSON(w, http.StatusOK, map[string]any{
 			"results": []any{}, "skipped": []any{}, "missing": []any{},
 			"summary": map[string]any{"created": 0, "updated": 0, "deleted": 0, "unchanged": 0, "errors": 0, "skipped": 0, "missing": 0},
@@ -459,3 +454,30 @@ func (tickNow) C() <-chan time.Time {
 func (tickNow) Reset(time.Duration) {}
 
 func (tickNow) Stop() {}
+
+// schedulerErrors returns the scheduler validation errors for the function
+// entries in a config body that list schedulers. dryRun adds the refusals for
+// functions that are still building.
+func (f *fakeVolcano) schedulerErrors(body map[string]any, dryRun bool) []any {
+	var refusals []any
+	entries, _ := body["functions"].([]any)
+	for _, entry := range entries {
+		fields, _ := entry.(map[string]any)
+		name, _ := fields["name"].(string)
+		if _, listed := fields["schedulers"]; !listed {
+			continue
+		}
+		if message, ok := f.invalidSchedulers[name]; ok {
+			refusals = append(refusals, map[string]any{
+				"section": "functions.schedulers", "name": name + "/every-minute", "message": message,
+			})
+		}
+		if dryRun && f.refusedSchedulers[name] {
+			refusals = append(refusals, map[string]any{
+				"section": "functions.schedulers", "name": name + "/every-minute",
+				"message": "function scheduler requires active function (status: provisioning)",
+			})
+		}
+	}
+	return refusals
+}
