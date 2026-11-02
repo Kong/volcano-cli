@@ -304,9 +304,8 @@ func fixedRun() map[string]any {
 				"message": "TypeError: Cannot read properties of undefined (reading 'items')",
 			}},
 		},
-		"review":            map[string]any{"verdict": "passed", "rounds": 2},
-		"details_expire_at": "2027-01-28T09:03:00Z",
-		"diff":              "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
+		"review": map[string]any{"verdict": "passed", "rounds": 2},
+		"diff":   "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
 	}
 }
 
@@ -316,7 +315,6 @@ func failedRun() map[string]any {
 		"id": lavaflowFailedID, "project_id": lavaflowProjectID, "status": "failed", "resource": checkoutResource(),
 		"issue_id": lavaflowIssueID,
 		"title":    nil, "pull_request": nil, "diagnosis": nil, "diff": nil, "review": nil,
-		"details_expire_at": "2027-01-27T09:01:00Z", "details_cleared_at": nil,
 		"created_at": "2026-10-29T09:00:00Z", "finished_at": "2026-10-29T09:01:00Z",
 		"failure": map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},
 	}
@@ -328,7 +326,7 @@ func summaries(runs []map[string]any) []any {
 	items := make([]any, 0, len(runs))
 	for _, run := range runs {
 		summary := maps.Clone(run)
-		for _, detail := range []string{"diagnosis", "review", "diff", "failure", "details_expire_at", "details_cleared_at"} {
+		for _, detail := range []string{"diagnosis", "review", "diff", "failure"} {
 			delete(summary, detail)
 		}
 		items = append(items, summary)

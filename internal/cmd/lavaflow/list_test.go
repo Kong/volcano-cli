@@ -43,8 +43,8 @@ func TestListRefusesABadFilterBeforeSending(t *testing.T) {
 		{[]string{"--resource", "checkout"}, `invalid --resource "checkout": use a resource ID from 'volcano cloud lavaflow resources --json'`},
 		{[]string{"--limit", "0"}, "--limit must be between 1 and 100"},
 		{[]string{"--limit", "101"}, "--limit must be between 1 and 100"},
-		{[]string{"--status", "succeeded"}, `invalid --status "succeeded": use one of queued, diagnosing, fixing, ` +
-			"reviewing, pr_open, completed, failed, cancelled"},
+		{[]string{"--status", "succeeded"}, `invalid --status "succeeded": use one of queued, diagnosing, pr_open, ` +
+			"completed, failed, cancelled"},
 	} {
 		fake, deps := newLavaflowServer(t)
 

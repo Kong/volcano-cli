@@ -116,16 +116,17 @@ func TestEnablePassesTheAPIsRefusalThrough(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, api.Status(err))
 }
 
-// enable says where LavaFlow sends the project's data before it changes
-// anything, --yes included, on stderr so --json stays JSON.
-func TestEnableSaysWhereTheDataGoesEvenWithYes(t *testing.T) {
+// enable says what LavaFlow does, in the approved AI disclosure, and where it
+// sends the project's data before it changes anything, --yes included, on
+// stderr so --json stays JSON.
+func TestEnableSaysWhatLavaFlowDoesAndWhereTheDataGoesEvenWithYes(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 
 	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""), "enable", "--yes", "--json")
 	require.NoError(t, err)
-	assert.Equal(t, clilavaflow.EnableNotice+"\n", errOut)
-	assert.Equal(t, "LavaFlow sends this project's logs and source code to an AI service that Volcano operates.",
-		clilavaflow.EnableNotice, "the approved wording, word for word")
+	assert.Equal(t, "LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, "+
+		"and opens fix pull requests in your connected repository.\n"+
+		"LavaFlow sends this project's logs and source code to an AI service that Volcano operates.\n", errOut)
 	assert.Equal(t, true, decodeJSON(t, out)["enabled"])
 	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
 }
@@ -136,7 +137,7 @@ func TestEnableAsksFirst(t *testing.T) {
 
 		out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(answer), "enable")
 		require.NoError(t, err, "%q", answer)
-		assert.True(t, strings.HasPrefix(errOut, clilavaflow.EnableNotice+"\nTurn LavaFlow on? "), "%q: %q", answer, errOut)
+		assert.True(t, strings.HasPrefix(errOut, clilavaflow.EnableDisclosure+"\nTurn LavaFlow on? "), "%q: %q", answer, errOut)
 		if wantOn {
 			assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t), "%q", answer)
 			assert.Contains(t, out, "LavaFlow is on", "%q", answer)
@@ -160,7 +161,7 @@ func TestEnableWithoutATerminalNeedsYes(t *testing.T) {
 
 	_, _, err = executeLavaflowCommandSplit(t, New(deps), stdin, "enable")
 	require.Error(t, err)
-	assert.Equal(t, clilavaflow.EnableNotice+"\n\nstdin is not a terminal: confirmation required; pass --yes", err.Error())
+	assert.Equal(t, clilavaflow.EnableDisclosure+"\n\nstdin is not a terminal: confirmation required; pass --yes", err.Error())
 	assert.Empty(t, fake.updates)
 }
 
@@ -173,26 +174,26 @@ func TestChangesBySomeoneWhoIsntTheOwnerAreRefusedFirst(t *testing.T) {
 
 		_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), args...)
 		require.ErrorIs(t, err, clilavaflow.ErrOwnerDecides, "%q", args)
-		assert.Equal(t, "only the project's owner can change LavaFlow's settings, from their own session", err.Error())
+		assert.Equal(t, "only the project's owner can change LavaFlow's settings, "+
+			"from their own session while their account is active", err.Error())
 		assert.Equal(t, http.StatusForbidden, api.Status(err), "the exit code reports a permission refused")
 		assert.NotContains(t, errOut, clilavaflow.EnableNotice, "nothing is asked")
 		assert.Empty(t, fake.updates)
 	}
 }
 
-// The API's refusal of a change is read by its code, not its status, and a
-// 403 without a code, for a plan that couldn't be read, keeps the API's own
-// words.
+// The API's refusal of a change is read by its code, not its status or its
+// words. A 403 without a code means the owner's plan couldn't be read.
 func TestARefusedChangeSaysWhy(t *testing.T) {
 	for code, want := range map[string]string{
 		"person_required": "changing LavaFlow's settings needs a person's session",
 		"plan_required":   lavaflowPlanRequired,
-		"":                "failed to turn LavaFlow on: HTTP 403: the owner's plan could not be read; retry later",
+		"":                lavaflowPlanUnreadable,
 	} {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
 			s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
-			s.refusal = map[string]any{"error": "the owner's plan could not be read; retry later"}
+			s.refusal = map[string]any{"error": apiPlanRefusal}
 			if code != "" {
 				s.refusal["code"] = code
 			}
@@ -205,21 +206,28 @@ func TestARefusedChangeSaysWhy(t *testing.T) {
 	}
 }
 
-// A 403 without a code, for an owner's plan that couldn't be read, comes
-// through from every route, reads included, with the API's words and the exit
-// code of a permission refused.
-func TestAPlanThatCantBeReadKeepsTheAPIsWords(t *testing.T) {
+// lavaflowPlanUnreadable is what every command says for a route's 403 without
+// a code: the owner's plan couldn't be read.
+const lavaflowPlanUnreadable = "LavaFlow couldn't read the project owner's plan; try again later"
+
+// apiPlanRefusal is the API's text for a plan refusal. It sends the same text
+// with no code when it couldn't read the plan.
+const apiPlanRefusal = "the project owner's plan does not include LavaFlow"
+
+// A 403 without a code, for an owner's plan that couldn't be read, says so
+// from every route, reads included, rather than repeat the API's plan
+// refusal, with the exit code of a permission refused.
+func TestAPlanThatCantBeReadSaysSo(t *testing.T) {
 	for _, args := range lavaflowCommandArgs() {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
 			s.refuse = http.StatusForbidden
-			s.refusal = map[string]any{"error": "the owner's plan could not be read; retry later"}
+			s.refusal = map[string]any{"error": apiPlanRefusal}
 		})
 
 		_, err := executeLavaflowCommand(t, New(deps), args...)
 		require.Error(t, err, "%q", args)
-		assert.Contains(t, err.Error(), "the owner's plan could not be read; retry later", "%q", args)
-		assert.NotContains(t, err.Error(), "isn't available", "%q", args)
+		assert.Equal(t, lavaflowPlanUnreadable, err.Error(), "%q", args)
 		assert.Equal(t, http.StatusForbidden, api.Status(err), "%q", args)
 		assert.Empty(t, fake.updates, "%q", args)
 	}
