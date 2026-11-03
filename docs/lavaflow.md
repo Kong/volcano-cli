@@ -163,7 +163,10 @@ At autonomy `merge`, `--merge-mode` decides when LavaFlow merges a reviewed
 fix:
 
 - `human`, the default: A person approves every merge.
-- `auto`: LavaFlow merges a fix that passes review and its required checks, unless the project's merge instructions or a platform hold say a person must approve it.
+- `auto`, not available yet: LavaFlow merges a fix that passes review and its required checks, unless the project's merge instructions or a platform hold say a person must approve it.
+
+Until `auto` is available, Volcano refuses `--merge-mode auto`, and the
+command prints its refusal.
 
 In every mode, anyone with write access to the repository can approve with an
 approving GitHub review at the fix's current head, as well as in Volcano. A
@@ -179,18 +182,17 @@ autonomy, and below `merge` the line says merging is off.
 
 ### Merge instructions
 
-`--merge-instructions` says, in your own words, which fixes need a person in
-`auto` mode, such as "Billing changes and anything irreversible need a
-person." LavaFlow judges each fix against them, and they only add holds, never
-release one. They take up to
-4,000 characters, from the flag or a file (`--merge-instructions-file`, where
-`-` reads stdin). An empty value goes back to Volcano's default instructions.
-`settings` prints the instructions in full, or Volcano's default ones when
-none are set.
+Merge instructions aren't available yet. Until they are, Volcano refuses
+`--merge-instructions` and `--merge-instructions-file`, and the command prints
+its refusal.
 
-```bash
-volcano cloud lavaflow settings set --merge-instructions-file merge-instructions.md
-```
+They're for `auto` mode: in your own words, they'll say which fixes need a
+person, such as "Billing changes and anything irreversible need a person."
+LavaFlow will judge each fix against them, and they'll only add holds, never
+release one. They take up to 4,000 characters, from the flag or a file
+(`--merge-instructions-file`, where `-` reads stdin), and an empty value goes
+back to Volcano's default instructions. In `auto` mode, `settings` prints them
+in full, or Volcano's default ones when none are set.
 
 The merge instructions guide LavaFlow's judgment and aren't a security
 boundary. Use `--human-review-path` for anything that must always wait for a
@@ -204,7 +206,7 @@ The rest of the merge policy:
 - `--allow-merge-without-checks true|false`: whether LavaFlow may merge where
   the repository requires no checks. It's `false` unless you change it.
 - `--allow-ci-before-approval true|false`: whether CI runs before a person
-  approves. Only `auto` allows `true`.
+  approves. Only `auto`, which isn't available yet, allows `true`.
 
 ```bash
 volcano cloud lavaflow settings set --human-review-path 'infra/**' --human-review-path 'migrations/**'

@@ -114,8 +114,9 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 
 // requireAPIE2ELavaFlowMergeMode turns on merging where it's available and
 // saves each merge mode, reading it back; where it isn't, autonomy merge is
-// refused as unavailable. Either way the project ends at open_pr, and a run
-// that doesn't exist can't be approved.
+// refused as unavailable. auto is refused as not available yet until Volcano
+// offers it. Either way the project ends at open_pr, and a run that doesn't
+// exist can't be approved.
 func requireAPIE2ELavaFlowMergeMode(t *testing.T, env *apiE2E) {
 	t.Helper()
 	unknownRun := "00000000-0000-4000-8000-000000000000"
@@ -128,11 +129,16 @@ func requireAPIE2ELavaFlowMergeMode(t *testing.T, env *apiE2E) {
 	}
 	human := string(apiclient.LavaflowHumanMergeMode)
 	defer env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "open_pr", "--merge-mode", human).requireSuccess(t)
-	for mode, want := range map[string]string{
-		"auto": "unless the project's merge instructions",
-		human:  "A person approves every merge.",
+	for _, mode := range []struct{ name, want string }{
+		{"auto", "unless the project's merge instructions"},
+		{human, "A person approves every merge."},
 	} {
-		env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-mode", mode).requireSuccess(t, "Merging: "+want)
+		set := env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-mode", mode.name)
+		if mode.name == "auto" && set.code != 0 {
+			set.requireFailure(t, autoMergeNotAvailable)
+			continue
+		}
+		set.requireSuccess(t, "Merging: "+mode.want)
 		settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")
 		settings.requireSuccess(t)
 		var saved struct {
@@ -143,15 +149,20 @@ func requireAPIE2ELavaFlowMergeMode(t *testing.T, env *apiE2E) {
 		if err := json.Unmarshal([]byte(settings.stdout), &saved); err != nil {
 			t.Fatalf("settings --json did not emit JSON: %v\n%s", err, settings.output)
 		}
-		if saved.MergePolicy.Mode != mode {
-			t.Fatalf("settings did not read back merge mode %q: %+v", mode, saved)
+		if saved.MergePolicy.Mode != mode.name {
+			t.Fatalf("settings did not read back merge mode %q: %+v", mode.name, saved)
 		}
 	}
 	requireAPIE2ELavaFlowMergeInstructions(t, env)
 }
 
+// autoMergeNotAvailable is how the CLI refuses the auto merge mode and merge
+// instructions until Volcano offers them.
+const autoMergeNotAvailable = "LavaFlow's auto merge mode and merge instructions aren't available yet"
+
 // requireAPIE2ELavaFlowMergeInstructions saves merge instructions, reads them
-// back, and goes back to Volcano's default, which reads back as null.
+// back, and goes back to Volcano's default, which reads back as null. Until
+// Volcano offers them, both are refused as not available yet.
 func requireAPIE2ELavaFlowMergeInstructions(t *testing.T, env *apiE2E) {
 	t.Helper()
 	readBack := func() *string {
@@ -168,7 +179,13 @@ func requireAPIE2ELavaFlowMergeInstructions(t *testing.T, env *apiE2E) {
 		return saved.MergePolicy.Instructions
 	}
 	instructions := "cli-e2e: billing changes need a person."
-	env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-instructions", instructions).requireSuccess(t)
+	set := env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-instructions", instructions)
+	if set.code != 0 {
+		set.requireFailure(t, autoMergeNotAvailable)
+		env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-instructions", "").requireFailure(t, autoMergeNotAvailable)
+		return
+	}
+	set.requireSuccess(t)
 	if got := readBack(); got == nil || *got != instructions {
 		t.Fatalf("settings did not read back the merge instructions: %v", got)
 	}

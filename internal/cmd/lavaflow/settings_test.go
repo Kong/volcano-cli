@@ -189,6 +189,34 @@ func TestSettingsSetSaysWhenMergingIsntAvailable(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, api.Status(err))
 }
 
+// Until Volcano offers them, the auto merge mode and the merge instructions
+// are refused with the API's words, not as merging being unavailable.
+func TestSettingsSetSaysAutoMergeIsntAvailable(t *testing.T) {
+	for _, args := range [][]string{
+		{"--merge-mode", "auto"},
+		{"--merge-instructions", "Billing changes need a person."},
+		{"--merge-instructions", ""},
+		{"--autonomy", "merge", "--merge-mode", "auto"},
+	} {
+		for message, want := range map[string]string{
+			"auto merging is not offered yet": "LavaFlow's auto merge mode and merge instructions aren't available yet. " +
+				`Volcano said: "auto merging is not offered yet"`,
+			"": "LavaFlow's auto merge mode and merge instructions aren't available yet",
+		} {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.refuse, s.refuseMethod = http.StatusBadRequest, http.MethodPut
+				s.refusal = map[string]any{"error": message, "code": "feature_unavailable"}
+			})
+
+			_, err := executeLavaflowCommand(t, New(deps), append([]string{"settings", "set"}, args...)...)
+			require.Error(t, err, "%q", args)
+			assert.Equal(t, want, err.Error(), "%q", args)
+			assert.Equal(t, http.StatusBadRequest, api.Status(err), "%q", args)
+		}
+	}
+}
+
 func tooManyReviewPaths() []string {
 	args := make([]string, 0, 2*(clilavaflow.MaxHumanReviewPaths+1))
 	for i := range clilavaflow.MaxHumanReviewPaths + 1 {
@@ -244,14 +272,17 @@ func TestSettingsSetChangesTheMergePolicy(t *testing.T) {
 const humanMergeMode = string(apiclient.LavaflowHumanMergeMode)
 
 // settings set --help says what each merge mode does, in the approved copy,
-// and what's true in every mode.
+// and what's true in every mode. auto and the merge instructions say they
+// aren't available yet.
 func TestSettingsSetHelpSaysWhatEachMergeModeDoes(t *testing.T) {
 	_, deps := newLavaflowServer(t)
 
 	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--help")
 	require.NoError(t, err)
 	assert.Contains(t, out, "  "+humanMergeMode+" (the default): A person approves every merge.\n")
-	assert.Contains(t, out, "  auto: LavaFlow merges a fix that passes review and its required checks, unless the project's merge instructions or a platform hold say a person must approve it.\n")
+	assert.Contains(t, out, "  auto, not available yet: LavaFlow merges a fix that passes review and its required checks, unless the project's merge instructions or a platform hold say a person must approve it.\n")
+	assert.Contains(t, out, "Until auto is available, Volcano refuses it.")
+	assert.Contains(t, out, "--merge-instructions and --merge-instructions-file aren't available yet")
 	assert.Contains(t, out, "In every mode: Anyone with write access to the repository can approve with an approving GitHub review at the fix's current head, as well as in Volcano. A new commit voids an approval, and bot and App reviews don't count. Reviewer concerns block merging.\n")
 	assert.Contains(t, out, "The merge instructions guide LavaFlow's judgment and aren't a security boundary: "+
 		"use --human-review-path for anything that must always wait for a person.\n")
@@ -259,8 +290,9 @@ func TestSettingsSetHelpSaysWhatEachMergeModeDoes(t *testing.T) {
 }
 
 // The merge instructions are sent as given, from the flag, a file or stdin;
-// an empty value goes back to Volcano's default, sent as null. settings prints
-// them in full, or Volcano's default ones verbatim.
+// an empty value goes back to Volcano's default, sent as null. In the auto
+// merge mode, settings prints them in full, or Volcano's default ones
+// verbatim; other modes don't use them, so it prints nothing for them.
 func TestSettingsSetChangesTheMergeInstructions(t *testing.T) {
 	instructions := "Billing changes and anything irreversible need a person."
 	file := filepath.Join(t.TempDir(), "instructions.md")
@@ -279,11 +311,18 @@ func TestSettingsSetChangesTheMergeInstructions(t *testing.T) {
 
 		out, err := executeLavaflowCommand(t, New(deps), "settings")
 		require.NoError(t, err, name)
+		assert.NotContains(t, out, "Merge instructions", "%s: not in the human merge mode", name)
+		fake.set(func(s *lavaflowServer) { s.settings["merge_policy"].(map[string]any)["mode"] = "auto" })
+		out, err = executeLavaflowCommand(t, New(deps), "settings")
+		require.NoError(t, err, name)
 		assert.Contains(t, out, "\nMerge instructions\n  "+instructions+"\n", name)
 	}
 
 	fake, deps := newLavaflowServer(t)
-	fake.set(func(s *lavaflowServer) { s.settings["merge_policy"].(map[string]any)["instructions"] = instructions })
+	fake.set(func(s *lavaflowServer) {
+		s.settings["merge_policy"].(map[string]any)["mode"] = "auto"
+		s.settings["merge_policy"].(map[string]any)["instructions"] = instructions
+	})
 	_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--merge-instructions", "")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"merge_policy": map[string]any{"instructions": nil}}, fake.lastUpdate(t),

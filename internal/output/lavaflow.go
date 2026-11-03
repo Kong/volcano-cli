@@ -304,10 +304,11 @@ func lavaflowMergePolicyDetails(w io.Writer, on bool, policy apiclient.LavaflowM
 }
 
 // lavaflowMergeInstructions prints the merge instructions in full, or, when
-// none are set, Volcano's default ones, verbatim when the API sends them.
+// none are set, Volcano's default ones, verbatim when the API sends them. They
+// apply only in the auto merge mode, so other modes print nothing.
 func lavaflowMergeInstructions(w io.Writer, on bool, policy apiclient.LavaflowMergePolicy) {
 	switch {
-	case policy.Mode == "":
+	case policy.Mode != apiclient.Auto:
 	case policy.Instructions != nil:
 		block(w, on, "Merge instructions", *policy.Instructions)
 	case policy.DefaultInstructions != nil && strings.TrimSpace(*policy.DefaultInstructions) != "":

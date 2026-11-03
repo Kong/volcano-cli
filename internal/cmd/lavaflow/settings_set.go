@@ -53,22 +53,23 @@ mode allows.
 
 --merge-mode decides when LavaFlow merges a fix at autonomy %[6]s:
   %[4]s (the default): %[8]s
-  %[5]s: %[9]s
-In every mode: %[10]s
+  %[5]s, not available yet: %[9]s
+Until %[5]s is available, Volcano refuses it. In every mode: %[10]s
 
---merge-instructions says, in your own words, which fixes need a person in
-auto mode, such as "Billing changes and anything irreversible need a person".
-LavaFlow judges each fix against them, and they only add holds. Up to %[3]d characters, from the flag
-or a file (--merge-instructions-file; - reads stdin). Pass an empty value to
-go back to Volcano's default instructions, which 'settings' prints.
+--merge-instructions and --merge-instructions-file aren't available yet, and
+Volcano refuses them until they are. They're for %[5]s: in your own words,
+they'll say which fixes need a person, such as "Billing changes and anything
+irreversible need a person". LavaFlow will judge each fix against them, and
+they'll only add holds. Up to %[3]d characters, from the flag or a file, where
+- reads stdin; an empty value goes back to Volcano's default instructions.
 %[11]s
 
 --human-review-path names a path whose changes always wait for a person;
 repeat it for each, up to %[7]d. It replaces the saved paths, and
 --clear-human-review-paths removes them all. --allow-merge-without-checks
 true lets LavaFlow merge where the repository requires no checks.
---allow-ci-before-approval true runs CI before a person approves; only %[5]s
-allows it.
+--allow-ci-before-approval true runs CI before a person approves; only %[5]s,
+which isn't available yet, allows it.
 
 --custom-context tells LavaFlow's runs about the project, and --system-prompt
 adds instructions to LavaFlow's own. LavaFlow saves both, but its runs don't
@@ -94,11 +95,11 @@ one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength,
 		},
 	}
 	cmd.Flags().StringVar(&opts.autonomy, "autonomy", "", "How far LavaFlow goes: diagnose_only, open_pr or merge")
-	cmd.Flags().StringVar(&opts.mergeMode, "merge-mode", "", fmt.Sprintf("When LavaFlow merges a fix: %s or %s",
+	cmd.Flags().StringVar(&opts.mergeMode, "merge-mode", "", fmt.Sprintf("When LavaFlow merges a fix: %s, or %s (not available yet)",
 		apiclient.LavaflowHumanMergeMode, apiclient.Auto))
 	cmd.Flags().StringVar(&opts.instructions, "merge-instructions", "",
-		"Which fixes need a person in auto mode, in your own words (empty: Volcano's default)")
-	cmd.Flags().StringVar(&opts.instructionsFile, "merge-instructions-file", "", "Read the merge instructions from a file, or - for stdin")
+		"Not available yet: which fixes need a person in auto mode, in your own words (empty: Volcano's default)")
+	cmd.Flags().StringVar(&opts.instructionsFile, "merge-instructions-file", "", "Not available yet: read the merge instructions from a file, or - for stdin")
 	cmd.Flags().StringArrayVar(&opts.reviewPaths, "human-review-path", nil,
 		"A path whose changes always wait for a person (repeatable; replaces the saved paths)")
 	cmd.Flags().BoolVar(&opts.clearReviewPaths, "clear-human-review-paths", false,
@@ -106,7 +107,7 @@ one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength,
 	cmd.Flags().StringVar(&opts.mergeWithoutCheck, "allow-merge-without-checks", "",
 		"Whether LavaFlow may merge where the repository requires no checks: true or false")
 	cmd.Flags().StringVar(&opts.ciBeforeApproval, "allow-ci-before-approval", "",
-		"Whether CI runs before a person approves, in auto only: true or false")
+		"Whether CI runs before a person approves, in auto only (not available yet): true or false")
 	cmd.Flags().StringVar(&opts.customContext, "custom-context", "", "Context about the project for LavaFlow's runs")
 	cmd.Flags().StringVar(&opts.customContextFile, "custom-context-file", "", "Read the custom context from a file")
 	cmd.Flags().StringVar(&opts.systemPrompt, "system-prompt", "", "Instructions added to LavaFlow's own")

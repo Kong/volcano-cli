@@ -345,15 +345,39 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	}
 	settings, err := authenticated.API.UpdateLavaflowSettings(ctx, authenticated.ProjectID, update)
 	if err != nil {
+		if namesAutoMerge(update.MergePolicy) && unavailableValue(err) {
+			return nil, autoMergeNotAvailable(err)
+		}
 		return nil, refused(authenticated.Config, fmt.Errorf("failed to %s: %w", verb, err))
 	}
 	return settings, nil
 }
 
+// namesAutoMerge says whether a change names the auto merge mode or merge
+// instructions.
+func namesAutoMerge(policy *apiclient.LavaflowMergePolicyUpdate) bool {
+	return policy != nil && (policy.Mode != nil && *policy.Mode == apiclient.Auto || policy.Instructions.IsSpecified())
+}
+
+// unavailableValue says whether the API refused a value it doesn't offer yet.
+func unavailableValue(err error) bool {
+	return api.Code(err) == codeFeatureUnavailable && api.Status(err) == http.StatusBadRequest
+}
+
+// autoMergeNotAvailable refuses the auto merge mode or merge instructions,
+// with the API's words quoted as Volcano's.
+func autoMergeNotAvailable(err error) error {
+	if message := api.Message(err); message != "" {
+		return api.WithCause(fmt.Errorf("%w. Volcano said: %q", ErrAutoMergeNotAvailable, message), err)
+	}
+	return api.WithCause(ErrAutoMergeNotAvailable, err)
+}
+
 // refused says why the API refused a change, by its code rather than its
 // status, keeping the refusal as the cause for the exit code. A 400 with
-// feature_unavailable refuses a value, which today is only autonomy merge
-// while merging is off for the project. A 403 without a code covers more than
+// feature_unavailable refuses a value: here autonomy merge while merging is
+// off for the project, since update reads the auto merge mode's and merge
+// instructions' refusal first. A 403 without a code covers more than
 // the plan here, so it adds the API's words, quoted as Volcano's: for a plan
 // that couldn't be read they read like a plan refusal, which isn't the CLI's
 // conclusion.
@@ -361,7 +385,7 @@ func refused(cfg *config.Config, err error) error {
 	switch {
 	case api.Code(err) == codePersonRequired:
 		return personDecides(cfg, err)
-	case api.Code(err) == codeFeatureUnavailable && api.Status(err) == http.StatusBadRequest:
+	case unavailableValue(err):
 		return api.WithCause(ErrMergingNotAvailable, err)
 	case api.Code(err) == "" && api.Status(err) == http.StatusForbidden:
 		if message := api.Message(err); message != "" {

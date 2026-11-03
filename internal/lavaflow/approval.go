@@ -46,6 +46,11 @@ var ErrHeadMoved = errors.New("the fix's pull request changed since the run was 
 // doesn't merge for this project yet.
 var ErrMergingNotAvailable = errors.New("LavaFlow merging isn't available for this project yet")
 
+// ErrAutoMergeNotAvailable reports feature_unavailable for a change that
+// names the auto merge mode or merge instructions, which Volcano doesn't offer
+// yet.
+var ErrAutoMergeNotAvailable = errors.New("LavaFlow's auto merge mode and merge instructions aren't available yet")
+
 // ErrMergingNotOnAPI reports an API without the approval route: a platform
 // release older than LavaFlow's merging.
 var ErrMergingNotOnAPI = errors.New("LavaFlow merging isn't available on this Volcano API")
