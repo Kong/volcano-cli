@@ -66,9 +66,9 @@ function the run just deployed is usually still building when the config step
 runs. When a manifest adds or changes a scheduler on such a function, the
 config step leaves out that function's schedulers and applies the rest of the
 manifest. After the wait, the command applies the manifests again with the
-schedulers. Schedulers that don't change apply in the config step as usual. With `--no-wait`, or when one of those
-functions fails to deploy, it prints the `config deploy` commands that apply
-the schedulers later.
+schedulers. Schedulers that don't change apply in the config step as usual. With `--no-wait`, or when
+the wait fails because any deployment fails or times out, it prints the
+`config deploy` commands that apply the schedulers later.
 
 A deployment can be redeployed while the run waits, for example when the config
 step changes a function's regions. The run then waits for the newer deployment,

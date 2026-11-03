@@ -280,8 +280,9 @@ func (r *runner) applyDeferredSchedulers(ctx context.Context) error {
 // schedulerHint says which schedulers were not applied and how to apply them.
 func (r *runner) schedulerHint() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Schedulers for %s were not applied. Once %s active, apply them with:",
-		strings.Join(deploymentNames(r.deferred), ", "), plural(len(r.deferred), "it is", "they are"))
+	fmt.Fprintf(&b, "Schedulers for %s were not applied. Once %s, apply them with:",
+		strings.Join(deploymentNames(r.deferred), ", "),
+		plural(len(r.deferred), "it is active, if it isn't already", "they are active, if they aren't already"))
 	for _, command := range r.configCommands {
 		b.WriteString("\n  " + command)
 	}

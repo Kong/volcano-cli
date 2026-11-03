@@ -768,7 +768,7 @@ func TestDeployNoWaitPrintsTheCommandThatAppliesTheSchedulers(t *testing.T) {
 
 	require.Len(t, fake.configs, 1)
 	assert.NotContains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
-	assert.Contains(t, out, "Schedulers for hello were not applied. Once it is active, apply them with:\n"+
+	assert.Contains(t, out, "Schedulers for hello were not applied. Once it is active, if it isn't already, apply them with:\n"+
 		"  volcano cloud config deploy -f volcano/volcano-config.yaml")
 }
 
@@ -823,6 +823,24 @@ func TestDeployLeavesSchedulersOutWhenTheFunctionFails(t *testing.T) {
 	assert.Contains(t, err.Error(), "1 deployment(s) failed: function hello")
 	assert.Contains(t, err.Error(), "Schedulers for hello were not applied")
 	assert.Contains(t, err.Error(), "volcano cloud config deploy -f volcano/volcano-config.yaml")
+}
+
+func TestDeployLeavesSchedulersOutWhenAnotherDeploymentFails(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning", "active"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
+	fake.statuses = map[string][]string{"web": {"failed"}}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)))
+	require.Error(t, err, out)
+
+	require.Len(t, fake.configs, 1)
+	assert.Contains(t, err.Error(), "1 deployment(s) failed: frontend web")
+	assert.Contains(t, err.Error(), "Schedulers for hello were not applied. Once it is active, if it isn't already, apply them with:\n"+
+		"  volcano cloud config deploy -f volcano/volcano-config.yaml")
 }
 
 func TestDeployAppliesADurableFunctionsSchedulersAfterItDeploys(t *testing.T) {
