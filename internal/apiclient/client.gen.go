@@ -303,6 +303,7 @@ func (e BatchFunctionDeployFailureOperation) Valid() bool {
 // Defines values for CapabilityStatus.
 const (
 	CapabilityStatusAvailable   CapabilityStatus = "available"
+	CapabilityStatusReadOnly    CapabilityStatus = "read_only"
 	CapabilityStatusUnavailable CapabilityStatus = "unavailable"
 )
 
@@ -310,6 +311,8 @@ const (
 func (e CapabilityStatus) Valid() bool {
 	switch e {
 	case CapabilityStatusAvailable:
+		return true
+	case CapabilityStatusReadOnly:
 		return true
 	case CapabilityStatusUnavailable:
 		return true
@@ -5582,10 +5585,13 @@ type BatchFunctionDeployResponse struct {
 
 // Capability A product capability and whether it accepts new work in this environment.
 type Capability struct {
+	// Code Why an `unavailable` capability refuses new work, named like the error code its requests answer with, such as `plan_required`. Absent on any other status, and when requests answer `feature_unavailable`. Treat an unknown code as absent.
+	Code *string `json:"code,omitempty"`
+
 	// Id Stable capability ID, such as `sandboxes`, `sandboxes.sessions`, `sandboxes.custom_templates`, or `issues`. New IDs may appear at any time.
 	Id string `json:"id"`
 
-	// Status `available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`. Treat any other value as `unavailable`.
+	// Status `available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`, or with the capability's `code` when it has one; while the owner's plan can't be read, they answer `403` without a code. `read_only` means the capability takes no new work for the project, but what the project already has stays readable; only a project's list reports it. Treat any other value as `unavailable`.
 	Status CapabilityStatus `json:"status"`
 }
 
@@ -5594,7 +5600,7 @@ type CapabilityList struct {
 	Data []Capability `json:"data"`
 }
 
-// CapabilityStatus `available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`. Treat any other value as `unavailable`.
+// CapabilityStatus `available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`, or with the capability's `code` when it has one; while the owner's plan can't be read, they answer `403` without a code. `read_only` means the capability takes no new work for the project, but what the project already has stays readable; only a project's list reports it. Treat any other value as `unavailable`.
 type CapabilityStatus string
 
 // CompleteUploadSessionResponse Response when completing an upload
@@ -8101,7 +8107,7 @@ type LavaflowFailure struct {
 
 // LavaflowHoldReason One reason LavaFlow holds the fix for a person.
 type LavaflowHoldReason struct {
-	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `merge_blocked`: GitHub reports the merge blocked once checks pass. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
+	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
 	Code string `json:"code"`
 
 	// Paths The changed paths that matched, for a path code.

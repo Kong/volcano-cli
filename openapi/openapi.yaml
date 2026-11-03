@@ -22,7 +22,7 @@ tags:
   - name: Logs
     description: Project-scoped log search and activity APIs
   - name: LavaFlow
-    description: 'Preview, not generally available: LavaFlow diagnoses a project''s issues and opens pull requests that fix them. It never merges. LavaFlow sends this project''s logs and source code to an AI service that Volcano operates. Every endpoint names one project with `project_id`. Where LavaFlow is not available, every endpoint refuses a project that has no LavaFlow records: `404` with code `feature_unavailable` while LavaFlow is not offered to the project, and `403` with code `plan_required` when it is but the owner''s plan does not include it. A project with records keeps reading them and can still turn LavaFlow off.'
+    description: 'Preview, not generally available: LavaFlow diagnoses a project''s issues and opens pull requests that fix them; with `autonomy: merge`, it can also merge them. LavaFlow sends this project''s logs and source code to an AI service that Volcano operates. Every endpoint names one project with `project_id`. Where LavaFlow is not available, every endpoint refuses a project that has no LavaFlow records: `404` with code `feature_unavailable` while LavaFlow is not offered to the project, and `403` with code `plan_required` when it is but the owner''s plan does not include it. A project with records keeps reading them and can still turn LavaFlow off.'
   - name: Functions
     description: Function deployment and management
   - name: Durable Functions
@@ -7001,6 +7001,11 @@ paths:
         | --- | --- |
         | `lavaflow` | LavaFlow is released, offered to the project's owner, and included in the owner's plan |
         | `lavaflow.merge` | `lavaflow` is, and LavaFlow's merging is released in this environment |
+
+        Where `lavaflow` isn't available, a project with LavaFlow settings or
+        runs lists it `read_only`: its LavaFlow reads answer, and its owner can
+        turn LavaFlow off. A project without them lists it `unavailable`, with
+        `code` `plan_required` when the owner's plan leaves LavaFlow out.
 
         Check it to decide what to offer for a project, instead of calling a
         route to see whether it fails. Project access tokens can read it,
@@ -19026,6 +19031,10 @@ components:
           example: sandboxes.sessions
         status:
           $ref: '#/components/schemas/CapabilityStatus'
+        code:
+          type: string
+          description: Why an `unavailable` capability refuses new work, named like the error code its requests answer with, such as `plan_required`. Absent on any other status, and when requests answer `feature_unavailable`. Treat an unknown code as absent.
+          example: plan_required
       required:
         - id
         - status
@@ -19034,7 +19043,8 @@ components:
       enum:
         - available
         - unavailable
-      description: '`available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`. Treat any other value as `unavailable`.'
+        - read_only
+      description: '`available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`, or with the capability''s `code` when it has one; while the owner''s plan can''t be read, they answer `403` without a code. `read_only` means the capability takes no new work for the project, but what the project already has stays readable; only a project''s list reports it. Treat any other value as `unavailable`.'
     CapabilityList:
       type: object
       additionalProperties: false
@@ -25179,7 +25189,7 @@ components:
       properties:
         code:
           type: string
-          description: 'Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can''t tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don''t vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix''s branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn''t check, such as required signatures. `merge_blocked`: GitHub reports the merge blocked once checks pass. Other codes name a concern LavaFlow''s reviewers raised. New codes may appear.'
+          description: 'Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can''t tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don''t vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix''s branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn''t check, such as required signatures. Other codes name a concern LavaFlow''s reviewers raised. New codes may appear.'
         question:
           type: string
           description: What a person decides before merging the fix, written to show as given.
