@@ -80,7 +80,11 @@ access token before they ask or send anything, with code 5. Sign in with
 unset it first.
 
 When the owner's plan can't be read, a command says "LavaFlow couldn't read
-the project owner's plan; try again later" and exits with code 5.
+the project owner's plan; try again later" and exits with code 5. A change
+that `enable`, `disable` or `settings set` sends can also be refused for a
+read-only access token or account; the API doesn't tell those apart from a
+plan it couldn't read, so the command names all three, adds what Volcano
+said, and exits with code 5.
 
 ## Turn it on
 
@@ -265,6 +269,7 @@ Run: 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
 Status: PR open
 Resource: function checkout
 Title: Load the cart before checkout reads it
+Issue: 5b2d8e1c-3f4a-4c6b-9d7e-8a1f2b3c4d5e
 Started: 2026-10-30 09:00
 Pull request: #42 (open) https://github.com/acme/shop/pull/42
 Pull request opened: 2026-10-30 09:03
