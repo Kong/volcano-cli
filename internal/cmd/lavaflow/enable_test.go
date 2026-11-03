@@ -183,12 +183,15 @@ func TestChangesBySomeoneWhoIsntTheOwnerAreRefusedFirst(t *testing.T) {
 }
 
 // The API's refusal of a change is read by its code, not its status or its
-// words. A 403 without a code means the owner's plan couldn't be read.
+// words. A change's 403 without a code covers a read-only token or account as
+// well as a plan that couldn't be read, so it says all three and keeps the
+// API's words.
 func TestARefusedChangeSaysWhy(t *testing.T) {
 	for code, want := range map[string]string{
 		"person_required": "changing LavaFlow's settings needs a person's session",
 		"plan_required":   lavaflowPlanRequired,
-		"":                lavaflowPlanUnreadable,
+		"": "LavaFlow's settings weren't changed: a read-only access token or account can't change them, " +
+			"and otherwise the project owner's plan couldn't be read; try again later (" + apiPlanRefusal + ")",
 	} {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
@@ -203,6 +206,26 @@ func TestARefusedChangeSaysWhy(t *testing.T) {
 		require.Error(t, err, code)
 		assert.Contains(t, err.Error(), want, code)
 		assert.Equal(t, http.StatusForbidden, api.Status(err), code)
+	}
+}
+
+// An owner's account can turn read-only after settings set reads can_update.
+// The change's 403 without a code then says so, with the API's words, rather
+// than blame the plan, and keeps the exit code of a permission refused.
+func TestAChangeRefusedForAReadOnlyAccountSaysSo(t *testing.T) {
+	for _, args := range [][]string{{"enable", "--yes"}, {"disable"}, {"settings", "set", "--autonomy", "diagnose_only"}} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
+			s.refusal = map[string]any{"error": "the account is read-only"}
+		})
+
+		_, err := executeLavaflowCommand(t, New(deps), args...)
+		require.Error(t, err, "%q", args)
+		assert.Equal(t, "LavaFlow's settings weren't changed: a read-only access token or account can't change them, "+
+			"and otherwise the project owner's plan couldn't be read; try again later (the account is read-only)",
+			err.Error(), "%q", args)
+		assert.Equal(t, http.StatusForbidden, api.Status(err), "%q", args)
 	}
 }
 

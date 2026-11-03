@@ -48,6 +48,15 @@ var ErrPlanRequired = errors.New("LavaFlow needs a plan that includes it, and th
 // what happened instead.
 var ErrPlanUnreadable = errors.New("LavaFlow couldn't read the project owner's plan; try again later")
 
+// ErrChangeRefused reports the settings change's 403 without a code. It
+// stands for three refusals the API doesn't tell apart: a read-only project
+// access token, an owner whose account is read-only, and an owner's plan that
+// couldn't be read. The CLI refuses a project access token and checks
+// can_update first, but an account can turn read-only after that check, such
+// as while enable waits for its answer.
+var ErrChangeRefused = errors.New("LavaFlow's settings weren't changed: a read-only access token or account " +
+	"can't change them, and otherwise the project owner's plan couldn't be read; try again later")
+
 // ErrCantTurnOn reports, before enable asks, that the project's capabilities
 // say LavaFlow can't be turned on for a project that has LavaFlow records.
 // The capability counts both the rollout and the owner's plan without saying
@@ -307,10 +316,17 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 }
 
 // refused says why the API refused a change, by its code rather than its
-// status, keeping the refusal as the cause for the exit code.
+// status, keeping the refusal as the cause for the exit code. A 403 without a
+// code covers more than the plan here, so it keeps the API's words too.
 func refused(cfg *config.Config, err error) error {
-	if api.Code(err) == codePersonRequired {
+	switch {
+	case api.Code(err) == codePersonRequired:
 		return personDecides(cfg, err)
+	case api.Code(err) == "" && api.Status(err) == http.StatusForbidden:
+		if message := api.Message(err); message != "" {
+			return api.WithCause(fmt.Errorf("%w (%s)", ErrChangeRefused, message), err)
+		}
+		return api.WithCause(ErrChangeRefused, err)
 	}
 	return unavailable(err)
 }
@@ -437,8 +453,8 @@ func (s Service) GetRun(ctx context.Context, runID string) (*apiclient.LavaflowR
 // unavailable replaces a refusal that says LavaFlow is not on with the error
 // that says why, keeping the refusal so the exit code still reports it: 4 for
 // feature_unavailable, 5 for plan_required and for a 403 without a code, which
-// on LavaFlow's routes means the owner's plan couldn't be read. A 404 without
-// a code, for a project the caller can't use, keeps the API's words.
+// on LavaFlow's reads means the owner's plan couldn't be read. A 404 without a
+// code, for a project the caller can't use, keeps the API's words.
 func unavailable(err error) error {
 	switch {
 	case api.Code(err) == codeFeatureUnavailable:
