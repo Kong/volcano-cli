@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.0](https://github.com/Kong/volcano-cli/compare/v0.61.1...v0.62.0) (2026-11-03)
+
+
+### Features
+
+* **lavaflow:** merge fixes at autonomy merge, and say why a fix is held ([#402](https://github.com/Kong/volcano-cli/issues/402)) ([ef56147](https://github.com/Kong/volcano-cli/commit/ef56147e383855de138dad0b00eeda7824fcaaa4))
+
 ## [0.61.1](https://github.com/Kong/volcano-cli/compare/v0.61.0...v0.61.1) (2026-11-03)
 
 
