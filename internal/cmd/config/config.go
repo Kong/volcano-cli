@@ -48,8 +48,9 @@ func New(deps cliruntime.Deps) *cobra.Command {
 (volcano-config.yaml): project settings, database assertions, variables,
 buckets and policies, realtime, the complete auth configuration (providers,
 email, templates, managed pages), function visibility and schedulers,
-notification settings, LavaFlow settings (cloud only), and frontend custom
-domains, function routes, and Sandbox template settings.
+notification settings, and frontend custom domains, function routes, and
+Sandbox template settings. LavaFlow isn't part of the manifest: turn it on or
+off and change its settings with 'volcano cloud lavaflow'.
 
 The server owns validation and reconciliation; the CLI uploads and downloads
 the manifest.`,
