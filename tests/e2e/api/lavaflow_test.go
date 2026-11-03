@@ -129,8 +129,14 @@ func requireAPIE2ELavaFlowUngatedWorkflows(t *testing.T, env *apiE2E) {
 		env.runCloudCLI(t, "lavaflow", "settings", "set", "--allow-ungated-workflows", "false").requireSuccess(t)
 	})
 
-	env.runCloudCLI(t, "lavaflow", "settings", "set", "--allow-ungated-workflows", "true", "--yes").
-		requireSuccess(t, "Turn it on only if those workflows keep secrets away from untrusted code", "Ungated workflows: allowed")
+	allowed := env.runCloudCLI(t, "lavaflow", "settings", "set", "--allow-ungated-workflows", "true", "--yes", "--json")
+	allowed.requireSuccess(t, "Turn it on only if those workflows keep secrets away from untrusted code")
+	var saved struct {
+		AllowUngatedWorkflows bool `json:"allow_ungated_workflows"`
+	}
+	if err := json.Unmarshal([]byte(allowed.stdout), &saved); err != nil || !saved.AllowUngatedWorkflows {
+		t.Fatalf("settings set --yes --json did not emit the saved settings as JSON (%v):\n%s", err, allowed.output)
+	}
 	if !readBack() {
 		t.Fatal("settings did not read back allow_ungated_workflows: true")
 	}

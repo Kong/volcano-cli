@@ -338,6 +338,9 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 func refused(cfg *config.Config, err error) error {
 	switch {
 	case api.Code(err) == codePersonRequired:
+		if message := api.Message(err); message != "" {
+			return api.WithCause(fmt.Errorf("%w. Volcano said: %q", personDecides(cfg, err), message), err)
+		}
 		return personDecides(cfg, err)
 	case api.Code(err) == "" && api.Status(err) == http.StatusForbidden:
 		if message := api.Message(err); message != "" {
