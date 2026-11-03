@@ -80,6 +80,7 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env.runCloudCLI(t, "lavaflow", "stats", "--days", "7").requireSuccess(t, "0 issue(s) opened and 0 fix pull request(s) opened")
 	env.runCloudCLI(t, "lavaflow", "resources").requireSuccess(t)
 	env.runCloudCLI(t, "lavaflow", "list").requireSuccess(t, "No runs")
+	requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires(t, env)
 	requireAPIE2ELavaFlowNeedsAPerson(t, env)
 
 	env.runCloudCLI(t, "lavaflow", "disable").requireSuccess(t, "LavaFlow is off")
@@ -104,4 +105,35 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings").requireSuccess(t, "LavaFlow: on")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "disable").
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
+	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings", "set", "--autonomy", "merge", "--yes").
+		requireFailure(t, "changing LavaFlow's settings needs a person's session")
+}
+
+// requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires asks for autonomy
+// merge with --yes and --json as the owner. The lane's owner token comes from
+// the management API, which mints tokens that never expire, so after the CLI
+// prints the merge warning, Volcano refuses the change with person_required in
+// its own words (exit 5). Where merging isn't available for the project, it's
+// refused as unavailable instead. Turning merge on, with a token from
+// `volcano login`, is covered by QA's staging gate, not here.
+func requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires(t *testing.T, env *apiE2E) {
+	t.Helper()
+	// Should Volcano save merge anyway, the project still goes back to
+	// diagnose_only before the next check.
+	defer func() {
+		env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only").
+			requireSuccess(t, "LavaFlow's settings are saved")
+	}()
+
+	merging := env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "merge", "--yes", "--json")
+	if strings.Contains(merging.output, "LavaFlow merging isn't available for this project yet") {
+		merging.requireFailure(t)
+		return
+	}
+	merging.requireFailure(t, "run your CI with the secrets your pull request workflows get",
+		"LavaFlow's settings weren't changed: a platform token that never expires can't let LavaFlow merge; "+
+			"run `volcano login`, or create a token with an expiry")
+	if merging.code != 5 {
+		t.Fatalf("settings set --autonomy merge exited %d, want 5:\n%s", merging.code, redactCredentials(merging.output))
+	}
 }

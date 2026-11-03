@@ -120,3 +120,62 @@ func TestShowSaysWhenThePullRequestOpened(t *testing.T) {
 	assert.Contains(t, out, "Pull request: #42 (open) https://github.com/acme/shop/pull/42")
 	assert.NotContains(t, out, "Pull request opened")
 }
+
+// show says where a run's merge is and, once LavaFlow holds the fix, each
+// reason in the API's words, with the paths it names, and that the pull
+// request is now the person's. A reason without words prints its code.
+func TestShowSaysWhyLavaFlowHoldsTheFix(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.holdFix(
+			holdReason("sensitive_path", "It changes authentication configuration.", "volcano/auth.yaml", "volcano/env.yaml"),
+			holdReason("person_commits", ""),
+		)
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Merge: held\n"+
+		"  - It changes authentication configuration. (volcano/auth.yaml, volcano/env.yaml)\n"+
+		"  - person commits\n"+
+		"The pull request is now yours to review and merge on GitHub.\n")
+}
+
+// Each merge status reads as words, with its reason; a stopped fix is the
+// person's from then on. One the CLI doesn't know prints as given, and a run
+// without a merge prints none.
+func TestShowSaysWhereTheMergeIs(t *testing.T) {
+	yours := "The pull request is now yours to review and merge on GitHub."
+	for _, tc := range []struct {
+		status, reason, want string
+	}{
+		{"waiting_for_checks", "", "Merge: waiting for CI\n"},
+		{"waiting_for_checks", "paused", "Merge: waiting for CI (paused while merging is off)\n"},
+		{"queued", "", "Merge: queued to merge\n"},
+		{"merged", "", "Merge: merged\n"},
+		{"stopped", "checks_failed", "Merge: stopped (checks failed)\n" + yours + "\n"},
+		{"stopped", "paused_too_long", "Merge: stopped (paused too long)\n" + yours + "\n"},
+		{"new_status", "", "Merge: new_status\n"},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.holdFix()
+			s.runs[0]["merge"].(map[string]any)["status"] = tc.status
+			if tc.reason != "" {
+				s.runs[0]["merge"].(map[string]any)["reason"] = tc.reason
+			}
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, tc.status)
+		assert.Contains(t, out, tc.want, tc.status)
+		if tc.status != "stopped" {
+			assert.NotContains(t, out, yours, tc.status)
+		}
+	}
+
+	_, deps := newLavaflowServer(t)
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.NotContains(t, out, "Merge:")
+}

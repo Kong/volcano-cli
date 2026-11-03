@@ -19,6 +19,7 @@ func requireLocalModeLeavesLavaFlowToTheCloud(t *testing.T, binary string, env [
 		{"lavaflow", "enable"},
 		{"lavaflow", "disable", "--json"},
 		{"lavaflow", "settings", "set", "--autonomy", "diagnose_only"},
+		{"lavaflow", "settings", "set", "--autonomy", "merge", "--yes"},
 		{"lavaflow", "stats", "--json"},
 		{"lavaflow", "list"},
 		{"lavaflow", "show", "run-id"},

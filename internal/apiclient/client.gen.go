@@ -303,6 +303,7 @@ func (e BatchFunctionDeployFailureOperation) Valid() bool {
 // Defines values for CapabilityStatus.
 const (
 	CapabilityStatusAvailable   CapabilityStatus = "available"
+	CapabilityStatusReadOnly    CapabilityStatus = "read_only"
 	CapabilityStatusUnavailable CapabilityStatus = "unavailable"
 )
 
@@ -310,6 +311,8 @@ const (
 func (e CapabilityStatus) Valid() bool {
 	switch e {
 	case CapabilityStatusAvailable:
+		return true
+	case CapabilityStatusReadOnly:
 		return true
 	case CapabilityStatusUnavailable:
 		return true
@@ -1971,6 +1974,7 @@ func (e ImportProvider) Valid() bool {
 // Defines values for LavaflowAutonomy.
 const (
 	DiagnoseOnly LavaflowAutonomy = "diagnose_only"
+	Merge        LavaflowAutonomy = "merge"
 	OpenPr       LavaflowAutonomy = "open_pr"
 )
 
@@ -1979,7 +1983,36 @@ func (e LavaflowAutonomy) Valid() bool {
 	switch e {
 	case DiagnoseOnly:
 		return true
+	case Merge:
+		return true
 	case OpenPr:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowMergeStatus.
+const (
+	LavaflowMergeStatusHeld             LavaflowMergeStatus = "held"
+	LavaflowMergeStatusMerged           LavaflowMergeStatus = "merged"
+	LavaflowMergeStatusQueued           LavaflowMergeStatus = "queued"
+	LavaflowMergeStatusStopped          LavaflowMergeStatus = "stopped"
+	LavaflowMergeStatusWaitingForChecks LavaflowMergeStatus = "waiting_for_checks"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowMergeStatus enum.
+func (e LavaflowMergeStatus) Valid() bool {
+	switch e {
+	case LavaflowMergeStatusHeld:
+		return true
+	case LavaflowMergeStatusMerged:
+		return true
+	case LavaflowMergeStatusQueued:
+		return true
+	case LavaflowMergeStatusStopped:
+		return true
+	case LavaflowMergeStatusWaitingForChecks:
 		return true
 	default:
 		return false
@@ -1988,19 +2021,19 @@ func (e LavaflowAutonomy) Valid() bool {
 
 // Defines values for LavaflowPullRequestState.
 const (
-	Closed LavaflowPullRequestState = "closed"
-	Merged LavaflowPullRequestState = "merged"
-	Open   LavaflowPullRequestState = "open"
+	LavaflowPullRequestStateClosed LavaflowPullRequestState = "closed"
+	LavaflowPullRequestStateMerged LavaflowPullRequestState = "merged"
+	LavaflowPullRequestStateOpen   LavaflowPullRequestState = "open"
 )
 
 // Valid indicates whether the value is a known member of the LavaflowPullRequestState enum.
 func (e LavaflowPullRequestState) Valid() bool {
 	switch e {
-	case Closed:
+	case LavaflowPullRequestStateClosed:
 		return true
-	case Merged:
+	case LavaflowPullRequestStateMerged:
 		return true
-	case Open:
+	case LavaflowPullRequestStateOpen:
 		return true
 	default:
 		return false
@@ -5552,10 +5585,13 @@ type BatchFunctionDeployResponse struct {
 
 // Capability A product capability and whether it accepts new work in this environment.
 type Capability struct {
+	// Code Why an `unavailable` capability refuses new work, named like the error code its requests answer with, such as `plan_required`. Absent on any other status, and when requests answer `feature_unavailable`. Treat an unknown code as absent.
+	Code *string `json:"code,omitempty"`
+
 	// Id Stable capability ID, such as `sandboxes`, `sandboxes.sessions`, `sandboxes.custom_templates`, or `issues`. New IDs may appear at any time.
 	Id string `json:"id"`
 
-	// Status `available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`. Treat any other value as `unavailable`.
+	// Status `available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`, or with the capability's `code` when it has one; while the owner's plan can't be read, they answer `403` without a code. `read_only` means the capability takes no new work for the project, but what the project already has stays readable; only a project's list reports it. Treat any other value as `unavailable`.
 	Status CapabilityStatus `json:"status"`
 }
 
@@ -5564,7 +5600,7 @@ type CapabilityList struct {
 	Data []Capability `json:"data"`
 }
 
-// CapabilityStatus `available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`. Treat any other value as `unavailable`.
+// CapabilityStatus `available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`, or with the capability's `code` when it has one; while the owner's plan can't be read, they answer `403` without a code. `read_only` means the capability takes no new work for the project, but what the project already has stays readable; only a project's list reports it. Treat any other value as `unavailable`.
 type CapabilityStatus string
 
 // CompleteUploadSessionResponse Response when completing an upload
@@ -8038,7 +8074,7 @@ type LavaflowAnomaly struct {
 	Reason *string `json:"reason"`
 }
 
-// LavaflowAutonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. LavaFlow never merges.
+// LavaflowAutonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
 type LavaflowAutonomy string
 
 // LavaflowDayCounts defines model for LavaflowDayCounts.
@@ -8069,12 +8105,51 @@ type LavaflowFailure struct {
 	Message string `json:"message"`
 }
 
+// LavaflowHoldReason One reason LavaFlow holds the fix for a person.
+type LavaflowHoldReason struct {
+	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
+	Code string `json:"code"`
+
+	// Paths The changed paths that matched, for a path code.
+	Paths []string `json:"paths"`
+
+	// Question What a person decides before merging the fix, written to show as given.
+	Question string `json:"question"`
+}
+
 // LavaflowLogLine defines model for LavaflowLogLine.
 type LavaflowLogLine struct {
 	Level     string     `json:"level"`
 	Message   string     `json:"message"`
 	Timestamp *time.Time `json:"timestamp"`
 }
+
+// LavaflowMerge Where the run's merge stands. Present for a run that may merge its fix, once its pull request opens.
+type LavaflowMerge struct {
+	// HoldReasons Why LavaFlow holds the fix. Empty unless `status` is `held`.
+	HoldReasons []LavaflowHoldReason `json:"hold_reasons"`
+	Reason      *LavaflowMergeReason `json:"reason"`
+
+	// Status `waiting_for_checks`: LavaFlow waits for the checks on the fix's commit. `queued`: the fix is in the repository's merge queue. `merged`: the pull request merged. `held`: something in `hold_reasons` needs a person. LavaFlow commented on the pull request once and never merges, pushes to, rebases or dequeues it again; review it and merge it yourself if you want it. `stopped`: LavaFlow left the pull request open for you, for `reason`.
+	Status LavaflowMergeStatus `json:"status"`
+}
+
+// LavaflowMergePolicy Your rules for fixes LavaFlow must never merge. They apply with `autonomy: merge`; at another autonomy they are saved and do nothing.
+type LavaflowMergePolicy struct {
+	// HumanReviewPaths Globs of paths whose change LavaFlow never merges: a fix that changes one is held and handed to you. Paths are relative to the repository root, such as `db/migrations/**`. `*` and `?` match within one directory, `**/` spans any number of directories, and a final `**` matches the rest. A pattern that starts with `/`, `./` or `../`, ends with `/`, or holds an empty, `.` or `..` segment answers `400`. Volcano's own held paths, such as deploy configuration and authentication code, are always held too. Defaults to none.
+	HumanReviewPaths []string `json:"human_review_paths"`
+}
+
+// LavaflowMergePolicyUpdate The merge policy fields to change. An omitted field keeps its saved value. Send `human_review_paths: []` to clear the paths.
+type LavaflowMergePolicyUpdate struct {
+	HumanReviewPaths *[]string `json:"human_review_paths,omitempty"`
+}
+
+// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `removed_from_queue`: the merge queue dropped it. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused; a waiting fix keeps its status and resumes. `paused_too_long`: merging stayed paused for more than 7 days. New reasons may appear.
+type LavaflowMergeReason = string
+
+// LavaflowMergeStatus `waiting_for_checks`: LavaFlow waits for the checks on the fix's commit. `queued`: the fix is in the repository's merge queue. `merged`: the pull request merged. `held`: something in `hold_reasons` needs a person. LavaFlow commented on the pull request once and never merges, pushes to, rebases or dequeues it again; review it and merge it yourself if you want it. `stopped`: LavaFlow left the pull request open for you, for `reason`.
+type LavaflowMergeStatus string
 
 // LavaflowPullRequest defines model for LavaflowPullRequest.
 type LavaflowPullRequest struct {
@@ -8148,6 +8223,7 @@ type LavaflowRun struct {
 	FinishedAt *time.Time         `json:"finished_at"`
 	Id         openapi_types.UUID `json:"id"`
 	IssueId    openapi_types.UUID `json:"issue_id"`
+	Merge      *LavaflowMerge     `json:"merge"`
 
 	// ProjectId The project the run belongs to.
 	ProjectId   openapi_types.UUID   `json:"project_id"`
@@ -8173,6 +8249,7 @@ type LavaflowRunSummary struct {
 	FinishedAt *time.Time         `json:"finished_at"`
 	Id         openapi_types.UUID `json:"id"`
 	IssueId    openapi_types.UUID `json:"issue_id"`
+	Merge      *LavaflowMerge     `json:"merge"`
 
 	// ProjectId The project the run belongs to.
 	ProjectId   openapi_types.UUID   `json:"project_id"`
@@ -8190,7 +8267,7 @@ type LavaflowRunSummary struct {
 
 // LavaflowSettings A project's LavaFlow settings. LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
 type LavaflowSettings struct {
-	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. LavaFlow never merges.
+	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
 	Autonomy LavaflowAutonomy `json:"autonomy"`
 
 	// CanUpdate Whether the caller can save the settings: true only for the project's owner with a platform token while the owner's account is active; false for any project access token and for a read-only account.
@@ -8201,6 +8278,9 @@ type LavaflowSettings struct {
 
 	// Enabled Whether LavaFlow works on the project's issues. Off by default.
 	Enabled bool `json:"enabled"`
+
+	// MergePolicy Your rules for fixes LavaFlow must never merge. They apply with `autonomy: merge`; at another autonomy they are saved and do nothing.
+	MergePolicy LavaflowMergePolicy `json:"merge_policy"`
 
 	// ProjectId The project the settings belong to.
 	ProjectId openapi_types.UUID `json:"project_id"`
@@ -8217,10 +8297,13 @@ type LavaflowSettings struct {
 
 // LavaflowSettingsUpdate The project, and at least one field to change. An omitted field keeps its saved value.
 type LavaflowSettingsUpdate struct {
-	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. LavaFlow never merges.
+	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
 	Autonomy      *LavaflowAutonomy `json:"autonomy,omitempty"`
 	CustomContext *string           `json:"custom_context,omitempty"`
 	Enabled       *bool             `json:"enabled,omitempty"`
+
+	// MergePolicy The merge policy fields to change. An omitted field keeps its saved value. Send `human_review_paths: []` to clear the paths.
+	MergePolicy *LavaflowMergePolicyUpdate `json:"merge_policy,omitempty"`
 
 	// ProjectId The project whose settings to change.
 	ProjectId    openapi_types.UUID `json:"project_id"`
@@ -44089,6 +44172,8 @@ type UpdateLavaflowSettingsClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -60594,6 +60679,20 @@ func ParseUpdateLavaflowSettingsClientResponse(rsp *http.Response) (*UpdateLavaf
 			return nil, err
 		}
 		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
