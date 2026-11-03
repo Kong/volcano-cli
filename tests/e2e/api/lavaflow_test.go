@@ -129,9 +129,9 @@ func requireAPIE2ELavaFlowMergeMode(t *testing.T, env *apiE2E) {
 	human := string(apiclient.LavaflowHumanMergeMode)
 	defer env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "open_pr", "--merge-mode", human).requireSuccess(t)
 	for mode, want := range map[string]string{
-		"risk_based": "risk-based",
-		"auto":       "automatic",
-		human:        "a person approves each merge",
+		"risk_based": "only when the policy rates it low risk",
+		"auto":       "unless a hold applies",
+		human:        "A person approves every merge.",
 	} {
 		env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-mode", mode).requireSuccess(t, "Merging: "+want)
 		settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")

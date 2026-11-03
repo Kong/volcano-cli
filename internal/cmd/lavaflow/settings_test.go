@@ -124,9 +124,9 @@ func TestSettingsSetExamplesRunTheCloudCommand(t *testing.T) {
 // report a merge policy gets no line.
 func TestSettingsSetChangesWhenLavaFlowMerges(t *testing.T) {
 	for mode, want := range map[string]string{
-		humanMergeMode: "Merging: a person approves each merge",
-		"risk_based":   "Merging: risk-based",
-		"auto":         "Merging: automatic",
+		humanMergeMode: "Merging: A person approves every merge.",
+		"risk_based":   "Merging: LavaFlow merges a fix on its own only when the policy rates it low risk, and holds the rest for a person.",
+		"auto":         "Merging: LavaFlow merges every fix that passes review and required checks, unless a hold applies (held paths, rules it can't vouch for).",
 	} {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) { s.settings["merge_policy"] = lavaflowMergePolicy(humanMergeMode) })
@@ -153,7 +153,7 @@ func TestSettingsSetChangesWhenLavaFlowMerges(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--merge-mode", "auto")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"merge_policy": map[string]any{"mode": "auto"}}, fake.lastUpdate(t))
-	assert.Contains(t, out, "Merging: off (at autonomy merge: automatic)\n")
+	assert.Contains(t, out, "Merging: off. At autonomy merge: LavaFlow merges every fix that passes review and required checks, unless a hold applies (held paths, rules it can't vouch for).\n")
 
 	_, deps = newLavaflowServer(t)
 	out, err = executeLavaflowCommand(t, New(deps), "settings")
@@ -215,7 +215,7 @@ func TestSettingsSetChangesTheMergePolicy(t *testing.T) {
 
 	out, err = executeLavaflowCommand(t, New(deps), "settings")
 	require.NoError(t, err)
-	assert.Contains(t, out, "Merging: off (at autonomy merge: a person approves each merge)\n"+
+	assert.Contains(t, out, "Merging: off. At autonomy merge: A person approves every merge.\n"+
 		"Human review paths: infra/**, migrations/**\n"+
 		"Merge without checks: allowed\n"+
 		"CI before approval: not allowed\n")
@@ -235,3 +235,17 @@ func TestSettingsSetChangesTheMergePolicy(t *testing.T) {
 // humanMergeMode is the default merge mode's wire value, whichever the API's
 // contract settles on.
 const humanMergeMode = string(apiclient.LavaflowHumanMergeMode)
+
+// settings set --help says what each merge mode does, in the approved copy,
+// and what's true in every mode.
+func TestSettingsSetHelpSaysWhatEachMergeModeDoes(t *testing.T) {
+	_, deps := newLavaflowServer(t)
+
+	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "  "+humanMergeMode+" (the default): A person approves every merge.\n")
+	assert.Contains(t, out, "  risk_based: LavaFlow merges a fix on its own only when the policy rates it low risk, and holds the rest for a person.\n")
+	assert.Contains(t, out, "  auto: LavaFlow merges every fix that passes review and required checks, unless a hold applies (held paths, rules it can't vouch for).\n")
+	assert.Contains(t, out, "In every mode: Only a person's approval in Volcano releases a hold; "+
+		"GitHub reviews don't. Reviewer concerns block merging.\n")
+}

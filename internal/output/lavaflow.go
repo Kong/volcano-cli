@@ -280,9 +280,9 @@ func lavaflowMergePolicyLine(w io.Writer, on bool, settings *apiclient.LavaflowS
 	if settings.MergePolicy == nil {
 		return
 	}
-	mode := lavaflowMergeMode(settings.MergePolicy.Mode)
+	mode := LavaflowMergeModeDescription(settings.MergePolicy.Mode)
 	if settings.Autonomy != apiclient.Merge {
-		mode = "off (at autonomy merge: " + mode + ")"
+		mode = "off. At autonomy merge: " + mode
 	}
 	kv(w, on, "Merging", "%s", mode)
 }
@@ -309,18 +309,25 @@ func allowedOrNot(allowed bool) string {
 	return "not allowed"
 }
 
-func lavaflowMergeMode(mode apiclient.LavaflowMergeMode) string {
+// LavaflowMergeModeDescription says what a merge mode does, in the approved
+// copy that help, docs and settings share. A mode the CLI doesn't know prints
+// as the API gives it.
+func LavaflowMergeModeDescription(mode apiclient.LavaflowMergeMode) string {
 	switch mode {
 	case apiclient.LavaflowHumanMergeMode:
-		return "a person approves each merge"
+		return "A person approves every merge."
 	case apiclient.RiskBased:
-		return "risk-based"
+		return "LavaFlow merges a fix on its own only when the policy rates it low risk, and holds the rest for a person."
 	case apiclient.Auto:
-		return "automatic"
+		return "LavaFlow merges every fix that passes review and required checks, unless a hold applies (held paths, rules it can't vouch for)."
 	default:
 		return clean(string(mode))
 	}
 }
+
+// LavaflowMergeFacts is true in every merge mode.
+const LavaflowMergeFacts = "Only a person's approval in Volcano releases a hold; GitHub reviews don't. " +
+	"Reviewer concerns block merging."
 
 // lavaflowMergeLines says where a run's merge is and, while it waits for a
 // person, why. A status the CLI doesn't know prints as the API gives it.

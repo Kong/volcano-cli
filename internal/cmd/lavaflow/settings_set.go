@@ -46,11 +46,11 @@ any fix to a person; %[2]s also opens fix pull requests for review; %[7]s,
 where merging is available for the project, also merges them as the merge
 mode allows.
 
---merge-mode decides when LavaFlow merges a fix at autonomy %[7]s: %[4]s, the
-default, waits for a person to approve each merge; the other modes are %[5]s
-and %[6]s. Only a person's approval through Volcano releases a merge that
-waits for one; a review on GitHub doesn't. Reviewer concerns block merging in
-every mode.
+--merge-mode decides when LavaFlow merges a fix at autonomy %[7]s:
+  %[4]s (the default): %[9]s
+  %[5]s: %[10]s
+  %[6]s: %[11]s
+In every mode: %[12]s
 
 --human-review-path names a path whose changes always wait for a person;
 repeat it for each, up to %[8]d. It replaces the saved paths, and
@@ -64,7 +64,10 @@ adds instructions to LavaFlow's own. LavaFlow saves both, but its runs don't
 use them yet. Each takes up to %[3]d characters, from the flag or a file
 (--custom-context-file, --system-prompt-file). Pass an empty value to clear
 one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength,
-			apiclient.LavaflowHumanMergeMode, apiclient.RiskBased, apiclient.Auto, apiclient.Merge, clilavaflow.MaxHumanReviewPaths),
+			apiclient.LavaflowHumanMergeMode, apiclient.RiskBased, apiclient.Auto, apiclient.Merge, clilavaflow.MaxHumanReviewPaths,
+			output.LavaflowMergeModeDescription(apiclient.LavaflowHumanMergeMode),
+			output.LavaflowMergeModeDescription(apiclient.RiskBased),
+			output.LavaflowMergeModeDescription(apiclient.Auto), output.LavaflowMergeFacts),
 		Example: "  " + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy diagnose_only") + "\n" +
 			"  " + cliruntime.CommandPath(deps, "lavaflow settings set --custom-context-file lavaflow-context.md"),
 		Args: cobra.NoArgs,

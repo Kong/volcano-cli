@@ -156,11 +156,14 @@ volcano cloud lavaflow settings set --autonomy diagnose_only
 ## Choose when it merges
 
 At autonomy `merge`, `--merge-mode` decides when LavaFlow merges a reviewed
-fix. It takes `human`, the default, in which each merge waits for a person to
-approve it, or `risk_based` or `auto`.
+fix:
 
-Only a person's approval through Volcano releases a merge that waits for one:
-a review on GitHub doesn't. Reviewer concerns block merging in every mode.
+- `human`, the default: A person approves every merge.
+- `risk_based`: LavaFlow merges a fix on its own only when the policy rates it low risk, and holds the rest for a person.
+- `auto`: LavaFlow merges every fix that passes review and required checks, unless a hold applies (held paths, rules it can't vouch for).
+
+In every mode, only a person's approval in Volcano releases a hold; GitHub
+reviews don't. Reviewer concerns block merging.
 
 ```bash
 volcano cloud lavaflow settings set --autonomy merge --merge-mode human
