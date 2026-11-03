@@ -424,7 +424,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 	if err := cliauth.SaveCredentials(credentials); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
-	output.Success(opts.log, "Signed in")
+	output.Success(opts.log, "%s", cliauth.LoggedInMessage(credentials.Email))
 	return nil
 }
 

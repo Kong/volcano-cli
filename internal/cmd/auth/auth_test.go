@@ -524,7 +524,7 @@ func TestSignupUsesGitEmailDefault(t *testing.T) {
 	assert.Equal(t, authTestSignupURL, *openedURL)
 	assert.Contains(t, out, "[support@volcano.dev]")
 	assert.Contains(t, out, "Opening browser: "+authTestSignupURL)
-	assert.Contains(t, out, "Signed up and logged in successfully")
+	assert.Contains(t, out, "Logged in as account@volcano.dev")
 
 	cfg := loadAuthTestConfig(t)
 	assert.Equal(t, "platform-token", cfg.UserToken)
@@ -553,7 +553,7 @@ func TestSignupWarnsAboutABadProjectLinkAndIgnoresIt(t *testing.T) {
 	out, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "support@volcano.dev\n", pollTicker)
 	require.NoError(t, err)
 	assert.Contains(t, out, "Warning: Ignoring a project link that can't be used: failed to parse project link "+path)
-	assert.Contains(t, out, "Signed up and logged in successfully")
+	assert.Contains(t, out, "Logged in as account@volcano.dev")
 	assert.Equal(t, "platform-token", loadAuthTestConfig(t).UserToken)
 }
 
@@ -680,6 +680,11 @@ func signupBrowserDeps(t *testing.T) (cliruntime.Deps, *string, *authCmdFakeTick
 			})
 		case "/auth/device/token":
 			writeAuthJSON(t, w, http.StatusOK, map[string]any{"access_token": "auth-access-token"})
+		case "/auth/user":
+			assert.Equal(t, "Bearer auth-access-token", r.Header.Get("Authorization"))
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{
+				"user": map[string]any{"id": "33333333-3333-4333-8333-333333333333", "email": "account@volcano.dev"},
+			})
 		case "/auth/platform/exchange":
 			writeAuthJSON(t, w, http.StatusOK, map[string]any{
 				"token":      "platform-token",
