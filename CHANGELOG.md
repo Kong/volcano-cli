@@ -5,7 +5,7 @@
 
 ### Features
 
-* **lavaflow:** manage LavaFlow's settings and follow its stats, resources and runs ([#398](https://github.com/Kong/volcano-cli/issues/398)) ([a9dd456](https://github.com/Kong/volcano-cli/commit/a9dd456867c74b997be79fc8def9d6b563d3dce5))
+* **lavaflow:** manage LavaFlow's settings and follow its stats, resources and runs with `volcano cloud lavaflow`, which replaces the `volcano lavaflow` commands that 0.60.0 removed ([#398](https://github.com/Kong/volcano-cli/issues/398)) ([a9dd456](https://github.com/Kong/volcano-cli/commit/a9dd456867c74b997be79fc8def9d6b563d3dce5))
 
 ## [0.60.0](https://github.com/Kong/volcano-cli/compare/v0.59.0...v0.60.0) (2026-11-02)
 
