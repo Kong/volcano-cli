@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.1](https://github.com/Kong/volcano-cli/compare/v0.61.0...v0.61.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **deploy:** apply schedulers after their functions finish deploying ([#401](https://github.com/Kong/volcano-cli/issues/401)) ([7e3ca9e](https://github.com/Kong/volcano-cli/commit/7e3ca9e340c9283e4b0e7f93849c2119322b295f))
+
 ## [0.61.0](https://github.com/Kong/volcano-cli/compare/v0.60.0...v0.61.0) (2026-11-03)
 
 
