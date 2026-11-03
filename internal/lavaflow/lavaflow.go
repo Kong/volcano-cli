@@ -317,14 +317,16 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 
 // refused says why the API refused a change, by its code rather than its
 // status, keeping the refusal as the cause for the exit code. A 403 without a
-// code covers more than the plan here, so it keeps the API's words too.
+// code covers more than the plan here, so it adds the API's words, quoted as
+// Volcano's: for a plan that couldn't be read they read like a plan refusal,
+// which isn't the CLI's conclusion.
 func refused(cfg *config.Config, err error) error {
 	switch {
 	case api.Code(err) == codePersonRequired:
 		return personDecides(cfg, err)
 	case api.Code(err) == "" && api.Status(err) == http.StatusForbidden:
 		if message := api.Message(err); message != "" {
-			return api.WithCause(fmt.Errorf("%w (%s)", ErrChangeRefused, message), err)
+			return api.WithCause(fmt.Errorf("%w. Volcano said: %q", ErrChangeRefused, message), err)
 		}
 		return api.WithCause(ErrChangeRefused, err)
 	}
