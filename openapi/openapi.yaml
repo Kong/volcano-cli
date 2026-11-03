@@ -7097,15 +7097,27 @@ paths:
         service that Volcano operates.
 
         Only the project's owner can save, with a platform token, while their
-        account is active. A full-scope project access token gets `403` with
-        code `person_required`; a read-only one is refused as read-only first,
-        without a code, and so is the owner of a read-only account.
+        account is active. A full-scope project access token, or a request
+        made through MCP, gets `403` with code `person_required`; a read-only
+        project access token is refused as read-only first, without a code,
+        and so is the owner of a read-only account.
 
         `autonomy: merge` needs the project's `lavaflow.merge` capability.
         Without it, a save that sets `autonomy` to `merge`, or changes
         `merge_policy`, answers `400` with code `feature_unavailable`; a save
         that sends the saved values again is accepted, and a project at
         `merge` can still change to another autonomy.
+
+        Changing `autonomy` to `merge` lets LavaFlow merge with no one else
+        looking, so only the owner can do it, signed in to the dashboard, with
+        `volcano login` while that sign-in lasts, or with a platform token that
+        has an expiry. A platform token that never expires gets `403` with
+        code `person_required`. The owner's GitHub account must also be able
+        to push to the repository (`403`, code `permission_missing`). Nothing
+        is saved when either check refuses or the push check can't be
+        answered (`429` or `503`, with `Retry-After`). `merge` applies to the
+        repository the project points at when it is saved, and reads as
+        `open_pr` once the project points at another.
 
         Turning LavaFlow on needs a plan that includes it (`403`, code
         `plan_required`). LavaFlow is available where the project's
@@ -7145,7 +7157,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: 'Code `person_required` means a full-scope project access token made the request. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
+          description: 'Code `person_required` means a full-scope project access token or MCP made the request, or the save changes `autonomy` to `merge` without the owner''s sign-in: a platform token that never expires, or a `volcano login` sign-in that ended. Code `permission_missing` means the owner''s GitHub account can''t push to the repository: not connected, expired, or without write access; `GET /projects/{id}/git-connection/owner-push` says which. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
           content:
             application/json:
               schema:
@@ -7158,6 +7170,36 @@ paths:
                 $ref: '#/components/schemas/Error'
         '413':
           description: Request body exceeds 131,072 bytes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: |
+            The save changes `autonomy` to `merge`, and the project, or its
+            owner across their projects, used up the hour's checks that ask
+            GitHub whether the owner can push. Nothing was saved. Try again
+            after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds until the budget's hour ends.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: |
+            The save changes `autonomy` to `merge`, and Volcano couldn't
+            confirm that the owner's GitHub account can push to the
+            repository: GitHub did not answer or is rate limiting the account.
+            Nothing was saved. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds to wait before saving again.
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -25091,7 +25133,7 @@ components:
         - diagnose_only
         - open_pr
         - merge
-      description: How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Choosing `merge` needs the project's `lavaflow.merge` capability.
+      description: How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
     LavaflowMergePolicy:
       type: object
       description: 'Your rules for fixes LavaFlow must never merge. They apply with `autonomy: merge`; at another autonomy they are saved and do nothing.'
@@ -25137,7 +25179,7 @@ components:
       properties:
         code:
           type: string
-          description: 'Why the fix is held. `automatic_run`: LavaFlow started the run on its own. `client_reported_commit`: the fix is built on a commit Volcano can''t tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don''t vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix''s branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn''t check, such as required signatures. `merge_blocked`: GitHub reports the merge blocked once checks pass. Other codes name a concern LavaFlow''s reviewers raised. New codes may appear.'
+          description: 'Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can''t tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don''t vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix''s branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn''t check, such as required signatures. `merge_blocked`: GitHub reports the merge blocked once checks pass. Other codes name a concern LavaFlow''s reviewers raised. New codes may appear.'
         question:
           type: string
           description: What a person decides before merging the fix, written to show as given.
