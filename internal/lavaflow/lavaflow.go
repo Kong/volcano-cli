@@ -343,8 +343,14 @@ func refused(cfg *config.Config, err error) error {
 	case api.Code(err) == codePersonRequired:
 		// Volcano says why in its own words, such as a token that never
 		// expires or a sign-in that ended, and how to sign in instead.
+		// A token in VOLCANO_TOKEN wins over a sign-in, so say so.
 		if message := api.Message(err); message != "" {
-			return api.WithCause(fmt.Errorf("LavaFlow's settings weren't changed: %s", message), err)
+			refusal := fmt.Errorf("LavaFlow's settings weren't changed: %s", message)
+			if cfg.TokenFromEnv() {
+				refusal = fmt.Errorf("%w. %s is set, and its token is used instead of a 'volcano login' sign-in "+
+					"until you unset it", refusal, config.TokenEnv)
+			}
+			return api.WithCause(refusal, err)
 		}
 		return personDecides(cfg, err)
 	case api.Code(err) == "" && api.Status(err) == http.StatusForbidden:
