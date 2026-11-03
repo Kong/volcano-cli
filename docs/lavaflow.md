@@ -174,6 +174,9 @@ or stops is yours to review and merge on GitHub.
 volcano cloud lavaflow settings set --autonomy merge
 ```
 
+Turning on merge lets LavaFlow's fixes, including those from runs it starts
+on its own, run your CI with the secrets your pull request workflows get.
+
 `--autonomy merge` prints that and asks first. `--yes` skips the question but
 still prints it, on stderr, so `--json` output stays JSON. Without a terminal
 and without `--yes`, it changes nothing and exits with a non-zero code.

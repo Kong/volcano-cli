@@ -167,6 +167,8 @@ func TestSettingsSetMergesWithYesAndJSON(t *testing.T) {
 		"settings", "set", "--autonomy", "merge", "--yes", "--json")
 	require.NoError(t, err)
 	assert.Equal(t, clilavaflow.MergeDisclosure+"\n", errOut)
+	assert.Contains(t, errOut, "Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, "+
+		"run your CI with the secrets your pull request workflows get.", "--yes still says what it risks")
 	assert.Equal(t, "merge", decodeJSON(t, out)["autonomy"])
 	assert.Equal(t, map[string]any{"autonomy": "merge"}, fake.lastUpdate(t))
 }

@@ -58,10 +58,15 @@ var ErrPlanUnreadable = errors.New("LavaFlow couldn't read the project owner's p
 var ErrChangeRefused = errors.New("LavaFlow's settings weren't changed: a read-only access token or account " +
 	"can't change them, and otherwise the project owner's plan couldn't be read; try again later")
 
-// MergeDisclosure is what autonomy merge does. settings set prints it before
-// it turns merging on.
+// MergeWarning is what turning on merging risks, in the approved words the
+// docs also use.
+const MergeWarning = "Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, " +
+	"run your CI with the secrets your pull request workflows get."
+
+// MergeDisclosure is what autonomy merge does, then the warning. settings set
+// prints it before it turns merging on.
 const MergeDisclosure = "At autonomy merge, LavaFlow can merge its fix pull requests. " +
-	"A fix it holds or stops is yours to review and merge on GitHub."
+	"A fix it holds or stops is yours to review and merge on GitHub. " + MergeWarning
 
 // ErrMergingNotAvailable reports feature_unavailable for autonomy merge:
 // LavaFlow doesn't merge for this project yet.
