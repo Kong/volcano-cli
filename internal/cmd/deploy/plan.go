@@ -783,23 +783,39 @@ func (b planBuilder) config() step {
 		for _, d := range deferred {
 			held[d.name] = true
 		}
+		var stripped []manifestFile
 		for _, m := range manifests {
 			manifest := m.manifest
-			if len(held) > 0 {
+			if listsSchedulersFor(m, held) {
 				manifest = manifest.WithoutSchedulers(held)
+				stripped = append(stripped, m)
 			}
 			if err := configcmd.DeployManifest(ctx, r.opts.deps, manifest, m.path, r.opts.out, r.opts.errOut); err != nil {
 				return err
 			}
 		}
 		if len(deferred) > 0 {
-			r.deferred, r.manifests, r.configCommands = deferred, manifests, commands
-			fmt.Fprintf(r.opts.out, "Schedulers for %s wait until %s deploying\n",
-				strings.Join(deploymentNames(deferred), ", "), plural(len(deferred), "it finishes", "they finish"))
+			r.deferred, r.manifests, r.configCommands = deferred, stripped, commands
+			fmt.Fprintf(r.opts.out, "Left out schedulers for %s while %s\n",
+				strings.Join(deploymentNames(deferred), ", "), plural(len(deferred), "it deploys", "they deploy"))
 		}
 		return nil
 	}
 	return s
+}
+
+// listsSchedulersFor reports whether a manifest lists schedulers for any of the
+// named functions, so leaving them out changes what it applies.
+func listsSchedulersFor(m manifestFile, names map[string]bool) bool {
+	if m.manifest.Functions == nil {
+		return false
+	}
+	for _, fn := range *m.manifest.Functions {
+		if names[fn.Name] && fn.Schedulers != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // scheduledFunctions names the functions the manifests give schedulers.

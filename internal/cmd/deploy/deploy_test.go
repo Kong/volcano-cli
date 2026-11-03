@@ -695,7 +695,7 @@ func TestDeployAppliesSchedulersAfterTheFunctionDeploys(t *testing.T) {
 	setDeployCommandTestHome(t)
 	writeScheduledProject(t)
 	fake := newFakeVolcano(t)
-	fake.functionStatuses = map[string][]string{"hello": {"provisioning", "active"}}
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning", "provisioning", "active"}}
 	fake.refusedSchedulers = map[string]bool{"hello": true}
 	server := fake.start()
 	deps := fake.cloudDeps(server)
@@ -713,14 +713,34 @@ func TestDeployAppliesSchedulersAfterTheFunctionDeploys(t *testing.T) {
 		"config dry run",
 		"config",
 		"read function hello",
+		"read function hello",
 		"config",
 	}, fake.recorded())
 	require.Len(t, fake.configs, 2)
 	assert.NotContains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
 	assert.Contains(t, functionEntry(t, fake.configs[1], "hello"), "schedulers")
-	assert.Contains(t, out, "Schedulers for hello wait until it finishes deploying")
+	assert.Contains(t, out, "Left out schedulers for hello while it deploys")
 	assert.Contains(t, out, "Applying schedulers")
 	assert.Contains(t, out, "Deployed in")
+}
+
+func TestDeployAppliesAgainOnlyTheManifestsSchedulersWereLeftOutOf(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	writeDeployProjectFile(t, "volcano/auth.yaml", "version: 1\nauth:\n  email:\n    enabled: true\n")
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning", "active"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)),
+		"-c", "volcano/volcano-config.yaml", "-c", "volcano/auth.yaml")
+	require.NoError(t, err, out)
+
+	require.Len(t, fake.configs, 3)
+	assert.NotContains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
+	assert.Contains(t, fake.configs[1], "auth")
+	assert.Contains(t, functionEntry(t, fake.configs[2], "hello"), "schedulers")
 }
 
 func TestDeployAppliesSchedulersInOnePassWhenTheFunctionIsActive(t *testing.T) {

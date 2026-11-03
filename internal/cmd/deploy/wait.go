@@ -259,8 +259,8 @@ func refusedUntilDeployed(message string) bool {
 	return strings.Contains(message, "active function") || strings.Contains(message, "no deployed regions")
 }
 
-// applyDeferredSchedulers applies the manifests again, schedulers included,
-// once the functions the config step left them out for are active.
+// applyDeferredSchedulers applies again, schedulers included, the manifests the
+// config step left schedulers out of, once those functions are active.
 func (r *runner) applyDeferredSchedulers(ctx context.Context) error {
 	if len(r.deferred) == 0 {
 		return nil
@@ -355,13 +355,13 @@ func (r *runner) functionStatus(ctx context.Context, d startedDeployment) (strin
 	if d.kind == kindDurable {
 		fn, err := clidurable.NewService(r.opts.deps).Get(ctx, d.resource.String())
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("%s: %w", d.name, err)
 		}
 		return string(fn.Status), nil
 	}
 	fn, err := clifunction.NewService(r.opts.deps).GetByID(ctx, d.resource)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%s: %w", d.name, err)
 	}
 	return string(fn.Status), nil
 }
