@@ -341,8 +341,10 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 func refused(cfg *config.Config, err error) error {
 	switch {
 	case api.Code(err) == codePersonRequired:
+		// Volcano says why in its own words, such as a token that never
+		// expires or a sign-in that ended, and how to sign in instead.
 		if message := api.Message(err); message != "" {
-			return api.WithCause(fmt.Errorf("%w. Volcano said: %q", personDecides(cfg, err), message), err)
+			return api.WithCause(fmt.Errorf("LavaFlow's settings weren't changed: %s", message), err)
 		}
 		return personDecides(cfg, err)
 	case api.Code(err) == "" && api.Status(err) == http.StatusForbidden:

@@ -188,7 +188,7 @@ func TestChangesBySomeoneWhoIsntTheOwnerAreRefusedFirst(t *testing.T) {
 // API's words.
 func TestARefusedChangeSaysWhy(t *testing.T) {
 	for code, want := range map[string]string{
-		"person_required": "changing LavaFlow's settings needs a person's session",
+		"person_required": "LavaFlow's settings weren't changed: " + apiPlanRefusal,
 		"plan_required":   lavaflowPlanRequired,
 		"": "LavaFlow's settings weren't changed: a read-only access token or account can't change them, " +
 			"and otherwise the project owner's plan couldn't be read; try again later. Volcano said: \"" + apiPlanRefusal + "\"",
@@ -209,22 +209,28 @@ func TestARefusedChangeSaysWhy(t *testing.T) {
 	}
 }
 
-// Volcano refuses a change that needs a person with person_required, and the
-// refusal quotes its words after saying how a person makes the change.
-func TestAPersonRequiredRefusalQuotesVolcano(t *testing.T) {
+// Volcano refuses a change that needs a person with person_required, in its
+// own words, which say how to sign in instead; without words, the CLI says
+// how.
+func TestAPersonRequiredRefusalKeepsVolcanosWords(t *testing.T) {
 	for _, args := range [][]string{{"enable", "--yes"}, {"settings", "set", "--autonomy", "diagnose_only", "--json"}} {
-		fake, deps := newLavaflowServer(t)
-		fake.set(func(s *lavaflowServer) {
-			s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
-			s.refusal = map[string]any{"error": "the project owner makes this change", "code": "person_required"}
-		})
+		for message, want := range map[string]string{
+			"a platform token that never expires can't let LavaFlow merge; run `volcano login`, or create a token with an expiry": "LavaFlow's settings weren't changed: a platform token that never expires can't let LavaFlow merge; " +
+				"run `volcano login`, or create a token with an expiry",
+			"": "changing LavaFlow's settings needs a person's session: a project access token can't. " +
+				"Sign in with 'volcano login' and run this again",
+		} {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
+				s.refusal = map[string]any{"error": message, "code": "person_required"}
+			})
 
-		_, err := executeLavaflowCommand(t, New(deps), args...)
-		require.Error(t, err, "%q", args)
-		assert.Contains(t, err.Error(), "changing LavaFlow's settings needs a person's session", "%q", args)
-		assert.True(t, strings.HasSuffix(err.Error(), `run this again. Volcano said: "the project owner makes this change"`),
-			"%q: %s", args, err)
-		assert.Equal(t, http.StatusForbidden, api.Status(err), "%q", args)
+			_, err := executeLavaflowCommand(t, New(deps), args...)
+			require.Error(t, err, "%q", args)
+			assert.Equal(t, want, err.Error(), "%q", args)
+			assert.Equal(t, http.StatusForbidden, api.Status(err), "%q", args)
+		}
 	}
 }
 
