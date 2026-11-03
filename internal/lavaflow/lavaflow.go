@@ -387,7 +387,7 @@ func pushCheckUnanswered(now time.Time, err error) error {
 
 // refused says why the API refused a change, by its code rather than its
 // status, keeping the refusal as the cause for the exit code. person_required
-// says how a person makes the change, then quotes Volcano. A 400 with
+// keeps Volcano's words, which say how to sign in instead. A 400 with
 // feature_unavailable refuses autonomy merge while merging is off for the
 // project, and permission_missing refuses it while the owner's GitHub account
 // can't push to the repository. A 403 without a code covers more than the
@@ -397,8 +397,10 @@ func pushCheckUnanswered(now time.Time, err error) error {
 func refused(cfg *config.Config, err error) error {
 	switch {
 	case api.Code(err) == codePersonRequired:
+		// Volcano says why in its own words, such as a token that never
+		// expires or a sign-in that ended, and how to sign in instead.
 		if message := api.Message(err); message != "" {
-			return api.WithCause(fmt.Errorf("%w. Volcano said: %q", personDecides(cfg, err), message), err)
+			return api.WithCause(fmt.Errorf("LavaFlow's settings weren't changed: %s", message), err)
 		}
 		return personDecides(cfg, err)
 	case api.Code(err) == codeFeatureUnavailable && api.Status(err) == http.StatusBadRequest:

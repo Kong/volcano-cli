@@ -181,8 +181,13 @@ on its own, run your CI with the secrets your pull request workflows get.
 still prints it, on stderr, so `--json` output stays JSON. Without a terminal
 and without `--yes`, it changes nothing and exits with a non-zero code.
 
-Only the project's owner can turn merging on: a project access token is
-refused with code 5, as for any change. Merging is only for a project where
+Only the project's owner can turn merging on, signed in with `volcano login`
+while that sign-in lasts, or with a platform token that has an expiry. A
+platform token that never expires, a sign-in that ended, and a project access
+token are refused with code 5, in Volcano's words. Merging applies to the
+repository the project is connected to when you turn it on: once the project
+is connected to another, autonomy reads `open_pr` until you turn merge on
+again. Merging is only for a project where
 it's available; elsewhere `--autonomy merge` says "LavaFlow merging isn't
 available for this project yet" and exits with code 1. When the owner's
 GitHub account can't push to the project's repository, it says so, adds what

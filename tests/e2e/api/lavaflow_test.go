@@ -110,10 +110,13 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 }
 
 // requireAPIE2ELavaFlowMerging turns on autonomy merge with --yes and
-// --json, then saves a human review path, reading both back. Where merging
-// isn't available for the project, or the owner's GitHub account can't push
-// to its repository, autonomy merge is refused instead. Either way the project
-// ends at diagnose_only with no human review paths.
+// --json as the owner, then saves a human review path, reading both back.
+// Where merging isn't available for the project, or the owner's GitHub
+// account can't push to its repository, autonomy merge is refused instead.
+// The test's owner token comes from the management API, which mints tokens
+// that never expire, and Volcano refuses those for merge in its own words, so
+// that refusal passes too. Either way the project ends at diagnose_only with
+// no human review paths.
 func requireAPIE2ELavaFlowMerging(t *testing.T, env *apiE2E) {
 	t.Helper()
 	type settings struct {
@@ -132,11 +135,16 @@ func requireAPIE2ELavaFlowMerging(t *testing.T, env *apiE2E) {
 
 	merging := env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "merge", "--yes", "--json")
 	if merging.code != 0 {
-		if !strings.Contains(merging.output, "LavaFlow merging isn't available for this project yet") &&
-			!strings.Contains(merging.output, "LavaFlow can't merge for this project") {
-			t.Fatalf("settings set --autonomy merge failed for another reason:\n%s", merging.output)
+		for _, refusal := range []string{
+			"LavaFlow merging isn't available for this project yet",
+			"LavaFlow can't merge for this project",
+			"LavaFlow's settings weren't changed: a platform token that never expires",
+		} {
+			if strings.Contains(merging.output, refusal) {
+				return
+			}
 		}
-		return
+		t.Fatalf("settings set --autonomy merge failed for another reason:\n%s", merging.output)
 	}
 	defer env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only", "--clear-human-review-paths").
 		requireSuccess(t, "LavaFlow's settings are saved")
