@@ -304,9 +304,9 @@ func fixedRun() map[string]any {
 				"message": "TypeError: Cannot read properties of undefined (reading 'items')",
 			}},
 		},
-		"review":                    map[string]any{"verdict": "passed", "rounds": 2},
-		"diff":                      "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
-		"ungated_workflows_allowed": []any{},
+		"review":            map[string]any{"verdict": "passed", "rounds": 2},
+		"diff":              "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
+		"ungated_workflows": []any{},
 	}
 }
 
@@ -317,8 +317,8 @@ func failedRun() map[string]any {
 		"issue_id": lavaflowIssueID,
 		"title":    nil, "pull_request": nil, "diagnosis": nil, "diff": nil, "review": nil,
 		"created_at": "2026-10-29T09:00:00Z", "finished_at": "2026-10-29T09:01:00Z",
-		"failure":                   map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},
-		"ungated_workflows_allowed": []any{},
+		"failure":           map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},
+		"ungated_workflows": []any{},
 	}
 }
 
@@ -328,7 +328,7 @@ func summaries(runs []map[string]any) []any {
 	items := make([]any, 0, len(runs))
 	for _, run := range runs {
 		summary := maps.Clone(run)
-		for _, detail := range []string{"diagnosis", "review", "diff", "failure", "ungated_workflows_allowed"} {
+		for _, detail := range []string{"diagnosis", "review", "diff", "failure", "ungated_workflows"} {
 			delete(summary, detail)
 		}
 		items = append(items, summary)

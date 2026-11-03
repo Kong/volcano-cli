@@ -127,7 +127,7 @@ func TestShowSaysWhenThePullRequestOpened(t *testing.T) {
 func TestShowListsTheUngatedWorkflowsAPullRequestOpenedPast(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
-		s.runs[0]["ungated_workflows_allowed"] = []any{
+		s.runs[0]["ungated_workflows"] = []any{
 			map[string]any{"source": "main", "path": ".github/workflows/preview.yml", "job": "deploy-preview", "trigger": "pull_request_target"},
 			map[string]any{"source": "4f1c2b3", "path": ".github/workflows/broken.yml"},
 		}
@@ -139,7 +139,7 @@ func TestShowListsTheUngatedWorkflowsAPullRequestOpenedPast(t *testing.T) {
 		"  - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target\n"+
 		"  - .github/workflows/broken.yml on 4f1c2b3: couldn't be read\n")
 
-	fake.set(func(s *lavaflowServer) { s.runs[0]["ungated_workflows_allowed"] = []any{} })
+	fake.set(func(s *lavaflowServer) { s.runs[0]["ungated_workflows"] = []any{} })
 	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
 	assert.NotContains(t, out, "Ungated workflows")

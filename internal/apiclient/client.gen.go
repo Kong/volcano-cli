@@ -8176,8 +8176,8 @@ type LavaflowRun struct {
 	// Title The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
 	Title *string `json:"title"`
 
-	// UngatedWorkflowsAllowed The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none.
-	UngatedWorkflowsAllowed []LavaflowAllowedWorkflow `json:"ungated_workflows_allowed"`
+	// UngatedWorkflows The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none.
+	UngatedWorkflows []LavaflowAllowedWorkflow `json:"ungated_workflows"`
 }
 
 // LavaflowRunStatus Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.

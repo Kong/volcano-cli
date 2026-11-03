@@ -25409,7 +25409,7 @@ components:
                 - $ref: '#/components/schemas/LavaflowFailure'
               nullable: true
               description: Why the run stopped or waits, null when nothing went wrong.
-            ungated_workflows_allowed:
+            ungated_workflows:
               type: array
               items:
                 $ref: '#/components/schemas/LavaflowAllowedWorkflow'
@@ -25419,7 +25419,7 @@ components:
             - diff
             - review
             - failure
-            - ungated_workflows_allowed
+            - ungated_workflows
     LavaflowAllowedWorkflow:
       type: object
       description: A workflow job that could run a fix's pull request with the repository's secrets before a person approves it.

@@ -177,9 +177,9 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	if run.Review != nil {
 		kv(w, on, "Review", "%s after %d round(s)", clean(strings.ReplaceAll(string(run.Review.Verdict), "_", " ")), run.Review.Rounds)
 	}
-	if len(run.UngatedWorkflowsAllowed) > 0 {
-		kv(w, on, "Ungated workflows", "the pull request opened past %d", len(run.UngatedWorkflowsAllowed))
-		for _, workflow := range run.UngatedWorkflowsAllowed {
+	if len(run.UngatedWorkflows) > 0 {
+		kv(w, on, "Ungated workflows", "the pull request opened past %d", len(run.UngatedWorkflows))
+		for _, workflow := range run.UngatedWorkflows {
 			fmt.Fprintf(w, "  - %s\n", lavaflowAllowedWorkflow(workflow))
 		}
 	}
