@@ -115,8 +115,9 @@ func TestSettingsSetHelpSaysWhatUngatedWorkflowsRisk(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--help")
 	require.NoError(t, err)
 	assert.Contains(t, out, "--allow-ungated-workflows true: "+clilavaflow.UngatedWorkflowsDisclosure+"\n")
-	assert.Contains(t, clilavaflow.UngatedWorkflowsDisclosure, "It applies only to the repository the project points at now.")
-	assert.Contains(t, out, "in the current repository: true or false")
+	assert.Contains(t, clilavaflow.UngatedWorkflowsDisclosure, "It applies only to the repository the project is connected "+
+		"to now, and reads as not allowed while the project is connected to any other.")
+	assert.Contains(t, out, "for the connected repository: true or false")
 }
 
 // Allowing ungated workflows says what it risks, in the approved words, and
@@ -138,7 +139,7 @@ func TestSettingsSetAllowsUngatedWorkflowsOnlyAfterAsking(t *testing.T) {
 			continue
 		}
 		assert.Equal(t, map[string]any{"allow_ungated_workflows": true}, fake.lastUpdate(t))
-		assert.Contains(t, out, "Ungated workflows: allowed in the current repository\n")
+		assert.Contains(t, out, "Ungated workflows: allowed for the connected repository\n")
 	}
 
 	fake, deps := newLavaflowServer(t)

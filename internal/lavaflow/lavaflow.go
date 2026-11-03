@@ -58,17 +58,19 @@ var ErrChangeRefused = errors.New("LavaFlow's settings weren't changed: a read-o
 	"can't change them, and otherwise the project owner's plan couldn't be read; try again later")
 
 // UngatedWorkflowsWarning is what allowing ungated workflows risks, in the
-// approved words the docs also use.
+// approved words the API's contract and the docs also use.
 const UngatedWorkflowsWarning = "Workflows in the repository may then run LavaFlow's pull requests, or put their " +
 	"text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those " +
 	"changes from the project's error logs, which its users can influence. Turn it on only if those workflows " +
 	"keep secrets away from untrusted code; gating them on a label a person adds is safer."
 
 // UngatedWorkflowsDisclosure is what settings set prints before it allows
-// ungated workflows: what the setting does and where, then the warning.
+// ungated workflows: what the setting does and where, in the API contract's
+// words, then the warning.
 const UngatedWorkflowsDisclosure = "Allowing ungated workflows lets LavaFlow open a fix's pull request even where " +
-	"a workflow could run it with the repository's secrets before a person reviews it. It applies only to the " +
-	"repository the project points at now. " + UngatedWorkflowsWarning
+	"a workflow could run it, or put its text into a command, with the repository's secrets before a person " +
+	"approves it. It applies only to the repository the project is connected to now, and reads as not allowed " +
+	"while the project is connected to any other. " + UngatedWorkflowsWarning
 
 // ErrCantTurnOn reports, before enable asks, that the project's capabilities
 // say LavaFlow can't be turned on for a project that has LavaFlow records.

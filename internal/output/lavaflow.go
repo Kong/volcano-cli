@@ -254,12 +254,12 @@ func clean(text string) string {
 }
 
 // lavaflowUngatedWorkflows says whether LavaFlow opens fixes past ungated
-// workflows. Allowing them applies only to the repository the project pointed
-// at when a person allowed them: for any other, Volcano reads them as not
-// allowed.
+// workflows. Allowing them applies only to the repository connected when a
+// person allowed them: while the project is connected to any other, Volcano
+// reads them as not allowed.
 func lavaflowUngatedWorkflows(allowed bool) string {
 	if allowed {
-		return "allowed in the current repository"
+		return "allowed for the connected repository"
 	}
 	return "not allowed"
 }

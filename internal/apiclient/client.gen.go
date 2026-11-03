@@ -8206,7 +8206,7 @@ type LavaflowRunSummary struct {
 
 // LavaflowSettings A project's LavaFlow settings. LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
 type LavaflowSettings struct {
-	// AllowUngatedWorkflows Whether LavaFlow opens a fix's pull request even where a workflow could run it with the repository's secrets before a person approves it. Off by default; while off, such a fix stays on its run and no pull request opens. Workflows in the repository may then run LavaFlow's pull requests with the repository's secrets before a person reviews them, and LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer.
+	// AllowUngatedWorkflows Whether LavaFlow opens a fix's pull request even where a workflow could run it, or put its text into a command, with the repository's secrets before a person approves it. Off by default; while off, such a fix stays on its run and no pull request opens. It applies only to the repository connected when a person turned it on, and reads as `false` while the project is connected to any other. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer.
 	AllowUngatedWorkflows bool `json:"allow_ungated_workflows"`
 
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. LavaFlow never merges.
@@ -8236,7 +8236,7 @@ type LavaflowSettings struct {
 
 // LavaflowSettingsUpdate The project, and at least one field to change. An omitted field keeps its saved value.
 type LavaflowSettingsUpdate struct {
-	// AllowUngatedWorkflows Turns on opening fixes past ungated workflows. Workflows in the repository may then run LavaFlow's pull requests with the repository's secrets before a person reviews them, and LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`.
+	// AllowUngatedWorkflows Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`.
 	AllowUngatedWorkflows *bool `json:"allow_ungated_workflows,omitempty"`
 
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. LavaFlow never merges.
