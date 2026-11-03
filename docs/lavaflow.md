@@ -98,6 +98,7 @@ Turn LavaFlow on? Type 'y' or 'yes' to confirm: y
 ✓ LavaFlow is on
 LavaFlow: on
 Autonomy: open fix pull requests
+Human review paths: none
 Custom context: not set
 System prompt: not set
 ```
@@ -182,9 +183,12 @@ still prints it, on stderr, so `--json` output stays JSON. Without a terminal
 and without `--yes`, it changes nothing and exits with a non-zero code.
 
 Only the project's owner can turn merging on, signed in with `volcano login`
-while that sign-in lasts, or with a platform token that has an expiry. A
-platform token that never expires, a sign-in that ended, and a project access
-token are refused with code 5, in Volcano's words. Merging applies to the
+while that sign-in lasts, or with a platform token that has an expiry. Volcano
+refuses a platform token that never expires, or a sign-in that ended, and the
+command says why in Volcano's words and exits with code 5. While
+`VOLCANO_TOKEN` is set, its token is used instead of a `volcano login`
+sign-in. A project access token is refused before anything is sent, also with
+code 5. Merging applies to the
 repository the project is connected to when you turn it on: once the project
 is connected to another, autonomy reads `open_pr` until you turn merge on
 again. Merging is only for a project where
@@ -199,7 +203,10 @@ with code 5.
 person, such as `db/migrations/**`. Repeat it for each path, up to 50, each 1
 to 200 characters. It replaces the saved paths; `--clear-human-review-paths`
 removes them all. Volcano's own held paths, such as deploy configuration and
-authentication code, always hold a fix too. `settings` prints the paths.
+authentication code, always hold a fix too. `settings` prints the paths. Like
+`--autonomy merge`, both flags need merging to be available for the project;
+elsewhere they say "LavaFlow merging isn't available for this project yet"
+and exit with code 1.
 
 ```bash
 volcano cloud lavaflow settings set --human-review-path 'infra/**' --human-review-path 'db/migrations/**'

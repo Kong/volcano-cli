@@ -379,8 +379,11 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 func pushCheckUnanswered(now time.Time, err error) error {
 	refusal := "LavaFlow's settings weren't changed: Volcano couldn't check that the project owner's GitHub account " +
 		"can push to the repository"
+	// A Retry-After that has already passed on this clock says nothing.
 	if at, ok := api.RetryAt(err, now); ok {
-		return api.WithCause(fmt.Errorf("%s. Try again in %s", refusal, at.Sub(now).Round(time.Second)), err)
+		if wait := at.Sub(now).Round(time.Second); wait > 0 {
+			return api.WithCause(fmt.Errorf("%s. Try again in %s", refusal, wait), err)
+		}
 	}
 	return api.WithCause(fmt.Errorf("%s. Try again later", refusal), err)
 }
@@ -399,8 +402,14 @@ func refused(cfg *config.Config, err error) error {
 	case api.Code(err) == codePersonRequired:
 		// Volcano says why in its own words, such as a token that never
 		// expires or a sign-in that ended, and how to sign in instead.
+		// A token in VOLCANO_TOKEN wins over a sign-in, so say so.
 		if message := api.Message(err); message != "" {
-			return api.WithCause(fmt.Errorf("LavaFlow's settings weren't changed: %s", message), err)
+			refusal := fmt.Errorf("LavaFlow's settings weren't changed: %s", message)
+			if cfg.TokenFromEnv() {
+				refusal = fmt.Errorf("%w. %s is set, and its token is used instead of a 'volcano login' sign-in "+
+					"until you unset it", refusal, config.TokenEnv)
+			}
+			return api.WithCause(refusal, err)
 		}
 		return personDecides(cfg, err)
 	case api.Code(err) == codeFeatureUnavailable && api.Status(err) == http.StatusBadRequest:

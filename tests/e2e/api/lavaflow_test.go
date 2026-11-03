@@ -80,7 +80,7 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env.runCloudCLI(t, "lavaflow", "stats", "--days", "7").requireSuccess(t, "0 issue(s) opened and 0 fix pull request(s) opened")
 	env.runCloudCLI(t, "lavaflow", "resources").requireSuccess(t)
 	env.runCloudCLI(t, "lavaflow", "list").requireSuccess(t, "No runs")
-	requireAPIE2ELavaFlowMerging(t, env)
+	requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires(t, env)
 	requireAPIE2ELavaFlowNeedsAPerson(t, env)
 
 	env.runCloudCLI(t, "lavaflow", "disable").requireSuccess(t, "LavaFlow is off")
@@ -109,59 +109,31 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
 }
 
-// requireAPIE2ELavaFlowMerging turns on autonomy merge with --yes and
-// --json as the owner, then saves a human review path, reading both back.
-// Where merging isn't available for the project, or the owner's GitHub
-// account can't push to its repository, autonomy merge is refused instead.
-// The test's owner token comes from the management API, which mints tokens
-// that never expire, and Volcano refuses those for merge in its own words, so
-// that refusal passes too. Either way the project ends at diagnose_only with
-// no human review paths.
-func requireAPIE2ELavaFlowMerging(t *testing.T, env *apiE2E) {
+// requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires asks for autonomy
+// merge with --yes and --json as the owner. The lane's owner token comes from
+// the management API, which mints tokens that never expire, so after the CLI
+// prints the merge warning, Volcano refuses the change with person_required in
+// its own words (exit 5). Where merging isn't available for the project, it's
+// refused as unavailable instead. Turning merge on, with a token from
+// `volcano login`, is covered by QA's staging gate, not here.
+func requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires(t *testing.T, env *apiE2E) {
 	t.Helper()
-	type settings struct {
-		Autonomy    string `json:"autonomy"`
-		MergePolicy struct {
-			HumanReviewPaths []string `json:"human_review_paths"`
-		} `json:"merge_policy"`
-	}
-	decode := func(result cliResult) settings {
-		var saved settings
-		if err := json.Unmarshal([]byte(result.stdout), &saved); err != nil {
-			t.Fatalf("lavaflow settings --json did not emit JSON: %v\n%s", err, result.output)
-		}
-		return saved
-	}
+	// Should Volcano save merge anyway, the project still goes back to
+	// diagnose_only before the next check.
+	defer func() {
+		env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only").
+			requireSuccess(t, "LavaFlow's settings are saved")
+	}()
 
 	merging := env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "merge", "--yes", "--json")
-	if merging.code != 0 {
-		for _, refusal := range []string{
-			"LavaFlow merging isn't available for this project yet",
-			"LavaFlow can't merge for this project",
-			"LavaFlow's settings weren't changed: a platform token that never expires",
-		} {
-			if strings.Contains(merging.output, refusal) {
-				return
-			}
-		}
-		t.Fatalf("settings set --autonomy merge failed for another reason:\n%s", merging.output)
+	if strings.Contains(merging.output, "LavaFlow merging isn't available for this project yet") {
+		merging.requireFailure(t)
+		return
 	}
-	defer env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only", "--clear-human-review-paths").
-		requireSuccess(t, "LavaFlow's settings are saved")
-	merging.requireSuccess(t, "A fix it holds or stops is yours to review and merge on GitHub.",
-		"run your CI with the secrets your pull request workflows get")
-	if saved := decode(merging); saved.Autonomy != "merge" {
-		t.Fatalf("settings set --autonomy merge --json did not save autonomy merge: %+v", saved)
-	}
-
-	paths := env.runCloudCLI(t, "lavaflow", "settings", "set", "--human-review-path", "cli-e2e/**", "--json")
-	paths.requireSuccess(t)
-	if saved := decode(paths); len(saved.MergePolicy.HumanReviewPaths) != 1 || saved.MergePolicy.HumanReviewPaths[0] != "cli-e2e/**" {
-		t.Fatalf("settings set --human-review-path did not save the path: %+v", saved)
-	}
-	read := env.runCloudCLI(t, "lavaflow", "settings", "--json")
-	read.requireSuccess(t)
-	if saved := decode(read); saved.Autonomy != "merge" || len(saved.MergePolicy.HumanReviewPaths) != 1 {
-		t.Fatalf("settings did not read back autonomy merge and the human review path: %+v", saved)
+	merging.requireFailure(t, "run your CI with the secrets your pull request workflows get",
+		"LavaFlow's settings weren't changed: a platform token that never expires can't let LavaFlow merge; "+
+			"run `volcano login`, or create a token with an expiry")
+	if merging.code != 5 {
+		t.Fatalf("settings set --autonomy merge exited %d, want 5:\n%s", merging.code, redactCredentials(merging.output))
 	}
 }

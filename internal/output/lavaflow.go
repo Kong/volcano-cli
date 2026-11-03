@@ -56,7 +56,8 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 		}
 		return
 	}
-	if details.RepositoryState == "not_connected" && settings.Autonomy == apiclient.OpenPr {
+	opensFixes := settings.Autonomy == apiclient.OpenPr || settings.Autonomy == apiclient.Merge
+	if details.RepositoryState == "not_connected" && opensFixes {
 		Warning(w, "Connect a repository so LavaFlow can open fix pull requests: %s",
 			theme.Command(details.GitConnectCommand, on))
 	}

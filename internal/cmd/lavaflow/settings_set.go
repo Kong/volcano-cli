@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	"github.com/Kong/volcano-cli/internal/confirm"
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -134,7 +133,9 @@ func settingsUpdate(cmd *cobra.Command, opts settingsSetOptions) (apiclient.Lava
 func runSettingsSet(ctx context.Context, opts settingsSetOptions, update apiclient.LavaflowSettingsUpdate) error {
 	var ask func() error
 	if update.Autonomy != nil && *update.Autonomy == apiclient.Merge {
-		ask = func() error { return confirmChange(opts, clilavaflow.MergeDisclosure, "Let LavaFlow merge fixes?") }
+		ask = func() error {
+			return confirmChange(opts.yes, opts.in, opts.errOut, clilavaflow.MergeDisclosure, "Let LavaFlow merge fixes?")
+		}
 	}
 	settings, err := clilavaflow.NewService(opts.deps).UpdateSettings(ctx, update, ask)
 	if errors.Is(err, errDeclined) {
@@ -147,26 +148,5 @@ func runSettingsSet(ctx context.Context, opts settingsSetOptions, update apiclie
 		return writeJSON(opts.out, settings)
 	}
 	output.LavaflowSettingsSaved(opts.out, "LavaFlow's settings are saved", settings)
-	return nil
-}
-
-// confirmChange says what a change does, even with --yes, on stderr so --json
-// output stays JSON. Without --yes it asks, and refuses when nothing can
-// answer rather than read that as a no.
-func confirmChange(opts settingsSetOptions, disclosure, question string) error {
-	if opts.yes {
-		fmt.Fprintln(opts.errOut, disclosure)
-		return nil
-	}
-	if !confirm.CanPrompt(opts.in) {
-		return fmt.Errorf("%s\n\nstdin is not a terminal: confirmation required; pass --yes", disclosure)
-	}
-	confirmed, err := confirm.Action(opts.in, opts.errOut, disclosure, question)
-	if err != nil {
-		return err
-	}
-	if !confirmed {
-		return errDeclined
-	}
 	return nil
 }

@@ -325,8 +325,6 @@ func failedRun() map[string]any {
 	}
 }
 
-// summaries is what the list returns for runs: no diagnosis, review, diff or
-// failure.
 // holdFix makes LavaFlow hold the fixed run's fix for a person, for these
 // reasons.
 func (s *lavaflowServer) holdFix(reasons ...map[string]any) {
@@ -342,6 +340,8 @@ func holdReason(code, question string, paths ...string) map[string]any {
 	return map[string]any{"code": code, "question": question, "paths": append([]string{}, paths...)}
 }
 
+// summaries is what the list returns for runs: no diagnosis, review, diff or
+// failure.
 func summaries(runs []map[string]any) []any {
 	items := make([]any, 0, len(runs))
 	for _, run := range runs {

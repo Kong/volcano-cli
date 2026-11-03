@@ -230,6 +230,11 @@ func TestSettingsSetSaysWhenToTryMergingAgain(t *testing.T) {
 	}{
 		"limited":    {http.StatusTooManyRequests, map[string]string{"Retry-After": "30"}, "Try again in 30s"},
 		"unanswered": {http.StatusServiceUnavailable, nil, "Try again later"},
+		"already passed": {
+			http.StatusServiceUnavailable,
+			map[string]string{"Retry-After": "Mon, 02 Jan 2006 15:04:05 GMT"},
+			"Try again later",
+		},
 	} {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
@@ -276,5 +281,24 @@ func TestSettingsSetSaysWhyMergingIsRefused(t *testing.T) {
 		require.Error(t, err, name)
 		assert.Equal(t, tc.want, err.Error(), name)
 		assert.Equal(t, tc.status, api.Status(err), name)
+	}
+}
+
+// Human review paths are part of merging, so Volcano refuses them where
+// merging isn't available, and the CLI says so.
+func TestSettingsSetSaysReviewPathsNeedMerging(t *testing.T) {
+	for _, args := range [][]string{
+		{"settings", "set", "--human-review-path", "db/migrations/**"},
+		{"settings", "set", "--clear-human-review-paths"},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse, s.refuseMethod = http.StatusBadRequest, http.MethodPut
+			s.refusal = map[string]any{"error": "merging is not available", "code": "feature_unavailable"}
+		})
+
+		_, err := executeLavaflowCommand(t, New(deps), args...)
+		require.Error(t, err, "%q", args)
+		assert.Equal(t, "LavaFlow merging isn't available for this project yet", err.Error(), "%q", args)
 	}
 }
