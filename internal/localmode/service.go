@@ -258,6 +258,12 @@ func (s Service) Stop(ctx context.Context, w io.Writer, clean bool) error {
 		}
 	}
 
+	// Every stop step runs `docker compose`; check the plugin first so a
+	// missing one names Compose instead of docker's usage error.
+	if err := s.checkCompose(ctx, w); err != nil {
+		return err
+	}
+
 	fmt.Fprintln(w, "Stopping Docker services...")
 	if err := s.composeDown(ctx, false); err != nil {
 		return fmt.Errorf("failed to stop Docker services: %w", err)
@@ -292,6 +298,12 @@ func (s Service) checkLocalPrerequisites(ctx context.Context, w io.Writer) error
 		output.LocalModeDockerUnavailable(w)
 		return fmt.Errorf("docker not found: %w", err)
 	}
+	return s.checkCompose(ctx, w)
+}
+
+// checkCompose verifies the Docker Compose v2 plugin and prints the install
+// guidance when it is missing.
+func (s Service) checkCompose(ctx context.Context, w io.Writer) error {
 	if _, err := s.dockerComposeVersion(ctx); err != nil {
 		renderCheckFail(w, "Docker Compose v2 is not available", composeGuidance())
 		return fmt.Errorf("docker compose v2 not found: %w", err)

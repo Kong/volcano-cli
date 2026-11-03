@@ -3,6 +3,7 @@ package localmode
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -47,6 +48,8 @@ func TestStopCleanRunsWhenServerIsStopped(t *testing.T) {
 			switch {
 			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
 				return []byte("false\n"), nil
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return []byte("v2.28.1\n"), nil
 			case commandIsComposeDown(command, false), commandIsComposeDown(command, true),
 				commandIs(command, "docker", "container", "ls", "--all", "--quiet", "--filter", "label=dev.volcano.sandbox.namespace=volcano"),
 				commandIs(command, "docker", "network", "ls", "--quiet", "--filter", "label=dev.volcano.sandbox.namespace=volcano"),
@@ -79,6 +82,8 @@ func TestStopRunsWhenComposeContainersAreStopped(t *testing.T) {
 			switch {
 			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
 				return []byte("false\n"), nil
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return []byte("v2.28.1\n"), nil
 			case commandIs(command, "docker", "ps", "-a", "--quiet", "--filter", "label=com.docker.compose.project="+composeProjectName):
 				return []byte("abc123\n"), nil
 			case commandIsComposeDown(command, false):
@@ -97,4 +102,34 @@ func TestStopRunsWhenComposeContainersAreStopped(t *testing.T) {
 	assert.True(t, runner.calledComposeDown(false))
 	_, err = os.Stat(statePath)
 	require.NoError(t, err)
+}
+
+func TestStopCleanFailsClearlyWhenComposeMissing(t *testing.T) {
+	setLocalDevTestHome(t)
+	require.NoError(t, saveDevState(localModeInfo("http://localhost:8000")))
+	statePath, err := DevStatePath()
+	require.NoError(t, err)
+
+	runner := &fakeCommandRunner{
+		run: func(_ context.Context, command Command) ([]byte, error) {
+			switch {
+			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
+				return []byte("false\n"), nil
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return nil, errors.New("docker: unknown command: docker compose")
+			default:
+				t.Fatalf("unexpected command: %s", commandDebug(command))
+				return nil, nil
+			}
+		},
+	}
+
+	var out bytes.Buffer
+	err = NewService(cliruntime.Deps{}, WithDockerRunner(runner)).Stop(context.Background(), &out, true)
+
+	require.ErrorContains(t, err, "docker compose v2 not found")
+	assert.Contains(t, out.String(), "✗ Docker Compose v2 is not available")
+	assert.False(t, runner.calledComposeDown(false), "compose down must not run without the Compose plugin")
+	_, err = os.Stat(statePath)
+	require.NoError(t, err, "dev state must be kept when stop fails")
 }
