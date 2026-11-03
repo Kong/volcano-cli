@@ -9,11 +9,14 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
+	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
 	"github.com/Kong/volcano-cli/internal/project"
+	"github.com/Kong/volcano-cli/internal/projectconfig"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
@@ -24,6 +27,9 @@ const (
 	// clockSkew widens the deployment listing so a client clock ahead of the
 	// server's does not hide the deployments this run started.
 	clockSkew = time.Hour
+	// schedulersSection is the manifest section the server files scheduler
+	// errors under, each named "<function>/<scheduler>".
+	schedulersSection = "functions.schedulers"
 )
 
 type resourceKind string
@@ -45,6 +51,14 @@ type startedDeployment struct {
 type runner struct {
 	opts    options
 	started []startedDeployment
+	// deferred are the functions whose schedulers the config step left out
+	// because the functions were not active yet.
+	deferred []startedDeployment
+	// schedulers holds just those functions' schedulers, for the scheduler pass
+	// after the wait. configCommands apply every manifest again, for the user to
+	// run when that pass does not.
+	schedulers     *projectconfig.Manifest
+	configCommands []string
 }
 
 // track records a deployment to wait for. A deploy queued behind another one
@@ -171,6 +185,196 @@ func (r *runner) wait(ctx context.Context, start time.Time) error {
 		return fmt.Errorf("%d deployment(s) failed: %s", len(failed), strings.Join(names, ", "))
 	}
 	return nil
+}
+
+// inactiveScheduledFunctions returns the functions this run deployed that the
+// manifests give schedulers and that are not active yet. The server refuses to
+// create or change a scheduler on such a function, and that rejects the whole
+// config.
+func (r *runner) inactiveScheduledFunctions(ctx context.Context, scheduled map[string]bool) ([]startedDeployment, error) {
+	var inactive []startedDeployment
+	for _, d := range r.started {
+		if (d.kind != kindFunction && d.kind != kindDurable) || !scheduled[d.name] || d.resource == uuid.Nil {
+			continue
+		}
+		status, err := r.functionStatus(ctx, d)
+		if err != nil {
+			return nil, err
+		}
+		if status != string(apiclient.FunctionStatusActive) {
+			inactive = append(inactive, d)
+		}
+	}
+	return inactive, nil
+}
+
+// refusedSchedulers dry-runs each manifest and returns the inactive functions
+// whose schedulers the server refuses only because the function is not
+// deployed yet. An unchanged scheduler is accepted while its function builds,
+// so a redeploy usually needs no second pass. A function with any other
+// scheduler error, such as an invalid cron, is not held back, so the real
+// apply reports that error now. Any other failure is left for the real apply
+// too.
+func (r *runner) refusedSchedulers(ctx context.Context, manifests []manifestFile, inactive []startedDeployment) []startedDeployment {
+	names := map[string]bool{}
+	for _, d := range inactive {
+		names[d.name] = true
+	}
+	refused := map[string]bool{}
+	invalid := map[string]bool{}
+	configs := projectconfig.NewService(r.opts.deps)
+	for _, m := range manifests {
+		_, err := configs.Deploy(ctx, m.manifest, true)
+		validation, ok := errors.AsType[*api.ProjectConfigValidationError](err)
+		if !ok {
+			continue
+		}
+		for _, e := range validation.Errors {
+			if e.Section != schedulersSection || e.Name == nil {
+				continue
+			}
+			function, _, _ := strings.Cut(*e.Name, "/")
+			if !names[function] {
+				continue
+			}
+			if refusedUntilDeployed(e.Message) {
+				refused[function] = true
+			} else {
+				invalid[function] = true
+			}
+		}
+	}
+	var held []startedDeployment
+	for _, d := range inactive {
+		if refused[d.name] && !invalid[d.name] {
+			held = append(held, d)
+		}
+	}
+	return held
+}
+
+// refusedUntilDeployed reports whether a scheduler error is one the server
+// stops returning once the function is active with deployed regions.
+func refusedUntilDeployed(message string) bool {
+	return strings.Contains(message, "active function") || strings.Contains(message, "no deployed regions")
+}
+
+// applyDeferredSchedulers applies the schedulers the config step left out, once
+// their functions are active. It applies only those schedulers, so values a
+// later manifest set stay as the config step left them.
+func (r *runner) applyDeferredSchedulers(ctx context.Context) error {
+	if len(r.deferred) == 0 {
+		return nil
+	}
+	fmt.Fprintf(r.opts.out, "\n%s\n", theme.Title("Applying schedulers", theme.On(r.opts.out)))
+	if err := r.waitForActive(ctx, r.deferred); err != nil {
+		return err
+	}
+	result, err := projectconfig.NewService(r.opts.deps).Deploy(ctx, r.schedulers, false)
+	if err != nil {
+		if validation, ok := errors.AsType[*api.ProjectConfigValidationError](err); ok {
+			output.ProjectConfigValidationErrors(r.opts.out, validation.Errors)
+		}
+		return err
+	}
+	output.Success(r.opts.out, "Schedulers applied for %s", strings.Join(deploymentNames(r.deferred), ", "))
+	// The manifest names only these functions, so every other one would be
+	// reported as not covered by it.
+	result.Missing = nil
+	output.ProjectConfigApplyReport(r.opts.out, result)
+	if result.Summary.Errors > 0 {
+		return fmt.Errorf("%d scheduler change(s) failed to apply; see the report above", result.Summary.Errors)
+	}
+	return nil
+}
+
+// schedulerHint says which schedulers were not applied and how to apply them.
+func (r *runner) schedulerHint() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Schedulers for %s were not applied. Once %s, apply them with:",
+		strings.Join(deploymentNames(r.deferred), ", "),
+		plural(len(r.deferred), "it is active, if it isn't already", "they are active, if they aren't already"))
+	for _, command := range r.configCommands {
+		b.WriteString("\n  " + command)
+	}
+	return b.String()
+}
+
+// waitForActive waits until each function is active.
+func (r *runner) waitForActive(ctx context.Context, waiting []startedDeployment) error {
+	ticker := cliruntime.NewTicker(r.opts.deps, pollInterval)
+	defer ticker.Stop()
+	timeout := cliruntime.NewTimer(r.opts.deps, waitTimeout)
+	defer timeout.Stop()
+
+	announced := false
+	for {
+		var inactive []startedDeployment
+		for _, d := range waiting {
+			status, err := r.functionStatus(ctx, d)
+			if err != nil {
+				return err
+			}
+			switch status {
+			case string(apiclient.FunctionStatusActive):
+			case string(apiclient.FunctionStatusFailed):
+				return fmt.Errorf("%s %s failed to deploy, so its schedulers can't be applied. See the build log:\n  %s",
+					d.kind, d.name, r.logsCommand(d))
+			case string(apiclient.FunctionStatusDeleting):
+				return fmt.Errorf("%s %s is being deleted, so its schedulers can't be applied", d.kind, d.name)
+			default:
+				inactive = append(inactive, d)
+			}
+		}
+		if len(inactive) == 0 {
+			return nil
+		}
+		waiting = inactive
+		names := deploymentNames(waiting)
+		if !announced {
+			fmt.Fprintf(r.opts.out, "Waiting for %s to become active...\n", strings.Join(names, ", "))
+			announced = true
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout.C():
+			return fmt.Errorf("stopped waiting after %s for %s to become active", waitTimeout, strings.Join(names, ", "))
+		case <-ticker.C():
+		}
+	}
+}
+
+func deploymentNames(deployments []startedDeployment) []string {
+	names := make([]string, 0, len(deployments))
+	for _, d := range deployments {
+		names = append(names, d.name)
+	}
+	return names
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+// functionStatus reads the status of a function or durable function this run
+// deployed.
+func (r *runner) functionStatus(ctx context.Context, d startedDeployment) (string, error) {
+	if d.kind == kindDurable {
+		fn, err := clidurable.NewService(r.opts.deps).Get(ctx, d.resource.String())
+		if err != nil {
+			return "", fmt.Errorf("%s: %w", d.name, err)
+		}
+		return string(fn.Status), nil
+	}
+	fn, err := clifunction.NewService(r.opts.deps).GetByID(ctx, d.resource)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", d.name, err)
+	}
+	return string(fn.Status), nil
 }
 
 // durableStillProvisioning reports whether a durable function whose deployment

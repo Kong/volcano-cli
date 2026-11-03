@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -660,6 +661,42 @@ func (m *Manifest) uploadBody() ([]byte, error) {
 		return nil, fmt.Errorf("failed to encode manifest: %w", err)
 	}
 	return body, nil
+}
+
+// WithoutSchedulers returns a copy of the manifest that leaves out the
+// schedulers of the named functions. The server leaves a function's schedulers
+// as they are when its entry lists none.
+func (m *Manifest) WithoutSchedulers(names map[string]bool) *Manifest {
+	c := *m
+	if m.Functions != nil {
+		functions := slices.Clone(*m.Functions)
+		for i := range functions {
+			if names[functions[i].Name] {
+				functions[i].Schedulers = nil
+			}
+		}
+		c.Functions = &functions
+	}
+	entries, ok := m.upload["functions"].([]any)
+	if !ok {
+		return &c
+	}
+	stripped := make([]any, len(entries))
+	for i, entry := range entries {
+		stripped[i] = entry
+		fields, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		if name, _ := fields["name"].(string); names[name] {
+			fields = maps.Clone(fields)
+			delete(fields, "schedulers")
+			stripped[i] = fields
+		}
+	}
+	c.upload = maps.Clone(m.upload)
+	c.upload["functions"] = stripped
+	return &c
 }
 
 // Validate performs the minimal local checks: the schema version, the function

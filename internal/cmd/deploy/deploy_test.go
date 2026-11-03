@@ -657,6 +657,266 @@ func TestDeployWaitsForARedeployQueuedBehindItsDeployment(t *testing.T) {
 	assert.NotContains(t, out, "✓ web")
 }
 
+// writeScheduledProject is writeFullProject with a scheduler on hello.
+func writeScheduledProject(t *testing.T) {
+	t.Helper()
+	writeFullProject(t)
+	writeDeployProjectFile(t, "volcano/volcano-config.yaml", `version: 1
+functions:
+  - name: hello
+    schedulers:
+      - name: every-minute
+        cron: "* * * * *"
+        enabled: true
+  - name: order-pipeline
+    kind: durable
+`)
+}
+
+// functionEntry returns the entry for name in an applied config.
+func functionEntry(t *testing.T, config map[string]any, name string) map[string]any {
+	t.Helper()
+	entries, ok := config["functions"].([]any)
+	require.True(t, ok, "config has no functions")
+	for _, entry := range entries {
+		fields, ok := entry.(map[string]any)
+		if ok && fields["name"] == name {
+			return fields
+		}
+	}
+	t.Fatalf("config has no function %q", name)
+	return nil
+}
+
+// The server refuses a scheduler on a function that is still building, and
+// that rejects the whole config. So the config step applies everything else
+// and the schedulers follow once the function is active.
+func TestDeployAppliesSchedulersAfterTheFunctionDeploys(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning", "provisioning", "active"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
+	server := fake.start()
+	deps := fake.cloudDeps(server)
+	deps.NewTicker = func(time.Duration) cliruntime.Ticker { return tickNow{} }
+
+	out, err := executeDeployCommand(t, New(deps))
+	require.NoError(t, err, out)
+
+	assert.Equal(t, []string{
+		"variable API_URL",
+		"function hello",
+		"durable order-pipeline",
+		"frontend web",
+		"read function hello",
+		"config dry run",
+		"config",
+		"read function hello",
+		"read function hello",
+		"config",
+	}, fake.recorded())
+	require.Len(t, fake.configs, 2)
+	assert.NotContains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
+	assert.Contains(t, functionEntry(t, fake.configs[1], "hello"), "schedulers")
+	assert.Contains(t, out, "Left out schedulers for hello while it deploys")
+	assert.Contains(t, out, "Applying schedulers")
+	assert.Contains(t, out, "Deployed in")
+}
+
+// The scheduler pass sends only the held-back schedulers, so it can't undo
+// what a later manifest set.
+func TestDeployKeepsALaterManifestsValuesWhenItAppliesSchedulers(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	writeDeployProjectFile(t, "volcano/private.yaml", "version: 1\nfunctions:\n  - name: hello\n    visibility: private\n")
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning", "active"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)),
+		"-c", "volcano/volcano-config.yaml", "-c", "volcano/private.yaml")
+	require.NoError(t, err, out)
+
+	require.Len(t, fake.configs, 3)
+	assert.NotContains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
+	assert.Equal(t, "private", functionEntry(t, fake.configs[1], "hello")["visibility"])
+	assert.Equal(t, map[string]any{
+		"version": float64(1),
+		"functions": []any{map[string]any{
+			"name":       "hello",
+			"schedulers": []any{map[string]any{"name": "every-minute", "cron": "* * * * *", "enabled": true}},
+		}},
+	}, fake.configs[2])
+	assert.Contains(t, out, "Schedulers applied for hello")
+}
+
+func TestDeployAppliesSchedulersInOnePassWhenTheFunctionIsActive(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)))
+	require.NoError(t, err, out)
+
+	require.Len(t, fake.configs, 1)
+	assert.Contains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
+	assert.NotContains(t, out, "Applying schedulers")
+}
+
+// A redeploy puts the function back in provisioning, but the server accepts
+// schedulers that don't change, so the config applies in one pass.
+func TestDeployAppliesUnchangedSchedulersInOnePassWhileTheFunctionBuilds(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning"}}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.NoError(t, err, out)
+
+	assert.Contains(t, fake.recorded(), "config dry run")
+	require.Len(t, fake.configs, 1)
+	assert.Contains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
+	assert.NotContains(t, out, "Schedulers for")
+}
+
+func TestDeployNoWaitPrintsTheCommandThatAppliesTheSchedulers(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.NoError(t, err, out)
+
+	require.Len(t, fake.configs, 1)
+	assert.NotContains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
+	assert.Contains(t, out, "Schedulers for hello were not applied. Once it is active, if it isn't already, apply them with:\n"+
+		"  volcano cloud config deploy -f volcano/volcano-config.yaml")
+}
+
+func TestDeployReportsAnInvalidSchedulerWhileTheFunctionBuilds(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning"}}
+	fake.invalidSchedulers = map[string]string{"hello": "cron: invalid cron expression"}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.Error(t, err, out)
+
+	require.Len(t, fake.configs, 1)
+	assert.Contains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
+	assert.Contains(t, out, "cron: invalid cron expression")
+	assert.NotContains(t, out+err.Error(), "were not applied")
+}
+
+func TestDeployDoesNotHoldBackSchedulersWhenOneIsInvalid(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
+	fake.invalidSchedulers = map[string]string{"hello": "cron: invalid cron expression"}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.Error(t, err, out)
+
+	require.Len(t, fake.configs, 1)
+	assert.Contains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
+	assert.Contains(t, out, "cron: invalid cron expression")
+	assert.NotContains(t, out+err.Error(), "were not applied")
+}
+
+func TestDeployLeavesSchedulersOutWhenTheFunctionFails(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning", "failed"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
+	fake.statuses = map[string][]string{"hello": {"failed"}}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)))
+	require.Error(t, err, out)
+
+	require.Len(t, fake.configs, 1)
+	assert.Contains(t, err.Error(), "1 deployment(s) failed: function hello")
+	assert.Contains(t, err.Error(), "Schedulers for hello were not applied")
+	assert.Contains(t, err.Error(), "volcano cloud config deploy -f volcano/volcano-config.yaml")
+}
+
+func TestDeployLeavesSchedulersOutWhenAnotherDeploymentFails(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeScheduledProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning", "active"}}
+	fake.refusedSchedulers = map[string]bool{"hello": true}
+	fake.statuses = map[string][]string{"web": {"failed"}}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)))
+	require.Error(t, err, out)
+
+	require.Len(t, fake.configs, 1)
+	assert.Contains(t, err.Error(), "1 deployment(s) failed: frontend web")
+	assert.Contains(t, err.Error(), "Schedulers for hello were not applied. Once it is active, if it isn't already, apply them with:\n"+
+		"  volcano cloud config deploy -f volcano/volcano-config.yaml")
+}
+
+func TestDeployAppliesADurableFunctionsSchedulersAfterItDeploys(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeFullProject(t)
+	writeDeployProjectFile(t, "volcano/volcano-config.yaml", `version: 1
+functions:
+  - name: hello
+  - name: order-pipeline
+    kind: durable
+    schedulers:
+      - name: nightly
+        cron: "0 0 * * *"
+        enabled: true
+`)
+	fake := newFakeVolcano(t)
+	fake.durableStatuses = map[string][]string{"order-pipeline": {"provisioning", "provisioning", "active"}}
+	fake.refusedSchedulers = map[string]bool{"order-pipeline": true}
+	server := fake.start()
+	deps := fake.cloudDeps(server)
+	deps.NewTicker = func(time.Duration) cliruntime.Ticker { return tickNow{} }
+
+	out, err := executeDeployCommand(t, New(deps))
+	require.NoError(t, err, out)
+
+	assert.Zero(t, fake.functionReads["hello"])
+	require.Len(t, fake.configs, 2)
+	assert.NotContains(t, functionEntry(t, fake.configs[0], "order-pipeline"), "schedulers")
+	assert.Contains(t, functionEntry(t, fake.configs[1], "order-pipeline"), "schedulers")
+	assert.Equal(t, "durable", functionEntry(t, fake.configs[1], "order-pipeline")["kind"])
+}
+
+func TestDeployDoesNotReadAFunctionWithoutSchedulers(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeFullProject(t)
+	fake := newFakeVolcano(t)
+	fake.functionStatuses = map[string][]string{"hello": {"provisioning"}}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.NoError(t, err, out)
+
+	assert.Zero(t, fake.functionReads["hello"])
+	require.Len(t, fake.configs, 1)
+	assert.NotContains(t, out, "Schedulers for")
+}
+
 func TestDeployNoWaitReturnsOnceStarted(t *testing.T) {
 	setDeployCommandTestHome(t)
 	writeFullProject(t)
