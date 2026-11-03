@@ -791,8 +791,3 @@ func TestLogoutRemovesUnreadableConfig(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.True(t, os.IsNotExist(err), "an unreadable config with a token is removed: %v", err)
 }
-
-func TestLoggedInMessageNamesTheAccountWhenKnown(t *testing.T) {
-	assert.Equal(t, "Logged in as account@volcano.dev", loggedInMessage("account@volcano.dev"))
-	assert.Equal(t, "Logged in successfully", loggedInMessage(""))
-}

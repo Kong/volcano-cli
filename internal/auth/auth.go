@@ -718,3 +718,13 @@ func (p *devicePoller) poll(ctx context.Context) (credentials Credentials, done 
 		return Credentials{}, true, &deviceTokenRefusal{code: status.Error, description: status.ErrorDescription, status: status.StatusCode}
 	}
 }
+
+// LoggedInMessage names the account when the login reported one. Login, signup
+// and connect all end here, and a browser signup can finish as an account that
+// already existed, so the message does not claim an account was created.
+func LoggedInMessage(email string) string {
+	if email == "" {
+		return "Logged in successfully"
+	}
+	return "Logged in as " + email
+}

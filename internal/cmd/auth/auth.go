@@ -144,7 +144,7 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
-	output.Success(opts.out, "%s", loggedInMessage(credentials.Email))
+	output.Success(opts.out, "%s", cliauth.LoggedInMessage(credentials.Email))
 	if credentials.Project == nil {
 		output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
 		return nil
@@ -245,7 +245,7 @@ func runSignup(ctx context.Context, opts signupOptions) error {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
-	output.Success(opts.out, "%s", loggedInMessage(credentials.Email))
+	output.Success(opts.out, "%s", cliauth.LoggedInMessage(credentials.Email))
 	output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
 	return nil
 }
@@ -297,14 +297,4 @@ func runLogout(w io.Writer) error {
 	}
 	output.Success(w, "Logged out (removed credentials from ~/.volcano/config.json)")
 	return nil
-}
-
-// loggedInMessage names the account when the login reported one. Signup and
-// browser login both end here, and either can finish as an account that already
-// existed, so the message does not claim an account was created.
-func loggedInMessage(email string) string {
-	if email == "" {
-		return "Logged in successfully"
-	}
-	return "Logged in as " + email
 }

@@ -982,3 +982,8 @@ func TestGitEmailEmptyWhenGitFails(t *testing.T) {
 	})}
 	assert.Empty(t, GitEmail(context.Background(), deps))
 }
+
+func TestLoggedInMessageNamesTheAccountWhenKnown(t *testing.T) {
+	assert.Equal(t, "Logged in as account@volcano.dev", LoggedInMessage("account@volcano.dev"))
+	assert.Equal(t, "Logged in successfully", LoggedInMessage(""))
+}

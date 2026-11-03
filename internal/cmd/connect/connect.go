@@ -424,17 +424,8 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 	if err := cliauth.SaveCredentials(credentials); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
-	output.Success(opts.log, "%s", signedInMessage(credentials.Email))
+	output.Success(opts.log, "%s", cliauth.LoggedInMessage(credentials.Email))
 	return nil
-}
-
-// signedInMessage names the account when the login reported one. A browser
-// signup can finish as an account that already existed, so say which.
-func signedInMessage(email string) string {
-	if email == "" {
-		return "Signed in"
-	}
-	return "Signed in as " + email
 }
 
 // maxNameSuffix bounds the -2, -3, ... suffixes tried when the project name
