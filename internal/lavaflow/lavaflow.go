@@ -281,7 +281,7 @@ func validMergePolicy(policy *apiclient.LavaflowMergePolicyUpdate) error {
 	}
 	if policy.Mode != nil && !policy.Mode.Valid() {
 		return fmt.Errorf("invalid merge mode %q: use %s, %s or %s",
-			*policy.Mode, apiclient.Human, apiclient.RiskBased, apiclient.Auto)
+			*policy.Mode, apiclient.LavaflowHumanMergeMode, apiclient.RiskBased, apiclient.Auto)
 	}
 	if policy.HumanReviewPaths == nil {
 		return nil

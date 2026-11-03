@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 // What every LavaFlow command says, with a nonzero exit, for a project
@@ -124,11 +126,12 @@ func requireAPIE2ELavaFlowMergeMode(t *testing.T, env *apiE2E) {
 		probe.requireFailure(t, "LavaFlow merging isn't available for this project yet")
 		return
 	}
-	defer env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "open_pr", "--merge-mode", "human").requireSuccess(t)
+	human := string(apiclient.LavaflowHumanMergeMode)
+	defer env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "open_pr", "--merge-mode", human).requireSuccess(t)
 	for mode, want := range map[string]string{
-		"risk_based": "a person approves risky fixes",
-		"auto":       "LavaFlow merges each reviewed fix",
-		"human":      "a person approves each merge",
+		"risk_based": "risk-based",
+		"auto":       "automatic",
+		human:        "a person approves each merge",
 	} {
 		env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-mode", mode).requireSuccess(t, "Merging: "+want)
 		settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")

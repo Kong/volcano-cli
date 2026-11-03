@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 )
 
@@ -66,7 +67,7 @@ func TestSettingsSetRefusesBeforeSending(t *testing.T) {
 		{nil, "nothing to change: pass --autonomy, --merge-mode, --human-review-path, --clear-human-review-paths, " +
 			"--allow-merge-without-checks, --allow-ci-before-approval, --custom-context, or --system-prompt"},
 		{[]string{"--autonomy", "always"}, `invalid autonomy "always": use diagnose_only, open_pr or merge`},
-		{[]string{"--merge-mode", "always"}, `invalid merge mode "always": use human, risk_based or auto`},
+		{[]string{"--merge-mode", "always"}, `invalid merge mode "always": use ` + humanMergeMode + `, risk_based or auto`},
 		{[]string{"--allow-merge-without-checks", "yes"}, `invalid --allow-merge-without-checks "yes": use true or false`},
 		{[]string{"--allow-ci-before-approval", "1"}, `invalid --allow-ci-before-approval "1": use true or false`},
 		{[]string{"--human-review-path", ""}, `invalid human review path "": use 1 to 200 characters`},
@@ -123,12 +124,12 @@ func TestSettingsSetExamplesRunTheCloudCommand(t *testing.T) {
 // report a merge policy gets no line.
 func TestSettingsSetChangesWhenLavaFlowMerges(t *testing.T) {
 	for mode, want := range map[string]string{
-		"human":      "Merging: a person approves each merge",
-		"risk_based": "Merging: a person approves risky fixes; LavaFlow merges the rest once CI passes",
-		"auto":       "Merging: LavaFlow merges each reviewed fix once CI passes; changes to sensitive files still wait for a person",
+		humanMergeMode: "Merging: a person approves each merge",
+		"risk_based":   "Merging: risk-based",
+		"auto":         "Merging: automatic",
 	} {
 		fake, deps := newLavaflowServer(t)
-		fake.set(func(s *lavaflowServer) { s.settings["merge_policy"] = lavaflowMergePolicy("human") })
+		fake.set(func(s *lavaflowServer) { s.settings["merge_policy"] = lavaflowMergePolicy(humanMergeMode) })
 
 		out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "merge", "--merge-mode", mode)
 		require.NoError(t, err, mode)
@@ -148,12 +149,11 @@ func TestSettingsSetChangesWhenLavaFlowMerges(t *testing.T) {
 	}
 
 	fake, deps := newLavaflowServer(t)
-	fake.set(func(s *lavaflowServer) { s.settings["merge_policy"] = lavaflowMergePolicy("human") })
+	fake.set(func(s *lavaflowServer) { s.settings["merge_policy"] = lavaflowMergePolicy(humanMergeMode) })
 	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--merge-mode", "auto")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"merge_policy": map[string]any{"mode": "auto"}}, fake.lastUpdate(t))
-	assert.Contains(t, out, "Merging: off (at autonomy merge: LavaFlow merges each reviewed fix once CI passes; "+
-		"changes to sensitive files still wait for a person)\n")
+	assert.Contains(t, out, "Merging: off (at autonomy merge: automatic)\n")
 
 	_, deps = newLavaflowServer(t)
 	out, err = executeLavaflowCommand(t, New(deps), "settings")
@@ -195,7 +195,7 @@ func tooManyReviewPaths() []string {
 // auto, keeps the API's words.
 func TestSettingsSetChangesTheMergePolicy(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
-	fake.set(func(s *lavaflowServer) { s.settings["merge_policy"] = lavaflowMergePolicy("human") })
+	fake.set(func(s *lavaflowServer) { s.settings["merge_policy"] = lavaflowMergePolicy(humanMergeMode) })
 
 	out, err := executeLavaflowCommand(t, New(deps), "settings", "set",
 		"--human-review-path", "infra/**", "--human-review-path", "migrations/**")
@@ -231,3 +231,7 @@ func TestSettingsSetChangesTheMergePolicy(t *testing.T) {
 	_, err = executeLavaflowCommand(t, New(deps), "settings", "set", "--allow-ci-before-approval", "true")
 	require.EqualError(t, err, "failed to change LavaFlow's settings: HTTP 400: allow_ci_before_approval is only allowed in auto mode")
 }
+
+// humanMergeMode is the default merge mode's wire value, whichever the API's
+// contract settles on.
+const humanMergeMode = string(apiclient.LavaflowHumanMergeMode)

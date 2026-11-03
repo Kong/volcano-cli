@@ -311,12 +311,12 @@ func allowedOrNot(allowed bool) string {
 
 func lavaflowMergeMode(mode apiclient.LavaflowMergeMode) string {
 	switch mode {
-	case apiclient.Human:
+	case apiclient.LavaflowHumanMergeMode:
 		return "a person approves each merge"
 	case apiclient.RiskBased:
-		return "a person approves risky fixes; LavaFlow merges the rest once CI passes"
+		return "risk-based"
 	case apiclient.Auto:
-		return "LavaFlow merges each reviewed fix once CI passes; changes to sensitive files still wait for a person"
+		return "automatic"
 	default:
 		return clean(string(mode))
 	}
