@@ -11,7 +11,6 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	configcmd "github.com/Kong/volcano-cli/internal/cmd/config"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
@@ -55,9 +54,10 @@ type runner struct {
 	// deferred are the functions whose schedulers the config step left out
 	// because the functions were not active yet.
 	deferred []startedDeployment
-	// manifests and configCommands are what the config step applied, for the
-	// scheduler pass after the wait.
-	manifests      []manifestFile
+	// schedulers holds just those functions' schedulers, for the scheduler pass
+	// after the wait. configCommands apply every manifest again, for the user to
+	// run when that pass does not.
+	schedulers     *projectconfig.Manifest
 	configCommands []string
 }
 
@@ -259,8 +259,9 @@ func refusedUntilDeployed(message string) bool {
 	return strings.Contains(message, "active function") || strings.Contains(message, "no deployed regions")
 }
 
-// applyDeferredSchedulers applies again, schedulers included, the manifests the
-// config step left schedulers out of, once those functions are active.
+// applyDeferredSchedulers applies the schedulers the config step left out, once
+// their functions are active. It applies only those schedulers, so values a
+// later manifest set stay as the config step left them.
 func (r *runner) applyDeferredSchedulers(ctx context.Context) error {
 	if len(r.deferred) == 0 {
 		return nil
@@ -269,10 +270,20 @@ func (r *runner) applyDeferredSchedulers(ctx context.Context) error {
 	if err := r.waitForActive(ctx, r.deferred); err != nil {
 		return err
 	}
-	for _, m := range r.manifests {
-		if err := configcmd.DeployManifest(ctx, r.opts.deps, m.manifest, m.path, r.opts.out, r.opts.errOut); err != nil {
-			return err
+	result, err := projectconfig.NewService(r.opts.deps).Deploy(ctx, r.schedulers, false)
+	if err != nil {
+		if validation, ok := errors.AsType[*api.ProjectConfigValidationError](err); ok {
+			output.ProjectConfigValidationErrors(r.opts.out, validation.Errors)
 		}
+		return err
+	}
+	output.Success(r.opts.out, "Schedulers applied for %s", strings.Join(deploymentNames(r.deferred), ", "))
+	// The manifest names only these functions, so every other one would be
+	// reported as not covered by it.
+	result.Missing = nil
+	output.ProjectConfigApplyReport(r.opts.out, result)
+	if result.Summary.Errors > 0 {
+		return fmt.Errorf("%d scheduler change(s) failed to apply; see the report above", result.Summary.Errors)
 	}
 	return nil
 }

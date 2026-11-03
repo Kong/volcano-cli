@@ -724,23 +724,32 @@ func TestDeployAppliesSchedulersAfterTheFunctionDeploys(t *testing.T) {
 	assert.Contains(t, out, "Deployed in")
 }
 
-func TestDeployAppliesAgainOnlyTheManifestsSchedulersWereLeftOutOf(t *testing.T) {
+// The scheduler pass sends only the held-back schedulers, so it can't undo
+// what a later manifest set.
+func TestDeployKeepsALaterManifestsValuesWhenItAppliesSchedulers(t *testing.T) {
 	setDeployCommandTestHome(t)
 	writeScheduledProject(t)
-	writeDeployProjectFile(t, "volcano/auth.yaml", "version: 1\nauth:\n  email:\n    enabled: true\n")
+	writeDeployProjectFile(t, "volcano/private.yaml", "version: 1\nfunctions:\n  - name: hello\n    visibility: private\n")
 	fake := newFakeVolcano(t)
 	fake.functionStatuses = map[string][]string{"hello": {"provisioning", "active"}}
 	fake.refusedSchedulers = map[string]bool{"hello": true}
 	server := fake.start()
 
 	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)),
-		"-c", "volcano/volcano-config.yaml", "-c", "volcano/auth.yaml")
+		"-c", "volcano/volcano-config.yaml", "-c", "volcano/private.yaml")
 	require.NoError(t, err, out)
 
 	require.Len(t, fake.configs, 3)
 	assert.NotContains(t, functionEntry(t, fake.configs[0], "hello"), "schedulers")
-	assert.Contains(t, fake.configs[1], "auth")
-	assert.Contains(t, functionEntry(t, fake.configs[2], "hello"), "schedulers")
+	assert.Equal(t, "private", functionEntry(t, fake.configs[1], "hello")["visibility"])
+	assert.Equal(t, map[string]any{
+		"version": float64(1),
+		"functions": []any{map[string]any{
+			"name":       "hello",
+			"schedulers": []any{map[string]any{"name": "every-minute", "cron": "* * * * *", "enabled": true}},
+		}},
+	}, fake.configs[2])
+	assert.Contains(t, out, "Schedulers applied for hello")
 }
 
 func TestDeployAppliesSchedulersInOnePassWhenTheFunctionIsActive(t *testing.T) {
@@ -890,6 +899,7 @@ functions:
 	require.Len(t, fake.configs, 2)
 	assert.NotContains(t, functionEntry(t, fake.configs[0], "order-pipeline"), "schedulers")
 	assert.Contains(t, functionEntry(t, fake.configs[1], "order-pipeline"), "schedulers")
+	assert.Equal(t, "durable", functionEntry(t, fake.configs[1], "order-pipeline")["kind"])
 }
 
 func TestDeployDoesNotReadAFunctionWithoutSchedulers(t *testing.T) {
