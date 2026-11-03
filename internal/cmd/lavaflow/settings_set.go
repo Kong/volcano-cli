@@ -128,11 +128,13 @@ func settingsUpdate(cmd *cobra.Command, opts settingsSetOptions) (apiclient.Lava
 		autonomy := apiclient.LavaflowAutonomy(opts.autonomy)
 		update.Autonomy = &autonomy
 	}
-	policy, err := mergePolicyUpdate(flags, opts)
-	if err != nil {
-		return update, err
+	if slices.ContainsFunc(mergePolicyFlags, flags.Changed) || opts.clearReviewPaths {
+		policy, err := mergePolicyUpdate(flags, opts)
+		if err != nil {
+			return update, err
+		}
+		update.MergePolicy = policy
 	}
-	update.MergePolicy = policy
 	for _, text := range []struct {
 		setting          **string
 		flag, file       string
@@ -168,12 +170,8 @@ var mergePolicyFlags = []string{
 	"allow-merge-without-checks", "allow-ci-before-approval",
 }
 
-// mergePolicyUpdate holds only the merge policy fields the flags name, or is
-// nil when they name none.
+// mergePolicyUpdate holds only the merge policy fields the flags name.
 func mergePolicyUpdate(flags *pflag.FlagSet, opts settingsSetOptions) (*apiclient.LavaflowMergePolicyUpdate, error) {
-	if !slices.ContainsFunc(mergePolicyFlags, flags.Changed) && !opts.clearReviewPaths {
-		return nil, nil
-	}
 	policy := &apiclient.LavaflowMergePolicyUpdate{}
 	if flags.Changed("merge-mode") {
 		mode := apiclient.LavaflowMergeMode(opts.mergeMode)
