@@ -25295,7 +25295,7 @@ components:
         title:
           type: string
           nullable: true
-          description: The title of the pull request the run opened, else of the fix it proposed, else its diagnosis' summary. Null while none is known.
+          description: The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
         created_at:
           type: string
           format: date-time
@@ -25392,7 +25392,7 @@ components:
             diff:
               type: string
               nullable: true
-              description: The fix as a unified diff, with secrets masked. Null for now; a run that opened a pull request links to the change in `pull_request`.
+              description: The fix as a unified diff. Null for now; a run that opened a pull request links to the change in `pull_request`.
             review:
               allOf:
                 - $ref: '#/components/schemas/LavaflowReview'

@@ -189,8 +189,8 @@ durable function  nightly-report                  never                  0      
 
 A run works on one issue. `list` shows the newest first, with the resource,
 the run's title, and the fix pull request. A run's title is the title of the
-pull request it opened, else of the fix it proposed, else its diagnosis
-summary; until LavaFlow has one, the title shows `-`. Narrow it with
+fix it proposed, or its diagnosis summary; until LavaFlow has either, the
+title shows `-`. Narrow it with
 `--status` (`queued`, `diagnosing`, `fixing`, `reviewing`, `pr_open`,
 `completed`, `failed` or `cancelled`) or `--resource` with an ID from
 `resources --json`. When there are more, the

@@ -8140,7 +8140,7 @@ type LavaflowRun struct {
 	CreatedAt time.Time          `json:"created_at"`
 	Diagnosis *LavaflowDiagnosis `json:"diagnosis"`
 
-	// Diff The fix as a unified diff, with secrets masked. Null for now; a run that opened a pull request links to the change in `pull_request`.
+	// Diff The fix as a unified diff. Null for now; a run that opened a pull request links to the change in `pull_request`.
 	Diff *string `json:"diff"`
 
 	// Failure Why the run stopped or waits, null when nothing went wrong.
@@ -8160,7 +8160,7 @@ type LavaflowRun struct {
 	// Status Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 	Status LavaflowRunStatus `json:"status"`
 
-	// Title The title of the pull request the run opened, else of the fix it proposed, else its diagnosis' summary. Null while none is known.
+	// Title The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
 	Title *string `json:"title"`
 }
 
@@ -8184,7 +8184,7 @@ type LavaflowRunSummary struct {
 	// Status Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 	Status LavaflowRunStatus `json:"status"`
 
-	// Title The title of the pull request the run opened, else of the fix it proposed, else its diagnosis' summary. Null while none is known.
+	// Title The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
 	Title *string `json:"title"`
 }
 
