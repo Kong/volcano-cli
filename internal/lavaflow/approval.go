@@ -33,6 +33,16 @@ var ErrOwnerApproves = errors.New("only the project's owner can approve a LavaFl
 var ErrOwnerCantPush = errors.New("LavaFlow can't merge for this project: " +
 	"the project owner's GitHub account can't push to its repository")
 
+// connectGitHubDocs is the docs section on connecting GitHub, which a
+// permission_missing refusal points to.
+const connectGitHubDocs = "platform/projects/git-deploy.md#1-connect-github"
+
+// pinApprovalToHead sends the run's merge.head_sha with an approval, so a
+// pull request that moved after the person read it gets 409 head_moved
+// instead of merging what they didn't see. Security requires the pin; this is
+// the one line to change if that changes.
+const pinApprovalToHead = true
+
 // ErrHeadMoved reports head_moved: the pull request changed after the run
 // was read, so the approval no longer names what the person saw.
 var ErrHeadMoved = errors.New("the fix's pull request changed since the run was read")
@@ -83,7 +93,7 @@ func (s Service) Approve(ctx context.Context, run *apiclient.LavaflowRun) (*apic
 		return nil, err
 	}
 	var head *string
-	if run.Merge != nil {
+	if pinApprovalToHead && run.Merge != nil {
 		head = run.Merge.HeadSha
 	}
 	approved, err := authenticated.API.ApproveLavaflowMerge(ctx, authenticated.ProjectID, run.Id, head)
@@ -98,10 +108,11 @@ func (s Service) Approve(ctx context.Context, run *apiclient.LavaflowRun) (*apic
 	case code == codePlanRequired:
 		return nil, api.WithCause(ErrPlanRequired, err)
 	case code == codePermissionMissing:
+		refusal := ErrOwnerCantPush
 		if message := api.Message(err); message != "" {
-			return nil, api.WithCause(fmt.Errorf("%w (%s)", ErrOwnerCantPush, message), err)
+			refusal = fmt.Errorf("%w (%s)", ErrOwnerCantPush, message)
 		}
-		return nil, api.WithCause(ErrOwnerCantPush, err)
+		return nil, api.WithCause(fmt.Errorf("%w. To connect GitHub, see 'volcano docs get %s'", refusal, connectGitHubDocs), err)
 	case code == codeHeadMoved:
 		return nil, api.WithCause(ErrHeadMoved, err)
 	case code == codeNotWaitingForApproval:

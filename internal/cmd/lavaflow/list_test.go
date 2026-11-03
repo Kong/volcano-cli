@@ -87,3 +87,19 @@ func TestARunsStatusSaysWhatItIsDoing(t *testing.T) {
 		assert.Contains(t, out, "Status: "+want+"\n", status)
 	}
 }
+
+// A run whose merge waits for a person says so in the list; one past its
+// approval reads as its run status.
+func TestListMarksARunWaitingForApproval(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.waitForApproval(approvalReason("automatic_run", nil)) })
+
+	out, err := executeLavaflowCommand(t, New(deps), "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, lavaflowRunID+"  Waiting for your approval ")
+
+	fake.set(func(s *lavaflowServer) { s.runs[0]["merge"].(map[string]any)["status"] = "waiting_for_checks" })
+	out, err = executeLavaflowCommand(t, New(deps), "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, lavaflowRunID+"  PR open ")
+}

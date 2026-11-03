@@ -70,6 +70,7 @@ func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings) {
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
 	lavaflowMergePolicyLine(w, on, settings)
+	lavaflowMergePolicyDetails(w, on, settings.MergePolicy)
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
 	block(w, on, "System prompt", settings.SystemPrompt)
@@ -82,6 +83,7 @@ func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.Lava
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
 	lavaflowMergePolicyLine(w, on, settings)
+	lavaflowMergePolicyDetails(w, on, settings.MergePolicy)
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 }
@@ -145,7 +147,7 @@ func LavaflowRuns(w io.Writer, page LavaflowRunsPage) {
 		"ID", "Status", "Resource", "Title", "Started", "PR")
 	for _, run := range page.Runs {
 		fmt.Fprintf(w, "%-36s  %-31s  %-24s  %-30s  %-16s  %s\n",
-			run.Id.String(), Truncate(lavaflowRunStatus(run.Status), 31), Truncate(clean(run.Resource.Name), 24),
+			run.Id.String(), Truncate(lavaflowRunListStatus(run), 31), Truncate(clean(run.Resource.Name), 24),
 			Truncate(clean(stringOr(run.Title, "-")), 30), formatLavaflowTime(run.CreatedAt), lavaflowPullRequestCell(run.PullRequest))
 	}
 	summary(w, on, "Showing %d run(s)", len(page.Runs))
@@ -285,6 +287,28 @@ func lavaflowMergePolicyLine(w io.Writer, on bool, settings *apiclient.LavaflowS
 	kv(w, on, "Merging", "%s", mode)
 }
 
+// lavaflowMergePolicyDetails prints the rest of the merge policy: the paths
+// that always wait for a person, and what LavaFlow may do without one.
+func lavaflowMergePolicyDetails(w io.Writer, on bool, policy *apiclient.LavaflowMergePolicy) {
+	if policy == nil {
+		return
+	}
+	paths := "none"
+	if len(policy.HumanReviewPaths) > 0 {
+		paths = cleanList(policy.HumanReviewPaths)
+	}
+	kv(w, on, "Human review paths", "%s", paths)
+	kv(w, on, "Merge without checks", "%s", allowedOrNot(policy.AllowMergeWithoutChecks))
+	kv(w, on, "CI before approval", "%s", allowedOrNot(policy.AllowCiBeforeApproval))
+}
+
+func allowedOrNot(allowed bool) string {
+	if allowed {
+		return "allowed"
+	}
+	return "not allowed"
+}
+
 func lavaflowMergeMode(mode apiclient.LavaflowMergeMode) string {
 	switch mode {
 	case apiclient.Human:
@@ -406,6 +430,15 @@ func LavaflowApprovalContext(run *apiclient.LavaflowRun) string {
 	b.WriteString("\nApproving runs CI on the fix, and LavaFlow merges it once the required checks pass. " +
 		"To stop the merge instead, close the pull request.")
 	return b.String()
+}
+
+// lavaflowRunListStatus marks a run whose merge waits for a person, which
+// otherwise reads as an open pull request.
+func lavaflowRunListStatus(run apiclient.LavaflowRunSummary) string {
+	if run.Merge != nil && run.Merge.Status == apiclient.LavaflowMergeStatusWaitingForApproval {
+		return "Waiting for your approval"
+	}
+	return lavaflowRunStatus(run.Status)
 }
 
 // lavaflowRunStatus labels a run's status. The running stages say what the

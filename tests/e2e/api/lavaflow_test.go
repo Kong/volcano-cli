@@ -110,25 +110,27 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 		requireFailure(t, "approving a LavaFlow merge needs a person's session")
 }
 
-// requireAPIE2ELavaFlowMergeMode saves each merge mode and reads it back,
-// where the API reports a merge policy, and leaves the default. A run that
-// doesn't exist can't be approved.
+// requireAPIE2ELavaFlowMergeMode turns on merging where it's available and
+// saves each merge mode, reading it back; where it isn't, autonomy merge is
+// refused as unavailable. Either way the project ends at open_pr, and a run
+// that doesn't exist can't be approved.
 func requireAPIE2ELavaFlowMergeMode(t *testing.T, env *apiE2E) {
 	t.Helper()
 	unknownRun := "00000000-0000-4000-8000-000000000000"
 	env.runCloudCLI(t, "lavaflow", "approve", unknownRun, "--yes").requireFailure(t, unknownRun)
 
-	probe := env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-mode", "human")
+	probe := env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "merge")
 	if probe.code != 0 {
-		probe.requireFailure(t, "merg")
+		probe.requireFailure(t, "LavaFlow merging isn't available for this project yet")
 		return
 	}
+	defer env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "open_pr", "--merge-mode", "human").requireSuccess(t)
 	for mode, want := range map[string]string{
 		"risk_based": "a person approves risky fixes",
 		"auto":       "LavaFlow merges each reviewed fix",
 		"human":      "a person approves each merge",
 	} {
-		env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-mode", mode).requireSuccess(t, want)
+		env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-mode", mode).requireSuccess(t, "Merging: "+want)
 		settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")
 		settings.requireSuccess(t)
 		var saved struct {

@@ -258,9 +258,8 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 		return nil, fmt.Errorf("invalid autonomy %q: use %s, %s or %s",
 			*update.Autonomy, apiclient.DiagnoseOnly, apiclient.OpenPr, apiclient.Merge)
 	}
-	if policy := update.MergePolicy; policy != nil && policy.Mode != nil && !policy.Mode.Valid() {
-		return nil, fmt.Errorf("invalid merge mode %q: use %s, %s or %s",
-			*policy.Mode, apiclient.Human, apiclient.RiskBased, apiclient.Auto)
+	if err := validMergePolicy(update.MergePolicy); err != nil {
+		return nil, err
 	}
 	for name, text := range map[string]*string{"custom context": update.CustomContext, "system prompt": update.SystemPrompt} {
 		if text != nil && len([]rune(*text)) > MaxTextLength {
@@ -268,6 +267,35 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 		}
 	}
 	return s.update(ctx, "change LavaFlow's settings", update, false, nil)
+}
+
+// The most paths a merge policy holds for a person, and the longest one.
+const (
+	MaxHumanReviewPaths      = 50
+	MaxHumanReviewPathLength = 200
+)
+
+func validMergePolicy(policy *apiclient.LavaflowMergePolicyUpdate) error {
+	if policy == nil {
+		return nil
+	}
+	if policy.Mode != nil && !policy.Mode.Valid() {
+		return fmt.Errorf("invalid merge mode %q: use %s, %s or %s",
+			*policy.Mode, apiclient.Human, apiclient.RiskBased, apiclient.Auto)
+	}
+	if policy.HumanReviewPaths == nil {
+		return nil
+	}
+	paths := *policy.HumanReviewPaths
+	if len(paths) > MaxHumanReviewPaths {
+		return fmt.Errorf("%d human review paths: the most is %d", len(paths), MaxHumanReviewPaths)
+	}
+	for _, path := range paths {
+		if n := len([]rune(path)); n == 0 || n > MaxHumanReviewPathLength {
+			return fmt.Errorf("invalid human review path %q: use 1 to %d characters", path, MaxHumanReviewPathLength)
+		}
+	}
+	return nil
 }
 
 // update refuses a project access token before sending anything. Every

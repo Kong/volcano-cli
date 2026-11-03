@@ -56,7 +56,7 @@ the same when the owner's plan couldn't be read.
 | Turn LavaFlow on | `volcano cloud lavaflow enable [--yes] [--json]` |
 | Turn LavaFlow off | `volcano cloud lavaflow disable [--json]` |
 | Show the settings in full | `volcano cloud lavaflow settings [--json]` |
-| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--merge-mode m] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--json]` |
+| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--merge-mode m] [--human-review-path p]... [--clear-human-review-paths] [--allow-merge-without-checks b] [--allow-ci-before-approval b] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--json]` |
 | Show issues and fix pull requests per day | `volcano cloud lavaflow stats [--days n] [--json]` |
 | Show what LavaFlow did for each resource | `volcano cloud lavaflow resources [--days n] [--json]` |
 | List runs | `volcano cloud lavaflow list [--status s] [--resource id] [--limit n] [--cursor c] [--json]` |
@@ -169,8 +169,24 @@ volcano cloud lavaflow settings set --autonomy merge --merge-mode human
 ```
 
 `settings` and `status` show the mode as `Merging:`. The mode is kept at any
-autonomy, and below `merge` the line says merging is off. `settings --json`
-also shows the rest of the merge policy, under `merge_policy`.
+autonomy, and below `merge` the line says merging is off.
+
+The rest of the merge policy:
+
+- `--human-review-path`: a path whose changes always wait for a person, in
+  any mode. Repeat it for each path, up to 50, each 1 to 200 characters. It
+  replaces the saved paths; `--clear-human-review-paths` removes them all.
+- `--allow-merge-without-checks true|false`: whether LavaFlow may merge where
+  the repository requires no checks. It's `false` unless you change it.
+- `--allow-ci-before-approval true|false`: whether CI runs before a person
+  approves. Only `auto` allows `true`.
+
+```bash
+volcano cloud lavaflow settings set --human-review-path 'infra/**' --human-review-path 'migrations/**'
+```
+
+Each flag changes only its own field. `settings` prints the whole policy, and
+`settings --json` has it under `merge_policy`.
 
 ## Other settings
 
@@ -272,7 +288,9 @@ Each reason prints as one line, worded by Volcano, followed by the paths it is
 about, if any. A reason without wording prints as "Waiting for your approval".
 `Held for a person:` lists the changed paths that hold the merge. Once
 approved, `Merge:` says where the merge is: `waiting for CI`, `queued to
-merge`, `merged` or `stopped`, with the reason it stopped.
+merge`, `merged` or `stopped`, with the reason it stopped. In `list`, a run
+whose merge waits for a person shows `Waiting for your approval` as its
+status.
 
 ```bash
 volcano cloud lavaflow approve 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
@@ -291,4 +309,7 @@ token is refused before anything is read, with code 5: sign in with
 `volcano login` instead, and if `VOLCANO_TOKEN` holds a project access token,
 unset it first. Someone other than the owner is refused with code 5 too.
 LavaFlow merges with the owner's GitHub account, so when that account can't
-push to the repository, `approve` says so.
+push to the repository, `approve` says so and points to
+[connecting GitHub](/platform/projects/git-deploy#1-connect-github). Where
+merging isn't available for the project, `approve` says "LavaFlow merging
+isn't available for this project yet".

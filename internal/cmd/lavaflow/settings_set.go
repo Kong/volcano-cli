@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
@@ -19,6 +20,10 @@ type settingsSetOptions struct {
 	deps              cliruntime.Deps
 	autonomy          string
 	mergeMode         string
+	reviewPaths       []string
+	clearReviewPaths  bool
+	mergeWithoutCheck string
+	ciBeforeApproval  string
 	customContext     string
 	customContextFile string
 	systemPrompt      string
@@ -46,12 +51,19 @@ default, waits for a person to approve each merge; %[5]s waits for a person
 only when a fix looks risky; %[6]s merges each reviewed fix once CI passes,
 though changes to sensitive files still wait for a person.
 
+--human-review-path names a path whose changes always wait for a person;
+repeat it for each, up to %[8]d. It replaces the saved paths, and
+--clear-human-review-paths removes them all. --allow-merge-without-checks
+true lets LavaFlow merge where the repository requires no checks.
+--allow-ci-before-approval true runs CI before a person approves; only %[6]s
+allows it.
+
 --custom-context tells LavaFlow's runs about the project, and --system-prompt
 adds instructions to LavaFlow's own. LavaFlow saves both, but its runs don't
 use them yet. Each takes up to %[3]d characters, from the flag or a file
 (--custom-context-file, --system-prompt-file). Pass an empty value to clear
 one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength,
-			apiclient.Human, apiclient.RiskBased, apiclient.Auto, apiclient.Merge),
+			apiclient.Human, apiclient.RiskBased, apiclient.Auto, apiclient.Merge, clilavaflow.MaxHumanReviewPaths),
 		Example: "  " + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy diagnose_only") + "\n" +
 			"  " + cliruntime.CommandPath(deps, "lavaflow settings set --custom-context-file lavaflow-context.md"),
 		Args: cobra.NoArgs,
@@ -68,12 +80,21 @@ one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength,
 	cmd.Flags().StringVar(&opts.autonomy, "autonomy", "", "How far LavaFlow goes: diagnose_only, open_pr or merge")
 	cmd.Flags().StringVar(&opts.mergeMode, "merge-mode", "",
 		"When LavaFlow merges a fix: human, risk_based or auto")
+	cmd.Flags().StringArrayVar(&opts.reviewPaths, "human-review-path", nil,
+		"A path whose changes always wait for a person (repeatable; replaces the saved paths)")
+	cmd.Flags().BoolVar(&opts.clearReviewPaths, "clear-human-review-paths", false,
+		"Remove every path that always waits for a person")
+	cmd.Flags().StringVar(&opts.mergeWithoutCheck, "allow-merge-without-checks", "",
+		"Whether LavaFlow may merge where the repository requires no checks: true or false")
+	cmd.Flags().StringVar(&opts.ciBeforeApproval, "allow-ci-before-approval", "",
+		"Whether CI runs before a person approves, in auto only: true or false")
 	cmd.Flags().StringVar(&opts.customContext, "custom-context", "", "Context about the project for LavaFlow's runs")
 	cmd.Flags().StringVar(&opts.customContextFile, "custom-context-file", "", "Read the custom context from a file")
 	cmd.Flags().StringVar(&opts.systemPrompt, "system-prompt", "", "Instructions added to LavaFlow's own")
 	cmd.Flags().StringVar(&opts.systemPromptFile, "system-prompt-file", "", "Read the system prompt from a file")
 	cmd.MarkFlagsMutuallyExclusive("custom-context", "custom-context-file")
 	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
+	cmd.MarkFlagsMutuallyExclusive("human-review-path", "clear-human-review-paths")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON")
 	return cmd
 }
@@ -87,9 +108,12 @@ func settingsUpdate(cmd *cobra.Command, opts settingsSetOptions) (apiclient.Lava
 		autonomy := apiclient.LavaflowAutonomy(opts.autonomy)
 		update.Autonomy = &autonomy
 	}
-	if flags.Changed("merge-mode") {
-		mode := apiclient.LavaflowMergeMode(opts.mergeMode)
-		update.MergePolicy = &apiclient.LavaflowMergePolicyUpdate{Mode: &mode}
+	policy, err := mergePolicyUpdate(flags, opts)
+	if err != nil {
+		return update, err
+	}
+	if policy != (apiclient.LavaflowMergePolicyUpdate{}) {
+		update.MergePolicy = &policy
 	}
 	for _, text := range []struct {
 		setting          **string
@@ -112,9 +136,47 @@ func settingsUpdate(cmd *cobra.Command, opts settingsSetOptions) (apiclient.Lava
 		}
 	}
 	if update.Autonomy == nil && update.MergePolicy == nil && update.CustomContext == nil && update.SystemPrompt == nil {
-		return update, errors.New("nothing to change: pass --autonomy, --merge-mode, --custom-context, or --system-prompt")
+		return update, errors.New("nothing to change: pass --autonomy, --merge-mode, --human-review-path, " +
+			"--clear-human-review-paths, --allow-merge-without-checks, --allow-ci-before-approval, " +
+			"--custom-context, or --system-prompt")
 	}
 	return update, nil
+}
+
+// mergePolicyUpdate holds only the merge policy fields the flags name.
+func mergePolicyUpdate(flags *pflag.FlagSet, opts settingsSetOptions) (apiclient.LavaflowMergePolicyUpdate, error) {
+	var policy apiclient.LavaflowMergePolicyUpdate
+	if flags.Changed("merge-mode") {
+		mode := apiclient.LavaflowMergeMode(opts.mergeMode)
+		policy.Mode = &mode
+	}
+	switch {
+	case flags.Changed("human-review-path"):
+		paths := opts.reviewPaths
+		policy.HumanReviewPaths = &paths
+	case opts.clearReviewPaths:
+		paths := []string{}
+		policy.HumanReviewPaths = &paths
+	}
+	for _, allow := range []struct {
+		setting     **bool
+		flag, value string
+	}{
+		{&policy.AllowMergeWithoutChecks, "allow-merge-without-checks", opts.mergeWithoutCheck},
+		{&policy.AllowCiBeforeApproval, "allow-ci-before-approval", opts.ciBeforeApproval},
+	} {
+		if !flags.Changed(allow.flag) {
+			continue
+		}
+		switch allow.value {
+		case "true", "false":
+			value := allow.value == "true"
+			*allow.setting = &value
+		default:
+			return policy, fmt.Errorf("invalid --%s %q: use true or false", allow.flag, allow.value)
+		}
+	}
+	return policy, nil
 }
 
 func runSettingsSet(ctx context.Context, opts settingsSetOptions, update apiclient.LavaflowSettingsUpdate) error {

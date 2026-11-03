@@ -143,7 +143,8 @@ func TestARefusedApprovalSaysWhy(t *testing.T) {
 		"owner can't push": {
 			refusal(http.StatusForbidden, "the owner's GitHub connection needs reconnecting", "permission_missing"),
 			"LavaFlow can't merge for this project: the project owner's GitHub account can't push to its repository " +
-				"(the owner's GitHub connection needs reconnecting)", http.StatusForbidden,
+				"(the owner's GitHub connection needs reconnecting). To connect GitHub, see " +
+				"'volcano docs get platform/projects/git-deploy.md#1-connect-github'", http.StatusForbidden,
 		},
 		"merging off": {
 			refusal(http.StatusNotFound, "LavaFlow merging is not available", "feature_unavailable"),
