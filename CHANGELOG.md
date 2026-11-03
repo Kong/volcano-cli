@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.0](https://github.com/Kong/volcano-cli/compare/v0.62.0...v0.63.0) (2026-11-03)
+
+
+### Features
+
+* **auth:** name the signed-in account after browser login and signup ([#400](https://github.com/Kong/volcano-cli/issues/400)) ([a6c9807](https://github.com/Kong/volcano-cli/commit/a6c980753a55da17154ba0dc7b0fc0cef13e79b9))
+
 ## [0.62.0](https://github.com/Kong/volcano-cli/compare/v0.61.1...v0.62.0) (2026-11-03)
 
 
