@@ -37,12 +37,6 @@ var ErrOwnerCantPush = errors.New("LavaFlow can't merge for this project: " +
 // permission_missing refusal points to.
 const connectGitHubDocs = "platform/projects/git-deploy.md#1-connect-github"
 
-// pinApprovalToHead sends the run's merge.head_sha with an approval, so a
-// pull request that moved after the person read it gets 409 head_moved
-// instead of merging what they didn't see. Security requires the pin; this is
-// the one line to change if that changes.
-const pinApprovalToHead = true
-
 // ErrHeadMoved reports head_moved: the pull request changed after the run
 // was read, so the approval no longer names what the person saw.
 var ErrHeadMoved = errors.New("the fix's pull request changed since the run was read")
@@ -85,18 +79,19 @@ func conflict(message string) error {
 	return api.WithCause(errors.New(message), &api.Error{StatusCode: http.StatusConflict, Message: message})
 }
 
-// Approve approves the merge the current project's run waits for, pinned to
-// the pull request head the run reported, and returns the run after it.
+// Approve approves the merge the current project's run waits for, and returns
+// the run after it. The approval names the pull request head the run
+// reported, so one that moved after the person read it gets 409 head_moved
+// instead of merging what they didn't see.
 func (s Service) Approve(ctx context.Context, run *apiclient.LavaflowRun) (*apiclient.LavaflowRun, error) {
+	if err := AwaitsApproval(run); err != nil {
+		return nil, err
+	}
 	authenticated, err := s.project()
 	if err != nil {
 		return nil, err
 	}
-	var head *string
-	if pinApprovalToHead && run.Merge != nil {
-		head = run.Merge.HeadSha
-	}
-	approved, err := authenticated.API.ApproveLavaflowMerge(ctx, authenticated.ProjectID, run.Id, head)
+	approved, err := authenticated.API.ApproveLavaflowMerge(ctx, authenticated.ProjectID, run.Id, run.Merge.HeadSha)
 	// Read by code, not status. Anything else keeps the API's words.
 	switch code := api.Code(err); {
 	case err == nil:

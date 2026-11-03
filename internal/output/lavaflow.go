@@ -277,7 +277,7 @@ func lavaflowAutonomy(autonomy apiclient.LavaflowAutonomy) string {
 // the API doesn't report a merge policy. The mode applies only at autonomy
 // merge, so below it the line says merging is off.
 func lavaflowMergePolicyLine(w io.Writer, on bool, settings *apiclient.LavaflowSettings) {
-	if settings.MergePolicy == nil {
+	if settings.MergePolicy.Mode == "" {
 		return
 	}
 	mode := LavaflowMergeModeDescription(settings.MergePolicy.Mode)
@@ -289,8 +289,8 @@ func lavaflowMergePolicyLine(w io.Writer, on bool, settings *apiclient.LavaflowS
 
 // lavaflowMergePolicyDetails prints the rest of the merge policy: the paths
 // that always wait for a person, and what LavaFlow may do without one.
-func lavaflowMergePolicyDetails(w io.Writer, on bool, policy *apiclient.LavaflowMergePolicy) {
-	if policy == nil {
+func lavaflowMergePolicyDetails(w io.Writer, on bool, policy apiclient.LavaflowMergePolicy) {
+	if policy.Mode == "" {
 		return
 	}
 	paths := "none"
@@ -343,7 +343,7 @@ func lavaflowMergeLines(w io.Writer, on bool, merge *apiclient.LavaflowMerge) {
 		}
 	}
 	if len(merge.HeldPaths) > 0 {
-		kv(w, on, "Held for a person", "%s", cleanList(merge.HeldPaths))
+		kv(w, on, "Held paths approved", "%s", cleanList(merge.HeldPaths))
 	}
 }
 
@@ -375,10 +375,7 @@ func LavaflowApprovalReasons(reasons []apiclient.LavaflowApprovalReason) []strin
 	lines := make([]string, 0, len(reasons))
 	generic := false
 	for _, reason := range reasons {
-		var paths []string
-		if reason.Paths != nil {
-			paths = *reason.Paths
-		}
+		paths := reason.Paths
 		line := lavaflowApprovalReason(reason)
 		if line == "" {
 			if generic && len(paths) == 0 {
@@ -398,8 +395,8 @@ func LavaflowApprovalReasons(reasons []apiclient.LavaflowApprovalReason) []strin
 }
 
 func lavaflowApprovalReason(reason apiclient.LavaflowApprovalReason) string {
-	if reason.Question != nil && strings.TrimSpace(*reason.Question) != "" {
-		return clean(*reason.Question)
+	if strings.TrimSpace(reason.Question) != "" {
+		return clean(reason.Question)
 	}
 	switch reason.Code {
 	case "automatic_run":

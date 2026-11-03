@@ -92,14 +92,15 @@ func (c *Client) GetLavaflowRun(ctx context.Context, projectID, runID uuid.UUID)
 }
 
 // ApproveLavaflowMerge approves the merge a run waits for, naming its project
-// in the body. headSHA, when set, pins the approval to the pull request head
-// the person read: a head that moved since gets 409 head_moved. Only a person
-// may, with a platform token: a project access token gets 403 person_required.
-func (c *Client) ApproveLavaflowMerge(ctx context.Context, projectID, runID uuid.UUID, headSHA *string) (*apiclient.LavaflowRun, error) {
-	resp, err := c.client.ApproveLavaflowMergeWithResponse(ctx,
-		apiclient.LavaflowMergeApproval{ProjectId: projectID, RunId: runID, HeadSha: headSHA})
+// in the body. headSHA pins the approval to the pull request head the person
+// read: a head that moved since gets 409 head_moved. Only a person may, with a
+// platform token: a project access token gets 403 person_required.
+func (c *Client) ApproveLavaflowMerge(ctx context.Context, projectID, runID uuid.UUID, headSHA string) (*apiclient.LavaflowRun, error) {
+	resp, err := c.client.CreateLavaflowMergeApprovalWithResponse(ctx,
+		apiclient.LavaflowMergeApprovalCreate{ProjectId: projectID, RunId: runID, HeadSha: headSHA})
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404,
+		resp.JSON409, resp.JSON413)
 }

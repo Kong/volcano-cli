@@ -147,7 +147,7 @@ func TestShowSaysWhyAMergeWaits(t *testing.T) {
 		"  - This fix is built on a commit the CLI reported, which Volcano can't verify. Approving runs CI and merges it.\n"+
 		"  - A required check was skipped. Approving merges it without that check.\n"+
 		"  - Waiting for your approval\n"+
-		"Held for a person: volcano/auth.yaml\n")
+		"Held paths approved: volcano/auth.yaml\n")
 	assert.Equal(t, 1, strings.Count(out, "  - Waiting for your approval"), "an unknown reason says so once")
 	assert.Contains(t, out, "Approve the merge with 'volcano cloud lavaflow approve "+lavaflowRunID+
 		"', or close the pull request to stop it.")

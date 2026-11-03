@@ -287,8 +287,8 @@ Note: Approve the merge with 'volcano cloud lavaflow approve 9c1e4f2a-7b3d-4e8f-
 
 Each reason prints as one line, worded by Volcano, followed by the paths it is
 about, if any. A reason without wording prints as "Waiting for your approval".
-`Held for a person:` lists the changed paths that hold the merge. Once
-approved, `Merge:` says where the merge is: `waiting for CI`, `queued to
+Once approved, `Held paths approved:` lists the held paths the fix changes
+that a person approved it past, and `Merge:` says where the merge is: `waiting for CI`, `queued to
 merge`, `merged` or `stopped`, with the reason it stopped. In `list`, a run
 whose merge waits for a person shows `Waiting for your approval` as its
 status.

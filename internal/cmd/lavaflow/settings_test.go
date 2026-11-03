@@ -155,10 +155,12 @@ func TestSettingsSetChangesWhenLavaFlowMerges(t *testing.T) {
 	assert.Equal(t, map[string]any{"merge_policy": map[string]any{"mode": "auto"}}, fake.lastUpdate(t))
 	assert.Contains(t, out, "Merging: off. At autonomy merge: LavaFlow merges every fix that passes review and required checks, unless a hold applies (held paths, rules it can't vouch for).\n")
 
-	_, deps = newLavaflowServer(t)
+	fake, deps = newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { delete(s.settings, "merge_policy") })
 	out, err = executeLavaflowCommand(t, New(deps), "settings")
 	require.NoError(t, err)
 	assert.NotContains(t, out, "Merging")
+	assert.NotContains(t, out, "Human review paths")
 }
 
 func lavaflowMergePolicy(mode string) map[string]any {
