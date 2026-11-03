@@ -107,6 +107,18 @@ func TestSettingsSetExamplesRunTheCloudCommand(t *testing.T) {
 	assert.Contains(t, out, "  volcano cloud lavaflow settings set --custom-context-file lavaflow-context.md\n")
 }
 
+// settings set --help says what allowing ungated workflows does, that it
+// applies to the current repository only, and what it risks.
+func TestSettingsSetHelpSaysWhatUngatedWorkflowsRisk(t *testing.T) {
+	_, deps := newLavaflowServer(t)
+
+	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "--allow-ungated-workflows true: "+clilavaflow.UngatedWorkflowsDisclosure+"\n")
+	assert.Contains(t, clilavaflow.UngatedWorkflowsDisclosure, "It applies only to the repository the project points at now.")
+	assert.Contains(t, out, "in the current repository: true or false")
+}
+
 // Allowing ungated workflows says what it risks, in the approved words, and
 // asks first: only a yes or --yes sends it, and nothing that can't answer is
 // read as a yes. The warning goes to stderr, so --json output stays JSON.
@@ -126,7 +138,7 @@ func TestSettingsSetAllowsUngatedWorkflowsOnlyAfterAsking(t *testing.T) {
 			continue
 		}
 		assert.Equal(t, map[string]any{"allow_ungated_workflows": true}, fake.lastUpdate(t))
-		assert.Contains(t, out, "Ungated workflows: allowed\n")
+		assert.Contains(t, out, "Ungated workflows: allowed in the current repository\n")
 	}
 
 	fake, deps := newLavaflowServer(t)

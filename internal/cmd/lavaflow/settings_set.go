@@ -74,7 +74,7 @@ without asking.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextL
 	cmd.Flags().StringVar(&opts.systemPrompt, "system-prompt", "", "Instructions added to LavaFlow's own")
 	cmd.Flags().StringVar(&opts.systemPromptFile, "system-prompt-file", "", "Read the system prompt from a file")
 	cmd.Flags().StringVar(&opts.ungatedWorkflows, "allow-ungated-workflows", "",
-		"Whether LavaFlow opens fix pull requests past workflows a person doesn't gate: true or false")
+		"Whether LavaFlow opens fix pull requests past workflows a person doesn't gate, in the current repository: true or false")
 	cmd.Flags().BoolVarP(&opts.yes, "yes", "y", false, "Skip the confirmation prompt")
 	cmd.MarkFlagsMutuallyExclusive("custom-context", "custom-context-file")
 	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")

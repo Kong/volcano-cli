@@ -68,7 +68,7 @@ func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings) {
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
-	kv(w, on, "Ungated workflows", "%s", allowedOrNot(settings.AllowUngatedWorkflows))
+	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
 	block(w, on, "System prompt", settings.SystemPrompt)
@@ -80,7 +80,7 @@ func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.Lava
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
-	kv(w, on, "Ungated workflows", "%s", allowedOrNot(settings.AllowUngatedWorkflows))
+	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 }
@@ -253,9 +253,13 @@ func clean(text string) string {
 	return b.String()
 }
 
-func allowedOrNot(allowed bool) string {
+// lavaflowUngatedWorkflows says whether LavaFlow opens fixes past ungated
+// workflows. Allowing them applies only to the repository the project pointed
+// at when a person allowed them: for any other, Volcano reads them as not
+// allowed.
+func lavaflowUngatedWorkflows(allowed bool) string {
 	if allowed {
-		return "allowed"
+		return "allowed in the current repository"
 	}
 	return "not allowed"
 }

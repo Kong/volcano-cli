@@ -166,23 +166,28 @@ A setting you don't pass keeps its value. `settings` shows both in full.
 
 By default, LavaFlow doesn't open a fix's pull request where a workflow in
 the repository could run it with the repository's secrets before a person
-approves it: the fix stays on its run instead. Only the project's owner can
-change that:
+reviews it: the fix stays on its run instead. Only the project's owner can
+change that, for the repository the project points at now:
 
 ```bash
 volcano cloud lavaflow settings set --allow-ungated-workflows true
 ```
 
-Workflows in the repository may then run LavaFlow's pull requests with the
-repository's secrets before a person reviews them, and LavaFlow writes those
-changes from the project's error logs, which its users can influence. Turn it
-on only if those workflows keep secrets away from untrusted code; gating them
-on a label a person adds is safer.
+Workflows in the repository may then run LavaFlow's pull requests, or put
+their text into commands, with the repository's secrets before a person
+reviews them. LavaFlow writes those changes from the project's error logs,
+which its users can influence. Turn it on only if those workflows keep secrets
+away from untrusted code; gating them on a label a person adds is safer.
+
+The setting applies only to the repository the project pointed at when a
+person last turned it on. While the project points at any other repository, a
+first one included, it reads as not allowed until a person turns it on again.
 
 `settings set` prints that warning and asks before it turns the setting on;
 `--yes` skips the question but still prints the warning, on stderr. Without a
 terminal and without `--yes`, it refuses. `--allow-ungated-workflows false`
-turns it off without asking. `settings` shows it as `Ungated workflows:`.
+turns it off without asking. `settings` shows it as `Ungated workflows:`,
+`allowed in the current repository` or `not allowed`.
 
 When a run's pull request opened past ungated workflows, `show` lists each
 workflow job: its file, the branch or commit whose workflows run it, the job
