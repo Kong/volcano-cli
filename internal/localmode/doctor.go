@@ -135,6 +135,12 @@ func dockerEngineGuidance() string {
 }
 
 func composeGuidance() string {
-	return "Docker Compose v2 is required (the 'docker compose' subcommand).\n" +
+	guidance := "Docker Compose v2 is required (the 'docker compose' subcommand).\n" +
 		"Upgrade Docker or install the Compose plugin: https://docs.docker.com/compose/install/"
+	if runtime.GOOS == "darwin" {
+		// Colima and other Homebrew docker CLI setups ship without the plugin.
+		guidance += "\nWith Homebrew (for example Colima): run 'brew install docker-compose', then add the\n" +
+			"\"cliPluginsExtraDirs\" entry that 'brew info docker-compose' prints to ~/.docker/config.json."
+	}
+	return guidance
 }

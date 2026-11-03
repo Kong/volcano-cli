@@ -46,6 +46,8 @@ func TestRestartStopsBeforeStarting(t *testing.T) {
 				return nil, nil
 			case commandIs(command, "docker", "version"):
 				return nil, nil
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return []byte("v2.28.1\n"), nil
 			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
 				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
@@ -120,4 +122,27 @@ func TestRestartFailsBeforeTeardownWhenCustomImageMissing(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found locally")
 	assert.False(t, runner.calledWithArg("docker", "down"), "environment must not be torn down on a bad --image")
+}
+
+func TestRestartFailsBeforeTeardownWhenComposeMissing(t *testing.T) {
+	runner := &fakeCommandRunner{
+		run: func(_ context.Context, command Command) ([]byte, error) {
+			switch {
+			case commandIs(command, "docker", "version"):
+				return nil, nil
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return nil, errors.New("docker: unknown command: docker compose")
+			default:
+				t.Fatalf("unexpected command: %s", commandDebug(command))
+				return nil, nil
+			}
+		},
+	}
+
+	var out bytes.Buffer
+	err := NewService(cliruntime.Deps{}, WithDockerRunner(runner)).Restart(context.Background(), &out)
+
+	require.ErrorContains(t, err, "docker compose v2 not found")
+	assert.Contains(t, out.String(), "Docker Compose v2 is not available")
+	assert.False(t, runner.calledWithArg("docker", "down"), "environment must not be torn down without the Compose plugin")
 }

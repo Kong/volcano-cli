@@ -168,11 +168,10 @@ func (s Service) Start(ctx context.Context, w io.Writer) error {
 		return nil
 	}
 
-	if err := s.checkDocker(ctx); err != nil {
-		output.LocalModeDockerUnavailable(w)
-		return fmt.Errorf("docker not found: %w", err)
+	if err := s.checkLocalPrerequisites(ctx, w); err != nil {
+		return err
 	}
-	output.Success(w, "Docker is available")
+	output.Success(w, "Docker and Docker Compose are available")
 
 	// When the image is an explicit override (--image / VOLCANO_IMAGE / .env.local)
 	// it must already exist locally before we announce or start it. Fail fast here
@@ -284,10 +283,30 @@ func (s Service) Stop(ctx context.Context, w io.Writer, clean bool) error {
 	return nil
 }
 
+// checkLocalPrerequisites verifies the Docker engine and the Docker Compose v2
+// plugin that every start step drives. `docker version` passes without the
+// plugin, and each `docker compose -f ...` call then fails with docker's usage
+// error ("unknown shorthand flag: 'f' in -f"), so the plugin is checked on its own.
+func (s Service) checkLocalPrerequisites(ctx context.Context, w io.Writer) error {
+	if err := s.checkDocker(ctx); err != nil {
+		output.LocalModeDockerUnavailable(w)
+		return fmt.Errorf("docker not found: %w", err)
+	}
+	if _, err := s.dockerComposeVersion(ctx); err != nil {
+		renderCheckFail(w, "Docker Compose v2 is not available", composeGuidance())
+		return fmt.Errorf("docker compose v2 not found: %w", err)
+	}
+	return nil
+}
+
 // Restart restarts the local Volcano Docker stack while preserving data.
 func (s Service) Restart(ctx context.Context, w io.Writer) error {
-	// Validate a custom image before tearing the environment down, so a bad
-	// --image leaves the running stack intact instead of stopped.
+	// Check prerequisites and a custom image before tearing the environment
+	// down, so a missing Compose plugin or a bad --image leaves the running
+	// stack intact instead of stopped.
+	if err := s.checkLocalPrerequisites(ctx, w); err != nil {
+		return err
+	}
 	if err := s.ensureCustomImageAvailable(ctx); err != nil {
 		return err
 	}
