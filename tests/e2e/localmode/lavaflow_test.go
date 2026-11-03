@@ -22,6 +22,7 @@ func requireLocalModeLeavesLavaFlowToTheCloud(t *testing.T, binary string, env [
 		{"lavaflow", "stats", "--json"},
 		{"lavaflow", "list"},
 		{"lavaflow", "show", "run-id"},
+		{"lavaflow", "settings", "set", "--allow-ungated-workflows", "true", "--yes"},
 	} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
 		if err == nil {

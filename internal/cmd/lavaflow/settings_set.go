@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/confirm"
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -22,8 +23,12 @@ type settingsSetOptions struct {
 	customContextFile string
 	systemPrompt      string
 	systemPromptFile  string
+	ungatedWorkflows  string
+	yes               bool
 	jsonOutput        bool
+	in                io.Reader
 	out               io.Writer
+	errOut            io.Writer
 }
 
 func newSettingsSet(deps cliruntime.Deps) *cobra.Command {
@@ -42,13 +47,20 @@ any fix to a person; %[2]s also opens fix pull requests for review.
 adds instructions to LavaFlow's own. LavaFlow saves both, but its runs don't
 use them yet. Each takes up to %[3]d characters, from the flag or a file
 (--custom-context-file, --system-prompt-file). Pass an empty value to clear
-one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength),
+one.
+
+--allow-ungated-workflows true: %[4]s
+It prints that and asks first; --yes skips the question. false turns it off
+without asking.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength,
+			clilavaflow.UngatedWorkflowsDisclosure),
 		Example: "  " + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy diagnose_only") + "\n" +
 			"  " + cliruntime.CommandPath(deps, "lavaflow settings set --custom-context-file lavaflow-context.md"),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
+			opts.in = cmd.InOrStdin()
 			opts.out = cmd.OutOrStdout()
+			opts.errOut = cmd.ErrOrStderr()
 			update, err := settingsUpdate(cmd, opts)
 			if err != nil {
 				return err
@@ -61,6 +73,9 @@ one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength),
 	cmd.Flags().StringVar(&opts.customContextFile, "custom-context-file", "", "Read the custom context from a file")
 	cmd.Flags().StringVar(&opts.systemPrompt, "system-prompt", "", "Instructions added to LavaFlow's own")
 	cmd.Flags().StringVar(&opts.systemPromptFile, "system-prompt-file", "", "Read the system prompt from a file")
+	cmd.Flags().StringVar(&opts.ungatedWorkflows, "allow-ungated-workflows", "",
+		"Whether LavaFlow opens fix pull requests past workflows a person doesn't gate: true or false")
+	cmd.Flags().BoolVarP(&opts.yes, "yes", "y", false, "Skip the confirmation prompt")
 	cmd.MarkFlagsMutuallyExclusive("custom-context", "custom-context-file")
 	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON")
@@ -96,14 +111,32 @@ func settingsUpdate(cmd *cobra.Command, opts settingsSetOptions) (apiclient.Lava
 			*text.setting = &value
 		}
 	}
-	if update.Autonomy == nil && update.CustomContext == nil && update.SystemPrompt == nil {
-		return update, errors.New("nothing to change: pass --autonomy, --custom-context, or --system-prompt")
+	if flags.Changed("allow-ungated-workflows") {
+		switch opts.ungatedWorkflows {
+		case "true", "false":
+			allow := opts.ungatedWorkflows == "true"
+			update.AllowUngatedWorkflows = &allow
+		default:
+			return update, fmt.Errorf("invalid --allow-ungated-workflows %q: use true or false", opts.ungatedWorkflows)
+		}
+	}
+	if update.Autonomy == nil && update.CustomContext == nil && update.SystemPrompt == nil &&
+		update.AllowUngatedWorkflows == nil {
+		return update, errors.New("nothing to change: pass --autonomy, --custom-context, --system-prompt, " +
+			"or --allow-ungated-workflows")
 	}
 	return update, nil
 }
 
 func runSettingsSet(ctx context.Context, opts settingsSetOptions, update apiclient.LavaflowSettingsUpdate) error {
-	settings, err := clilavaflow.NewService(opts.deps).UpdateSettings(ctx, update)
+	var ask func() error
+	if update.AllowUngatedWorkflows != nil && *update.AllowUngatedWorkflows {
+		ask = func() error { return confirmUngatedWorkflows(opts) }
+	}
+	settings, err := clilavaflow.NewService(opts.deps).UpdateSettings(ctx, update, ask)
+	if errors.Is(err, errDeclined) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -111,5 +144,26 @@ func runSettingsSet(ctx context.Context, opts settingsSetOptions, update apiclie
 		return writeJSON(opts.out, settings)
 	}
 	output.LavaflowSettingsSaved(opts.out, "LavaFlow's settings are saved", settings)
+	return nil
+}
+
+// confirmUngatedWorkflows says what allowing ungated workflows risks, even
+// with --yes, on stderr so --json output stays JSON. Without --yes it asks,
+// and refuses when nothing can answer rather than read that as a no.
+func confirmUngatedWorkflows(opts settingsSetOptions) error {
+	if opts.yes {
+		fmt.Fprintln(opts.errOut, clilavaflow.UngatedWorkflowsDisclosure)
+		return nil
+	}
+	if !confirm.CanPrompt(opts.in) {
+		return fmt.Errorf("%s\n\nstdin is not a terminal: confirmation required; pass --yes", clilavaflow.UngatedWorkflowsDisclosure)
+	}
+	confirmed, err := confirm.Action(opts.in, opts.errOut, clilavaflow.UngatedWorkflowsDisclosure, "Allow ungated workflows?")
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		return errDeclined
+	}
 	return nil
 }

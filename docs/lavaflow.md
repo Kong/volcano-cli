@@ -54,7 +54,7 @@ the same when the owner's plan couldn't be read.
 | Turn LavaFlow on | `volcano cloud lavaflow enable [--yes] [--json]` |
 | Turn LavaFlow off | `volcano cloud lavaflow disable [--json]` |
 | Show the settings in full | `volcano cloud lavaflow settings [--json]` |
-| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--json]` |
+| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--allow-ungated-workflows true\|false] [--yes] [--json]` |
 | Show issues and fix pull requests per day | `volcano cloud lavaflow stats [--days n] [--json]` |
 | Show what LavaFlow did for each resource | `volcano cloud lavaflow resources [--days n] [--json]` |
 | List runs | `volcano cloud lavaflow list [--status s] [--resource id] [--limit n] [--cursor c] [--json]` |
@@ -161,6 +161,39 @@ Two more settings are saved for LavaFlow's runs, which don't use them yet:
 Each takes up to 4,000 characters, from the flag or a file
 (`--custom-context-file`, `--system-prompt-file`). An empty value clears it.
 A setting you don't pass keeps its value. `settings` shows both in full.
+
+### Allow ungated workflows
+
+By default, LavaFlow doesn't open a fix's pull request where a workflow in
+the repository could run it with the repository's secrets before a person
+approves it: the fix stays on its run instead. Only the project's owner can
+change that:
+
+```bash
+volcano cloud lavaflow settings set --allow-ungated-workflows true
+```
+
+Workflows in the repository may then run LavaFlow's pull requests with the
+repository's secrets before a person reviews them, and LavaFlow writes those
+changes from the project's error logs, which its users can influence. Turn it
+on only if those workflows keep secrets away from untrusted code; gating them
+on a label a person adds is safer.
+
+`settings set` prints that warning and asks before it turns the setting on;
+`--yes` skips the question but still prints the warning, on stderr. Without a
+terminal and without `--yes`, it refuses. `--allow-ungated-workflows false`
+turns it off without asking. `settings` shows it as `Ungated workflows:`.
+
+When a run's pull request opened past ungated workflows, `show` lists each
+workflow job: its file, the branch or commit whose workflows run it, the job
+and the event that runs it.
+
+```text
+Ungated workflows: the pull request opened past 1
+  - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target
+```
+
+A workflow file that couldn't be read shows as "couldn't be read".
 
 ## See what it did
 

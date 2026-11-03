@@ -68,6 +68,7 @@ func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings) {
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
+	kv(w, on, "Ungated workflows", "%s", allowedOrNot(settings.AllowUngatedWorkflows))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
 	block(w, on, "System prompt", settings.SystemPrompt)
@@ -79,6 +80,7 @@ func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.Lava
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
+	kv(w, on, "Ungated workflows", "%s", allowedOrNot(settings.AllowUngatedWorkflows))
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 }
@@ -175,6 +177,12 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	if run.Review != nil {
 		kv(w, on, "Review", "%s after %d round(s)", clean(strings.ReplaceAll(string(run.Review.Verdict), "_", " ")), run.Review.Rounds)
 	}
+	if len(run.UngatedWorkflowsAllowed) > 0 {
+		kv(w, on, "Ungated workflows", "the pull request opened past %d", len(run.UngatedWorkflowsAllowed))
+		for _, workflow := range run.UngatedWorkflowsAllowed {
+			fmt.Fprintf(w, "  - %s\n", lavaflowAllowedWorkflow(workflow))
+		}
+	}
 	if run.Failure != nil && run.Failure.Message != "" {
 		// The API words each failure code itself, so it is printed as given.
 		Warning(w, "%s", clean(run.Failure.Message))
@@ -243,6 +251,31 @@ func clean(text string) string {
 		}
 	}
 	return b.String()
+}
+
+func allowedOrNot(allowed bool) string {
+	if allowed {
+		return "allowed"
+	}
+	return "not allowed"
+}
+
+// lavaflowAllowedWorkflow names an ungated workflow job a pull request opened
+// past: its file, the branch or commit whose workflows run it, and the job
+// and the event that runs it, which are absent for a file that couldn't be
+// read.
+func lavaflowAllowedWorkflow(workflow apiclient.LavaflowAllowedWorkflow) string {
+	line := clean(workflow.Path) + " on " + clean(workflow.Source)
+	switch {
+	case workflow.Job != nil && workflow.Trigger != nil:
+		return line + ": job " + clean(*workflow.Job) + ", runs on " + clean(*workflow.Trigger)
+	case workflow.Job != nil:
+		return line + ": job " + clean(*workflow.Job)
+	case workflow.Trigger != nil:
+		return line + ": runs on " + clean(*workflow.Trigger)
+	default:
+		return line + ": couldn't be read"
+	}
 }
 
 func setOrNot(text string) string {

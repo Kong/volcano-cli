@@ -57,6 +57,18 @@ var ErrPlanUnreadable = errors.New("LavaFlow couldn't read the project owner's p
 var ErrChangeRefused = errors.New("LavaFlow's settings weren't changed: a read-only access token or account " +
 	"can't change them, and otherwise the project owner's plan couldn't be read; try again later")
 
+// UngatedWorkflowsWarning is what allowing ungated workflows risks, in the
+// approved words the API's contract and the docs also use.
+const UngatedWorkflowsWarning = "Workflows in the repository may then run LavaFlow's pull requests with the " +
+	"repository's secrets before a person reviews them, and LavaFlow writes those changes from the project's " +
+	"error logs, which its users can influence. Turn it on only if those workflows keep secrets away from " +
+	"untrusted code; gating them on a label a person adds is safer."
+
+// UngatedWorkflowsDisclosure is what settings set prints before it allows
+// ungated workflows: what the setting does, then the warning.
+const UngatedWorkflowsDisclosure = "Allowing ungated workflows lets LavaFlow open a fix's pull request even where " +
+	"a workflow could run it with the repository's secrets before a person approves it. " + UngatedWorkflowsWarning
+
 // ErrCantTurnOn reports, before enable asks, that the project's capabilities
 // say LavaFlow can't be turned on for a project that has LavaFlow records.
 // The capability counts both the rollout and the owner's plan without saying
@@ -259,10 +271,13 @@ func (s Service) Disable(ctx context.Context) (*apiclient.LavaflowSettings, erro
 	return s.update(ctx, "turn LavaFlow off", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, false, nil)
 }
 
-// UpdateSettings changes the fields update sets and keeps the rest. It asks
-// nothing, so it doesn't check the capabilities first: the save says why when
-// LavaFlow isn't available.
-func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSettingsUpdate) (*apiclient.LavaflowSettings, error) {
+// UpdateSettings changes the fields update sets and keeps the rest. It
+// doesn't check the capabilities first: the save says why when LavaFlow isn't
+// available. A non-nil confirm runs after the owner check, just before the
+// change.
+func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSettingsUpdate,
+	confirm func() error,
+) (*apiclient.LavaflowSettings, error) {
 	if update.Autonomy != nil && !update.Autonomy.Valid() {
 		return nil, fmt.Errorf("invalid autonomy %q: use %s or %s", *update.Autonomy, apiclient.DiagnoseOnly, apiclient.OpenPr)
 	}
@@ -271,7 +286,7 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 			return nil, fmt.Errorf("the %s is %d characters long: the most is %d", name, len([]rune(*text)), MaxTextLength)
 		}
 	}
-	return s.update(ctx, "change LavaFlow's settings", update, false, nil)
+	return s.update(ctx, "change LavaFlow's settings", update, false, confirm)
 }
 
 // update refuses a project access token before sending anything. Every

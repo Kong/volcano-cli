@@ -80,6 +80,7 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env.runCloudCLI(t, "lavaflow", "stats", "--days", "7").requireSuccess(t, "0 issue(s) opened and 0 fix pull request(s) opened")
 	env.runCloudCLI(t, "lavaflow", "resources").requireSuccess(t)
 	env.runCloudCLI(t, "lavaflow", "list").requireSuccess(t, "No runs")
+	requireAPIE2ELavaFlowUngatedWorkflows(t, env)
 	requireAPIE2ELavaFlowNeedsAPerson(t, env)
 
 	env.runCloudCLI(t, "lavaflow", "disable").requireSuccess(t, "LavaFlow is off")
@@ -104,4 +105,38 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings").requireSuccess(t, "LavaFlow: on")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "disable").
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
+	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings", "set", "--allow-ungated-workflows", "false").
+		requireFailure(t, "changing LavaFlow's settings needs a person's session")
+}
+
+// requireAPIE2ELavaFlowUngatedWorkflows allows ungated workflows on the
+// test's own disposable project, which has no connected repository, reads it
+// back, and always turns it off again.
+func requireAPIE2ELavaFlowUngatedWorkflows(t *testing.T, env *apiE2E) {
+	t.Helper()
+	readBack := func() bool {
+		settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")
+		settings.requireSuccess(t)
+		var saved struct {
+			AllowUngatedWorkflows bool `json:"allow_ungated_workflows"`
+		}
+		if err := json.Unmarshal([]byte(settings.stdout), &saved); err != nil {
+			t.Fatalf("settings --json did not emit JSON: %v\n%s", err, settings.output)
+		}
+		return saved.AllowUngatedWorkflows
+	}
+	t.Cleanup(func() {
+		env.runCloudCLI(t, "lavaflow", "settings", "set", "--allow-ungated-workflows", "false").requireSuccess(t)
+	})
+
+	env.runCloudCLI(t, "lavaflow", "settings", "set", "--allow-ungated-workflows", "true", "--yes").
+		requireSuccess(t, "Turn it on only if those workflows keep secrets away from untrusted code", "Ungated workflows: allowed")
+	if !readBack() {
+		t.Fatal("settings did not read back allow_ungated_workflows: true")
+	}
+	env.runCloudCLI(t, "lavaflow", "settings", "set", "--allow-ungated-workflows", "false").
+		requireSuccess(t, "Ungated workflows: not allowed")
+	if readBack() {
+		t.Fatal("settings did not read back allow_ungated_workflows: false")
+	}
 }

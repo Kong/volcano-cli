@@ -98,7 +98,7 @@ func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
 func defaultLavaflowSettings() map[string]any {
 	return map[string]any{
 		"project_id": lavaflowProjectID, "enabled": false, "autonomy": "open_pr", "custom_context": "", "system_prompt": "",
-		"updated_at": nil, "updated_by": nil, "can_update": true,
+		"updated_at": nil, "updated_by": nil, "can_update": true, "allow_ungated_workflows": false,
 	}
 }
 
@@ -304,8 +304,9 @@ func fixedRun() map[string]any {
 				"message": "TypeError: Cannot read properties of undefined (reading 'items')",
 			}},
 		},
-		"review": map[string]any{"verdict": "passed", "rounds": 2},
-		"diff":   "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
+		"review":                    map[string]any{"verdict": "passed", "rounds": 2},
+		"diff":                      "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
+		"ungated_workflows_allowed": []any{},
 	}
 }
 
@@ -316,7 +317,8 @@ func failedRun() map[string]any {
 		"issue_id": lavaflowIssueID,
 		"title":    nil, "pull_request": nil, "diagnosis": nil, "diff": nil, "review": nil,
 		"created_at": "2026-10-29T09:00:00Z", "finished_at": "2026-10-29T09:01:00Z",
-		"failure": map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},
+		"failure":                   map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},
+		"ungated_workflows_allowed": []any{},
 	}
 }
 
@@ -326,7 +328,7 @@ func summaries(runs []map[string]any) []any {
 	items := make([]any, 0, len(runs))
 	for _, run := range runs {
 		summary := maps.Clone(run)
-		for _, detail := range []string{"diagnosis", "review", "diff", "failure"} {
+		for _, detail := range []string{"diagnosis", "review", "diff", "failure", "ungated_workflows_allowed"} {
 			delete(summary, detail)
 		}
 		items = append(items, summary)

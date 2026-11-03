@@ -60,8 +60,9 @@ func TestSettingsSetRefusesBeforeSending(t *testing.T) {
 		args []string
 		want string
 	}{
-		{nil, "nothing to change: pass --autonomy, --custom-context, or --system-prompt"},
+		{nil, "nothing to change: pass --autonomy, --custom-context, --system-prompt, or --allow-ungated-workflows"},
 		{[]string{"--autonomy", "merge"}, `invalid autonomy "merge": use diagnose_only or open_pr`},
+		{[]string{"--allow-ungated-workflows", "yes"}, `invalid --allow-ungated-workflows "yes": use true or false`},
 		{[]string{"--system-prompt", tooLong}, "the system prompt is 4001 characters long: the most is 4000"},
 		{[]string{"--custom-context-file", filepath.Join(t.TempDir(), "missing.md")}, "failed to read"},
 		{[]string{"--custom-context", "a", "--custom-context-file", "b"}, "none of the others can be"},
@@ -104,4 +105,70 @@ func TestSettingsSetExamplesRunTheCloudCommand(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "  volcano cloud lavaflow settings set --autonomy diagnose_only\n")
 	assert.Contains(t, out, "  volcano cloud lavaflow settings set --custom-context-file lavaflow-context.md\n")
+}
+
+// Allowing ungated workflows says what it risks, in the approved words, and
+// asks first: only a yes or --yes sends it, and nothing that can't answer is
+// read as a yes. The warning goes to stderr, so --json output stays JSON.
+// Turning it off asks nothing.
+func TestSettingsSetAllowsUngatedWorkflowsOnlyAfterAsking(t *testing.T) {
+	for answer, wantSaved := range map[string]bool{"y\n": true, "n\n": false} {
+		fake, deps := newLavaflowServer(t)
+
+		out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(answer),
+			"settings", "set", "--allow-ungated-workflows", "true")
+		require.NoError(t, err, "%q", answer)
+		assert.Contains(t, errOut, clilavaflow.UngatedWorkflowsDisclosure, "%q", answer)
+		assert.Contains(t, errOut, "Allow ungated workflows?", "%q", answer)
+		if !wantSaved {
+			assert.Empty(t, fake.updates, "%q", answer)
+			assert.Empty(t, out, "%q", answer)
+			continue
+		}
+		assert.Equal(t, map[string]any{"allow_ungated_workflows": true}, fake.lastUpdate(t))
+		assert.Contains(t, out, "Ungated workflows: allowed\n")
+	}
+
+	fake, deps := newLavaflowServer(t)
+	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
+		"settings", "set", "--allow-ungated-workflows", "true", "--yes", "--json")
+	require.NoError(t, err)
+	assert.Contains(t, errOut, clilavaflow.UngatedWorkflowsDisclosure, "--yes still says what it risks")
+	assert.NotContains(t, errOut, "Allow ungated workflows?")
+	assert.Equal(t, true, decodeJSON(t, out)["allow_ungated_workflows"])
+	assert.Equal(t, map[string]any{"allow_ungated_workflows": true}, fake.lastUpdate(t))
+
+	stdin, err := os.Open(os.DevNull)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = stdin.Close() })
+	fake, deps = newLavaflowServer(t)
+	_, _, err = executeLavaflowCommandSplit(t, New(deps), stdin, "settings", "set", "--allow-ungated-workflows", "true")
+	require.ErrorContains(t, err, "stdin is not a terminal: confirmation required; pass --yes")
+	assert.Empty(t, fake.updates)
+
+	fake, deps = newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.settings["allow_ungated_workflows"] = true })
+	out, errOut, err = executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
+		"settings", "set", "--allow-ungated-workflows", "false")
+	require.NoError(t, err)
+	assert.Empty(t, errOut, "turning it off asks nothing")
+	assert.Equal(t, map[string]any{"allow_ungated_workflows": false}, fake.lastUpdate(t))
+	assert.Contains(t, out, "Ungated workflows: not allowed\n")
+
+	out, err = executeLavaflowCommand(t, New(deps), "settings")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Ungated workflows: not allowed\n")
+}
+
+// Only the owner allows ungated workflows: someone the settings say can't
+// change them is refused before anything is asked.
+func TestSettingsSetAsksAboutUngatedWorkflowsOnlyTheOwner(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.settings["can_update"] = false })
+
+	_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"),
+		"settings", "set", "--allow-ungated-workflows", "true")
+	require.ErrorIs(t, err, clilavaflow.ErrOwnerDecides)
+	assert.NotContains(t, errOut, "Allow ungated workflows?")
+	assert.Empty(t, fake.updates)
 }

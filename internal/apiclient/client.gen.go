@@ -8030,6 +8030,19 @@ type ImportSourcesResponse struct {
 	Sources []ImportSource `json:"sources"`
 }
 
+// LavaflowAllowedWorkflow A workflow job that could run a fix's pull request with the repository's secrets before a person approves it.
+type LavaflowAllowedWorkflow struct {
+	// Job The job, absent for a workflow that could not be read.
+	Job  *string `json:"job,omitempty"`
+	Path string  `json:"path"`
+
+	// Source The branch or commit whose workflows run it.
+	Source string `json:"source"`
+
+	// Trigger The event that runs it, absent for a workflow that could not be read.
+	Trigger *string `json:"trigger,omitempty"`
+}
+
 // LavaflowAnomaly defines model for LavaflowAnomaly.
 type LavaflowAnomaly struct {
 	Flagged bool `json:"flagged"`
@@ -8162,6 +8175,9 @@ type LavaflowRun struct {
 
 	// Title The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
 	Title *string `json:"title"`
+
+	// UngatedWorkflowsAllowed The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none.
+	UngatedWorkflowsAllowed []LavaflowAllowedWorkflow `json:"ungated_workflows_allowed"`
 }
 
 // LavaflowRunStatus Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
@@ -8190,6 +8206,9 @@ type LavaflowRunSummary struct {
 
 // LavaflowSettings A project's LavaFlow settings. LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
 type LavaflowSettings struct {
+	// AllowUngatedWorkflows Whether LavaFlow opens a fix's pull request even where a workflow could run it with the repository's secrets before a person approves it. Off by default; while off, such a fix stays on its run and no pull request opens. Workflows in the repository may then run LavaFlow's pull requests with the repository's secrets before a person reviews them, and LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer.
+	AllowUngatedWorkflows bool `json:"allow_ungated_workflows"`
+
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. LavaFlow never merges.
 	Autonomy LavaflowAutonomy `json:"autonomy"`
 
@@ -8217,6 +8236,9 @@ type LavaflowSettings struct {
 
 // LavaflowSettingsUpdate The project, and at least one field to change. An omitted field keeps its saved value.
 type LavaflowSettingsUpdate struct {
+	// AllowUngatedWorkflows Turns on opening fixes past ungated workflows. Workflows in the repository may then run LavaFlow's pull requests with the repository's secrets before a person reviews them, and LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`.
+	AllowUngatedWorkflows *bool `json:"allow_ungated_workflows,omitempty"`
+
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. LavaFlow never merges.
 	Autonomy      *LavaflowAutonomy `json:"autonomy,omitempty"`
 	CustomContext *string           `json:"custom_context,omitempty"`
