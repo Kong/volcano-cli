@@ -88,9 +88,9 @@ func TestARunsStatusSaysWhatItIsDoing(t *testing.T) {
 	}
 }
 
-// A run whose fix LavaFlow holds says so in the list; one still on its way to
-// merging shows its run status.
-func TestListMarksAHeldFix(t *testing.T) {
+// A run whose fix LavaFlow held or stopped says so in the list; one still on
+// its way to merging shows its run status.
+func TestListMarksAFixLeftToYou(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
 		s.holdFix(holdReason("label", "The pull request has the needs-human-review label."))
@@ -98,10 +98,15 @@ func TestListMarksAHeldFix(t *testing.T) {
 
 	out, err := executeLavaflowCommand(t, New(deps), "list")
 	require.NoError(t, err)
-	assert.Contains(t, out, "Held for you to merge")
+	assert.Contains(t, out, "Held: yours to merge")
+
+	fake.set(func(s *lavaflowServer) { s.runs[0]["merge"].(map[string]any)["status"] = "stopped" })
+	out, err = executeLavaflowCommand(t, New(deps), "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Stopped: yours to merge")
 
 	fake.set(func(s *lavaflowServer) { s.runs[0]["merge"].(map[string]any)["status"] = "waiting_for_checks" })
 	out, err = executeLavaflowCommand(t, New(deps), "list")
 	require.NoError(t, err)
-	assert.NotContains(t, out, "Held for you to merge")
+	assert.NotContains(t, out, "yours to merge")
 }

@@ -43,7 +43,14 @@ func (c *Client) UpdateLavaflowSettings(
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON413)
+	settings, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403,
+		resp.JSON404, resp.JSON413)
+	if err != nil && resp.HTTPResponse != nil {
+		// A 429 or 503 for autonomy merge says when Volcano can check the
+		// owner's push access again.
+		return nil, withRetryAfter(err, resp.HTTPResponse.Header)
+	}
+	return settings, err
 }
 
 // GetLavaflowStats returns the issues LavaFlow took on and the fix pull

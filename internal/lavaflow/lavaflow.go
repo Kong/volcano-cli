@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -57,10 +58,10 @@ var ErrPlanUnreadable = errors.New("LavaFlow couldn't read the project owner's p
 var ErrChangeRefused = errors.New("LavaFlow's settings weren't changed: a read-only access token or account " +
 	"can't change them, and otherwise the project owner's plan couldn't be read; try again later")
 
-// MergeDisclosure is what autonomy merge does, in the approved words the docs
-// also use. settings set prints it before it turns merging on.
-const MergeDisclosure = "LavaFlow merges fixes that pass its review and your checks; " +
-	"anything held is yours to review and merge."
+// MergeDisclosure is what autonomy merge does. settings set prints it before
+// it turns merging on.
+const MergeDisclosure = "At autonomy merge, LavaFlow can merge its fix pull requests. " +
+	"A fix it holds or stops is yours to review and merge on GitHub."
 
 // ErrMergingNotAvailable reports feature_unavailable for autonomy merge:
 // LavaFlow doesn't merge for this project yet.
@@ -358,9 +359,25 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	}
 	settings, err := authenticated.API.UpdateLavaflowSettings(ctx, authenticated.ProjectID, update)
 	if err != nil {
+		if update.Autonomy != nil && *update.Autonomy == apiclient.Merge &&
+			(api.Status(err) == http.StatusTooManyRequests || api.Status(err) == http.StatusServiceUnavailable) {
+			return nil, pushCheckUnanswered(time.Now(), err)
+		}
 		return nil, refused(authenticated.Config, fmt.Errorf("failed to %s: %w", verb, err))
 	}
 	return settings, nil
+}
+
+// pushCheckUnanswered says autonomy merge wasn't saved because Volcano
+// couldn't check the owner's push access, and when to try again, keeping the
+// refusal as the cause for the exit code.
+func pushCheckUnanswered(now time.Time, err error) error {
+	refusal := "LavaFlow's settings weren't changed: Volcano couldn't check that the project owner's GitHub account " +
+		"can push to the repository"
+	if at, ok := api.RetryAt(err, now); ok {
+		return api.WithCause(fmt.Errorf("%s. Try again in %s", refusal, at.Sub(now).Round(time.Second)), err)
+	}
+	return api.WithCause(fmt.Errorf("%s. Try again later", refusal), err)
 }
 
 // refused says why the API refused a change, by its code rather than its

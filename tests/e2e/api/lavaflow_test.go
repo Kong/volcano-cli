@@ -140,7 +140,7 @@ func requireAPIE2ELavaFlowMerging(t *testing.T, env *apiE2E) {
 	}
 	defer env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only", "--clear-human-review-paths").
 		requireSuccess(t, "LavaFlow's settings are saved")
-	merging.requireSuccess(t, "anything held is yours to review and merge")
+	merging.requireSuccess(t, "A fix it holds or stops is yours to review and merge on GitHub.")
 	if saved := decode(merging); saved.Autonomy != "merge" {
 		t.Fatalf("settings set --autonomy merge --json did not save autonomy merge: %+v", saved)
 	}

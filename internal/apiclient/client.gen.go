@@ -8099,7 +8099,7 @@ type LavaflowFailure struct {
 	Message string `json:"message"`
 }
 
-// LavaflowHoldReason PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). One reason LavaFlow holds the fix for a person.
+// LavaflowHoldReason PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA's merge contract rev 3.1). One reason LavaFlow holds the fix for a person.
 type LavaflowHoldReason struct {
 	// Code Why the fix is held. New codes may appear.
 	Code string `json:"code"`
@@ -8118,23 +8118,23 @@ type LavaflowLogLine struct {
 	Timestamp *time.Time `json:"timestamp"`
 }
 
-// LavaflowMerge PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). Where the run's merge stands. Present for a run that may merge its fix, once its pull request opens.
+// LavaflowMerge PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA's merge contract rev 3.1). Where the run's merge stands. Present for a run that may merge its fix, once its pull request opens.
 type LavaflowMerge struct {
 	// HoldReasons Why LavaFlow holds the fix, while `status` is `held`.
 	HoldReasons []LavaflowHoldReason `json:"hold_reasons"`
 	Reason      *LavaflowMergeReason `json:"reason"`
 
-	// Status PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). `waiting_for_checks` waits for every check on the fix's commit to pass. `held` means LavaFlow won't merge the fix, for `hold_reasons`, and the pull request is yours to review and merge. `queued` means the fix is in the repository's merge queue. `merged` means the pull request merged. `stopped` means LavaFlow left the pull request open for you to review and merge, for `reason`.
+	// Status PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA's merge contract rev 3.1). `waiting_for_checks` waits for every check on the fix's commit to pass; a revision reads as this too. `queued` means the fix is in the repository's merge queue. `merged` means the pull request merged. `held` and `stopped` are final: LavaFlow left the pull request to people. `held` lists `hold_reasons`, and `stopped` gives a `reason`.
 	Status LavaflowMergeStatus `json:"status"`
 }
 
-// LavaflowMergePolicy PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.
+// LavaflowMergePolicy PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA's merge contract rev 3.1). When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.
 type LavaflowMergePolicy struct {
 	// HumanReviewPaths Globs of paths whose change always holds the fix for a person, such as `db/migrations/**`, relative to the repository root. Volcano's own held paths, such as deploy configuration and authentication code, always hold too. Defaults to none.
 	HumanReviewPaths []string `json:"human_review_paths"`
 }
 
-// LavaflowMergePolicyUpdate PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). The merge policy fields to change. Send `human_review_paths: []` to clear the paths.
+// LavaflowMergePolicyUpdate PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA's merge contract rev 3.1). The merge policy fields to change. Send `human_review_paths: []` to clear the paths.
 type LavaflowMergePolicyUpdate struct {
 	HumanReviewPaths *[]string `json:"human_review_paths,omitempty"`
 }
@@ -8142,7 +8142,7 @@ type LavaflowMergePolicyUpdate struct {
 // LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `removed_from_queue`: the merge queue dropped it. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused; a waiting fix keeps its status and resumes. `paused_too_long`: merging stayed paused for more than 7 days. New reasons may appear.
 type LavaflowMergeReason = string
 
-// LavaflowMergeStatus PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). `waiting_for_checks` waits for every check on the fix's commit to pass. `held` means LavaFlow won't merge the fix, for `hold_reasons`, and the pull request is yours to review and merge. `queued` means the fix is in the repository's merge queue. `merged` means the pull request merged. `stopped` means LavaFlow left the pull request open for you to review and merge, for `reason`.
+// LavaflowMergeStatus PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA's merge contract rev 3.1). `waiting_for_checks` waits for every check on the fix's commit to pass; a revision reads as this too. `queued` means the fix is in the repository's merge queue. `merged` means the pull request merged. `held` and `stopped` are final: LavaFlow left the pull request to people. `held` lists `hold_reasons`, and `stopped` gives a `reason`.
 type LavaflowMergeStatus string
 
 // LavaflowPullRequest defines model for LavaflowPullRequest.
@@ -8273,7 +8273,7 @@ type LavaflowSettings struct {
 	// Enabled Whether LavaFlow works on the project's issues. Off by default.
 	Enabled bool `json:"enabled"`
 
-	// MergePolicy PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.
+	// MergePolicy PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA's merge contract rev 3.1). When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.
 	MergePolicy LavaflowMergePolicy `json:"merge_policy"`
 
 	// ProjectId The project the settings belong to.
@@ -8296,7 +8296,7 @@ type LavaflowSettingsUpdate struct {
 	CustomContext *string           `json:"custom_context,omitempty"`
 	Enabled       *bool             `json:"enabled,omitempty"`
 
-	// MergePolicy PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). The merge policy fields to change. Send `human_review_paths: []` to clear the paths.
+	// MergePolicy PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA's merge contract rev 3.1). The merge policy fields to change. Send `human_review_paths: []` to clear the paths.
 	MergePolicy *LavaflowMergePolicyUpdate `json:"merge_policy,omitempty"`
 
 	// ProjectId The project whose settings to change.

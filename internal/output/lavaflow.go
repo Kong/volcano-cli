@@ -264,7 +264,7 @@ func lavaflowAutonomy(autonomy apiclient.LavaflowAutonomy) string {
 	case apiclient.OpenPr:
 		return "open fix pull requests"
 	case apiclient.Merge:
-		return "open fix pull requests and merge those that pass its review and your checks"
+		return "open fix pull requests and may merge them"
 	default:
 		return clean(string(autonomy))
 	}
@@ -283,17 +283,15 @@ func lavaflowHumanReviewPaths(w io.Writer, on bool, policy apiclient.LavaflowMer
 	kv(w, on, "Human review paths", "%s", paths)
 }
 
-// lavaflowMergeLines says where a run's merge is and, once LavaFlow holds the
-// fix, why. A status the CLI doesn't know prints as the API gives it.
+// lavaflowMergeLines says where a run's merge is, and why LavaFlow held or
+// stopped it. Both are final: the pull request is then the person's. A status
+// the CLI doesn't know prints as the API gives it.
 func lavaflowMergeLines(w io.Writer, on bool, merge *apiclient.LavaflowMerge) {
 	status := lavaflowMergeStatus(merge.Status)
 	if merge.Reason != nil && *merge.Reason != "" {
-		status += " (" + clean(strings.ReplaceAll(*merge.Reason, "_", " ")) + ")"
+		status += " (" + lavaflowMergeReason(*merge.Reason) + ")"
 	}
 	kv(w, on, "Merge", "%s", status)
-	if merge.Status != apiclient.LavaflowMergeStatusHeld {
-		return
-	}
 	for _, reason := range merge.HoldReasons {
 		line := clean(reason.Question)
 		if strings.TrimSpace(line) == "" {
@@ -304,6 +302,24 @@ func lavaflowMergeLines(w io.Writer, on bool, merge *apiclient.LavaflowMerge) {
 		}
 		fmt.Fprintf(w, "  - %s\n", line)
 	}
+	if lavaflowMergeLeftToYou(merge.Status) {
+		fmt.Fprintln(w, "The pull request is now yours to review and merge on GitHub.")
+	}
+}
+
+// lavaflowMergeLeftToYou says whether LavaFlow left the pull request to
+// people for good.
+func lavaflowMergeLeftToYou(status apiclient.LavaflowMergeStatus) bool {
+	return status == apiclient.LavaflowMergeStatusHeld || status == apiclient.LavaflowMergeStatusStopped
+}
+
+func lavaflowMergeReason(reason string) string {
+	switch reason {
+	case "paused":
+		return "paused while merging is off"
+	default:
+		return clean(strings.ReplaceAll(reason, "_", " "))
+	}
 }
 
 func lavaflowMergeStatus(status apiclient.LavaflowMergeStatus) string {
@@ -311,7 +327,7 @@ func lavaflowMergeStatus(status apiclient.LavaflowMergeStatus) string {
 	case apiclient.LavaflowMergeStatusWaitingForChecks:
 		return "waiting for CI"
 	case apiclient.LavaflowMergeStatusHeld:
-		return "held for you to review and merge"
+		return "held"
 	case apiclient.LavaflowMergeStatusQueued:
 		return "queued to merge"
 	case apiclient.LavaflowMergeStatusMerged:
@@ -331,13 +347,17 @@ func cleanList(items []string) string {
 	return strings.Join(cleaned, ", ")
 }
 
-// lavaflowRunListStatus marks a run whose fix LavaFlow holds for a person,
-// which otherwise reads as an open pull request.
+// lavaflowRunListStatus marks a run whose fix LavaFlow held or stopped, which
+// otherwise reads as an open pull request.
 func lavaflowRunListStatus(run apiclient.LavaflowRunSummary) string {
-	if run.Merge != nil && run.Merge.Status == apiclient.LavaflowMergeStatusHeld {
-		return "Held for you to merge"
+	switch {
+	case run.Merge != nil && run.Merge.Status == apiclient.LavaflowMergeStatusHeld:
+		return "Held: yours to merge"
+	case run.Merge != nil && run.Merge.Status == apiclient.LavaflowMergeStatusStopped:
+		return "Stopped: yours to merge"
+	default:
+		return lavaflowRunStatus(run.Status)
 	}
-	return lavaflowRunStatus(run.Status)
 }
 
 // lavaflowRunStatus labels a run's status. The running stages say what the

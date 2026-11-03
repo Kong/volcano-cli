@@ -10,8 +10,8 @@ deployed source, and opens fix pull requests in your connected repository.
 It covers every function, frontend and durable function in the project.
 Turning it on is the whole setup: there is nothing to install and no key to
 bring. You review and merge its pull requests like any other, unless you
-choose autonomy `merge`: then LavaFlow merges fixes that pass its review and
-your checks; anything held is yours to review and merge.
+choose autonomy `merge`: then LavaFlow can merge them, and a fix it holds or
+stops is yours to review and merge on GitHub.
 
 Where LavaFlow isn't available, every `volcano cloud lavaflow` command says
 why:
@@ -151,8 +151,8 @@ volcano cloud lavaflow settings set --autonomy diagnose_only
   you to review and merge.
 - `diagnose_only`: LavaFlow diagnoses each issue and leaves any fix to a
   person.
-- `merge`: LavaFlow merges fixes that pass its review and your checks;
-  anything held is yours to review and merge. See [Merge fixes](#merge-fixes).
+- `merge`: LavaFlow can also merge its fix pull requests. See
+  [Merge fixes](#merge-fixes).
 
 Two more settings are saved for LavaFlow's runs, which don't use them yet:
 
@@ -167,8 +167,8 @@ A setting you don't pass keeps its value. `settings` shows both in full.
 
 ### Merge fixes
 
-At autonomy `merge`, LavaFlow merges fixes that pass its review and your
-checks; anything held is yours to review and merge.
+At autonomy `merge`, LavaFlow can merge its fix pull requests. A fix it holds
+or stops is yours to review and merge on GitHub.
 
 ```bash
 volcano cloud lavaflow settings set --autonomy merge
@@ -197,16 +197,19 @@ authentication code, always hold a fix too. `settings` prints the paths.
 volcano cloud lavaflow settings set --human-review-path 'infra/**' --human-review-path 'db/migrations/**'
 ```
 
-A held fix stays held: LavaFlow doesn't merge it, and its pull request is
-yours to review and merge. `show` prints `Merge:` with where the merge is:
-`waiting for CI`, `held for you to review and merge`, `queued to merge`,
-`merged`, or `stopped` with the reason it stopped. For a held fix, it lists
-each reason in Volcano's words, with the paths it names. In `list`, a held
-fix's run shows `Held for you to merge` as its status.
+`show` prints `Merge:` with where the merge is: `waiting for CI`,
+`queued to merge`, `merged`, `held` or `stopped`. While merging is paused for
+the project, a waiting fix says `paused while merging is off`. `held` and
+`stopped` are final: LavaFlow doesn't touch the pull request again, and it's
+yours to review and merge on GitHub. A held fix lists each reason in Volcano's
+words, with the paths it names; a stopped fix gives its reason, such as
+`checks failed`. In `list`, their runs show `Held: yours to merge` or
+`Stopped: yours to merge` as their status.
 
 ```text
-Merge: held for you to review and merge
+Merge: held
   - It changes a path in human_review_paths. (db/migrations/0042_orders.sql)
+The pull request is now yours to review and merge on GitHub.
 ```
 
 ## See what it did

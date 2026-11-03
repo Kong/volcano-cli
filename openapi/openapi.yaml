@@ -25094,7 +25094,7 @@ components:
       description: How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix; `merge` also merges the fix when `merge_policy` allows. Choosing `merge` needs the project's `lavaflow.merge` capability.
     LavaflowMergePolicy:
       type: object
-      description: 'PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM''s answers to the Runs API IC). When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.'
+      description: 'PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA''s merge contract rev 3.1). When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.'
       properties:
         human_review_paths:
           type: array
@@ -25110,7 +25110,7 @@ components:
       type: object
       additionalProperties: false
       minProperties: 1
-      description: 'PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM''s answers to the Runs API IC). The merge policy fields to change. Send `human_review_paths: []` to clear the paths.'
+      description: 'PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA''s merge contract rev 3.1). The merge policy fields to change. Send `human_review_paths: []` to clear the paths.'
       properties:
         human_review_paths:
           type: array
@@ -25127,13 +25127,13 @@ components:
         - queued
         - merged
         - stopped
-      description: 'PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM''s answers to the Runs API IC). `waiting_for_checks` waits for every check on the fix''s commit to pass. `held` means LavaFlow won''t merge the fix, for `hold_reasons`, and the pull request is yours to review and merge. `queued` means the fix is in the repository''s merge queue. `merged` means the pull request merged. `stopped` means LavaFlow left the pull request open for you to review and merge, for `reason`.'
+      description: 'PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA''s merge contract rev 3.1). `waiting_for_checks` waits for every check on the fix''s commit to pass; a revision reads as this too. `queued` means the fix is in the repository''s merge queue. `merged` means the pull request merged. `held` and `stopped` are final: LavaFlow left the pull request to people. `held` lists `hold_reasons`, and `stopped` gives a `reason`.'
     LavaflowMergeReason:
       type: string
       description: 'Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow''s review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository''s rules hold the merge. `not_mergeable`: GitHub can''t merge the pull request, for example because it conflicts. `removed_from_queue`: the merge queue dropped it. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub''s state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner''s GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project''s settings no longer allow the merge. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused; a waiting fix keeps its status and resumes. `paused_too_long`: merging stayed paused for more than 7 days. New reasons may appear.'
     LavaflowHoldReason:
       type: object
-      description: 'PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM''s answers to the Runs API IC). One reason LavaFlow holds the fix for a person.'
+      description: 'PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA''s merge contract rev 3.1). One reason LavaFlow holds the fix for a person.'
       properties:
         code:
           type: string
@@ -25152,7 +25152,7 @@ components:
         - paths
     LavaflowMerge:
       type: object
-      description: 'PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM''s answers to the Runs API IC). Where the run''s merge stands. Present for a run that may merge its fix, once its pull request opens.'
+      description: 'PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from QA''s merge contract rev 3.1). Where the run''s merge stands. Present for a run that may merge its fix, once its pull request opens.'
       properties:
         status:
           $ref: '#/components/schemas/LavaflowMergeStatus'

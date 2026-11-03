@@ -131,8 +131,8 @@ func TestSettingsSetHelpSaysWhatMergingDoes(t *testing.T) {
 
 	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--help")
 	require.NoError(t, err)
-	assert.Contains(t, out, "also merges them:\n"+clilavaflow.MergeDisclosure+"\n--autonomy merge prints that and asks first; "+
-		"--yes skips the question.")
+	assert.Contains(t, out, "merge\nis for a project where merging is available. "+clilavaflow.MergeDisclosure+
+		"\n--autonomy merge prints that and asks first; --yes skips the question.")
 	assert.Contains(t, out, "--human-review-path names a path whose changes always hold a fix for a")
 	assert.NotContains(t, out, "approv")
 }
@@ -154,7 +154,7 @@ func TestSettingsSetAsksBeforeMerging(t *testing.T) {
 			continue
 		}
 		assert.Equal(t, map[string]any{"autonomy": "merge"}, fake.lastUpdate(t))
-		assert.Contains(t, out, "Autonomy: open fix pull requests and merge those that pass its review and your checks")
+		assert.Contains(t, out, "Autonomy: open fix pull requests and may merge them")
 	}
 }
 
@@ -216,6 +216,32 @@ func TestSettingsWithoutAMergePolicyPrintsNoPaths(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "settings")
 	require.NoError(t, err)
 	assert.NotContains(t, out, "Human review paths")
+}
+
+// When Volcano can't check the owner's push access for autonomy merge, it
+// answers 429 or 503, and the CLI says when to try again.
+func TestSettingsSetSaysWhenToTryMergingAgain(t *testing.T) {
+	for name, tc := range map[string]struct {
+		status  int
+		headers map[string]string
+		want    string
+	}{
+		"limited":    {http.StatusTooManyRequests, map[string]string{"Retry-After": "30"}, "Try again in 30s"},
+		"unanswered": {http.StatusServiceUnavailable, nil, "Try again later"},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse, s.refuseMethod = tc.status, http.MethodPut
+			s.refusal = map[string]any{"error": "the push check didn't answer"}
+			s.refusalHeaders = tc.headers
+		})
+
+		_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "merge", "--yes")
+		require.Error(t, err, name)
+		assert.Equal(t, "LavaFlow's settings weren't changed: Volcano couldn't check that the project owner's GitHub "+
+			"account can push to the repository. "+tc.want, err.Error(), name)
+		assert.Equal(t, tc.status, api.Status(err), name)
+	}
 }
 
 // The API refuses autonomy merge while merging is off for the project, or

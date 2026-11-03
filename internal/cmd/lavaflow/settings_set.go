@@ -42,9 +42,8 @@ keeps its value. Only the project's owner can, from their own session: a
 project access token is refused.
 
 --autonomy decides how far LavaFlow goes: %[1]s diagnoses issues and leaves
-any fix to a person; %[2]s also opens fix pull requests for review; %[4]s,
-where merging is available for the project, also merges them:
-%[5]s
+any fix to a person; %[2]s also opens fix pull requests for review; %[4]s
+is for a project where merging is available. %[5]s
 --autonomy %[4]s prints that and asks first; --yes skips the question.
 
 --human-review-path names a path whose changes always hold a fix for a

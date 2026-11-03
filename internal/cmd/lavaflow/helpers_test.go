@@ -61,6 +61,8 @@ type lavaflowServer struct {
 	queries       map[string][]url.Values
 	repoConnected bool
 	repoFailure   int
+	// refusalHeaders go with every refusal, such as Retry-After.
+	refusalHeaders map[string]string
 	// repoReads counts reads of the repository connection.
 	repoReads    int
 	refuse       int
@@ -126,6 +128,9 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.refuse != 0 && (s.refuseMethod == "" || s.refuseMethod == r.Method) {
+		for name, value := range s.refusalHeaders {
+			w.Header().Set(name, value)
+		}
 		s.write(w, s.refuse, s.refusal)
 		return
 	}
