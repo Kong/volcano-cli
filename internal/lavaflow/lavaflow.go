@@ -255,7 +255,12 @@ func (s Service) Disable(ctx context.Context) (*apiclient.LavaflowSettings, erro
 // LavaFlow isn't available.
 func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSettingsUpdate) (*apiclient.LavaflowSettings, error) {
 	if update.Autonomy != nil && !update.Autonomy.Valid() {
-		return nil, fmt.Errorf("invalid autonomy %q: use %s or %s", *update.Autonomy, apiclient.DiagnoseOnly, apiclient.OpenPr)
+		return nil, fmt.Errorf("invalid autonomy %q: use %s, %s or %s",
+			*update.Autonomy, apiclient.DiagnoseOnly, apiclient.OpenPr, apiclient.Merge)
+	}
+	if policy := update.MergePolicy; policy != nil && policy.Mode != nil && !policy.Mode.Valid() {
+		return nil, fmt.Errorf("invalid merge mode %q: use %s, %s or %s",
+			*policy.Mode, apiclient.Human, apiclient.RiskBased, apiclient.Auto)
 	}
 	for name, text := range map[string]*string{"custom context": update.CustomContext, "system prompt": update.SystemPrompt} {
 		if text != nil && len([]rune(*text)) > MaxTextLength {
@@ -307,10 +312,15 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 }
 
 // refused says why the API refused a change, by its code rather than its
-// status, keeping the refusal as the cause for the exit code.
+// status, keeping the refusal as the cause for the exit code. A 400 with
+// feature_unavailable refuses a value, which today is only autonomy merge
+// while merging is off for the project.
 func refused(cfg *config.Config, err error) error {
-	if api.Code(err) == codePersonRequired {
+	switch {
+	case api.Code(err) == codePersonRequired:
 		return personDecides(cfg, err)
+	case api.Code(err) == codeFeatureUnavailable && api.Status(err) == http.StatusBadRequest:
+		return api.WithCause(ErrMergingNotAvailable, err)
 	}
 	return unavailable(err)
 }
@@ -320,11 +330,17 @@ func refused(cfg *config.Config, err error) error {
 // unset first. cause is the refusal, the API's or the CLI's own, which keeps
 // the exit code of a permission refused.
 func personDecides(cfg *config.Config, cause error) error {
+	return personRefusal(cfg, ErrPersonDecides, cause)
+}
+
+// personRefusal says refusal, then how a person does it instead, as
+// personDecides does.
+func personRefusal(cfg *config.Config, refusal, cause error) error {
 	how := "Sign in with 'volcano login' and run this again"
 	if cfg.TokenFromEnv() {
 		how = "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
 	}
-	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonDecides, how), cause)
+	return api.WithCause(fmt.Errorf("%w. %s", refusal, how), cause)
 }
 
 // Stats returns the issues LavaFlow took on and the fix pull requests it

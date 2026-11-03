@@ -9,8 +9,10 @@ LavaFlow uses AI to diagnose this project's errors from their logs and
 deployed source, and opens fix pull requests in your connected repository.
 It covers every function, frontend and durable function in the project.
 Turning it on is the whole setup: there is nothing to install and no key to
-bring. LavaFlow never merges: you review and merge its pull requests like any
-other.
+bring. At autonomy `merge`, where merging is available for the project,
+LavaFlow also merges a reviewed fix, by default only after a person approves
+it. Otherwise LavaFlow never merges: you review and merge its pull requests
+like any other.
 
 Where LavaFlow isn't available, every `volcano cloud lavaflow` command says
 why:
@@ -54,11 +56,12 @@ the same when the owner's plan couldn't be read.
 | Turn LavaFlow on | `volcano cloud lavaflow enable [--yes] [--json]` |
 | Turn LavaFlow off | `volcano cloud lavaflow disable [--json]` |
 | Show the settings in full | `volcano cloud lavaflow settings [--json]` |
-| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--json]` |
+| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--merge-mode m] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--json]` |
 | Show issues and fix pull requests per day | `volcano cloud lavaflow stats [--days n] [--json]` |
 | Show what LavaFlow did for each resource | `volcano cloud lavaflow resources [--days n] [--json]` |
 | List runs | `volcano cloud lavaflow list [--status s] [--resource id] [--limit n] [--cursor c] [--json]` |
 | Show a run | `volcano cloud lavaflow show <run-id> [--json]` |
+| Approve the merge a run waits for | `volcano cloud lavaflow approve <run-id> [--yes] [--json]` |
 
 Every command takes `--json` for the API's own fields and values.
 
@@ -140,12 +143,36 @@ can't; it is left out when the project's capabilities could not be read.
 volcano cloud lavaflow settings set --autonomy diagnose_only
 ```
 
-`--autonomy` takes one of two values:
+`--autonomy` takes one of three values:
 
 - `open_pr`: LavaFlow diagnoses each issue and opens a fix pull request for
   you to review and merge.
 - `diagnose_only`: LavaFlow diagnoses each issue and leaves any fix to a
   person.
+- `merge`: LavaFlow also merges each reviewed fix, as the merge mode allows.
+  It's only for a project where merging is available; elsewhere it says
+  "LavaFlow merging isn't available for this project yet".
+
+## Choose when it merges
+
+At autonomy `merge`, `--merge-mode` decides when LavaFlow merges a reviewed
+fix:
+
+- `human`, the default: each merge waits for a person to approve it.
+- `risk_based`: a fix waits for a person only when it looks risky; LavaFlow
+  merges the rest once CI passes.
+- `auto`: LavaFlow merges each reviewed fix once CI passes. Changes to
+  sensitive files still wait for a person.
+
+```bash
+volcano cloud lavaflow settings set --autonomy merge --merge-mode human
+```
+
+`settings` and `status` show the mode as `Merging:`. The mode is kept at any
+autonomy, and below `merge` the line says merging is off. `settings --json`
+also shows the rest of the merge policy, under `merge_policy`.
+
+## Other settings
 
 Two more settings are saved for LavaFlow's runs, which don't use them yet:
 
@@ -229,3 +256,39 @@ Review: passed after 2 round(s)
 Diagnosis
   Checkout reads the cart before it loads.
 ```
+
+## Approve a merge
+
+When a run's merge waits for a person, `show` says so and why, then names the
+command that approves:
+
+```text
+Merge: waiting for your approval
+  - LavaFlow started this fix from your logs on its own. Approving runs CI and merges it.
+Note: Approve the merge with 'volcano cloud lavaflow approve 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c', or close the pull request to stop it.
+```
+
+Each reason prints as one line, worded by Volcano, followed by the paths it is
+about, if any. A reason without wording prints as "Waiting for your approval".
+`Held for a person:` lists the changed paths that hold the merge. Once
+approved, `Merge:` says where the merge is: `waiting for CI`, `queued to
+merge`, `merged` or `stopped`, with the reason it stopped.
+
+```bash
+volcano cloud lavaflow approve 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
+```
+
+`approve` shows the run, its pull request and why the merge waits, then asks
+before it approves; `--yes` skips the question. Approving runs CI on the fix,
+and LavaFlow merges it once the required checks pass. To stop a merge
+instead, close the pull request. A run whose merge doesn't wait for a person
+is refused before anything is sent. If the pull request changed after
+`approve` read the run, nothing is approved: check the run again with `show`,
+then approve it.
+
+Only the project's owner approves, from their own session. A project access
+token is refused before anything is read, with code 5: sign in with
+`volcano login` instead, and if `VOLCANO_TOKEN` holds a project access token,
+unset it first. Someone other than the owner is refused with code 5 too.
+LavaFlow merges with the owner's GitHub account, so when that account can't
+push to the repository, `approve` says so.

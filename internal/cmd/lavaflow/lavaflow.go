@@ -38,6 +38,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newResources(deps))
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newShow(deps))
+	cmd.AddCommand(newApprove(deps))
 	return cmd
 }
 

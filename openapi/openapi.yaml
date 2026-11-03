@@ -7353,6 +7353,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /lavaflow/merge-approvals:
+    post:
+      tags:
+        - LavaFlow
+      summary: Approve a LavaFlow merge
+      description: |
+        PROVISIONAL (CLI draft until Kong/volcano-hosting PR 3). Approves the merge a run waits for: CI runs on the fix, and LavaFlow merges it once the required checks pass.
+        Only the project's owner decides, with a platform token: a project access token
+        gets `403` with code `person_required`. To stop a merge instead, close the pull request.
+      operationId: approveLavaflowMerge
+      security:
+        - UserToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LavaflowMergeApproval'
+      responses:
+        '200':
+          description: The run after the approval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowRun'
+        '400':
+          description: '`project_id` or `run_id` is missing or not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Code `person_required` means a project access token made the request; code `permission_missing` means the project owner's GitHub account can't push to the repository; no code means the caller isn't the project's owner.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. Code `feature_unavailable` means merging is not available for this project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Code `not_waiting_for_approval` means the run's merge isn't waiting for approval; code `head_moved` means the pull request changed since `head_sha`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/durable-approvals:
     get:
       tags:
@@ -25083,7 +25138,8 @@ components:
       enum:
         - diagnose_only
         - open_pr
-      description: How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. LavaFlow never merges.
+        - merge
+      description: How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix. `merge` (PROVISIONAL until Kong/volcano-hosting PR 3) also merges the fix as `merge_policy` allows, where merging is available.
     LavaflowSettings:
       type: object
       description: A project's LavaFlow settings. LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
@@ -25117,6 +25173,8 @@ components:
         can_update:
           type: boolean
           description: 'Whether the caller can save the settings: true only for the project''s owner with a platform token while the owner''s account is active; false for any project access token and for a read-only account.'
+        merge_policy:
+          $ref: '#/components/schemas/LavaflowMergePolicy'
       required:
         - project_id
         - enabled
@@ -25126,6 +25184,134 @@ components:
         - updated_at
         - updated_by
         - can_update
+    LavaflowMergeMode:
+      type: string
+      enum:
+        - human
+        - risk_based
+        - auto
+      description: 'PROVISIONAL (CLI draft until Kong/volcano-hosting PR 3): when LavaFlow merges a fix at autonomy `merge`. `human` (the default) waits for a person to approve each merge; `risk_based` waits for a person only when the fix looks risky; `auto` merges each reviewed fix once CI passes, except where a held path still waits for a person.'
+    LavaflowMergePolicy:
+      type: object
+      properties:
+        mode:
+          $ref: '#/components/schemas/LavaflowMergeMode'
+        human_review_paths:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 200
+          description: Paths whose changes always wait for a person.
+        allow_merge_without_checks:
+          type: boolean
+          description: Whether LavaFlow may merge where the repository requires no checks.
+        allow_ci_before_approval:
+          type: boolean
+          description: Whether CI runs before a person approves. Only `auto` allows true.
+      required:
+        - mode
+        - human_review_paths
+        - allow_merge_without_checks
+        - allow_ci_before_approval
+      description: 'PROVISIONAL (CLI draft until Kong/volcano-hosting PR 3): how LavaFlow merges at autonomy `merge`.'
+    LavaflowMergePolicyUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        mode:
+          $ref: '#/components/schemas/LavaflowMergeMode'
+        human_review_paths:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 200
+        allow_merge_without_checks:
+          type: boolean
+        allow_ci_before_approval:
+          type: boolean
+      description: 'PROVISIONAL (CLI draft until Kong/volcano-hosting PR 3): the merge policy fields to change; an omitted field keeps its value.'
+    LavaflowMergeStatus:
+      type: string
+      enum:
+        - waiting_for_checks
+        - waiting_for_approval
+        - queued
+        - merged
+        - stopped
+      description: 'PROVISIONAL (CLI draft until Kong/volcano-hosting PR 3): where a run''s merge is. New values may appear.'
+    LavaflowApprovalReason:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Why the merge waits for a person, such as `approval_required`, `automatic_run` or `sensitive_path`. New codes may appear.
+        question:
+          type: string
+          nullable: true
+          description: What the person decides, worded for them.
+        paths:
+          type: array
+          items:
+            type: string
+          description: The changed paths the reason is about, if any.
+      required:
+        - code
+      description: 'PROVISIONAL (CLI draft until Kong/volcano-hosting PR 3).'
+    LavaflowMerge:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/LavaflowMergeStatus'
+        reason:
+          type: string
+          nullable: true
+          description: Why the merge stopped or pauses, such as `checks_failed` or `paused`. New values may appear.
+        approval_reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowApprovalReason'
+          description: Why the merge waits for a person, while `status` is `waiting_for_approval`.
+        held_paths:
+          type: array
+          items:
+            type: string
+          description: The changed paths that hold the merge for a person.
+        head_sha:
+          type: string
+          nullable: true
+          description: The reviewed pull request head an approval applies to.
+        can_decide:
+          type: boolean
+          description: Whether the caller can approve the merge.
+      required:
+        - status
+        - reason
+        - approval_reasons
+        - held_paths
+      description: 'PROVISIONAL (CLI draft until Kong/volcano-hosting PR 3): a run''s merge, at autonomy `merge`.'
+    LavaflowMergeApproval:
+      type: object
+      additionalProperties: false
+      properties:
+        project_id:
+          type: string
+          format: uuid
+          description: The project the run belongs to.
+        run_id:
+          type: string
+          format: uuid
+          description: The run whose merge to approve.
+        head_sha:
+          type: string
+          description: The run's `merge.head_sha`; a pull request that has changed since then gets `409` with code `head_moved`.
+      required:
+        - project_id
+        - run_id
+      description: 'PROVISIONAL (CLI draft until Kong/volcano-hosting PR 3).'
     LavaflowSettingsUpdate:
       type: object
       additionalProperties: false
@@ -25146,6 +25332,8 @@ components:
         system_prompt:
           type: string
           maxLength: 4000
+        merge_policy:
+          $ref: '#/components/schemas/LavaflowMergePolicyUpdate'
       required:
         - project_id
     LavaflowStats:
@@ -25307,6 +25495,11 @@ components:
           allOf:
             - $ref: '#/components/schemas/LavaflowPullRequest'
           nullable: true
+        merge:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowMerge'
+          nullable: true
+          description: 'PROVISIONAL (CLI draft until Kong/volcano-hosting PR 3): the run''s merge, null unless the run''s autonomy was `merge`.'
       required:
         - id
         - project_id

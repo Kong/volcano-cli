@@ -25,6 +25,7 @@ var lavaflowCommands = [][]string{
 	{"lavaflow", "resources", "--json"},
 	{"lavaflow", "list", "--json"},
 	{"lavaflow", "show", "00000000-0000-4000-8000-000000000000", "--json"},
+	{"lavaflow", "approve", "00000000-0000-4000-8000-000000000000", "--yes", "--json"},
 }
 
 // TestAPIE2ECloudLavaFlow runs LavaFlow's commands against a fresh project the
@@ -80,6 +81,7 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env.runCloudCLI(t, "lavaflow", "stats", "--days", "7").requireSuccess(t, "0 issue(s) opened and 0 fix pull request(s) opened")
 	env.runCloudCLI(t, "lavaflow", "resources").requireSuccess(t)
 	env.runCloudCLI(t, "lavaflow", "list").requireSuccess(t, "No runs")
+	requireAPIE2ELavaFlowMergeMode(t, env)
 	requireAPIE2ELavaFlowNeedsAPerson(t, env)
 
 	env.runCloudCLI(t, "lavaflow", "disable").requireSuccess(t, "LavaFlow is off")
@@ -104,4 +106,41 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings").requireSuccess(t, "LavaFlow: on")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "disable").
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
+	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "approve", "00000000-0000-4000-8000-000000000000", "--yes").
+		requireFailure(t, "approving a LavaFlow merge needs a person's session")
+}
+
+// requireAPIE2ELavaFlowMergeMode saves each merge mode and reads it back,
+// where the API reports a merge policy, and leaves the default. A run that
+// doesn't exist can't be approved.
+func requireAPIE2ELavaFlowMergeMode(t *testing.T, env *apiE2E) {
+	t.Helper()
+	unknownRun := "00000000-0000-4000-8000-000000000000"
+	env.runCloudCLI(t, "lavaflow", "approve", unknownRun, "--yes").requireFailure(t, unknownRun)
+
+	probe := env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-mode", "human")
+	if probe.code != 0 {
+		probe.requireFailure(t, "merg")
+		return
+	}
+	for mode, want := range map[string]string{
+		"risk_based": "a person approves risky fixes",
+		"auto":       "LavaFlow merges each reviewed fix",
+		"human":      "a person approves each merge",
+	} {
+		env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-mode", mode).requireSuccess(t, want)
+		settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")
+		settings.requireSuccess(t)
+		var saved struct {
+			MergePolicy struct {
+				Mode string `json:"mode"`
+			} `json:"merge_policy"`
+		}
+		if err := json.Unmarshal([]byte(settings.stdout), &saved); err != nil {
+			t.Fatalf("settings --json did not emit JSON: %v\n%s", err, settings.output)
+		}
+		if saved.MergePolicy.Mode != mode {
+			t.Fatalf("settings did not read back merge mode %q: %+v", mode, saved)
+		}
+	}
 }

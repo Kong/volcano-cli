@@ -18,6 +18,7 @@ import (
 type settingsSetOptions struct {
 	deps              cliruntime.Deps
 	autonomy          string
+	mergeMode         string
 	customContext     string
 	customContextFile string
 	systemPrompt      string
@@ -36,13 +37,21 @@ keeps its value. Only the project's owner can, from their own session: a
 project access token is refused.
 
 --autonomy decides how far LavaFlow goes: %[1]s diagnoses issues and leaves
-any fix to a person; %[2]s also opens fix pull requests for review.
+any fix to a person; %[2]s also opens fix pull requests for review; %[7]s,
+where merging is available for the project, also merges them as the merge
+mode allows.
+
+--merge-mode decides when LavaFlow merges a fix at autonomy %[7]s: %[4]s, the
+default, waits for a person to approve each merge; %[5]s waits for a person
+only when a fix looks risky; %[6]s merges each reviewed fix once CI passes,
+though changes to sensitive files still wait for a person.
 
 --custom-context tells LavaFlow's runs about the project, and --system-prompt
 adds instructions to LavaFlow's own. LavaFlow saves both, but its runs don't
 use them yet. Each takes up to %[3]d characters, from the flag or a file
 (--custom-context-file, --system-prompt-file). Pass an empty value to clear
-one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength),
+one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength,
+			apiclient.Human, apiclient.RiskBased, apiclient.Auto, apiclient.Merge),
 		Example: "  " + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy diagnose_only") + "\n" +
 			"  " + cliruntime.CommandPath(deps, "lavaflow settings set --custom-context-file lavaflow-context.md"),
 		Args: cobra.NoArgs,
@@ -56,7 +65,9 @@ one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength),
 			return runSettingsSet(cmd.Context(), opts, update)
 		},
 	}
-	cmd.Flags().StringVar(&opts.autonomy, "autonomy", "", "How far LavaFlow goes: diagnose_only or open_pr")
+	cmd.Flags().StringVar(&opts.autonomy, "autonomy", "", "How far LavaFlow goes: diagnose_only, open_pr or merge")
+	cmd.Flags().StringVar(&opts.mergeMode, "merge-mode", "",
+		"When LavaFlow merges a fix: human, risk_based or auto")
 	cmd.Flags().StringVar(&opts.customContext, "custom-context", "", "Context about the project for LavaFlow's runs")
 	cmd.Flags().StringVar(&opts.customContextFile, "custom-context-file", "", "Read the custom context from a file")
 	cmd.Flags().StringVar(&opts.systemPrompt, "system-prompt", "", "Instructions added to LavaFlow's own")
@@ -75,6 +86,10 @@ func settingsUpdate(cmd *cobra.Command, opts settingsSetOptions) (apiclient.Lava
 	if flags.Changed("autonomy") {
 		autonomy := apiclient.LavaflowAutonomy(opts.autonomy)
 		update.Autonomy = &autonomy
+	}
+	if flags.Changed("merge-mode") {
+		mode := apiclient.LavaflowMergeMode(opts.mergeMode)
+		update.MergePolicy = &apiclient.LavaflowMergePolicyUpdate{Mode: &mode}
 	}
 	for _, text := range []struct {
 		setting          **string
@@ -96,8 +111,8 @@ func settingsUpdate(cmd *cobra.Command, opts settingsSetOptions) (apiclient.Lava
 			*text.setting = &value
 		}
 	}
-	if update.Autonomy == nil && update.CustomContext == nil && update.SystemPrompt == nil {
-		return update, errors.New("nothing to change: pass --autonomy, --custom-context, or --system-prompt")
+	if update.Autonomy == nil && update.MergePolicy == nil && update.CustomContext == nil && update.SystemPrompt == nil {
+		return update, errors.New("nothing to change: pass --autonomy, --merge-mode, --custom-context, or --system-prompt")
 	}
 	return update, nil
 }

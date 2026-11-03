@@ -2,6 +2,7 @@ package lavaflow
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -119,4 +120,82 @@ func TestShowSaysWhenThePullRequestOpened(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "Pull request: #42 (open) https://github.com/acme/shop/pull/42")
 	assert.NotContains(t, out, "Pull request opened")
+}
+
+// A run whose merge waits for a person says why, one line per reason: the
+// API's question as given, else the approved copy for its code; a reason with
+// neither says only that it waits, once. It names the command that approves.
+func TestShowSaysWhyAMergeWaits(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.waitForApproval(
+			approvalReason("sensitive_path", "Merge a change to the auth configuration?", "volcano/auth.yaml", "volcano/roles.yaml"),
+			approvalReason("automatic_run", nil),
+			approvalReason("client_reported_commit", ""),
+			approvalReason("required_check_skipped", nil),
+			approvalReason("brand_new_reason", nil),
+			approvalReason("another_new_reason", nil),
+		)
+		s.runs[0]["merge"].(map[string]any)["held_paths"] = []any{"volcano/auth.yaml"}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Merge: waiting for your approval\n"+
+		"  - Merge a change to the auth configuration? (volcano/auth.yaml, volcano/roles.yaml)\n"+
+		"  - LavaFlow started this fix from your logs on its own. Approving runs CI and merges it.\n"+
+		"  - This fix is built on a commit the CLI reported, which Volcano can't verify. Approving runs CI and merges it.\n"+
+		"  - A required check was skipped. Approving merges it without that check.\n"+
+		"  - Waiting for your approval\n"+
+		"Held for a person: volcano/auth.yaml\n")
+	assert.Equal(t, 1, strings.Count(out, "  - Waiting for your approval"), "an unknown reason says so once")
+	assert.Contains(t, out, "Approve the merge with 'volcano cloud lavaflow approve "+lavaflowRunID+
+		"', or close the pull request to stop it.")
+
+	// can_decide false: the API would refuse this caller's approval.
+	fake.set(func(s *lavaflowServer) { s.runs[0]["merge"].(map[string]any)["can_decide"] = false })
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Merge: waiting for your approval\n")
+	assert.NotContains(t, out, "Approve the merge")
+}
+
+// A merge past its approval says where it is, and why it stopped.
+func TestShowSaysWhereAMergeIs(t *testing.T) {
+	for _, tc := range []struct{ status, reason, want string }{
+		{"waiting_for_checks", "", "Merge: waiting for CI\n"},
+		{"queued", "", "Merge: queued to merge\n"},
+		{"merged", "", "Merge: merged\n"},
+		{"stopped", "checks_failed", "Merge: stopped (checks failed)\n"},
+		{"waiting_for_approval", "paused", "Merge: waiting for your approval (paused)\n"},
+		{"brand_new", "", "Merge: brand_new\n"},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.waitForApproval()
+			merge := s.runs[0]["merge"].(map[string]any)
+			merge["status"] = tc.status
+			if tc.reason != "" {
+				merge["reason"] = tc.reason
+			}
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, tc.status)
+		assert.Contains(t, out, tc.want, tc.status)
+		if tc.status != "waiting_for_approval" {
+			assert.NotContains(t, out, "Approve the merge", tc.status)
+			assert.NotContains(t, out, tc.want+"  - ", tc.status)
+		}
+	}
+}
+
+// A run that doesn't merge says nothing about merging.
+func TestShowSaysNothingAboutMergingWithoutAMerge(t *testing.T) {
+	_, deps := newLavaflowServer(t)
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.NotContains(t, out, "Merge:")
+	assert.NotContains(t, out, "approve")
 }
