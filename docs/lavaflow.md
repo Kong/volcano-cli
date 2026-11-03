@@ -80,8 +80,8 @@ When the owner's plan can't be read, a command says "LavaFlow couldn't read
 the project owner's plan; try again later" and exits with code 5. A change
 that `enable`, `disable` or `settings set` sends can also be refused for a
 read-only access token or account; the API doesn't tell those apart from a
-plan it couldn't read, so the command names all three, adds the API's own
-words, and exits with code 5.
+plan it couldn't read, so the command names all three, adds what Volcano
+said, and exits with code 5.
 
 ## Turn it on
 

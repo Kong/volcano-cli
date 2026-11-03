@@ -191,7 +191,7 @@ func TestARefusedChangeSaysWhy(t *testing.T) {
 		"person_required": "changing LavaFlow's settings needs a person's session",
 		"plan_required":   lavaflowPlanRequired,
 		"": "LavaFlow's settings weren't changed: a read-only access token or account can't change them, " +
-			"and otherwise the project owner's plan couldn't be read; try again later (" + apiPlanRefusal + ")",
+			"and otherwise the project owner's plan couldn't be read; try again later. Volcano said: \"" + apiPlanRefusal + "\"",
 	} {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
@@ -223,7 +223,7 @@ func TestAChangeRefusedForAReadOnlyAccountSaysSo(t *testing.T) {
 		_, err := executeLavaflowCommand(t, New(deps), args...)
 		require.Error(t, err, "%q", args)
 		assert.Equal(t, "LavaFlow's settings weren't changed: a read-only access token or account can't change them, "+
-			"and otherwise the project owner's plan couldn't be read; try again later (the account is read-only)",
+			"and otherwise the project owner's plan couldn't be read; try again later. Volcano said: \"the account is read-only\"",
 			err.Error(), "%q", args)
 		assert.Equal(t, http.StatusForbidden, api.Status(err), "%q", args)
 	}
