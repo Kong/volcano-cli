@@ -209,6 +209,25 @@ func TestARefusedChangeSaysWhy(t *testing.T) {
 	}
 }
 
+// Volcano refuses a change that needs a person with person_required, and the
+// refusal quotes its words after saying how a person makes the change.
+func TestAPersonRequiredRefusalQuotesVolcano(t *testing.T) {
+	for _, args := range [][]string{{"enable", "--yes"}, {"settings", "set", "--autonomy", "diagnose_only", "--json"}} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
+			s.refusal = map[string]any{"error": "the project owner makes this change", "code": "person_required"}
+		})
+
+		_, err := executeLavaflowCommand(t, New(deps), args...)
+		require.Error(t, err, "%q", args)
+		assert.Contains(t, err.Error(), "changing LavaFlow's settings needs a person's session", "%q", args)
+		assert.True(t, strings.HasSuffix(err.Error(), `run this again. Volcano said: "the project owner makes this change"`),
+			"%q: %s", args, err)
+		assert.Equal(t, http.StatusForbidden, api.Status(err), "%q", args)
+	}
+}
+
 // An owner's account can turn read-only after settings set reads can_update.
 // The change's 403 without a code then says so, with the API's words, rather
 // than blame the plan, and keeps the exit code of a permission refused.

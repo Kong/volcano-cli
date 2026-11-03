@@ -32,7 +32,6 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	settings := details.Settings
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
-	lavaflowMergePolicyLine(w, on, settings)
 	switch details.RepositoryState {
 	case "connected":
 		kv(w, on, "Repository", "%s", clean(details.Repository))
@@ -69,12 +68,10 @@ func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings) {
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
-	lavaflowMergePolicyLine(w, on, settings)
-	lavaflowMergePolicyDetails(w, on, settings.MergePolicy)
+	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
 	block(w, on, "System prompt", settings.SystemPrompt)
-	lavaflowMergeInstructions(w, on, settings.MergePolicy)
 }
 
 // LavaflowSettingsSaved renders the settings a change left.
@@ -83,8 +80,7 @@ func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.Lava
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
-	lavaflowMergePolicyLine(w, on, settings)
-	lavaflowMergePolicyDetails(w, on, settings.MergePolicy)
+	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 }
@@ -268,30 +264,16 @@ func lavaflowAutonomy(autonomy apiclient.LavaflowAutonomy) string {
 	case apiclient.OpenPr:
 		return "open fix pull requests"
 	case apiclient.Merge:
-		return "open fix pull requests and merge them as the merge mode allows"
+		return "open fix pull requests and merge those that pass its review and your checks"
 	default:
 		return clean(string(autonomy))
 	}
 }
 
-// lavaflowMergePolicyLine says when LavaFlow merges a fix, and nothing when
-// the API doesn't report a merge policy. The mode applies only at autonomy
-// merge, so below it the line says merging is off.
-func lavaflowMergePolicyLine(w io.Writer, on bool, settings *apiclient.LavaflowSettings) {
-	if settings.MergePolicy.Mode == "" {
-		return
-	}
-	mode := LavaflowMergeModeDescription(settings.MergePolicy.Mode)
-	if settings.Autonomy != apiclient.Merge {
-		mode = "off. At autonomy merge: " + mode
-	}
-	kv(w, on, "Merging", "%s", mode)
-}
-
-// lavaflowMergePolicyDetails prints the rest of the merge policy: the paths
-// that always wait for a person, and what LavaFlow may do without one.
-func lavaflowMergePolicyDetails(w io.Writer, on bool, policy apiclient.LavaflowMergePolicy) {
-	if policy.Mode == "" {
+// lavaflowHumanReviewPaths prints the paths whose changes always hold a fix
+// for a person, and nothing when the API doesn't report a merge policy.
+func lavaflowHumanReviewPaths(w io.Writer, on bool, policy apiclient.LavaflowMergePolicy) {
+	if policy.HumanReviewPaths == nil {
 		return
 	}
 	paths := "none"
@@ -299,89 +281,28 @@ func lavaflowMergePolicyDetails(w io.Writer, on bool, policy apiclient.LavaflowM
 		paths = cleanList(policy.HumanReviewPaths)
 	}
 	kv(w, on, "Human review paths", "%s", paths)
-	kv(w, on, "Merge without checks", "%s", allowedOrNot(policy.AllowMergeWithoutChecks))
-	kv(w, on, "CI before approval", "%s", allowedOrNot(policy.AllowCiBeforeApproval))
 }
 
-// lavaflowMergeInstructions prints the merge instructions in full, or, when
-// none are set, Volcano's default ones, verbatim when the API sends them. They
-// apply only in the auto merge mode, so other modes print nothing.
-func lavaflowMergeInstructions(w io.Writer, on bool, policy apiclient.LavaflowMergePolicy) {
-	switch {
-	case policy.Mode != apiclient.Auto:
-	case policy.Instructions != nil:
-		block(w, on, "Merge instructions", *policy.Instructions)
-	case policy.DefaultInstructions != nil && strings.TrimSpace(*policy.DefaultInstructions) != "":
-		block(w, on, "Merge instructions (Volcano's default)", *policy.DefaultInstructions)
-	default:
-		fmt.Fprintf(w, "\n%s\n  Volcano's default\n", theme.Title("Merge instructions", on))
-	}
-}
-
-func allowedOrNot(allowed bool) string {
-	if allowed {
-		return "allowed"
-	}
-	return "not allowed"
-}
-
-// LavaflowMergeModeDescription says what a merge mode does, in the approved
-// copy that help, docs and settings share. A mode the CLI doesn't know prints
-// as the API gives it.
-func LavaflowMergeModeDescription(mode apiclient.LavaflowMergeMode) string {
-	switch mode {
-	case apiclient.LavaflowHumanMergeMode:
-		return "A person approves every merge."
-	case apiclient.Auto:
-		return "LavaFlow merges a fix that passes review and its required checks, unless the project's merge " +
-			"instructions or a platform hold say a person must approve it."
-	default:
-		return clean(string(mode))
-	}
-}
-
-// LavaflowMergeFacts is true in every merge mode.
-const LavaflowMergeFacts = "Anyone with write access to the repository can approve with an approving GitHub " +
-	"review at the fix's current head, as well as in Volcano. A new commit voids an approval, and bot and App " +
-	"reviews don't count. Reviewer concerns block merging."
-
-// LavaflowMergeInstructionsNote is what the merge instructions are, and
-// aren't.
-const LavaflowMergeInstructionsNote = "The merge instructions guide LavaFlow's judgment and aren't a security " +
-	"boundary: use --human-review-path for anything that must always wait for a person."
-
-// lavaflowMergeLines says where a run's merge is and, while it waits for a
-// person, why. A status the CLI doesn't know prints as the API gives it.
+// lavaflowMergeLines says where a run's merge is and, once LavaFlow holds the
+// fix, why. A status the CLI doesn't know prints as the API gives it.
 func lavaflowMergeLines(w io.Writer, on bool, merge *apiclient.LavaflowMerge) {
 	status := lavaflowMergeStatus(merge.Status)
 	if merge.Reason != nil && *merge.Reason != "" {
 		status += " (" + clean(strings.ReplaceAll(*merge.Reason, "_", " ")) + ")"
 	}
 	kv(w, on, "Merge", "%s", status)
-	if merge.Approval != nil {
-		fmt.Fprintln(w, lavaflowMergeApproval(merge.Approval))
+	if merge.Status != apiclient.LavaflowMergeStatusHeld {
+		return
 	}
-	if merge.Status == apiclient.LavaflowMergeStatusWaitingForApproval {
-		for _, reason := range LavaflowApprovalReasons(merge.ApprovalReasons) {
-			fmt.Fprintf(w, "  - %s\n", reason)
+	for _, reason := range merge.HoldReasons {
+		line := clean(reason.Question)
+		if strings.TrimSpace(line) == "" {
+			line = clean(strings.ReplaceAll(reason.Code, "_", " "))
 		}
-	}
-	if len(merge.HeldPaths) > 0 {
-		kv(w, on, "Held paths approved", "%s", cleanList(merge.HeldPaths))
-	}
-}
-
-// lavaflowMergeApproval says which approval applies to the fix: one in
-// Volcano, or an approving review on GitHub, by whom and when.
-func lavaflowMergeApproval(approval *apiclient.LavaflowMergeApprovalApplied) string {
-	at := formatLavaflowTime(approval.At)
-	switch approval.Source {
-	case apiclient.LavaflowMergeApprovalAppliedSourceVolcano:
-		return "Approved in Volcano by " + clean(approval.By) + " at " + at
-	case apiclient.LavaflowMergeApprovalAppliedSourceGithubReview:
-		return "Approved on GitHub by @" + clean(approval.By) + " at " + at
-	default:
-		return "Approved by " + clean(approval.By) + " at " + at
+		if len(reason.Paths) > 0 {
+			line += " (" + cleanList(reason.Paths) + ")"
+		}
+		fmt.Fprintf(w, "  - %s\n", line)
 	}
 }
 
@@ -389,8 +310,8 @@ func lavaflowMergeStatus(status apiclient.LavaflowMergeStatus) string {
 	switch status {
 	case apiclient.LavaflowMergeStatusWaitingForChecks:
 		return "waiting for CI"
-	case apiclient.LavaflowMergeStatusWaitingForApproval:
-		return "waiting for your approval"
+	case apiclient.LavaflowMergeStatusHeld:
+		return "held for you to review and merge"
 	case apiclient.LavaflowMergeStatusQueued:
 		return "queued to merge"
 	case apiclient.LavaflowMergeStatusMerged:
@@ -402,52 +323,6 @@ func lavaflowMergeStatus(status apiclient.LavaflowMergeStatus) string {
 	}
 }
 
-// lavaflowWaitingForApproval is what a merge waiting for a person says when
-// it gives no reason the CLI can word.
-const lavaflowWaitingForApproval = "Waiting for your approval"
-
-// LavaflowApprovalReasons says why a merge waits for a person, one line per
-// reason: the API's question as given, else the approved copy for its code.
-// A reason with neither says only that it waits, once.
-func LavaflowApprovalReasons(reasons []apiclient.LavaflowApprovalReason) []string {
-	lines := make([]string, 0, len(reasons))
-	generic := false
-	for _, reason := range reasons {
-		paths := reason.Paths
-		line := lavaflowApprovalReason(reason)
-		if line == "" {
-			if generic && len(paths) == 0 {
-				continue
-			}
-			line, generic = lavaflowWaitingForApproval, true
-		}
-		if len(paths) > 0 {
-			line += " (" + cleanList(paths) + ")"
-		}
-		lines = append(lines, line)
-	}
-	if len(lines) == 0 {
-		lines = append(lines, lavaflowWaitingForApproval)
-	}
-	return lines
-}
-
-func lavaflowApprovalReason(reason apiclient.LavaflowApprovalReason) string {
-	if strings.TrimSpace(reason.Question) != "" {
-		return clean(reason.Question)
-	}
-	switch reason.Code {
-	case "automatic_run":
-		return "LavaFlow started this fix from your logs on its own. Approving runs CI and merges it."
-	case "client_reported_commit":
-		return "This fix is built on a commit the CLI reported, which Volcano can't verify. Approving runs CI and merges it."
-	case "required_check_skipped":
-		return "A required check was skipped. Approving merges it without that check."
-	default:
-		return ""
-	}
-}
-
 func cleanList(items []string) string {
 	cleaned := make([]string, len(items))
 	for i, item := range items {
@@ -456,29 +331,11 @@ func cleanList(items []string) string {
 	return strings.Join(cleaned, ", ")
 }
 
-// LavaflowApprovalContext is what a person reads before approving a run's
-// merge: the run, its pull request, and why the merge waits for them.
-func LavaflowApprovalContext(run *apiclient.LavaflowRun) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "LavaFlow run %s: %s", run.Id, clean(stringOr(run.Title, "-")))
-	if run.PullRequest != nil {
-		fmt.Fprintf(&b, "\nPull request: %s", clean(run.PullRequest.Url))
-	}
-	if run.Merge != nil {
-		for _, reason := range LavaflowApprovalReasons(run.Merge.ApprovalReasons) {
-			fmt.Fprintf(&b, "\n  - %s", reason)
-		}
-	}
-	b.WriteString("\nApproving runs CI on the fix, and LavaFlow merges it once the required checks pass. " +
-		"To stop the merge instead, close the pull request.")
-	return b.String()
-}
-
-// lavaflowRunListStatus marks a run whose merge waits for a person, which
-// otherwise reads as an open pull request.
+// lavaflowRunListStatus marks a run whose fix LavaFlow holds for a person,
+// which otherwise reads as an open pull request.
 func lavaflowRunListStatus(run apiclient.LavaflowRunSummary) string {
-	if run.Merge != nil && run.Merge.Status == apiclient.LavaflowMergeStatusWaitingForApproval {
-		return "Waiting for your approval"
+	if run.Merge != nil && run.Merge.Status == apiclient.LavaflowMergeStatusHeld {
+		return "Held for you to merge"
 	}
 	return lavaflowRunStatus(run.Status)
 }

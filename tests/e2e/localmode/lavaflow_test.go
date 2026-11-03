@@ -19,11 +19,10 @@ func requireLocalModeLeavesLavaFlowToTheCloud(t *testing.T, binary string, env [
 		{"lavaflow", "enable"},
 		{"lavaflow", "disable", "--json"},
 		{"lavaflow", "settings", "set", "--autonomy", "diagnose_only"},
+		{"lavaflow", "settings", "set", "--autonomy", "merge", "--yes"},
 		{"lavaflow", "stats", "--json"},
 		{"lavaflow", "list"},
 		{"lavaflow", "show", "run-id"},
-		{"lavaflow", "settings", "set", "--autonomy", "merge", "--merge-mode", "auto"},
-		{"lavaflow", "approve", "run-id", "--yes"},
 	} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
 		if err == nil {

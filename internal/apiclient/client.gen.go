@@ -1754,16 +1754,16 @@ func (e FunctionDeploymentStatus) Valid() bool {
 
 // Defines values for FunctionHTTPAuthMode.
 const (
-	FunctionHTTPAuthModeNone    FunctionHTTPAuthMode = "none"
-	FunctionHTTPAuthModeVolcano FunctionHTTPAuthMode = "volcano"
+	None    FunctionHTTPAuthMode = "none"
+	Volcano FunctionHTTPAuthMode = "volcano"
 )
 
 // Valid indicates whether the value is a known member of the FunctionHTTPAuthMode enum.
 func (e FunctionHTTPAuthMode) Valid() bool {
 	switch e {
-	case FunctionHTTPAuthModeNone:
+	case None:
 		return true
-	case FunctionHTTPAuthModeVolcano:
+	case Volcano:
 		return true
 	default:
 		return false
@@ -1989,61 +1989,25 @@ func (e LavaflowAutonomy) Valid() bool {
 	}
 }
 
-// Defines values for LavaflowMergeApprovalAppliedSource.
-const (
-	LavaflowMergeApprovalAppliedSourceGithubReview LavaflowMergeApprovalAppliedSource = "github_review"
-	LavaflowMergeApprovalAppliedSourceVolcano      LavaflowMergeApprovalAppliedSource = "volcano"
-)
-
-// Valid indicates whether the value is a known member of the LavaflowMergeApprovalAppliedSource enum.
-func (e LavaflowMergeApprovalAppliedSource) Valid() bool {
-	switch e {
-	case LavaflowMergeApprovalAppliedSourceGithubReview:
-		return true
-	case LavaflowMergeApprovalAppliedSourceVolcano:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LavaflowMergeMode.
-const (
-	Auto  LavaflowMergeMode = "auto"
-	Human LavaflowMergeMode = "human"
-)
-
-// Valid indicates whether the value is a known member of the LavaflowMergeMode enum.
-func (e LavaflowMergeMode) Valid() bool {
-	switch e {
-	case Auto:
-		return true
-	case Human:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for LavaflowMergeStatus.
 const (
-	LavaflowMergeStatusMerged             LavaflowMergeStatus = "merged"
-	LavaflowMergeStatusQueued             LavaflowMergeStatus = "queued"
-	LavaflowMergeStatusStopped            LavaflowMergeStatus = "stopped"
-	LavaflowMergeStatusWaitingForApproval LavaflowMergeStatus = "waiting_for_approval"
-	LavaflowMergeStatusWaitingForChecks   LavaflowMergeStatus = "waiting_for_checks"
+	LavaflowMergeStatusHeld             LavaflowMergeStatus = "held"
+	LavaflowMergeStatusMerged           LavaflowMergeStatus = "merged"
+	LavaflowMergeStatusQueued           LavaflowMergeStatus = "queued"
+	LavaflowMergeStatusStopped          LavaflowMergeStatus = "stopped"
+	LavaflowMergeStatusWaitingForChecks LavaflowMergeStatus = "waiting_for_checks"
 )
 
 // Valid indicates whether the value is a known member of the LavaflowMergeStatus enum.
 func (e LavaflowMergeStatus) Valid() bool {
 	switch e {
+	case LavaflowMergeStatusHeld:
+		return true
 	case LavaflowMergeStatusMerged:
 		return true
 	case LavaflowMergeStatusQueued:
 		return true
 	case LavaflowMergeStatusStopped:
-		return true
-	case LavaflowMergeStatusWaitingForApproval:
 		return true
 	case LavaflowMergeStatusWaitingForChecks:
 		return true
@@ -8104,18 +8068,6 @@ type LavaflowAnomaly struct {
 	Reason *string `json:"reason"`
 }
 
-// LavaflowApprovalReason One thing a person decides before LavaFlow merges the fix.
-type LavaflowApprovalReason struct {
-	// Code Why the fix waits. `approval_required`: the merge mode is `human`. `automatic_run`: LavaFlow started the run on its own. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't merge the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `merge_blocked`: GitHub reports the merge blocked once checks pass. Other codes name the risk LavaFlow's reviewers found. New codes may appear. An approval releases every code except `changes_requested` and `repository_requires_approval`, which reviews on GitHub clear, and `rules_bypass`, `unchecked_rules` and `merge_blocked`, which only a change to the base branch's rules clears. `label`, `no_checks`, `required_check_skipped` and `no_required_checks` can appear after an approval; only an approval given while they hold the fix releases them.
-	Code string `json:"code"`
-
-	// Paths The changed paths that matched, for a path code.
-	Paths []string `json:"paths"`
-
-	// Question What the person answers by approving, written to show as given.
-	Question string `json:"question"`
-}
-
 // LavaflowAutonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis; `open_pr` also opens a pull request with a fix; `merge` also merges the fix when `merge_policy` allows. Choosing `merge` needs the project's `lavaflow.merge` capability.
 type LavaflowAutonomy string
 
@@ -8147,6 +8099,18 @@ type LavaflowFailure struct {
 	Message string `json:"message"`
 }
 
+// LavaflowHoldReason PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). One reason LavaFlow holds the fix for a person.
+type LavaflowHoldReason struct {
+	// Code Why the fix is held. New codes may appear.
+	Code string `json:"code"`
+
+	// Paths The changed paths that matched, for a path code.
+	Paths []string `json:"paths"`
+
+	// Question The reason, written to show as given.
+	Question string `json:"question"`
+}
+
 // LavaflowLogLine defines model for LavaflowLogLine.
 type LavaflowLogLine struct {
 	Level     string     `json:"level"`
@@ -8154,98 +8118,31 @@ type LavaflowLogLine struct {
 	Timestamp *time.Time `json:"timestamp"`
 }
 
-// LavaflowMerge Where the run's merge stands. Present for a run that may merge its fix, once its pull request opens.
+// LavaflowMerge PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). Where the run's merge stands. Present for a run that may merge its fix, once its pull request opens.
 type LavaflowMerge struct {
-	// Approval PROVISIONAL (CLI draft of QA's contract rev 2.1 until Kong/volcano-hosting#2564 adds it). The approval that applies, null when none does. A new commit voids it.
-	Approval *LavaflowMergeApprovalApplied `json:"approval,omitempty"`
+	// HoldReasons Why LavaFlow holds the fix, while `status` is `held`.
+	HoldReasons []LavaflowHoldReason `json:"hold_reasons"`
+	Reason      *LavaflowMergeReason `json:"reason"`
 
-	// ApprovalReasons Why the fix waits for a person, while `status` is `waiting_for_approval`.
-	ApprovalReasons []LavaflowApprovalReason `json:"approval_reasons"`
-
-	// CanDecide Whether the caller can approve the merge now: true only for the project's owner with a platform token, on an active account, while `status` is `waiting_for_approval` for a reason an approval releases (see `approval_reasons`).
-	CanDecide bool `json:"can_decide"`
-
-	// HeadSha The pull request's head commit that LavaFlow reviewed. An approval names it.
-	HeadSha string `json:"head_sha"`
-
-	// HeldPaths Held paths the fix changes that a person approved it past. Empty until a person approves.
-	HeldPaths []string             `json:"held_paths"`
-	Reason    *LavaflowMergeReason `json:"reason"`
-
-	// Status `waiting_for_checks` waits for every check on the fix's commit to pass. `waiting_for_approval` waits for a person to approve the fix, for `approval_reasons`. `queued` means the fix is in the repository's merge queue. `merged` means the pull request merged. `stopped` means LavaFlow left the pull request open for you to review and merge, for `reason`.
+	// Status PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). `waiting_for_checks` waits for every check on the fix's commit to pass. `held` means LavaFlow won't merge the fix, for `hold_reasons`, and the pull request is yours to review and merge. `queued` means the fix is in the repository's merge queue. `merged` means the pull request merged. `stopped` means LavaFlow left the pull request open for you to review and merge, for `reason`.
 	Status LavaflowMergeStatus `json:"status"`
 }
 
-// LavaflowMergeApprovalApplied PROVISIONAL (CLI draft of QA's contract rev 2.1 until Kong/volcano-hosting#2564 adds it).
-type LavaflowMergeApprovalApplied struct {
-	At time.Time `json:"at"`
-
-	// By The Volcano user's email for `volcano`, the GitHub login for `github_review`.
-	By string `json:"by"`
-
-	// HeadSha The commit the approval applies to.
-	HeadSha string `json:"head_sha"`
-
-	// Source `volcano` for the merge-approvals route; `github_review` for an approving review on GitHub from a person with write access.
-	Source LavaflowMergeApprovalAppliedSource `json:"source"`
-}
-
-// LavaflowMergeApprovalAppliedSource `volcano` for the merge-approvals route; `github_review` for an approving review on GitHub from a person with write access.
-type LavaflowMergeApprovalAppliedSource string
-
-// LavaflowMergeApprovalCreate defines model for LavaflowMergeApprovalCreate.
-type LavaflowMergeApprovalCreate struct {
-	// HeadSha The run's `merge.head_sha`, the commit the person approves.
-	HeadSha string `json:"head_sha"`
-
-	// ProjectId The project the run belongs to.
-	ProjectId openapi_types.UUID `json:"project_id"`
-
-	// RunId The run whose fix to merge.
-	RunId openapi_types.UUID `json:"run_id"`
-}
-
-// LavaflowMergeMode When a fix that passed review merges without a person. `human` waits for a person to approve every fix. `auto` merges a fix that passes review and its required checks, unless the merge policy's `instructions` or a platform hold say a person must approve it. In both modes a fix waits for a person when it changes a held path or a path in `human_review_paths`, the pull request has the `needs-human-review` label, a reviewer raised a concern, it is built on a commit Volcano can't tie to a push, no CI ran on it, a required check was skipped, the base branch requires no check, a reviewer requested changes, the repository requires an approving review, or the base branch's rules can't vouch for the merge. A fix from a run LavaFlow started on its own waits too, unless `mode` is `auto` and `allow_ci_before_approval` is true.
-type LavaflowMergeMode string
-
-// LavaflowMergePolicy When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.
+// LavaflowMergePolicy PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.
 type LavaflowMergePolicy struct {
-	// AllowCiBeforeApproval Whether a fix from a run LavaFlow started on its own runs CI and merges without a person. CI then runs code shaped by your logs, with the secrets your pull request workflows get. Only `mode: auto` allows it. Defaults to false.
-	AllowCiBeforeApproval bool `json:"allow_ci_before_approval"`
-
-	// AllowMergeWithoutChecks Whether a fix on a repository where no CI runs merges on the review alone. When false, such a fix waits for a person. A check that does report must still pass. Defaults to false.
-	AllowMergeWithoutChecks bool `json:"allow_merge_without_checks"`
-
-	// DefaultInstructions Volcano's default instructions, which apply while `instructions` is `null`.
-	DefaultInstructions *string `json:"default_instructions,omitempty"`
-
-	// HumanReviewPaths Globs of paths whose change always waits for a person, such as `db/migrations/**`, relative to the repository root. `*` and `?` match within one directory, `**/` spans any number of directories, and a final `**` matches the rest. A pattern that starts with `/`, `./` or `../`, ends with `/`, or holds an empty, `.` or `..` segment answers `400`. Volcano's own held paths, such as deploy configuration and authentication code, always wait too. Defaults to none.
+	// HumanReviewPaths Globs of paths whose change always holds the fix for a person, such as `db/migrations/**`, relative to the repository root. Volcano's own held paths, such as deploy configuration and authentication code, always hold too. Defaults to none.
 	HumanReviewPaths []string `json:"human_review_paths"`
-
-	// Instructions Your plain-language rules for which fixes need a person in `auto` mode, such as "Billing changes need a person." LavaFlow judges each fix against them, and they only add holds. `null` means Volcano's default instructions, in `default_instructions`. They guide LavaFlow's judgment and aren't a security boundary: list anything that must always wait in `human_review_paths`.
-	Instructions *string `json:"instructions"`
-
-	// Mode Defaults to `human`.
-	Mode LavaflowMergeMode `json:"mode"`
 }
 
-// LavaflowMergePolicyUpdate The merge policy fields to change. An omitted field keeps its saved value. Send `human_review_paths: []` to clear the paths.
+// LavaflowMergePolicyUpdate PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). The merge policy fields to change. Send `human_review_paths: []` to clear the paths.
 type LavaflowMergePolicyUpdate struct {
-	AllowCiBeforeApproval   *bool     `json:"allow_ci_before_approval,omitempty"`
-	AllowMergeWithoutChecks *bool     `json:"allow_merge_without_checks,omitempty"`
-	HumanReviewPaths        *[]string `json:"human_review_paths,omitempty"`
-
-	// Instructions Up to 4,000 characters. Send `null` to go back to Volcano's default instructions.
-	Instructions nullable.Nullable[string] `json:"instructions,omitempty"`
-
-	// Mode When a fix that passed review merges without a person. `human` waits for a person to approve every fix. `auto` merges a fix that passes review and its required checks, unless the merge policy's `instructions` or a platform hold say a person must approve it. In both modes a fix waits for a person when it changes a held path or a path in `human_review_paths`, the pull request has the `needs-human-review` label, a reviewer raised a concern, it is built on a commit Volcano can't tie to a push, no CI ran on it, a required check was skipped, the base branch requires no check, a reviewer requested changes, the repository requires an approving review, or the base branch's rules can't vouch for the merge. A fix from a run LavaFlow started on its own waits too, unless `mode` is `auto` and `allow_ci_before_approval` is true.
-	Mode *LavaflowMergeMode `json:"mode,omitempty"`
+	HumanReviewPaths *[]string `json:"human_review_paths,omitempty"`
 }
 
 // LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `removed_from_queue`: the merge queue dropped it. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused; a waiting fix keeps its status and resumes. `paused_too_long`: merging stayed paused for more than 7 days. New reasons may appear.
 type LavaflowMergeReason = string
 
-// LavaflowMergeStatus `waiting_for_checks` waits for every check on the fix's commit to pass. `waiting_for_approval` waits for a person to approve the fix, for `approval_reasons`. `queued` means the fix is in the repository's merge queue. `merged` means the pull request merged. `stopped` means LavaFlow left the pull request open for you to review and merge, for `reason`.
+// LavaflowMergeStatus PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). `waiting_for_checks` waits for every check on the fix's commit to pass. `held` means LavaFlow won't merge the fix, for `hold_reasons`, and the pull request is yours to review and merge. `queued` means the fix is in the repository's merge queue. `merged` means the pull request merged. `stopped` means LavaFlow left the pull request open for you to review and merge, for `reason`.
 type LavaflowMergeStatus string
 
 // LavaflowPullRequest defines model for LavaflowPullRequest.
@@ -8376,7 +8273,7 @@ type LavaflowSettings struct {
 	// Enabled Whether LavaFlow works on the project's issues. Off by default.
 	Enabled bool `json:"enabled"`
 
-	// MergePolicy When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.
+	// MergePolicy PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.
 	MergePolicy LavaflowMergePolicy `json:"merge_policy"`
 
 	// ProjectId The project the settings belong to.
@@ -8399,7 +8296,7 @@ type LavaflowSettingsUpdate struct {
 	CustomContext *string           `json:"custom_context,omitempty"`
 	Enabled       *bool             `json:"enabled,omitempty"`
 
-	// MergePolicy The merge policy fields to change. An omitted field keeps its saved value. Send `human_review_paths: []` to clear the paths.
+	// MergePolicy PROVISIONAL (CLI draft of D10 until Kong/volcano-hosting#2564 cuts it; names from the Platform EM's answers to the Runs API IC). The merge policy fields to change. Send `human_review_paths: []` to clear the paths.
 	MergePolicy *LavaflowMergePolicyUpdate `json:"merge_policy,omitempty"`
 
 	// ProjectId The project whose settings to change.
@@ -13954,9 +13851,6 @@ type PreflightProjectImportJSONRequestBody = ProjectImportPreflightRequest
 // StartProjectImportJSONRequestBody defines body for StartProjectImport for application/json ContentType.
 type StartProjectImportJSONRequestBody = ProjectImportStartRequest
 
-// CreateLavaflowMergeApprovalJSONRequestBody defines body for CreateLavaflowMergeApproval for application/json ContentType.
-type CreateLavaflowMergeApprovalJSONRequestBody = LavaflowMergeApprovalCreate
-
 // UpdateLavaflowSettingsJSONRequestBody defines body for UpdateLavaflowSettings for application/json ContentType.
 type UpdateLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
 
@@ -15853,11 +15747,6 @@ type ClientInterface interface {
 
 	// ListImportSources request
 	ListImportSources(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateLavaflowMergeApprovalWithBody request with any body
-	CreateLavaflowMergeApprovalWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateLavaflowMergeApproval(ctx context.Context, body CreateLavaflowMergeApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLavaflowResources request
 	ListLavaflowResources(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -18158,30 +18047,6 @@ func (c *Client) GetProjectImportRun(ctx context.Context, provider ImportProvide
 
 func (c *Client) ListImportSources(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListImportSourcesRequest(c.Server, provider, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateLavaflowMergeApprovalWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateLavaflowMergeApprovalRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateLavaflowMergeApproval(ctx context.Context, body CreateLavaflowMergeApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateLavaflowMergeApprovalRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -25875,46 +25740,6 @@ func NewListImportSourcesRequest(server string, provider ImportProvider, params 
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewCreateLavaflowMergeApprovalRequest calls the generic CreateLavaflowMergeApproval builder with application/json body
-func NewCreateLavaflowMergeApprovalRequest(server string, body CreateLavaflowMergeApprovalJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateLavaflowMergeApprovalRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateLavaflowMergeApprovalRequestWithBody generates requests for CreateLavaflowMergeApproval with any type of body
-func NewCreateLavaflowMergeApprovalRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/lavaflow/merge-approvals")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -40720,11 +40545,6 @@ type ClientWithResponsesInterface interface {
 	// ListImportSourcesWithResponse request
 	ListImportSourcesWithResponse(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*ListImportSourcesClientResponse, error)
 
-	// CreateLavaflowMergeApprovalWithBodyWithResponse request with any body
-	CreateLavaflowMergeApprovalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowMergeApprovalClientResponse, error)
-
-	CreateLavaflowMergeApprovalWithResponse(ctx context.Context, body CreateLavaflowMergeApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLavaflowMergeApprovalClientResponse, error)
-
 	// ListLavaflowResourcesWithResponse request
 	ListLavaflowResourcesWithResponse(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*ListLavaflowResourcesClientResponse, error)
 
@@ -44195,44 +44015,6 @@ func (r ListImportSourcesClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListImportSourcesClientResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type CreateLavaflowMergeApprovalClientResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *LavaflowRun
-	JSON400      *Error
-	JSON401      *Error
-	JSON403      *Error
-	JSON404      *Error
-	JSON409      *Error
-	JSON413      *Error
-	JSON429      *Error
-	JSON503      *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateLavaflowMergeApprovalClientResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateLavaflowMergeApprovalClientResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r CreateLavaflowMergeApprovalClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -53994,23 +53776,6 @@ func (c *ClientWithResponses) ListImportSourcesWithResponse(ctx context.Context,
 	return ParseListImportSourcesClientResponse(rsp)
 }
 
-// CreateLavaflowMergeApprovalWithBodyWithResponse request with arbitrary body returning *CreateLavaflowMergeApprovalClientResponse
-func (c *ClientWithResponses) CreateLavaflowMergeApprovalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowMergeApprovalClientResponse, error) {
-	rsp, err := c.CreateLavaflowMergeApprovalWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateLavaflowMergeApprovalClientResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateLavaflowMergeApprovalWithResponse(ctx context.Context, body CreateLavaflowMergeApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLavaflowMergeApprovalClientResponse, error) {
-	rsp, err := c.CreateLavaflowMergeApproval(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateLavaflowMergeApprovalClientResponse(rsp)
-}
-
 // ListLavaflowResourcesWithResponse request returning *ListLavaflowResourcesClientResponse
 func (c *ClientWithResponses) ListLavaflowResourcesWithResponse(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*ListLavaflowResourcesClientResponse, error) {
 	rsp, err := c.ListLavaflowResources(ctx, params, reqEditors...)
@@ -60622,88 +60387,6 @@ func ParseListImportSourcesClientResponse(rsp *http.Response) (*ListImportSource
 			return nil, err
 		}
 		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateLavaflowMergeApprovalClientResponse parses an HTTP response from a CreateLavaflowMergeApprovalWithResponse call
-func ParseCreateLavaflowMergeApprovalClientResponse(rsp *http.Response) (*CreateLavaflowMergeApprovalClientResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateLavaflowMergeApprovalClientResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest LavaflowRun
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON413 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON429 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error

@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-
-	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 // What every LavaFlow command says, with a nonzero exit, for a project
@@ -27,7 +25,6 @@ var lavaflowCommands = [][]string{
 	{"lavaflow", "resources", "--json"},
 	{"lavaflow", "list", "--json"},
 	{"lavaflow", "show", "00000000-0000-4000-8000-000000000000", "--json"},
-	{"lavaflow", "approve", "00000000-0000-4000-8000-000000000000", "--yes", "--json"},
 }
 
 // TestAPIE2ECloudLavaFlow runs LavaFlow's commands against a fresh project the
@@ -83,7 +80,7 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env.runCloudCLI(t, "lavaflow", "stats", "--days", "7").requireSuccess(t, "0 issue(s) opened and 0 fix pull request(s) opened")
 	env.runCloudCLI(t, "lavaflow", "resources").requireSuccess(t)
 	env.runCloudCLI(t, "lavaflow", "list").requireSuccess(t, "No runs")
-	requireAPIE2ELavaFlowMergeMode(t, env)
+	requireAPIE2ELavaFlowMerging(t, env)
 	requireAPIE2ELavaFlowNeedsAPerson(t, env)
 
 	env.runCloudCLI(t, "lavaflow", "disable").requireSuccess(t, "LavaFlow is off")
@@ -108,89 +105,54 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings").requireSuccess(t, "LavaFlow: on")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "disable").
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
-	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "approve", "00000000-0000-4000-8000-000000000000", "--yes").
-		requireFailure(t, "approving a LavaFlow merge needs a person's session")
+	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings", "set", "--autonomy", "merge", "--yes").
+		requireFailure(t, "changing LavaFlow's settings needs a person's session")
 }
 
-// requireAPIE2ELavaFlowMergeMode turns on merging where it's available and
-// saves each merge mode, reading it back; where it isn't, autonomy merge is
-// refused as unavailable. auto is refused as not available yet until Volcano
-// offers it. Either way the project ends at open_pr, and a run that doesn't
-// exist can't be approved.
-func requireAPIE2ELavaFlowMergeMode(t *testing.T, env *apiE2E) {
+// requireAPIE2ELavaFlowMerging turns on autonomy merge with --yes and
+// --json, then saves a human review path, reading both back. Where merging
+// isn't available for the project, or the owner's GitHub account can't push
+// to its repository, autonomy merge is refused instead. Either way the project
+// ends at diagnose_only with no human review paths.
+func requireAPIE2ELavaFlowMerging(t *testing.T, env *apiE2E) {
 	t.Helper()
-	unknownRun := "00000000-0000-4000-8000-000000000000"
-	env.runCloudCLI(t, "lavaflow", "approve", unknownRun, "--yes").requireFailure(t, unknownRun)
+	type settings struct {
+		Autonomy    string `json:"autonomy"`
+		MergePolicy struct {
+			HumanReviewPaths []string `json:"human_review_paths"`
+		} `json:"merge_policy"`
+	}
+	decode := func(result cliResult) settings {
+		var saved settings
+		if err := json.Unmarshal([]byte(result.stdout), &saved); err != nil {
+			t.Fatalf("lavaflow settings --json did not emit JSON: %v\n%s", err, result.output)
+		}
+		return saved
+	}
 
-	probe := env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "merge")
-	if probe.code != 0 {
-		probe.requireFailure(t, "LavaFlow merging isn't available for this project yet")
+	merging := env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "merge", "--yes", "--json")
+	if merging.code != 0 {
+		if !strings.Contains(merging.output, "LavaFlow merging isn't available for this project yet") &&
+			!strings.Contains(merging.output, "LavaFlow can't merge for this project") {
+			t.Fatalf("settings set --autonomy merge failed for another reason:\n%s", merging.output)
+		}
 		return
 	}
-	human := string(apiclient.LavaflowHumanMergeMode)
-	defer env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "open_pr", "--merge-mode", human).requireSuccess(t)
-	for _, mode := range []struct{ name, want string }{
-		{"auto", "unless the project's merge instructions"},
-		{human, "A person approves every merge."},
-	} {
-		set := env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-mode", mode.name)
-		if mode.name == "auto" && set.code != 0 {
-			set.requireFailure(t, autoMergeNotAvailable)
-			continue
-		}
-		set.requireSuccess(t, "Merging: "+mode.want)
-		settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")
-		settings.requireSuccess(t)
-		var saved struct {
-			MergePolicy struct {
-				Mode string `json:"mode"`
-			} `json:"merge_policy"`
-		}
-		if err := json.Unmarshal([]byte(settings.stdout), &saved); err != nil {
-			t.Fatalf("settings --json did not emit JSON: %v\n%s", err, settings.output)
-		}
-		if saved.MergePolicy.Mode != mode.name {
-			t.Fatalf("settings did not read back merge mode %q: %+v", mode.name, saved)
-		}
+	defer env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only", "--clear-human-review-paths").
+		requireSuccess(t, "LavaFlow's settings are saved")
+	merging.requireSuccess(t, "anything held is yours to review and merge")
+	if saved := decode(merging); saved.Autonomy != "merge" {
+		t.Fatalf("settings set --autonomy merge --json did not save autonomy merge: %+v", saved)
 	}
-	requireAPIE2ELavaFlowMergeInstructions(t, env)
-}
 
-// autoMergeNotAvailable is how the CLI refuses the auto merge mode and merge
-// instructions until Volcano offers them.
-const autoMergeNotAvailable = "LavaFlow's auto merge mode and merge instructions aren't available yet"
-
-// requireAPIE2ELavaFlowMergeInstructions saves merge instructions, reads them
-// back, and goes back to Volcano's default, which reads back as null. Until
-// Volcano offers them, both are refused as not available yet.
-func requireAPIE2ELavaFlowMergeInstructions(t *testing.T, env *apiE2E) {
-	t.Helper()
-	readBack := func() *string {
-		settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")
-		settings.requireSuccess(t)
-		var saved struct {
-			MergePolicy struct {
-				Instructions *string `json:"instructions"`
-			} `json:"merge_policy"`
-		}
-		if err := json.Unmarshal([]byte(settings.stdout), &saved); err != nil {
-			t.Fatalf("settings --json did not emit JSON: %v\n%s", err, settings.output)
-		}
-		return saved.MergePolicy.Instructions
+	paths := env.runCloudCLI(t, "lavaflow", "settings", "set", "--human-review-path", "cli-e2e/**", "--json")
+	paths.requireSuccess(t)
+	if saved := decode(paths); len(saved.MergePolicy.HumanReviewPaths) != 1 || saved.MergePolicy.HumanReviewPaths[0] != "cli-e2e/**" {
+		t.Fatalf("settings set --human-review-path did not save the path: %+v", saved)
 	}
-	instructions := "cli-e2e: billing changes need a person."
-	set := env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-instructions", instructions)
-	if set.code != 0 {
-		set.requireFailure(t, autoMergeNotAvailable)
-		env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-instructions", "").requireFailure(t, autoMergeNotAvailable)
-		return
-	}
-	set.requireSuccess(t)
-	if got := readBack(); got == nil || *got != instructions {
-		t.Fatalf("settings did not read back the merge instructions: %v", got)
-	}
-	env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-instructions", "").requireSuccess(t)
-	if got := readBack(); got != nil {
-		t.Fatalf("settings did not go back to the default merge instructions: %q", *got)
+	read := env.runCloudCLI(t, "lavaflow", "settings", "--json")
+	read.requireSuccess(t)
+	if saved := decode(read); saved.Autonomy != "merge" || len(saved.MergePolicy.HumanReviewPaths) != 1 {
+		t.Fatalf("settings did not read back autonomy merge and the human review path: %+v", saved)
 	}
 }

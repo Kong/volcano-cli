@@ -57,6 +57,24 @@ var ErrPlanUnreadable = errors.New("LavaFlow couldn't read the project owner's p
 var ErrChangeRefused = errors.New("LavaFlow's settings weren't changed: a read-only access token or account " +
 	"can't change them, and otherwise the project owner's plan couldn't be read; try again later")
 
+// MergeDisclosure is what autonomy merge does, in the approved words the docs
+// also use. settings set prints it before it turns merging on.
+const MergeDisclosure = "LavaFlow merges fixes that pass its review and your checks; " +
+	"anything held is yours to review and merge."
+
+// ErrMergingNotAvailable reports feature_unavailable for autonomy merge:
+// LavaFlow doesn't merge for this project yet.
+var ErrMergingNotAvailable = errors.New("LavaFlow merging isn't available for this project yet")
+
+// ErrOwnerCantPush reports permission_missing: LavaFlow merges with the
+// owner's GitHub account, which can't push to the repository.
+var ErrOwnerCantPush = errors.New("LavaFlow can't merge for this project: " +
+	"the project owner's GitHub account can't push to its repository")
+
+// connectGitHubDocs is the docs section on connecting GitHub, which a
+// permission_missing refusal points to.
+const connectGitHubDocs = "platform/projects/git-deploy.md#1-connect-github"
+
 // ErrCantTurnOn reports, before enable asks, that the project's capabilities
 // say LavaFlow can't be turned on for a project that has LavaFlow records.
 // The capability counts both the rollout and the owner's plan without saying
@@ -84,6 +102,7 @@ const (
 	codeFeatureUnavailable = "feature_unavailable"
 	codePlanRequired       = "plan_required"
 	codePersonRequired     = "person_required"
+	codePermissionMissing  = "permission_missing"
 )
 
 // Limits the API sets.
@@ -259,10 +278,13 @@ func (s Service) Disable(ctx context.Context) (*apiclient.LavaflowSettings, erro
 	return s.update(ctx, "turn LavaFlow off", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, false, nil)
 }
 
-// UpdateSettings changes the fields update sets and keeps the rest. It asks
-// nothing, so it doesn't check the capabilities first: the save says why when
-// LavaFlow isn't available.
-func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSettingsUpdate) (*apiclient.LavaflowSettings, error) {
+// UpdateSettings changes the fields update sets and keeps the rest. It
+// doesn't check the capabilities first: the save says why when LavaFlow isn't
+// available. A non-nil confirm runs after the owner check, just before the
+// change.
+func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSettingsUpdate,
+	confirm func() error,
+) (*apiclient.LavaflowSettings, error) {
 	if update.Autonomy != nil && !update.Autonomy.Valid() {
 		return nil, fmt.Errorf("invalid autonomy %q: use %s, %s or %s",
 			*update.Autonomy, apiclient.DiagnoseOnly, apiclient.OpenPr, apiclient.Merge)
@@ -275,7 +297,7 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 			return nil, fmt.Errorf("the %s is %d characters long: the most is %d", name, len([]rune(*text)), MaxTextLength)
 		}
 	}
-	return s.update(ctx, "change LavaFlow's settings", update, false, nil)
+	return s.update(ctx, "change LavaFlow's settings", update, false, confirm)
 }
 
 // The most paths a merge policy holds for a person, and the longest one.
@@ -285,16 +307,7 @@ const (
 )
 
 func validMergePolicy(policy *apiclient.LavaflowMergePolicyUpdate) error {
-	if policy == nil {
-		return nil
-	}
-	if policy.Mode != nil && !policy.Mode.Valid() {
-		return fmt.Errorf("invalid merge mode %q: use %s or %s", *policy.Mode, apiclient.LavaflowHumanMergeMode, apiclient.Auto)
-	}
-	if text, err := policy.Instructions.Get(); err == nil && len([]rune(text)) > MaxTextLength {
-		return fmt.Errorf("the merge instructions are %d characters long: the most is %d", len([]rune(text)), MaxTextLength)
-	}
-	if policy.HumanReviewPaths == nil {
+	if policy == nil || policy.HumanReviewPaths == nil {
 		return nil
 	}
 	paths := *policy.HumanReviewPaths
@@ -345,48 +358,35 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	}
 	settings, err := authenticated.API.UpdateLavaflowSettings(ctx, authenticated.ProjectID, update)
 	if err != nil {
-		if namesAutoMerge(update.MergePolicy) && unavailableValue(err) {
-			return nil, autoMergeNotAvailable(err)
-		}
 		return nil, refused(authenticated.Config, fmt.Errorf("failed to %s: %w", verb, err))
 	}
 	return settings, nil
 }
 
-// namesAutoMerge says whether a change names the auto merge mode or merge
-// instructions.
-func namesAutoMerge(policy *apiclient.LavaflowMergePolicyUpdate) bool {
-	return policy != nil && (policy.Mode != nil && *policy.Mode == apiclient.Auto || policy.Instructions.IsSpecified())
-}
-
-// unavailableValue says whether the API refused a value it doesn't offer yet.
-func unavailableValue(err error) bool {
-	return api.Code(err) == codeFeatureUnavailable && api.Status(err) == http.StatusBadRequest
-}
-
-// autoMergeNotAvailable refuses the auto merge mode or merge instructions,
-// with the API's words quoted as Volcano's.
-func autoMergeNotAvailable(err error) error {
-	if message := api.Message(err); message != "" {
-		return api.WithCause(fmt.Errorf("%w. Volcano said: %q", ErrAutoMergeNotAvailable, message), err)
-	}
-	return api.WithCause(ErrAutoMergeNotAvailable, err)
-}
-
 // refused says why the API refused a change, by its code rather than its
-// status, keeping the refusal as the cause for the exit code. A 400 with
-// feature_unavailable refuses a value: here autonomy merge while merging is
-// off for the project, since update reads the auto merge mode's and merge
-// instructions' refusal first. A 403 without a code covers more than
-// the plan here, so it adds the API's words, quoted as Volcano's: for a plan
-// that couldn't be read they read like a plan refusal, which isn't the CLI's
+// status, keeping the refusal as the cause for the exit code. person_required
+// says how a person makes the change, then quotes Volcano. A 400 with
+// feature_unavailable refuses autonomy merge while merging is off for the
+// project, and permission_missing refuses it while the owner's GitHub account
+// can't push to the repository. A 403 without a code covers more than the
+// plan here, so it adds the API's words, quoted as Volcano's: for a plan that
+// couldn't be read they read like a plan refusal, which isn't the CLI's
 // conclusion.
 func refused(cfg *config.Config, err error) error {
 	switch {
 	case api.Code(err) == codePersonRequired:
+		if message := api.Message(err); message != "" {
+			return api.WithCause(fmt.Errorf("%w. Volcano said: %q", personDecides(cfg, err), message), err)
+		}
 		return personDecides(cfg, err)
-	case unavailableValue(err):
+	case api.Code(err) == codeFeatureUnavailable && api.Status(err) == http.StatusBadRequest:
 		return api.WithCause(ErrMergingNotAvailable, err)
+	case api.Code(err) == codePermissionMissing:
+		refusal := ErrOwnerCantPush
+		if message := api.Message(err); message != "" {
+			refusal = fmt.Errorf("%w (%s)", ErrOwnerCantPush, message)
+		}
+		return api.WithCause(fmt.Errorf("%w. To connect GitHub, see 'volcano docs get %s'", refusal, connectGitHubDocs), err)
 	case api.Code(err) == "" && api.Status(err) == http.StatusForbidden:
 		if message := api.Message(err); message != "" {
 			return api.WithCause(fmt.Errorf("%w. Volcano said: %q", ErrChangeRefused, message), err)
@@ -401,17 +401,11 @@ func refused(cfg *config.Config, err error) error {
 // unset first. cause is the refusal, the API's or the CLI's own, which keeps
 // the exit code of a permission refused.
 func personDecides(cfg *config.Config, cause error) error {
-	return personRefusal(cfg, ErrPersonDecides, cause)
-}
-
-// personRefusal says refusal, then how a person does it instead, as
-// personDecides does.
-func personRefusal(cfg *config.Config, refusal, cause error) error {
 	how := "Sign in with 'volcano login' and run this again"
 	if cfg.TokenFromEnv() {
 		how = "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
 	}
-	return api.WithCause(fmt.Errorf("%w. %s", refusal, how), cause)
+	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonDecides, how), cause)
 }
 
 // Stats returns the issues LavaFlow took on and the fix pull requests it

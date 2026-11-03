@@ -53,27 +53,19 @@ type lavaflowServer struct {
 	settings map[string]any
 	updates  []map[string]any
 	// projects is the project_id each LavaFlow request named.
-	projects []string
-	// approvals is the body of each approval that reached the API, without
-	// its project_id, in order.
-	approvals []map[string]any
-	// approvalRouteMissing answers an approval with the router's bare 404, as
-	// a platform release older than LavaFlow's merging does.
-	approvalRouteMissing bool
-	stats                map[string]any
-	resources            []map[string]any
-	runs                 []map[string]any
-	nextCursor           string
-	queries              map[string][]url.Values
-	repoConnected        bool
-	repoFailure          int
+	projects      []string
+	stats         map[string]any
+	resources     []map[string]any
+	runs          []map[string]any
+	nextCursor    string
+	queries       map[string][]url.Values
+	repoConnected bool
+	repoFailure   int
 	// repoReads counts reads of the repository connection.
 	repoReads    int
 	refuse       int
 	refuseMethod string
 	refusal      map[string]any
-	// refusalHeaders go with every refusal, such as Retry-After.
-	refusalHeaders map[string]string
 	// routesMissing answers every LavaFlow route, capabilities included,
 	// with the router's bare 404, as a platform release older than LavaFlow
 	// does.
@@ -106,7 +98,7 @@ func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
 func defaultLavaflowSettings() map[string]any {
 	return map[string]any{
 		"project_id": lavaflowProjectID, "enabled": false, "autonomy": "open_pr", "custom_context": "", "system_prompt": "",
-		"updated_at": nil, "updated_by": nil, "can_update": true, "merge_policy": lavaflowMergePolicy(humanMergeMode),
+		"updated_at": nil, "updated_by": nil, "can_update": true, "merge_policy": map[string]any{"human_review_paths": []any{}},
 	}
 }
 
@@ -134,9 +126,6 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.refuse != 0 && (s.refuseMethod == "" || s.refuseMethod == r.Method) {
-		for name, value := range s.refusalHeaders {
-			w.Header().Set(name, value)
-		}
 		s.write(w, s.refuse, s.refusal)
 		return
 	}
@@ -152,12 +141,12 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	projectID := query.Get("project_id")
 	query.Del("project_id")
 	var update map[string]any
-	if r.Method == http.MethodPut || r.Method == http.MethodPost {
+	if r.Method == http.MethodPut {
 		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			s.t.Errorf("decode update: %v", err)
 		}
 		if _, inQuery := r.URL.Query()["project_id"]; inQuery {
-			s.t.Errorf("the %s names its project in the query", r.Method)
+			s.t.Errorf("the PUT names its project in the query")
 		}
 		projectID, _ = update["project_id"].(string)
 		delete(update, "project_id")
@@ -186,12 +175,8 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			s.write(w, http.StatusNotFound, map[string]any{"error": "LavaFlow is not available", "code": "feature_unavailable"})
 			return
 		}
-		// An omitted field keeps its saved value, inside the merge policy too.
-		saved, _ := s.settings["merge_policy"].(map[string]any)
+		// An omitted field keeps its saved value.
 		maps.Copy(s.settings, update)
-		if policy, ok := update["merge_policy"].(map[string]any); ok {
-			s.settings["merge_policy"] = merged(saved, policy)
-		}
 		s.settings["updated_at"], s.settings["updated_by"] = "2026-10-30T12:00:00Z", "11111111-1111-4111-8111-111111111111"
 		s.write(w, http.StatusOK, s.settings)
 	case r.Method == http.MethodGet && route == "/stats":
@@ -213,71 +198,9 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		s.write(w, http.StatusNotFound, map[string]any{"error": "run not found"})
-	case r.Method == http.MethodPost && route == "/merge-approvals" && !s.approvalRouteMissing:
-		s.approve(w, update)
 	default:
 		http.NotFound(w, r)
 	}
-}
-
-// approve approves a run's merge the way the API does: only one that waits
-// for approval, at the head the run reported.
-func (s *lavaflowServer) approve(w http.ResponseWriter, body map[string]any) {
-	for _, run := range s.runs {
-		if run["id"] != body["run_id"] {
-			continue
-		}
-		merge, _ := run["merge"].(map[string]any)
-		if merge == nil || merge["status"] != "waiting_for_approval" {
-			s.write(w, http.StatusConflict, map[string]any{"error": "the run isn't waiting for approval", "code": "not_waiting_for_approval"})
-			return
-		}
-		if body["head_sha"] != merge["head_sha"] {
-			s.write(w, http.StatusConflict, map[string]any{"error": "the pull request changed", "code": "head_moved"})
-			return
-		}
-		s.approvals = append(s.approvals, body)
-		merge["status"], merge["approval_reasons"] = "waiting_for_checks", []any{}
-		s.write(w, http.StatusOK, run)
-		return
-	}
-	s.write(w, http.StatusNotFound, map[string]any{"error": "run not found"})
-}
-
-// lavaflowHeadSHA is the pull request head a waiting merge reports.
-const lavaflowHeadSHA = "4f1c2b3a5d6e7f8091a2b3c4d5e6f708192a3b4c"
-
-// waitForApproval makes the fixed run's merge wait for a person, for these
-// reasons.
-func (s *lavaflowServer) waitForApproval(reasons ...map[string]any) {
-	items := make([]any, 0, len(reasons))
-	for _, reason := range reasons {
-		items = append(items, reason)
-	}
-	s.runs[0]["merge"] = map[string]any{
-		"status": "waiting_for_approval", "reason": nil, "approval_reasons": items,
-		"held_paths": []any{}, "head_sha": lavaflowHeadSHA, "can_decide": true,
-	}
-}
-
-// approvalReason is a reason a merge waits for a person; a nil question
-// leaves the wording to the CLI.
-func approvalReason(code string, question any, paths ...string) map[string]any {
-	reason := map[string]any{"code": code, "question": question}
-	if len(paths) > 0 {
-		reason["paths"] = paths
-	}
-	return reason
-}
-
-// merged is saved with update's fields on top.
-func merged(saved, update map[string]any) map[string]any {
-	out := maps.Clone(saved)
-	if out == nil {
-		out = map[string]any{}
-	}
-	maps.Copy(out, update)
-	return out
 }
 
 func (s *lavaflowServer) gitConnection(w http.ResponseWriter) {
@@ -399,6 +322,21 @@ func failedRun() map[string]any {
 
 // summaries is what the list returns for runs: no diagnosis, review, diff or
 // failure.
+// holdFix makes LavaFlow hold the fixed run's fix for a person, for these
+// reasons.
+func (s *lavaflowServer) holdFix(reasons ...map[string]any) {
+	items := make([]any, 0, len(reasons))
+	for _, reason := range reasons {
+		items = append(items, reason)
+	}
+	s.runs[0]["merge"] = map[string]any{"status": "held", "reason": nil, "hold_reasons": items}
+}
+
+// holdReason is a reason LavaFlow holds a fix, in the API's words.
+func holdReason(code, question string, paths ...string) map[string]any {
+	return map[string]any{"code": code, "question": question, "paths": append([]string{}, paths...)}
+}
+
 func summaries(runs []map[string]any) []any {
 	items := make([]any, 0, len(runs))
 	for _, run := range runs {

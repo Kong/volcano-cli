@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Kong/volcano-cli/internal/apiclient"
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -46,11 +45,5 @@ func runShow(ctx context.Context, opts showOptions, runID string) error {
 		return writeJSON(opts.out, run)
 	}
 	output.LavaflowRun(opts.out, run)
-	// can_decide false means the API would refuse this caller's approval, or
-	// that only a change on GitHub releases the merge.
-	if merge := run.Merge; merge != nil && merge.Status == apiclient.LavaflowMergeStatusWaitingForApproval && merge.CanDecide {
-		output.Note(opts.out, "Approve the merge with '%s', or close the pull request to stop it.",
-			cliruntime.CommandPath(opts.deps, "lavaflow approve "+run.Id.String()))
-	}
 	return nil
 }

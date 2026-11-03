@@ -13,14 +13,7 @@ import (
 )
 
 func TestCloudOnlyStandInRefusesWithTheReason(t *testing.T) {
-	for _, args := range [][]string{
-		{"status"},
-		{"enable"},
-		{"list", "--json"},
-		{"show", lavaflowRunID},
-		{"approve", lavaflowRunID, "--yes"},
-		{"settings", "set", "--autonomy", "merge", "--merge-mode", "auto"},
-	} {
+	for _, args := range [][]string{{"status"}, {"enable"}, {"list", "--json"}, {"show", lavaflowRunID}} {
 		_, err := executeLavaflowCommand(t, NewCloudOnly(), args...)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `"lavaflow" is a cloud command`)
