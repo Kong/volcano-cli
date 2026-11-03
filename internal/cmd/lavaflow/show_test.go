@@ -199,3 +199,34 @@ func TestShowSaysNothingAboutMergingWithoutAMerge(t *testing.T) {
 	assert.NotContains(t, out, "Merge:")
 	assert.NotContains(t, out, "approve")
 }
+
+// The approval that applies says where it came from, who gave it and when; a
+// merge no approval applies to says nothing about one.
+func TestShowSaysWhichApprovalApplies(t *testing.T) {
+	for source, want := range map[string]string{
+		"volcano":       "Approved in Volcano by owner@example.com at ",
+		"github_review": "Approved on GitHub by @octo-reviewer at ",
+	} {
+		fake, deps := newLavaflowServer(t)
+		by := map[string]string{"volcano": "owner@example.com", "github_review": "octo-reviewer"}[source]
+		fake.set(func(s *lavaflowServer) {
+			s.waitForApproval()
+			merge := s.runs[0]["merge"].(map[string]any)
+			merge["status"] = "waiting_for_checks"
+			merge["approval"] = map[string]any{"source": source, "by": by, "at": "2026-10-30T09:05:00Z", "head_sha": lavaflowHeadSHA}
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, source)
+		assert.Contains(t, out, "Merge: waiting for CI\n"+want, source)
+	}
+
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.waitForApproval()
+		s.runs[0]["merge"].(map[string]any)["approval"] = nil
+	})
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.NotContains(t, out, "Approved")
+}

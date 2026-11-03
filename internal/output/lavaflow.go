@@ -74,6 +74,7 @@ func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings) {
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
 	block(w, on, "System prompt", settings.SystemPrompt)
+	lavaflowMergeInstructions(w, on, settings.MergePolicy)
 }
 
 // LavaflowSettingsSaved renders the settings a change left.
@@ -302,6 +303,20 @@ func lavaflowMergePolicyDetails(w io.Writer, on bool, policy apiclient.LavaflowM
 	kv(w, on, "CI before approval", "%s", allowedOrNot(policy.AllowCiBeforeApproval))
 }
 
+// lavaflowMergeInstructions prints the merge instructions in full, or, when
+// none are set, Volcano's default ones, verbatim when the API sends them.
+func lavaflowMergeInstructions(w io.Writer, on bool, policy apiclient.LavaflowMergePolicy) {
+	switch {
+	case policy.Mode == "":
+	case policy.Instructions != nil:
+		block(w, on, "Merge instructions", *policy.Instructions)
+	case policy.DefaultInstructions != nil && strings.TrimSpace(*policy.DefaultInstructions) != "":
+		block(w, on, "Merge instructions (Volcano's default)", *policy.DefaultInstructions)
+	default:
+		fmt.Fprintf(w, "\n%s\n  Volcano's default\n", theme.Title("Merge instructions", on))
+	}
+}
+
 func allowedOrNot(allowed bool) string {
 	if allowed {
 		return "allowed"
@@ -316,18 +331,23 @@ func LavaflowMergeModeDescription(mode apiclient.LavaflowMergeMode) string {
 	switch mode {
 	case apiclient.LavaflowHumanMergeMode:
 		return "A person approves every merge."
-	case apiclient.RiskBased:
-		return "LavaFlow merges a fix on its own only when the policy rates it low risk, and holds the rest for a person."
 	case apiclient.Auto:
-		return "LavaFlow merges every fix that passes review and required checks, unless a hold applies (held paths, rules it can't vouch for)."
+		return "LavaFlow merges a fix that passes review and its required checks, unless the project's merge " +
+			"instructions or a platform hold say a person must approve it."
 	default:
 		return clean(string(mode))
 	}
 }
 
 // LavaflowMergeFacts is true in every merge mode.
-const LavaflowMergeFacts = "Only a person's approval in Volcano releases a hold; GitHub reviews don't. " +
-	"Reviewer concerns block merging."
+const LavaflowMergeFacts = "Anyone with write access to the repository can approve with an approving GitHub " +
+	"review at the fix's current head, as well as in Volcano. A new commit voids an approval, and bot and App " +
+	"reviews don't count. Reviewer concerns block merging."
+
+// LavaflowMergeInstructionsNote is what the merge instructions are, and
+// aren't.
+const LavaflowMergeInstructionsNote = "The merge instructions guide LavaFlow's judgment and aren't a security " +
+	"boundary: use --human-review-path for anything that must always wait for a person."
 
 // lavaflowMergeLines says where a run's merge is and, while it waits for a
 // person, why. A status the CLI doesn't know prints as the API gives it.
@@ -337,6 +357,9 @@ func lavaflowMergeLines(w io.Writer, on bool, merge *apiclient.LavaflowMerge) {
 		status += " (" + clean(strings.ReplaceAll(*merge.Reason, "_", " ")) + ")"
 	}
 	kv(w, on, "Merge", "%s", status)
+	if merge.Approval != nil {
+		fmt.Fprintln(w, lavaflowMergeApproval(merge.Approval))
+	}
 	if merge.Status == apiclient.LavaflowMergeStatusWaitingForApproval {
 		for _, reason := range LavaflowApprovalReasons(merge.ApprovalReasons) {
 			fmt.Fprintf(w, "  - %s\n", reason)
@@ -344,6 +367,20 @@ func lavaflowMergeLines(w io.Writer, on bool, merge *apiclient.LavaflowMerge) {
 	}
 	if len(merge.HeldPaths) > 0 {
 		kv(w, on, "Held paths approved", "%s", cleanList(merge.HeldPaths))
+	}
+}
+
+// lavaflowMergeApproval says which approval applies to the fix: one in
+// Volcano, or an approving review on GitHub, by whom and when.
+func lavaflowMergeApproval(approval *apiclient.LavaflowMergeApprovalApplied) string {
+	at := formatLavaflowTime(approval.At)
+	switch approval.Source {
+	case apiclient.LavaflowMergeApprovalAppliedSourceVolcano:
+		return "Approved in Volcano by " + clean(approval.By) + " at " + at
+	case apiclient.LavaflowMergeApprovalAppliedSourceGithubReview:
+		return "Approved on GitHub by @" + clean(approval.By) + " at " + at
+	default:
+		return "Approved by " + clean(approval.By) + " at " + at
 	}
 }
 

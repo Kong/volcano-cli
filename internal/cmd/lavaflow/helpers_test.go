@@ -72,6 +72,8 @@ type lavaflowServer struct {
 	refuse       int
 	refuseMethod string
 	refusal      map[string]any
+	// refusalHeaders go with every refusal, such as Retry-After.
+	refusalHeaders map[string]string
 	// routesMissing answers every LavaFlow route, capabilities included,
 	// with the router's bare 404, as a platform release older than LavaFlow
 	// does.
@@ -132,6 +134,9 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.refuse != 0 && (s.refuseMethod == "" || s.refuseMethod == r.Method) {
+		for name, value := range s.refusalHeaders {
+			w.Header().Set(name, value)
+		}
 		s.write(w, s.refuse, s.refusal)
 		return
 	}

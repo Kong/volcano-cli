@@ -7434,6 +7434,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '429':
+          description: |
+            The project, or its owner across their projects, used up the
+            hour's checks that ask GitHub whether the owner can push. Nothing
+            was approved. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds until the budget's hour ends.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: |
+            Volcano couldn't confirm that the owner's GitHub account can push
+            to the repository: GitHub did not answer or is rate limiting the
+            account. Nothing was approved. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds to wait before approving again.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/durable-approvals:
     get:
       tags:
@@ -25170,9 +25198,8 @@ components:
       type: string
       enum:
         - human
-        - risk_based
         - auto
-      description: When a fix that passed review merges without a person. `human` waits for a person to approve every fix. `risk_based` waits for a person when LavaFlow's reviewers judge the fix risky. `auto` doesn't wait on the reviewers' judgment. In every mode a fix also waits for a person when it changes a held path or a path in `human_review_paths`, the pull request has the `needs-human-review` label, it is built on a commit Volcano can't tie to a push, no CI ran on it, a required check was skipped, the base branch requires no check, a reviewer requested changes, the repository requires an approving review, or the base branch's rules can't vouch for the merge. A fix from a run LavaFlow started on its own waits too, unless `mode` is `auto` and `allow_ci_before_approval` is true.
+      description: When a fix that passed review merges without a person. `human` waits for a person to approve every fix. `auto` merges a fix that passes review and its required checks, unless the merge policy's `instructions` or a platform hold say a person must approve it. In both modes a fix waits for a person when it changes a held path or a path in `human_review_paths`, the pull request has the `needs-human-review` label, a reviewer raised a concern, it is built on a commit Volcano can't tie to a push, no CI ran on it, a required check was skipped, the base branch requires no check, a reviewer requested changes, the repository requires an approving review, or the base branch's rules can't vouch for the merge. A fix from a run LavaFlow started on its own waits too, unless `mode` is `auto` and `allow_ci_before_approval` is true.
     LavaflowMergePolicy:
       type: object
       description: 'When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.'
@@ -25195,11 +25222,22 @@ components:
         allow_ci_before_approval:
           type: boolean
           description: 'Whether a fix from a run LavaFlow started on its own runs CI and merges without a person. CI then runs code shaped by your logs, with the secrets your pull request workflows get. Only `mode: auto` allows it. Defaults to false.'
+        instructions:
+          type: string
+          nullable: true
+          maxLength: 4000
+          description: 'Your plain-language rules for which fixes need a person in `auto` mode, such as "Billing changes need a person." LavaFlow judges each fix against them, and they only add holds. `null` means Volcano''s default instructions, in `default_instructions`. They guide LavaFlow''s judgment and aren''t a security boundary: list anything that must always wait in `human_review_paths`.'
+        default_instructions:
+          type: string
+          readOnly: true
+          description: Volcano's default instructions, which apply while `instructions` is `null`.
       required:
         - mode
         - human_review_paths
         - allow_merge_without_checks
         - allow_ci_before_approval
+        - instructions
+        - default_instructions
     LavaflowMergePolicyUpdate:
       type: object
       additionalProperties: false
@@ -25219,6 +25257,14 @@ components:
           type: boolean
         allow_ci_before_approval:
           type: boolean
+        instructions:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 4000
+          x-go-type: nullable.Nullable[string]
+          x-go-type-skip-optional-pointer: true
+          description: Up to 4,000 characters. Send `null` to go back to Volcano's default instructions.
     LavaflowMergeStatus:
       type: string
       enum:
@@ -25237,7 +25283,7 @@ components:
       properties:
         code:
           type: string
-          description: 'Why the fix waits. `approval_required`: the merge mode is `human`. `automatic_run`: LavaFlow started the run on its own. `client_reported_commit`: the fix is built on a commit Volcano can''t tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don''t merge the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn''t check, such as required signatures. `merge_blocked`: GitHub reports the merge blocked once checks pass. Other codes name the risk LavaFlow''s reviewers found. New codes may appear. An approval releases every code except `changes_requested` and `repository_requires_approval`, which reviews on GitHub clear, and `rules_bypass`, `unchecked_rules` and `merge_blocked`, which only a change to the base branch''s rules clears.'
+          description: 'Why the fix waits. `approval_required`: the merge mode is `human`. `automatic_run`: LavaFlow started the run on its own. `client_reported_commit`: the fix is built on a commit Volcano can''t tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don''t merge the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn''t check, such as required signatures. `merge_blocked`: GitHub reports the merge blocked once checks pass. Other codes name the risk LavaFlow''s reviewers found. New codes may appear. An approval releases every code except `changes_requested` and `repository_requires_approval`, which reviews on GitHub clear, and `rules_bypass`, `unchecked_rules` and `merge_blocked`, which only a change to the base branch''s rules clears. `label`, `no_checks`, `required_check_skipped` and `no_required_checks` can appear after an approval; only an approval given while they hold the fix releases them.'
         question:
           type: string
           description: What the person answers by approving, written to show as given.
@@ -25276,6 +25322,11 @@ components:
         can_decide:
           type: boolean
           description: 'Whether the caller can approve the merge now: true only for the project''s owner with a platform token, on an active account, while `status` is `waiting_for_approval` for a reason an approval releases (see `approval_reasons`).'
+        approval:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowMergeApprovalApplied'
+          nullable: true
+          description: 'PROVISIONAL (CLI draft of QA''s contract rev 2.1 until Kong/volcano-hosting#2564 adds it). The approval that applies, null when none does. A new commit voids it.'
       required:
         - status
         - reason
@@ -25283,6 +25334,30 @@ components:
         - held_paths
         - head_sha
         - can_decide
+    LavaflowMergeApprovalApplied:
+      type: object
+      properties:
+        source:
+          type: string
+          enum:
+            - volcano
+            - github_review
+          description: '`volcano` for the merge-approvals route; `github_review` for an approving review on GitHub from a person with write access.'
+        by:
+          type: string
+          description: The Volcano user's email for `volcano`, the GitHub login for `github_review`.
+        at:
+          type: string
+          format: date-time
+        head_sha:
+          type: string
+          description: The commit the approval applies to.
+      required:
+        - source
+        - by
+        - at
+        - head_sha
+      description: 'PROVISIONAL (CLI draft of QA''s contract rev 2.1 until Kong/volcano-hosting#2564 adds it).'
     LavaflowMergeApprovalCreate:
       type: object
       additionalProperties: false

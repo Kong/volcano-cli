@@ -1754,16 +1754,16 @@ func (e FunctionDeploymentStatus) Valid() bool {
 
 // Defines values for FunctionHTTPAuthMode.
 const (
-	None    FunctionHTTPAuthMode = "none"
-	Volcano FunctionHTTPAuthMode = "volcano"
+	FunctionHTTPAuthModeNone    FunctionHTTPAuthMode = "none"
+	FunctionHTTPAuthModeVolcano FunctionHTTPAuthMode = "volcano"
 )
 
 // Valid indicates whether the value is a known member of the FunctionHTTPAuthMode enum.
 func (e FunctionHTTPAuthMode) Valid() bool {
 	switch e {
-	case None:
+	case FunctionHTTPAuthModeNone:
 		return true
-	case Volcano:
+	case FunctionHTTPAuthModeVolcano:
 		return true
 	default:
 		return false
@@ -1989,11 +1989,28 @@ func (e LavaflowAutonomy) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowMergeApprovalAppliedSource.
+const (
+	LavaflowMergeApprovalAppliedSourceGithubReview LavaflowMergeApprovalAppliedSource = "github_review"
+	LavaflowMergeApprovalAppliedSourceVolcano      LavaflowMergeApprovalAppliedSource = "volcano"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowMergeApprovalAppliedSource enum.
+func (e LavaflowMergeApprovalAppliedSource) Valid() bool {
+	switch e {
+	case LavaflowMergeApprovalAppliedSourceGithubReview:
+		return true
+	case LavaflowMergeApprovalAppliedSourceVolcano:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowMergeMode.
 const (
-	Auto      LavaflowMergeMode = "auto"
-	Human     LavaflowMergeMode = "human"
-	RiskBased LavaflowMergeMode = "risk_based"
+	Auto  LavaflowMergeMode = "auto"
+	Human LavaflowMergeMode = "human"
 )
 
 // Valid indicates whether the value is a known member of the LavaflowMergeMode enum.
@@ -2002,8 +2019,6 @@ func (e LavaflowMergeMode) Valid() bool {
 	case Auto:
 		return true
 	case Human:
-		return true
-	case RiskBased:
 		return true
 	default:
 		return false
@@ -8091,7 +8106,7 @@ type LavaflowAnomaly struct {
 
 // LavaflowApprovalReason One thing a person decides before LavaFlow merges the fix.
 type LavaflowApprovalReason struct {
-	// Code Why the fix waits. `approval_required`: the merge mode is `human`. `automatic_run`: LavaFlow started the run on its own. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't merge the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `merge_blocked`: GitHub reports the merge blocked once checks pass. Other codes name the risk LavaFlow's reviewers found. New codes may appear. An approval releases every code except `changes_requested` and `repository_requires_approval`, which reviews on GitHub clear, and `rules_bypass`, `unchecked_rules` and `merge_blocked`, which only a change to the base branch's rules clears.
+	// Code Why the fix waits. `approval_required`: the merge mode is `human`. `automatic_run`: LavaFlow started the run on its own. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't merge the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `merge_blocked`: GitHub reports the merge blocked once checks pass. Other codes name the risk LavaFlow's reviewers found. New codes may appear. An approval releases every code except `changes_requested` and `repository_requires_approval`, which reviews on GitHub clear, and `rules_bypass`, `unchecked_rules` and `merge_blocked`, which only a change to the base branch's rules clears. `label`, `no_checks`, `required_check_skipped` and `no_required_checks` can appear after an approval; only an approval given while they hold the fix releases them.
 	Code string `json:"code"`
 
 	// Paths The changed paths that matched, for a path code.
@@ -8141,6 +8156,9 @@ type LavaflowLogLine struct {
 
 // LavaflowMerge Where the run's merge stands. Present for a run that may merge its fix, once its pull request opens.
 type LavaflowMerge struct {
+	// Approval PROVISIONAL (CLI draft of QA's contract rev 2.1 until Kong/volcano-hosting#2564 adds it). The approval that applies, null when none does. A new commit voids it.
+	Approval *LavaflowMergeApprovalApplied `json:"approval,omitempty"`
+
 	// ApprovalReasons Why the fix waits for a person, while `status` is `waiting_for_approval`.
 	ApprovalReasons []LavaflowApprovalReason `json:"approval_reasons"`
 
@@ -8158,6 +8176,23 @@ type LavaflowMerge struct {
 	Status LavaflowMergeStatus `json:"status"`
 }
 
+// LavaflowMergeApprovalApplied PROVISIONAL (CLI draft of QA's contract rev 2.1 until Kong/volcano-hosting#2564 adds it).
+type LavaflowMergeApprovalApplied struct {
+	At time.Time `json:"at"`
+
+	// By The Volcano user's email for `volcano`, the GitHub login for `github_review`.
+	By string `json:"by"`
+
+	// HeadSha The commit the approval applies to.
+	HeadSha string `json:"head_sha"`
+
+	// Source `volcano` for the merge-approvals route; `github_review` for an approving review on GitHub from a person with write access.
+	Source LavaflowMergeApprovalAppliedSource `json:"source"`
+}
+
+// LavaflowMergeApprovalAppliedSource `volcano` for the merge-approvals route; `github_review` for an approving review on GitHub from a person with write access.
+type LavaflowMergeApprovalAppliedSource string
+
 // LavaflowMergeApprovalCreate defines model for LavaflowMergeApprovalCreate.
 type LavaflowMergeApprovalCreate struct {
 	// HeadSha The run's `merge.head_sha`, the commit the person approves.
@@ -8170,7 +8205,7 @@ type LavaflowMergeApprovalCreate struct {
 	RunId openapi_types.UUID `json:"run_id"`
 }
 
-// LavaflowMergeMode When a fix that passed review merges without a person. `human` waits for a person to approve every fix. `risk_based` waits for a person when LavaFlow's reviewers judge the fix risky. `auto` doesn't wait on the reviewers' judgment. In every mode a fix also waits for a person when it changes a held path or a path in `human_review_paths`, the pull request has the `needs-human-review` label, it is built on a commit Volcano can't tie to a push, no CI ran on it, a required check was skipped, the base branch requires no check, a reviewer requested changes, the repository requires an approving review, or the base branch's rules can't vouch for the merge. A fix from a run LavaFlow started on its own waits too, unless `mode` is `auto` and `allow_ci_before_approval` is true.
+// LavaflowMergeMode When a fix that passed review merges without a person. `human` waits for a person to approve every fix. `auto` merges a fix that passes review and its required checks, unless the merge policy's `instructions` or a platform hold say a person must approve it. In both modes a fix waits for a person when it changes a held path or a path in `human_review_paths`, the pull request has the `needs-human-review` label, a reviewer raised a concern, it is built on a commit Volcano can't tie to a push, no CI ran on it, a required check was skipped, the base branch requires no check, a reviewer requested changes, the repository requires an approving review, or the base branch's rules can't vouch for the merge. A fix from a run LavaFlow started on its own waits too, unless `mode` is `auto` and `allow_ci_before_approval` is true.
 type LavaflowMergeMode string
 
 // LavaflowMergePolicy When LavaFlow merges a fix. It applies with `autonomy: merge`; at another autonomy it is saved and does nothing.
@@ -8181,8 +8216,14 @@ type LavaflowMergePolicy struct {
 	// AllowMergeWithoutChecks Whether a fix on a repository where no CI runs merges on the review alone. When false, such a fix waits for a person. A check that does report must still pass. Defaults to false.
 	AllowMergeWithoutChecks bool `json:"allow_merge_without_checks"`
 
+	// DefaultInstructions Volcano's default instructions, which apply while `instructions` is `null`.
+	DefaultInstructions *string `json:"default_instructions,omitempty"`
+
 	// HumanReviewPaths Globs of paths whose change always waits for a person, such as `db/migrations/**`, relative to the repository root. `*` and `?` match within one directory, `**/` spans any number of directories, and a final `**` matches the rest. A pattern that starts with `/`, `./` or `../`, ends with `/`, or holds an empty, `.` or `..` segment answers `400`. Volcano's own held paths, such as deploy configuration and authentication code, always wait too. Defaults to none.
 	HumanReviewPaths []string `json:"human_review_paths"`
+
+	// Instructions Your plain-language rules for which fixes need a person in `auto` mode, such as "Billing changes need a person." LavaFlow judges each fix against them, and they only add holds. `null` means Volcano's default instructions, in `default_instructions`. They guide LavaFlow's judgment and aren't a security boundary: list anything that must always wait in `human_review_paths`.
+	Instructions *string `json:"instructions"`
 
 	// Mode Defaults to `human`.
 	Mode LavaflowMergeMode `json:"mode"`
@@ -8194,7 +8235,10 @@ type LavaflowMergePolicyUpdate struct {
 	AllowMergeWithoutChecks *bool     `json:"allow_merge_without_checks,omitempty"`
 	HumanReviewPaths        *[]string `json:"human_review_paths,omitempty"`
 
-	// Mode When a fix that passed review merges without a person. `human` waits for a person to approve every fix. `risk_based` waits for a person when LavaFlow's reviewers judge the fix risky. `auto` doesn't wait on the reviewers' judgment. In every mode a fix also waits for a person when it changes a held path or a path in `human_review_paths`, the pull request has the `needs-human-review` label, it is built on a commit Volcano can't tie to a push, no CI ran on it, a required check was skipped, the base branch requires no check, a reviewer requested changes, the repository requires an approving review, or the base branch's rules can't vouch for the merge. A fix from a run LavaFlow started on its own waits too, unless `mode` is `auto` and `allow_ci_before_approval` is true.
+	// Instructions Up to 4,000 characters. Send `null` to go back to Volcano's default instructions.
+	Instructions nullable.Nullable[string] `json:"instructions,omitempty"`
+
+	// Mode When a fix that passed review merges without a person. `human` waits for a person to approve every fix. `auto` merges a fix that passes review and its required checks, unless the merge policy's `instructions` or a platform hold say a person must approve it. In both modes a fix waits for a person when it changes a held path or a path in `human_review_paths`, the pull request has the `needs-human-review` label, a reviewer raised a concern, it is built on a commit Volcano can't tie to a push, no CI ran on it, a required check was skipped, the base branch requires no check, a reviewer requested changes, the repository requires an approving review, or the base branch's rules can't vouch for the merge. A fix from a run LavaFlow started on its own waits too, unless `mode` is `auto` and `allow_ci_before_approval` is true.
 	Mode *LavaflowMergeMode `json:"mode,omitempty"`
 }
 
@@ -44167,6 +44211,8 @@ type CreateLavaflowMergeApprovalClientResponse struct {
 	JSON404      *Error
 	JSON409      *Error
 	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -60651,6 +60697,20 @@ func ParseCreateLavaflowMergeApprovalClientResponse(rsp *http.Response) (*Create
 			return nil, err
 		}
 		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 

@@ -101,6 +101,11 @@ func (c *Client) ApproveLavaflowMerge(ctx context.Context, projectID, runID uuid
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404,
-		resp.JSON409, resp.JSON413)
+	run, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404,
+		resp.JSON409, resp.JSON413, resp.JSON429, resp.JSON503)
+	if err != nil && resp.HTTPResponse != nil {
+		// A 429 or 503 says when Volcano can check the owner's push access again.
+		return nil, withRetryAfter(err, resp.HTTPResponse.Header)
+	}
+	return run, err
 }

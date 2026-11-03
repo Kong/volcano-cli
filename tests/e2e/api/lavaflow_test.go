@@ -129,9 +129,8 @@ func requireAPIE2ELavaFlowMergeMode(t *testing.T, env *apiE2E) {
 	human := string(apiclient.LavaflowHumanMergeMode)
 	defer env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "open_pr", "--merge-mode", human).requireSuccess(t)
 	for mode, want := range map[string]string{
-		"risk_based": "only when the policy rates it low risk",
-		"auto":       "unless a hold applies",
-		human:        "A person approves every merge.",
+		"auto": "unless the project's merge instructions",
+		human:  "A person approves every merge.",
 	} {
 		env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-mode", mode).requireSuccess(t, "Merging: "+want)
 		settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")
@@ -147,5 +146,34 @@ func requireAPIE2ELavaFlowMergeMode(t *testing.T, env *apiE2E) {
 		if saved.MergePolicy.Mode != mode {
 			t.Fatalf("settings did not read back merge mode %q: %+v", mode, saved)
 		}
+	}
+	requireAPIE2ELavaFlowMergeInstructions(t, env)
+}
+
+// requireAPIE2ELavaFlowMergeInstructions saves merge instructions, reads them
+// back, and goes back to Volcano's default, which reads back as null.
+func requireAPIE2ELavaFlowMergeInstructions(t *testing.T, env *apiE2E) {
+	t.Helper()
+	readBack := func() *string {
+		settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")
+		settings.requireSuccess(t)
+		var saved struct {
+			MergePolicy struct {
+				Instructions *string `json:"instructions"`
+			} `json:"merge_policy"`
+		}
+		if err := json.Unmarshal([]byte(settings.stdout), &saved); err != nil {
+			t.Fatalf("settings --json did not emit JSON: %v\n%s", err, settings.output)
+		}
+		return saved.MergePolicy.Instructions
+	}
+	instructions := "cli-e2e: billing changes need a person."
+	env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-instructions", instructions).requireSuccess(t)
+	if got := readBack(); got == nil || *got != instructions {
+		t.Fatalf("settings did not read back the merge instructions: %v", got)
+	}
+	env.runCloudCLI(t, "lavaflow", "settings", "set", "--merge-instructions", "").requireSuccess(t)
+	if got := readBack(); got != nil {
+		t.Fatalf("settings did not go back to the default merge instructions: %q", *got)
 	}
 }

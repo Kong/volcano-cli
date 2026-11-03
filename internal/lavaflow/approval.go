@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -75,6 +76,18 @@ func AwaitsApproval(run *apiclient.LavaflowRun) error {
 	}
 }
 
+// retryApprovalLater says nothing was approved because Volcano couldn't check
+// that the owner's GitHub account can push, and when to try again, when the
+// API said.
+func retryApprovalLater(now time.Time, err error) error {
+	refusal := "LavaFlow didn't approve the merge: Volcano couldn't check that the project owner's GitHub account " +
+		"can push to the repository"
+	if at, ok := api.RetryAt(err, now); ok {
+		return fmt.Errorf("%s. Try again in %s", refusal, at.Sub(now).Round(time.Second))
+	}
+	return fmt.Errorf("%s. Try again later", refusal)
+}
+
 func conflict(message string) error {
 	return api.WithCause(errors.New(message), &api.Error{StatusCode: http.StatusConflict, Message: message})
 }
@@ -114,6 +127,8 @@ func (s Service) Approve(ctx context.Context, run *apiclient.LavaflowRun) (*apic
 		return nil, api.WithCause(fmt.Errorf("LavaFlow run %s isn't waiting for approval", run.Id), err)
 	case code == "" && api.Status(err) == http.StatusForbidden:
 		return nil, api.WithCause(ErrOwnerApproves, err)
+	case api.Status(err) == http.StatusTooManyRequests, api.Status(err) == http.StatusServiceUnavailable:
+		return nil, api.WithCause(retryApprovalLater(time.Now(), err), err)
 	case api.RouteMissing(err):
 		return nil, api.WithCause(ErrMergingNotOnAPI, err)
 	default:

@@ -163,11 +163,12 @@ At autonomy `merge`, `--merge-mode` decides when LavaFlow merges a reviewed
 fix:
 
 - `human`, the default: A person approves every merge.
-- `risk_based`: LavaFlow merges a fix on its own only when the policy rates it low risk, and holds the rest for a person.
-- `auto`: LavaFlow merges every fix that passes review and required checks, unless a hold applies (held paths, rules it can't vouch for).
+- `auto`: LavaFlow merges a fix that passes review and its required checks, unless the project's merge instructions or a platform hold say a person must approve it.
 
-In every mode, only a person's approval in Volcano releases a hold; GitHub
-reviews don't. Reviewer concerns block merging.
+In every mode, anyone with write access to the repository can approve with an
+approving GitHub review at the fix's current head, as well as in Volcano. A
+new commit voids an approval, and bot and App reviews don't count. Reviewer
+concerns block merging.
 
 ```bash
 volcano cloud lavaflow settings set --autonomy merge --merge-mode human
@@ -175,6 +176,25 @@ volcano cloud lavaflow settings set --autonomy merge --merge-mode human
 
 `settings` and `status` show the mode as `Merging:`. The mode is kept at any
 autonomy, and below `merge` the line says merging is off.
+
+### Merge instructions
+
+`--merge-instructions` says, in your own words, which fixes need a person in
+`auto` mode, such as "Billing changes and anything irreversible need a
+person." LavaFlow judges each fix against them, and they only add holds, never
+release one. They take up to
+4,000 characters, from the flag or a file (`--merge-instructions-file`, where
+`-` reads stdin). An empty value goes back to Volcano's default instructions.
+`settings` prints the instructions in full, or Volcano's default ones when
+none are set.
+
+```bash
+volcano cloud lavaflow settings set --merge-instructions-file merge-instructions.md
+```
+
+The merge instructions guide LavaFlow's judgment and aren't a security
+boundary. Use `--human-review-path` for anything that must always wait for a
+person.
 
 The rest of the merge policy:
 
@@ -292,11 +312,18 @@ Note: Approve the merge with 'volcano cloud lavaflow approve 9c1e4f2a-7b3d-4e8f-
 
 Each reason prints as one line, worded by Volcano, followed by the paths it is
 about, if any. A reason without wording prints as "Waiting for your approval".
-Once approved, `Held paths approved:` lists the held paths the fix changes
-that a person approved it past, and `Merge:` says where the merge is: `waiting for CI`, `queued to
-merge`, `merged` or `stopped`, with the reason it stopped. In `list`, a run
-whose merge waits for a person shows `Waiting for your approval` as its
-status.
+Once approved, `show` says which approval applies, and `Merge:` says where the
+merge is: `waiting for CI`, `queued to merge`, `merged` or `stopped`, with the
+reason it stopped. `Held paths approved:` lists the held paths the fix changes
+that a person approved it past.
+
+```text
+Merge: waiting for CI
+Approved on GitHub by @octo-reviewer at 2026-10-30 09:05
+```
+
+In `list`, a run whose merge waits for a person shows
+`Waiting for your approval` as its status.
 
 ```bash
 volcano cloud lavaflow approve 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
@@ -310,10 +337,16 @@ is refused before anything is sent. If the pull request changed after
 `approve` read the run, nothing is approved: check the run again with `show`,
 then approve it.
 
-Only the project's owner approves, from their own session. A project access
-token is refused before anything is read, with code 5: sign in with
-`volcano login` instead, and if `VOLCANO_TOKEN` holds a project access token,
-unset it first. Someone other than the owner is refused with code 5 too.
+Anyone with write access to the repository can also approve with an
+approving GitHub review at the fix's current head. A new commit voids it, and
+bot and App reviews don't count.
+
+In Volcano, only the project's owner approves, from their own session. A
+project access token is refused before anything is read, with code 5: sign in
+with `volcano login` instead, and if `VOLCANO_TOKEN` holds a project access
+token, unset it first. Someone other than the owner is refused with code 5
+too. When Volcano can't check the owner's GitHub access right then, nothing is
+approved, and `approve` says when to try again.
 LavaFlow merges with the owner's GitHub account, so when that account can't
 push to the repository, `approve` says so and points to
 [connecting GitHub](/platform/projects/git-deploy#1-connect-github). Where

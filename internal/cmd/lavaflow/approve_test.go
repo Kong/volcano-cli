@@ -162,6 +162,19 @@ func TestARefusedApprovalSaysWhy(t *testing.T) {
 			refusal(http.StatusConflict, "the merge queue is busy", ""),
 			"failed to approve LavaFlow run " + lavaflowRunID + "'s merge: HTTP 409: the merge queue is busy", http.StatusConflict,
 		},
+		"push check limited": {
+			func(s *lavaflowServer) {
+				refusal(http.StatusTooManyRequests, "the hour's push checks are used up", "")(s)
+				s.refusalHeaders = map[string]string{"Retry-After": "30"}
+			},
+			"LavaFlow didn't approve the merge: Volcano couldn't check that the project owner's GitHub account " +
+				"can push to the repository. Try again in 30s", http.StatusTooManyRequests,
+		},
+		"push check unanswered": {
+			refusal(http.StatusServiceUnavailable, "GitHub did not answer", ""),
+			"LavaFlow didn't approve the merge: Volcano couldn't check that the project owner's GitHub account " +
+				"can push to the repository. Try again later", http.StatusServiceUnavailable,
+		},
 		"no route": {
 			func(s *lavaflowServer) { s.approvalRouteMissing = true },
 			"LavaFlow merging isn't available on this Volcano API", http.StatusNotFound,

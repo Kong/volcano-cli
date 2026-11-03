@@ -289,8 +289,10 @@ func validMergePolicy(policy *apiclient.LavaflowMergePolicyUpdate) error {
 		return nil
 	}
 	if policy.Mode != nil && !policy.Mode.Valid() {
-		return fmt.Errorf("invalid merge mode %q: use %s, %s or %s",
-			*policy.Mode, apiclient.LavaflowHumanMergeMode, apiclient.RiskBased, apiclient.Auto)
+		return fmt.Errorf("invalid merge mode %q: use %s or %s", *policy.Mode, apiclient.LavaflowHumanMergeMode, apiclient.Auto)
+	}
+	if text, err := policy.Instructions.Get(); err == nil && len([]rune(text)) > MaxTextLength {
+		return fmt.Errorf("the merge instructions are %d characters long: the most is %d", len([]rune(text)), MaxTextLength)
 	}
 	if policy.HumanReviewPaths == nil {
 		return nil
