@@ -135,19 +135,19 @@ func TestSettingsJSONHasTheRepositoryAndFixBlocker(t *testing.T) {
 }
 
 // With no repository, enable doesn't say LavaFlow opens fix pull requests in
-// one, and warns instead of reporting LavaFlow on.
+// one, and warns instead of reporting LavaFlow on. While LavaFlow is off, the
+// API reports no blocker, so the repository connection says there is none.
 func TestEnableWithoutARepositoryWarns(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
 		s.repoConnected = false
-		// What Volcano answers once LavaFlow is on with no repository.
-		s.settings["fix_blocker"] = repositoryRequired()
+		s.blockerWhenOn = repositoryRequired()
 	})
 
 	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""), "enable", "--yes")
 	require.NoError(t, err)
 	assert.Equal(t, clilavaflow.EnableDisclosureWithoutRepository+"\n", errOut)
-	assert.Zero(t, fake.repoReads, "Volcano's blocker says there is no repository")
+	assert.Equal(t, 1, fake.repoReads, "the settings name no repository while LavaFlow is off")
 	assert.NotContains(t, errOut, "in your connected repository")
 	assert.True(t, strings.HasPrefix(out, "Warning: LavaFlow is on, but it isn't fixing issues yet\n"), "%q", out)
 	assert.NotContains(t, out, "✓")
@@ -155,6 +155,22 @@ func TestEnableWithoutARepositoryWarns(t *testing.T) {
 	assert.True(t, strings.HasSuffix(out,
 		"Warning: "+repositoryRequiredMessage+" Run volcano git connect <git-url>.\n"), "%q", out)
 	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
+}
+
+// Turning LavaFlow on again without a repository takes the API's blocker as
+// the answer, without reading the repository connection.
+func TestEnableAgainWithoutARepositoryTrustsTheBlocker(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.repoConnected = false
+		s.settings["enabled"], s.settings["fix_blocker"] = true, repositoryRequired()
+	})
+
+	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""), "enable", "--yes")
+	require.NoError(t, err)
+	assert.Equal(t, clilavaflow.EnableDisclosureWithoutRepository+"\n", errOut)
+	assert.Zero(t, fake.repoReads)
+	assert.True(t, strings.HasPrefix(out, "Warning: LavaFlow is on, but it isn't fixing issues yet\n"), "%q", out)
 }
 
 // With a repository, enable says what LavaFlow does in the approved words and
