@@ -233,9 +233,9 @@ The pull request is now yours to review and merge on GitHub.
 By default, LavaFlow doesn't open a fix's pull request where a workflow in
 the repository could run it, or put its text into a command, with the
 repository's secrets before a person approves it: the fix stays on its run
-instead. Only the project's owner, signed in with `volcano login`, can change
-that, for the repository the project is connected to now, while their GitHub
-account can push to it:
+instead. Only the project's owner, signed in with `volcano login`, can turn
+that on, for the repository the project is connected to now, while their
+GitHub account can push to it:
 
 ```bash
 volcano cloud lavaflow settings set --allow-ungated-workflows true
@@ -257,16 +257,17 @@ on.
 nothing and exits with a non-zero code. When Volcano refuses it, for example
 for a platform token that never expires, or while the owner's GitHub account
 can't push to the repository, the command says why in Volcano's words and
-exits with code 5. `--allow-ungated-workflows false` turns it off without
-asking. `settings` shows it as `Ungated workflows:`, `allowed for the
-connected repository` or `not allowed`.
+exits with code 5. Any of the owner's credentials turns it off, with
+`--allow-ungated-workflows false`, which asks nothing. `settings` shows it as
+`Ungated workflows:`, `allowed for the connected repository` or `not allowed`.
 
-When a run's pull request opened past ungated workflows, `show` lists each
-workflow job: its file, the branch or commit whose workflows run it, the job
-and the event that runs it.
+When a run's pull request opened past ungated workflows, `show` lists the
+first ungated workflow job on each branch or commit LavaFlow checked: its file,
+the branch or commit whose workflows run it, the job and the event that runs
+it. Other jobs on the same branch or commit may run the pull request too.
 
 ```text
-Ungated workflows: the pull request opened past 1
+Ungated workflows: the pull request opened past these, the first one on each branch or commit checked
   - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target
 ```
 

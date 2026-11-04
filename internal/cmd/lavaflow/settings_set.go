@@ -56,10 +56,13 @@ use them yet. Each takes up to %[3]d characters, from the flag or a file
 (--custom-context-file, --system-prompt-file). Pass an empty value to clear
 one.
 
---allow-ungated-workflows true: %[7]s
+--allow-ungated-workflows: %[8]s %[9]s
+
+%[7]s
 It prints that and asks first; --yes skips the question. false turns it off
 without asking.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength, apiclient.Merge,
-			clilavaflow.MergeDisclosure, clilavaflow.MaxHumanReviewPaths, clilavaflow.UngatedWorkflowsDisclosure),
+			clilavaflow.MergeDisclosure, clilavaflow.MaxHumanReviewPaths, ungatedWorkflowsDisclosure,
+			clilavaflow.UngatedWorkflowsSetting, clilavaflow.UngatedWorkflowsRules),
 		Example: "  " + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy diagnose_only") + "\n" +
 			"  " + cliruntime.CommandPath(deps, "lavaflow settings set --custom-context-file lavaflow-context.md"),
 		Args: cobra.NoArgs,
@@ -85,7 +88,7 @@ without asking.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextL
 	cmd.Flags().StringVar(&opts.systemPrompt, "system-prompt", "", "Instructions added to LavaFlow's own")
 	cmd.Flags().StringVar(&opts.systemPromptFile, "system-prompt-file", "", "Read the system prompt from a file")
 	cmd.Flags().StringVar(&opts.ungatedWorkflows, "allow-ungated-workflows", "",
-		"Whether LavaFlow opens fix pull requests past workflows a person doesn't gate, for the connected repository: true or false")
+		clilavaflow.UngatedWorkflowsSetting+" Pass true or false.")
 	cmd.MarkFlagsMutuallyExclusive("custom-context", "custom-context-file")
 	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
 	cmd.MarkFlagsMutuallyExclusive("human-review-path", "clear-human-review-paths")
@@ -162,6 +165,11 @@ func runSettingsSet(ctx context.Context, opts settingsSetOptions, update apiclie
 	return nil
 }
 
+// ungatedWorkflowsDisclosure is what settings set prints, and its help says,
+// before it allows ungated workflows. The contract's words start without a
+// subject, so the flag names it.
+const ungatedWorkflowsDisclosure = "--allow-ungated-workflows true: " + clilavaflow.UngatedWorkflowsDisclosure
+
 // confirmation asks once before a change that turns on what only a person
 // decides, autonomy merge, ungated workflows or both, after saying what each
 // does. It's nil when the update turns on neither.
@@ -171,12 +179,12 @@ func confirmation(opts settingsSetOptions, update apiclient.LavaflowSettingsUpda
 	var disclosure, question string
 	switch {
 	case merge && ungated:
-		disclosure = clilavaflow.MergeDisclosure + "\n" + clilavaflow.UngatedWorkflowsDisclosure
+		disclosure = clilavaflow.MergeDisclosure + "\n" + ungatedWorkflowsDisclosure
 		question = "Let LavaFlow merge fixes, and allow ungated workflows?"
 	case merge:
 		disclosure, question = clilavaflow.MergeDisclosure, "Let LavaFlow merge fixes?"
 	case ungated:
-		disclosure, question = clilavaflow.UngatedWorkflowsDisclosure, "Allow ungated workflows?"
+		disclosure, question = ungatedWorkflowsDisclosure, "Allow ungated workflows?"
 	default:
 		return nil
 	}

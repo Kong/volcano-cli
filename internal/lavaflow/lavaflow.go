@@ -75,14 +75,24 @@ const UngatedWorkflowsWarning = "Workflows in the repository may then run LavaFl
 	"changes from the project's error logs, which its users can influence. Turn it on only if those workflows " +
 	"keep secrets away from untrusted code; gating them on a label a person adds is safer."
 
+// UngatedWorkflowsSetting is what allow_ungated_workflows decides, in the API
+// contract's words.
+const UngatedWorkflowsSetting = "Whether LavaFlow opens a fix's pull request even where a workflow could run " +
+	"it, or put its text into a command, with the repository's secrets before a person approves it."
+
+// UngatedWorkflowsRules is the setting's default and who changes it, in the
+// API contract's words.
+const UngatedWorkflowsRules = "Off by default; while off, such a fix stays on its run and no pull request opens. " +
+	"Only the project's owner, signed in with `volcano login`, turns it on, for the repository their GitHub " +
+	"account can push to. Any of the owner's credentials turns it off."
+
 // UngatedWorkflowsDisclosure is what settings set prints before it allows
-// ungated workflows: what the setting does and where, in the API contract's
-// words, then the warning.
-const UngatedWorkflowsDisclosure = "Allowing ungated workflows lets LavaFlow open a fix's pull request even where " +
-	"a workflow could run it, or put its text into a command, with the repository's secrets before a person " +
-	"approves it. It applies only to the repository the project is connected to now: connecting the project to " +
-	"another repository, or disconnecting it, turns it off, and connecting the first one again doesn't turn it " +
-	"back on. " + UngatedWorkflowsWarning
+// ungated workflows, in the API contract's words: what turning it on does and
+// where, what turns it off again, then the warning.
+const UngatedWorkflowsDisclosure = "Turns on opening fixes past ungated workflows, for the repository the " +
+	"project is connected to now; it applies only to that repository. Connecting the project to another " +
+	"repository, or disconnecting it, turns it off, and connecting the first one again doesn't turn it back " +
+	"on. " + UngatedWorkflowsWarning
 
 // ErrMergingNotAvailable reports feature_unavailable for autonomy merge:
 // LavaFlow doesn't merge for this project yet.

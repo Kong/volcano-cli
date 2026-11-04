@@ -135,7 +135,7 @@ func TestSettingsSetHelpSaysWhatMergingDoes(t *testing.T) {
 	assert.Contains(t, out, "merge\nis for a project where merging is available. "+clilavaflow.MergeDisclosure+
 		"\n--autonomy merge prints that and asks first; --yes skips the question.")
 	assert.Contains(t, out, "--human-review-path names a path whose changes always hold a fix for a")
-	merging, _, _ := strings.Cut(out, "--allow-ungated-workflows true:")
+	merging, _, _ := strings.Cut(out, "\n--allow-ungated-workflows")
 	assert.NotContains(t, merging, "approv")
 }
 
@@ -305,17 +305,58 @@ func TestSettingsSetSaysReviewPathsNeedMerging(t *testing.T) {
 	}
 }
 
-// settings set --help says what allowing ungated workflows does, that it
-// applies to the connected repository only, and what it risks.
+// settings set --help says what allowing ungated workflows does, who turns
+// it on and off, that it applies to the connected repository only, and what it
+// risks, in the API contract's own sentences.
 func TestSettingsSetHelpSaysWhatUngatedWorkflowsRisk(t *testing.T) {
 	_, deps := newLavaflowServer(t)
 
 	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--help")
 	require.NoError(t, err)
-	assert.Contains(t, out, "--allow-ungated-workflows true: "+clilavaflow.UngatedWorkflowsDisclosure+"\n")
-	assert.Contains(t, clilavaflow.UngatedWorkflowsDisclosure, "It applies only to the repository the project is "+
-		"connected to now: connecting the project to another repository, or disconnecting it, turns it off")
-	assert.Contains(t, out, "for the connected repository: true or false")
+	assert.Contains(t, out, "\n--allow-ungated-workflows: "+clilavaflow.UngatedWorkflowsSetting+" "+
+		clilavaflow.UngatedWorkflowsRules+"\n")
+	assert.Contains(t, out, "\n--allow-ungated-workflows true: "+clilavaflow.UngatedWorkflowsDisclosure+
+		"\nIt prints that and asks first; --yes skips the question.")
+	assert.Contains(t, out, clilavaflow.UngatedWorkflowsSetting+" Pass true or false.")
+
+	for _, sentence := range []string{
+		"Whether LavaFlow opens a fix's pull request even where a workflow could run it, or put its text into a " +
+			"command, with the repository's secrets before a person approves it.",
+		"Off by default; while off, such a fix stays on its run and no pull request opens.",
+		"Only the project's owner, signed in with `volcano login`, turns it on, for the repository their GitHub " +
+			"account can push to.",
+		"Any of the owner's credentials turns it off.",
+		"Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it " +
+			"applies only to that repository.",
+		"Connecting the project to another repository, or disconnecting it, turns it off, and connecting the " +
+			"first one again doesn't turn it back on.",
+		clilavaflow.UngatedWorkflowsWarning,
+	} {
+		assert.Contains(t, out, sentence)
+		assert.Contains(t, ungatedWorkflowsContract(t), sentence, "the help says it as the API's contract does")
+	}
+}
+
+// ungatedWorkflowsContract is every description the vendored API contract
+// gives the ungated workflows setting, with YAML's line folding undone.
+func ungatedWorkflowsContract(t *testing.T) string {
+	t.Helper()
+	spec, err := os.ReadFile(filepath.Join("..", "..", "..", "openapi", "openapi.yaml"))
+	require.NoError(t, err)
+	var descriptions []string
+	lines := strings.Split(string(spec), "\n")
+	for i, line := range lines {
+		if strings.TrimSpace(line) != "allow_ungated_workflows:" || i+2 >= len(lines) {
+			continue
+		}
+		description, ok := strings.CutPrefix(strings.TrimSpace(lines[i+2]), "description: ")
+		if !ok {
+			continue
+		}
+		descriptions = append(descriptions, strings.ReplaceAll(strings.Trim(description, "'"), "''", "'"))
+	}
+	require.Len(t, descriptions, 2, "LavaflowSettings and LavaflowSettingsUpdate describe allow_ungated_workflows")
+	return strings.Join(descriptions, "\n")
 }
 
 // Allowing ungated workflows says what it risks, in the approved words, and
@@ -329,7 +370,7 @@ func TestSettingsSetAllowsUngatedWorkflowsOnlyAfterAsking(t *testing.T) {
 		out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(answer),
 			"settings", "set", "--allow-ungated-workflows", "true")
 		require.NoError(t, err, "%q", answer)
-		assert.Contains(t, errOut, clilavaflow.UngatedWorkflowsDisclosure, "%q", answer)
+		assert.Contains(t, errOut, ungatedWorkflowsDisclosure, "%q", answer)
 		assert.Contains(t, errOut, "Allow ungated workflows?", "%q", answer)
 		if !wantSaved {
 			assert.Empty(t, fake.updates, "%q", answer)
@@ -344,7 +385,7 @@ func TestSettingsSetAllowsUngatedWorkflowsOnlyAfterAsking(t *testing.T) {
 	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
 		"settings", "set", "--allow-ungated-workflows", "true", "--yes", "--json")
 	require.NoError(t, err)
-	assert.Equal(t, clilavaflow.UngatedWorkflowsDisclosure+"\n", errOut, "--yes still says what it risks, and only that")
+	assert.Equal(t, ungatedWorkflowsDisclosure+"\n", errOut, "--yes still says what it risks, and only that")
 	assert.Equal(t, true, decodeJSON(t, out)["allow_ungated_workflows"])
 	assert.Equal(t, map[string]any{"allow_ungated_workflows": true}, fake.lastUpdate(t))
 
@@ -379,7 +420,7 @@ func TestSettingsSetAsksOnceAboutMergingAndUngatedWorkflows(t *testing.T) {
 		_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(answer),
 			"settings", "set", "--autonomy", "merge", "--allow-ungated-workflows", "true")
 		require.NoError(t, err, "%q", answer)
-		assert.Contains(t, errOut, clilavaflow.MergeDisclosure+"\n"+clilavaflow.UngatedWorkflowsDisclosure+"\n", "%q", answer)
+		assert.Contains(t, errOut, clilavaflow.MergeDisclosure+"\n"+ungatedWorkflowsDisclosure+"\n", "%q", answer)
 		assert.Equal(t, 1, strings.Count(errOut, "Type 'y' or 'yes' to confirm"), "%q", answer)
 		assert.Contains(t, errOut, "Let LavaFlow merge fixes, and allow ungated workflows?", "%q", answer)
 		if !wantSaved {
@@ -393,7 +434,7 @@ func TestSettingsSetAsksOnceAboutMergingAndUngatedWorkflows(t *testing.T) {
 	_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
 		"settings", "set", "--autonomy", "merge", "--allow-ungated-workflows", "true", "--yes", "--json")
 	require.NoError(t, err)
-	assert.Equal(t, clilavaflow.MergeDisclosure+"\n"+clilavaflow.UngatedWorkflowsDisclosure+"\n", errOut)
+	assert.Equal(t, clilavaflow.MergeDisclosure+"\n"+ungatedWorkflowsDisclosure+"\n", errOut)
 }
 
 // Only the owner allows ungated workflows: someone the settings say can't

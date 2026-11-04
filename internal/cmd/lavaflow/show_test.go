@@ -180,9 +180,11 @@ func TestShowSaysWhereTheMergeIs(t *testing.T) {
 	assert.NotContains(t, out, "Merge:")
 }
 
-// A run whose pull request opened past ungated workflows lists each one: the
-// file, the branch or commit whose workflows run it, and the job and the
-// event when the file could be read. A run with none says nothing about it.
+// A run whose pull request opened past ungated workflows lists the ones the
+// API names: the file, the branch or commit whose workflows run it, and the
+// job and the event when the file could be read. The API names only the first
+// on each branch or commit, so show gives no count that reads as a total. A
+// run with none says nothing about it.
 func TestShowListsTheUngatedWorkflowsAPullRequestOpenedPast(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
@@ -194,7 +196,7 @@ func TestShowListsTheUngatedWorkflowsAPullRequestOpenedPast(t *testing.T) {
 
 	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
-	assert.Contains(t, out, "Ungated workflows: the pull request opened past 2\n"+
+	assert.Contains(t, out, "Ungated workflows: the pull request opened past these, the first one on each branch or commit checked\n"+
 		"  - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target\n"+
 		"  - .github/workflows/broken.yml on 4f1c2b3: couldn't be read\n")
 

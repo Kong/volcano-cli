@@ -180,8 +180,10 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	if run.Review != nil {
 		kv(w, on, "Review", "%s after %d round(s)", clean(strings.ReplaceAll(string(run.Review.Verdict), "_", " ")), run.Review.Rounds)
 	}
+	// The API lists only the first ungated job on each branch or commit it
+	// checked, so a count would understate the jobs that could run the change.
 	if len(run.UngatedWorkflows) > 0 {
-		kv(w, on, "Ungated workflows", "the pull request opened past %d", len(run.UngatedWorkflows))
+		kv(w, on, "Ungated workflows", "the pull request opened past these, the first one on each branch or commit checked")
 		for _, workflow := range run.UngatedWorkflows {
 			fmt.Fprintf(w, "  - %s\n", lavaflowAllowedWorkflow(workflow))
 		}
