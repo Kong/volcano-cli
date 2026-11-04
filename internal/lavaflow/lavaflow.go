@@ -434,9 +434,9 @@ func pushCheckUnanswered(now time.Time, err error) error {
 func refused(cfg *config.Config, err error) error {
 	switch {
 	case api.Code(err) == codePersonRequired:
-		// Volcano says why in its own words: a credential that isn't the
-		// owner's live volcano login sign-in, an owner whose GitHub account
-		// can't push to the repository, or a project with no repository.
+		// Volcano says why in its own words: a platform token that never
+		// expires, a sign-in that ended, an owner whose GitHub account can't
+		// push to the repository, or a project with no repository.
 		// When its words say to sign in with volcano login, a token in
 		// VOLCANO_TOKEN wins over that sign-in, so say so; unsetting it
 		// fixes nothing about the repository.

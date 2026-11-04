@@ -8066,6 +8066,19 @@ type ImportSourcesResponse struct {
 	Sources []ImportSource `json:"sources"`
 }
 
+// LavaflowAllowedWorkflow A workflow job that could run a fix's pull request with the repository's secrets before a person approves it.
+type LavaflowAllowedWorkflow struct {
+	// Job The job, absent for a workflow that could not be read.
+	Job  *string `json:"job,omitempty"`
+	Path string  `json:"path"`
+
+	// Source The branch or commit whose workflows run it.
+	Source string `json:"source"`
+
+	// Trigger The event that runs it, absent for a workflow that could not be read.
+	Trigger *string `json:"trigger,omitempty"`
+}
+
 // LavaflowAnomaly defines model for LavaflowAnomaly.
 type LavaflowAnomaly struct {
 	Flagged bool `json:"flagged"`
@@ -8107,7 +8120,7 @@ type LavaflowFailure struct {
 
 // LavaflowHoldReason One reason LavaFlow holds the fix for a person.
 type LavaflowHoldReason struct {
-	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
+	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `ungated_workflows`: the fix opened past workflows that can run it with the repository's secrets before a person approves it, as the project's owner allowed, so LavaFlow never starts its CI or merges it. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
 	Code string `json:"code"`
 
 	// Paths The changed paths that matched, for a path code.
@@ -8145,7 +8158,7 @@ type LavaflowMergePolicyUpdate struct {
 	HumanReviewPaths *[]string `json:"human_review_paths,omitempty"`
 }
 
-// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `branch_behind`: the base branch requires the fix to be up to date with it, and LavaFlow doesn't update fix branches. `removed_from_queue`: the merge queue dropped it. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `request_rejected`: GitHub refused LavaFlow's request to start the checks on the fix. `ci_start_commit_mismatch`: GitHub reports a different commit from the one LavaFlow made to start the checks. `queue_carries_ci_skip`: the repository's merge queue could carry the fix commit's instruction to skip checks into the base branch. `merge_carries_ci_skip`: the repository allows no squash merge, so merging would carry that instruction into the base branch. Each of these four hands the fix to you for good. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused; a waiting fix keeps its status and resumes. `paused_too_long`: merging stayed paused for more than 7 days. `cancelled`: the project is being deleted, so LavaFlow stopped waiting on the merge. New reasons may appear.
+// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `branch_behind`: the base branch requires the fix to be up to date with it, and LavaFlow doesn't update fix branches. `removed_from_queue`: the fix isn't in the merge queue, and LavaFlow can't tell why, for example because its checks failed there or someone removed it. `reads_failed`: LavaFlow failed to read the pull request for about an hour while the fix may have been queued, so it took the fix out of the merge queue, when it could still reach it, and stopped. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `request_rejected`: GitHub refused LavaFlow's request to start the checks on the fix. `ci_start_commit_mismatch`: GitHub reports a different commit from the one LavaFlow made to start the checks. `queue_carries_ci_skip`: the repository's merge queue could carry the fix commit's instruction to skip checks into the base branch. `merge_carries_ci_skip`: the repository allows no squash merge, so merging would carry that instruction into the base branch. Each of these four hands the fix to you for good. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused; a waiting fix keeps its status and resumes. `paused_too_long`: merging stayed paused for more than 7 days. `cancelled`: the project is being deleted, so LavaFlow stopped waiting on the merge. New reasons may appear.
 type LavaflowMergeReason = string
 
 // LavaflowMergeStatus `waiting_for_checks`: LavaFlow waits for the checks on the fix's commit. `queued`: the fix is in the repository's merge queue. `merged`: the pull request merged. `held`: something in `hold_reasons` needs a person. LavaFlow commented on the pull request once and never merges, pushes to, rebases or dequeues it again; review it and merge it yourself if you want it. `stopped`: LavaFlow left the pull request open for you, for `reason`.
@@ -8238,6 +8251,9 @@ type LavaflowRun struct {
 
 	// Title The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
 	Title *string `json:"title"`
+
+	// UngatedWorkflows The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none.
+	UngatedWorkflows []LavaflowAllowedWorkflow `json:"ungated_workflows"`
 }
 
 // LavaflowRunStatus Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
@@ -8267,6 +8283,9 @@ type LavaflowRunSummary struct {
 
 // LavaflowSettings A project's LavaFlow settings. LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
 type LavaflowSettings struct {
+	// AllowUngatedWorkflows Whether LavaFlow opens a fix's pull request even where a workflow could run it, or put its text into a command, with the repository's secrets before a person approves it. Off by default; while off, such a fix stays on its run and no pull request opens. Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. It applies to the repository their GitHub account can push to. Connecting the project to another repository, or disconnecting it, turns it off, and connecting the first one again doesn't turn it back on. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer.
+	AllowUngatedWorkflows bool `json:"allow_ungated_workflows"`
+
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
 	Autonomy LavaflowAutonomy `json:"autonomy"`
 
@@ -8297,6 +8316,9 @@ type LavaflowSettings struct {
 
 // LavaflowSettingsUpdate The project, and at least one field to change. An omitted field keeps its saved value.
 type LavaflowSettingsUpdate struct {
+	// AllowUngatedWorkflows Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner's credentials turns it off. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`.
+	AllowUngatedWorkflows *bool `json:"allow_ungated_workflows,omitempty"`
+
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
 	Autonomy      *LavaflowAutonomy `json:"autonomy,omitempty"`
 	CustomContext *string           `json:"custom_context,omitempty"`
