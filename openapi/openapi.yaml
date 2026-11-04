@@ -895,10 +895,12 @@ paths:
         destination is never followed.
 
         The archive is checked and staged before the workspace changes, so a refused archive writes
-        nothing. Code `sandbox_archive_invalid` (400) means the archive or form is malformed or holds an
+        nothing, and one that fails part way is undone. Read-only directories the session user owns
+        still take new entries and keep their modes. Code `sandbox_archive_invalid` (400) means the archive or form is malformed or holds an
         entry that is not allowed. Code `sandbox_archive_too_large` (413) means it exceeds a limit
         above. Code `sandbox_path_conflict` (409) means the destination has a symbolic link or a file
-        where the archive needs a directory, or a directory where it has a file. Code
+        where the archive needs a directory, a directory where it has a file, or a directory the
+        session user cannot write. Code
         `sandbox_workspace_full` (413) means the session's disk has no room for it. Code
         `sandbox_guest_outdated` (409) means the session started from an image that predates archive
         writes; start a new session from a current preset, or redeploy the template. A session outside
@@ -949,7 +951,8 @@ paths:
         part starts past the bytes received; resend from the last part that succeeded. Code
         `sandbox_file_part_mismatch` (409) means the finished file differs from `size` or `sha256`; its
         parts are discarded, so start again at offset 0. Code `sandbox_path_conflict` (409) means a
-        directory is at `path`, or a file or symbolic link is where a parent directory belongs. Code
+        directory is at `path`, a file or symbolic link is where a parent directory belongs, or the
+        session user cannot write the parent directory. Code
         `sandbox_workspace_full` (413) means the session's disk has no room. Code
         `sandbox_guest_outdated` (409) means the session started from an image that predates parted
         writes. A staging file stays until its file completes, a part at offset 0 restarts it, or the
