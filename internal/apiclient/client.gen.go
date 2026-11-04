@@ -10932,14 +10932,14 @@ type SandboxSessionState string
 
 // SandboxSessionNetwork defines model for SandboxSessionNetwork.
 type SandboxSessionNetwork struct {
-	// Applied The outbound network policy Volcano last observed on the session's VM, never the request alone. It is `unknown` until the session is first observed, after a suspend or resume until it is observed again, and whenever the observation does not match the request. A session reports `state` `running` only once its network has been observed. To depend on `deny_all`, wait for `running`, then terminate the session unless `applied` is `deny_all`.
+	// Applied The outbound network policy Volcano last observed on the session's VM, never the request alone. It is `unknown` until the session is first observed, from a suspend or resume request until it is observed again, briefly while Volcano rolls out an update, and whenever the observation does not match the request. A session first reports `state` `running` only once its network has been observed. To depend on `deny_all`, wait for `running`, then terminate the session unless `applied` is `deny_all`. Act on a later `unknown` only while `desired_state` is `running`.
 	Applied SandboxSessionNetworkApplied `json:"applied"`
 
 	// Egress The outbound network policy the session was created with. It never changes.
 	Egress SandboxSessionNetworkEgress `json:"egress"`
 }
 
-// SandboxSessionNetworkApplied The outbound network policy Volcano last observed on the session's VM, never the request alone. It is `unknown` until the session is first observed, after a suspend or resume until it is observed again, and whenever the observation does not match the request. A session reports `state` `running` only once its network has been observed. To depend on `deny_all`, wait for `running`, then terminate the session unless `applied` is `deny_all`.
+// SandboxSessionNetworkApplied The outbound network policy Volcano last observed on the session's VM, never the request alone. It is `unknown` until the session is first observed, from a suspend or resume request until it is observed again, briefly while Volcano rolls out an update, and whenever the observation does not match the request. A session first reports `state` `running` only once its network has been observed. To depend on `deny_all`, wait for `running`, then terminate the session unless `applied` is `deny_all`. Act on a later `unknown` only while `desired_state` is `running`.
 type SandboxSessionNetworkApplied string
 
 // SandboxSessionNetworkEgress The outbound network policy the session was created with. It never changes.
