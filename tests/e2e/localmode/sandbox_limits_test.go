@@ -3,6 +3,7 @@ package localmode
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -21,8 +22,18 @@ func requireLocalModeSandboxLimits(t *testing.T, binary string, env []string, di
 		t.Helper()
 		return runVolcanoLocalModeE2EStdout(t, binary, env, dir, append([]string{"sandboxes"}, args...)...)
 	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
+	defer cancel()
+	create := captureLocalModeCommand(ctx, binary, env, dir, "sandboxes", "run", "--preset", "python3.12", "--duration", "300", "--vcpus", "1", "--disk-mib", "256", "--json")
+	if create.err != nil {
+		// Published images can predate limits; Hosting's candidate-image lane must accept them.
+		require.NotEqual(t, "1", os.Getenv("VOLCANO_E2E_REQUIRE_SANDBOX_LIMITS"), "candidate image must accept Sandbox limits: %s", create.stderr)
+		require.Contains(t, create.stderr, "HTTP 400")
+		require.Contains(t, create.stderr, "limits")
+		return
+	}
 	var created apiclient.SandboxSession
-	require.NoError(t, json.Unmarshal([]byte(run("run", "--preset", "python3.12", "--duration", "300", "--vcpus", "1", "--disk-mib", "256", "--json")), &created))
+	require.NoError(t, json.Unmarshal([]byte(create.stdout), &created))
 	require.NotEqual(t, uuid.Nil, created.Id)
 	id := created.Id.String()
 	t.Cleanup(func() {
@@ -45,8 +56,6 @@ func requireLocalModeSandboxLimits(t *testing.T, binary string, env []string, di
 
 	require.Equal(t, "100000 100000", strings.TrimSpace(run("exec", id, "--", "cat", "/sys/fs/cgroup/cpu.max")))
 
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
-	defer cancel()
 	fill := captureLocalModeCommand(ctx, binary, env, dir, "sandboxes", "exec", id, "--", "sh", "-c", "head -c 300M /dev/zero > /workspace/fill")
 	require.Error(t, fill.err, "writing past --disk-mib must fail\nstdout:\n%s\nstderr:\n%s", fill.stdout, fill.stderr)
 	require.Contains(t, fill.stderr, "No space left on device")
