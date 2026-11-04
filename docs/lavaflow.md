@@ -43,6 +43,10 @@ the same when the owner's plan couldn't be read.
   [git.md](git.md).
 - Fixes code it can read at the commit that built it. See
   [Source commit](deploy.md#source-commit).
+- Works on the project's **issues**, one per run. Read a run's issue with
+  `volcano cloud issues get <issue-id>`, and leave a note on it that the
+  next run reads with `volcano cloud issues notes add`. See
+  [issues.md](issues.md).
 - Cloud only. LavaFlow runs on Volcano's cloud service, which local
   development doesn't run, so `volcano lavaflow` refuses and points to
   `volcano cloud lavaflow`.

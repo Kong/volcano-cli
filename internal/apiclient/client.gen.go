@@ -1971,6 +1971,27 @@ func (e ImportProvider) Valid() bool {
 	}
 }
 
+// Defines values for IssueStatus.
+const (
+	IssueStatusIgnored  IssueStatus = "ignored"
+	IssueStatusOpen     IssueStatus = "open"
+	IssueStatusResolved IssueStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the IssueStatus enum.
+func (e IssueStatus) Valid() bool {
+	switch e {
+	case IssueStatusIgnored:
+		return true
+	case IssueStatusOpen:
+		return true
+	case IssueStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowAutonomy.
 const (
 	DiagnoseOnly LavaflowAutonomy = "diagnose_only"
@@ -3888,6 +3909,42 @@ func (e DeploymentStatus) Valid() bool {
 	}
 }
 
+// Defines values for IssueNoteKind.
+const (
+	IssueNoteKindIssue IssueNoteKind = "issue"
+	IssueNoteKindRun   IssueNoteKind = "run"
+)
+
+// Valid indicates whether the value is a known member of the IssueNoteKind enum.
+func (e IssueNoteKind) Valid() bool {
+	switch e {
+	case IssueNoteKindIssue:
+		return true
+	case IssueNoteKindRun:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IssueNoteOrder.
+const (
+	IssueNoteOrderCreatedAtAsc  IssueNoteOrder = "created_at.asc"
+	IssueNoteOrderCreatedAtDesc IssueNoteOrder = "created_at.desc"
+)
+
+// Valid indicates whether the value is a known member of the IssueNoteOrder enum.
+func (e IssueNoteOrder) Valid() bool {
+	switch e {
+	case IssueNoteOrderCreatedAtAsc:
+		return true
+	case IssueNoteOrderCreatedAtDesc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuthConfirmEmail200JSONResponseBodyMessage.
 const (
 	EmailAlreadyConfirmed      AuthConfirmEmail200JSONResponseBodyMessage = "Email already confirmed"
@@ -4380,6 +4437,42 @@ func (e GetDefaultEmailTemplateParamsType) Valid() bool {
 	}
 }
 
+// Defines values for ListIssueNotesParamsKind.
+const (
+	ListIssueNotesParamsKindIssue ListIssueNotesParamsKind = "issue"
+	ListIssueNotesParamsKindRun   ListIssueNotesParamsKind = "run"
+)
+
+// Valid indicates whether the value is a known member of the ListIssueNotesParamsKind enum.
+func (e ListIssueNotesParamsKind) Valid() bool {
+	switch e {
+	case ListIssueNotesParamsKindIssue:
+		return true
+	case ListIssueNotesParamsKindRun:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListIssueNotesParamsOrder.
+const (
+	ListIssueNotesParamsOrderCreatedAtAsc  ListIssueNotesParamsOrder = "created_at.asc"
+	ListIssueNotesParamsOrderCreatedAtDesc ListIssueNotesParamsOrder = "created_at.desc"
+)
+
+// Valid indicates whether the value is a known member of the ListIssueNotesParamsOrder enum.
+func (e ListIssueNotesParamsOrder) Valid() bool {
+	switch e {
+	case ListIssueNotesParamsOrderCreatedAtAsc:
+		return true
+	case ListIssueNotesParamsOrderCreatedAtDesc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CallMCPJSONBodyJsonrpc.
 const (
 	CallMCPJSONBodyJsonrpcN20 CallMCPJSONBodyJsonrpc = "2.0"
@@ -4583,25 +4676,25 @@ func (e GetProjectConfigParamsFormat) Valid() bool {
 
 // Defines values for ListDatabasesParamsStatus.
 const (
-	ListDatabasesParamsStatusActive       ListDatabasesParamsStatus = "active"
-	ListDatabasesParamsStatusDeleting     ListDatabasesParamsStatus = "deleting"
-	ListDatabasesParamsStatusFailed       ListDatabasesParamsStatus = "failed"
-	ListDatabasesParamsStatusProvisioning ListDatabasesParamsStatus = "provisioning"
-	ListDatabasesParamsStatusRestoring    ListDatabasesParamsStatus = "restoring"
+	Active       ListDatabasesParamsStatus = "active"
+	Deleting     ListDatabasesParamsStatus = "deleting"
+	Failed       ListDatabasesParamsStatus = "failed"
+	Provisioning ListDatabasesParamsStatus = "provisioning"
+	Restoring    ListDatabasesParamsStatus = "restoring"
 )
 
 // Valid indicates whether the value is a known member of the ListDatabasesParamsStatus enum.
 func (e ListDatabasesParamsStatus) Valid() bool {
 	switch e {
-	case ListDatabasesParamsStatusActive:
+	case Active:
 		return true
-	case ListDatabasesParamsStatusDeleting:
+	case Deleting:
 		return true
-	case ListDatabasesParamsStatusFailed:
+	case Failed:
 		return true
-	case ListDatabasesParamsStatusProvisioning:
+	case Provisioning:
 		return true
-	case ListDatabasesParamsStatusRestoring:
+	case Restoring:
 		return true
 	default:
 		return false
@@ -7224,7 +7317,7 @@ type EmailTemplateTemplateType string
 
 // Error defines model for Error.
 type Error struct {
-	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
+	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means only a person may do this: a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token, or the change needs the owner signed in with `volcano login`; or a project access token, MCP, or a platform token that never expires tried to write an issue note. `note_author_required` (403) means only the note's author may edit it, and only its author or the project's owner may delete it. `note_limit_reached` (409) means the issue or project holds as many notes as it can. An issue note's text check refuses with `400` and the rule as its code: `characters`, `size`, `credential`, `secret`, `sanitizer` or `link`. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
 	Code  *string `json:"code,omitempty"`
 	Error string  `json:"error"`
 }
@@ -7391,7 +7484,7 @@ type FrontendCandidateList struct {
 
 // FrontendCustomDomainConflictError defines model for FrontendCustomDomainConflictError.
 type FrontendCustomDomainConflictError struct {
-	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
+	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means only a person may do this: a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token, or the change needs the owner signed in with `volcano login`; or a project access token, MCP, or a platform token that never expires tried to write an issue note. `note_author_required` (403) means only the note's author may edit it, and only its author or the project's owner may delete it. `note_limit_reached` (409) means the issue or project holds as many notes as it can. An issue note's text check refuses with `400` and the rule as its code: `characters`, `size`, `credential`, `secret`, `sanitizer` or `link`. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
 	Code  *string `json:"code,omitempty"`
 	Error string  `json:"error"`
 
@@ -8065,6 +8158,110 @@ type ImportSource struct {
 type ImportSourcesResponse struct {
 	Sources []ImportSource `json:"sources"`
 }
+
+// Issue Runtime errors from one function or frontend, grouped by error type and stack.
+type Issue struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Culprit The innermost frame of your code in the stack, as `function (file)`. For a frontend's Next.js build output, the outermost route or page file of the build in the stack, such as `.next/server/app/checkout/route.js`, or without one, the outermost file of the build. Omitted without a stack.
+	Culprit *string `json:"culprit,omitempty"`
+
+	// ErrorType The exception class, such as `TypeError`. Omitted when the error has none.
+	ErrorType *string `json:"error_type,omitempty"`
+
+	// EventCount Errors counted in this issue. A retried delivery can count an error twice.
+	EventCount int64 `json:"event_count"`
+
+	// Exception Whether the issue holds an exception: one your code threw, or one it
+	// logged with `console.error(err)` or Python's `logger.exception()`.
+	// `false` for an error logged any other way, such as a structured log
+	// line, a logger's error line, or a printed traceback. Once `true`, it
+	// stays `true`.
+	Exception   bool               `json:"exception"`
+	FirstSeenAt time.Time          `json:"first_seen_at"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// LastRegion The region that served the latest error, such as `us-east-1`.
+	LastRegion *string            `json:"last_region,omitempty"`
+	LastSeenAt time.Time          `json:"last_seen_at"`
+	ProjectId  openapi_types.UUID `json:"project_id"`
+
+	// RegressedAt When a resolved issue was last seen again and reopened.
+	RegressedAt *time.Time `json:"regressed_at,omitempty"`
+
+	// ResolvedAt When the issue was resolved. Present only while it is resolved.
+	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
+
+	// Resource Stable reference to a Volcano resource.
+	Resource ResourceReference `json:"resource"`
+
+	// SampleEventAt When the latest error's log event was written.
+	SampleEventAt *time.Time `json:"sample_event_at,omitempty"`
+
+	// SampleEventId The ID of the latest error's log event, while logs retain it.
+	SampleEventId *string `json:"sample_event_id,omitempty"`
+
+	// Status `open` until someone resolves or ignores the issue. A resolved issue
+	// seen again reopens.
+	Status IssueStatus `json:"status"`
+
+	// Title The error type and message, with values such as IDs, numbers, and
+	// URLs replaced by placeholders like `<uuid>` and `<n>`.
+	Title     string    `json:"title"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// IssueNote A note a person wrote on an issue, or on one LavaFlow run of it.
+type IssueNote struct {
+	// Author The person who wrote the note. Null once their account is deleted.
+	Author *IssueNoteAuthor `json:"author"`
+
+	// Body Plain text as stored: the text written, normalized to Unicode NFKC. Render it as plain text, keeping line breaks and linking nothing.
+	Body      string             `json:"body"`
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+	IssueId   openapi_types.UUID `json:"issue_id"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// RunId The LavaFlow run the note is on, or null for a note on the issue itself.
+	RunId     *openapi_types.UUID `json:"run_id"`
+	UpdatedAt time.Time           `json:"updated_at"`
+
+	// Version 1 when written. Each edit that changes the text adds 1.
+	Version int `json:"version"`
+}
+
+// IssueNoteAuthor The person who wrote the note. Null once their account is deleted.
+type IssueNoteAuthor struct {
+	// Email The author's email. Present only when a person reads with their own sign-in or a platform token that expires; a project access token, a platform token that never expires, and MCP get the ID alone.
+	Email *string `json:"email,omitempty"`
+
+	// Id The author's user ID.
+	Id string `json:"id"`
+}
+
+// IssueNoteCreate defines model for IssueNoteCreate.
+type IssueNoteCreate struct {
+	// Body Plain text, up to 2,048 bytes once normalized to Unicode NFKC. Longer text is refused with code `size`.
+	Body string `json:"body"`
+
+	// IssueId The issue to write the note on.
+	IssueId   openapi_types.UUID `json:"issue_id"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// RunId Write the note on this LavaFlow run of the issue instead.
+	RunId *openapi_types.UUID `json:"run_id,omitempty"`
+}
+
+// IssueNoteUpdate defines model for IssueNoteUpdate.
+type IssueNoteUpdate struct {
+	// Body The note's new text, which replaces the old text for good. The same limits apply as to a new note.
+	Body string `json:"body"`
+}
+
+// IssueStatus `open` until someone resolves or ignores the issue. A resolved issue
+// seen again reopens.
+type IssueStatus string
 
 // LavaflowAnomaly defines model for LavaflowAnomaly.
 type LavaflowAnomaly struct {
@@ -8952,6 +9149,34 @@ type PaginatedFunctions struct {
 
 	// Total Total number of items across all pages
 	Total int `json:"total"`
+}
+
+// PaginatedIssueNotes defines model for PaginatedIssueNotes.
+type PaginatedIssueNotes struct {
+	Data []IssueNote `json:"data"`
+
+	// HasMore Whether a next page exists
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page (present if has_more is true). It works only for the same project, caller, filters and order.
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// PaginatedIssues defines model for PaginatedIssues.
+type PaginatedIssues struct {
+	Data []Issue `json:"data"`
+
+	// HasMore Whether a next page exists
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page (present if has_more is true)
+	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
 // PaginatedLavaflowRuns defines model for PaginatedLavaflowRuns.
@@ -11368,6 +11593,13 @@ type UpdateFunctionSchedulerRequest struct {
 	Schedule *ScheduleRequest        `json:"schedule,omitempty"`
 }
 
+// UpdateIssueRequest defines model for UpdateIssueRequest.
+type UpdateIssueRequest struct {
+	// Status `open` until someone resolves or ignores the issue. A resolved issue
+	// seen again reopens.
+	Status IssueStatus `json:"status"`
+}
+
 // UpdateNotificationEmail defines model for UpdateNotificationEmail.
 type UpdateNotificationEmail struct {
 	Enabled *bool `json:"enabled,omitempty"`
@@ -11694,6 +11926,24 @@ type IssueCursor = string
 
 // IssueId defines model for IssueId.
 type IssueId = openapi_types.UUID
+
+// IssueNoteCursor defines model for IssueNoteCursor.
+type IssueNoteCursor = string
+
+// IssueNoteId defines model for IssueNoteId.
+type IssueNoteId = openapi_types.UUID
+
+// IssueNoteIssueFilter defines model for IssueNoteIssueFilter.
+type IssueNoteIssueFilter = openapi_types.UUID
+
+// IssueNoteKind defines model for IssueNoteKind.
+type IssueNoteKind string
+
+// IssueNoteOrder defines model for IssueNoteOrder.
+type IssueNoteOrder string
+
+// IssueNoteRunFilter defines model for IssueNoteRunFilter.
+type IssueNoteRunFilter = openapi_types.UUID
 
 // ItemProjectIdQuery defines model for ItemProjectIdQuery.
 type ItemProjectIdQuery = openapi_types.UUID
@@ -12240,6 +12490,55 @@ type StartProjectImportParams struct {
 type ListImportSourcesParams struct {
 	// ConnectionId Owned provider connection used for discovery.
 	ConnectionId openapi_types.UUID `form:"connection_id" json:"connection_id"`
+}
+
+// ListIssueNotesParams defines parameters for ListIssueNotes.
+type ListIssueNotesParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+
+	// IssueId Return notes on this issue and on its LavaFlow runs. An issue outside `project_id` answers like an unknown one.
+	IssueId *IssueNoteIssueFilter `form:"issue_id,omitempty" json:"issue_id,omitempty"`
+
+	// RunId Return notes on this LavaFlow run. A run outside `project_id`, or not on the given `issue_id`, answers like an unknown one.
+	RunId *IssueNoteRunFilter `form:"run_id,omitempty" json:"run_id,omitempty"`
+
+	// Kind `issue` returns notes on issues only; `run` returns notes on runs only. Omitted, both.
+	Kind *ListIssueNotesParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
+
+	// Order Newest first (`created_at.desc`, the default) or oldest first.
+	Order *ListIssueNotesParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor from a previous response's `next_cursor`. Pages forward,
+	// and works only for the same `project_id`, caller, filters and order.
+	Cursor *IssueNoteCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListIssueNotesParamsKind defines parameters for ListIssueNotes.
+type ListIssueNotesParamsKind string
+
+// ListIssueNotesParamsOrder defines parameters for ListIssueNotes.
+type ListIssueNotesParamsOrder string
+
+// DeleteIssueNoteParams defines parameters for DeleteIssueNote.
+type DeleteIssueNoteParams struct {
+	// ProjectId Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// GetIssueNoteParams defines parameters for GetIssueNote.
+type GetIssueNoteParams struct {
+	// ProjectId Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// UpdateIssueNoteParams defines parameters for UpdateIssueNote.
+type UpdateIssueNoteParams struct {
+	// ProjectId Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
 // ListLavaflowResourcesParams defines parameters for ListLavaflowResources.
@@ -13312,6 +13611,22 @@ type ListFunctionDeploymentsParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListIssuesParams defines parameters for ListIssues.
+type ListIssuesParams struct {
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor from a previous response's `next_cursor`. Pages forward;
+	// keep the same filters while paging.
+	Cursor *IssueCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Status Return only issues in this status.
+	Status *IssueStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// ResourceId Return only issues raised by this function or frontend.
+	ResourceId *openapi_types.UUID `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+}
+
 // UploadProjectLogoMultipartBody defines parameters for UploadProjectLogo.
 type UploadProjectLogoMultipartBody struct {
 	// Logo Logo image (PNG, JPEG, GIF, WebP, or SVG; max 2 MB)
@@ -13857,6 +14172,12 @@ type PreflightProjectImportJSONRequestBody = ProjectImportPreflightRequest
 // StartProjectImportJSONRequestBody defines body for StartProjectImport for application/json ContentType.
 type StartProjectImportJSONRequestBody = ProjectImportStartRequest
 
+// CreateIssueNoteJSONRequestBody defines body for CreateIssueNote for application/json ContentType.
+type CreateIssueNoteJSONRequestBody = IssueNoteCreate
+
+// UpdateIssueNoteJSONRequestBody defines body for UpdateIssueNote for application/json ContentType.
+type UpdateIssueNoteJSONRequestBody = IssueNoteUpdate
+
 // UpdateLavaflowSettingsJSONRequestBody defines body for UpdateLavaflowSettings for application/json ContentType.
 type UpdateLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
 
@@ -14027,6 +14348,9 @@ type SetProjectGitRootDirectoryJSONRequestBody = SetProjectGitRootDirectoryReque
 
 // UpdateProjectGitDeploySettingsJSONRequestBody defines body for UpdateProjectGitDeploySettings for application/json ContentType.
 type UpdateProjectGitDeploySettingsJSONRequestBody = UpdateProjectGitDeploySettingsRequest
+
+// UpdateIssueJSONRequestBody defines body for UpdateIssue for application/json ContentType.
+type UpdateIssueJSONRequestBody = UpdateIssueRequest
 
 // UploadProjectLogoMultipartRequestBody defines body for UploadProjectLogo for multipart/form-data ContentType.
 type UploadProjectLogoMultipartRequestBody UploadProjectLogoMultipartBody
@@ -15754,6 +16078,25 @@ type ClientInterface interface {
 	// ListImportSources request
 	ListImportSources(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListIssueNotes request
+	ListIssueNotes(ctx context.Context, params *ListIssueNotesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateIssueNoteWithBody request with any body
+	CreateIssueNoteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateIssueNote(ctx context.Context, body CreateIssueNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteIssueNote request
+	DeleteIssueNote(ctx context.Context, noteId IssueNoteId, params *DeleteIssueNoteParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIssueNote request
+	GetIssueNote(ctx context.Context, noteId IssueNoteId, params *GetIssueNoteParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateIssueNoteWithBody request with any body
+	UpdateIssueNoteWithBody(ctx context.Context, noteId IssueNoteId, params *UpdateIssueNoteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateIssueNote(ctx context.Context, noteId IssueNoteId, params *UpdateIssueNoteParams, body UpdateIssueNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListLavaflowResources request
 	ListLavaflowResources(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -16368,6 +16711,17 @@ type ClientInterface interface {
 
 	// GetProjectHealth request
 	GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListIssues request
+	ListIssues(ctx context.Context, id ProjectId, params *ListIssuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIssue request
+	GetIssue(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateIssueWithBody request with any body
+	UpdateIssueWithBody(ctx context.Context, id ProjectId, issueId IssueId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateIssue(ctx context.Context, id ProjectId, issueId IssueId, body UpdateIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteProjectLogo request
 	DeleteProjectLogo(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -18053,6 +18407,90 @@ func (c *Client) GetProjectImportRun(ctx context.Context, provider ImportProvide
 
 func (c *Client) ListImportSources(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListImportSourcesRequest(c.Server, provider, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListIssueNotes(ctx context.Context, params *ListIssueNotesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIssueNotesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateIssueNoteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIssueNoteRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateIssueNote(ctx context.Context, body CreateIssueNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIssueNoteRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteIssueNote(ctx context.Context, noteId IssueNoteId, params *DeleteIssueNoteParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteIssueNoteRequest(c.Server, noteId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIssueNote(ctx context.Context, noteId IssueNoteId, params *GetIssueNoteParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIssueNoteRequest(c.Server, noteId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateIssueNoteWithBody(ctx context.Context, noteId IssueNoteId, params *UpdateIssueNoteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIssueNoteRequestWithBody(c.Server, noteId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateIssueNote(ctx context.Context, noteId IssueNoteId, params *UpdateIssueNoteParams, body UpdateIssueNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIssueNoteRequest(c.Server, noteId, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -20717,6 +21155,54 @@ func (c *Client) UpdateProjectGitDeploySettings(ctx context.Context, id ProjectI
 
 func (c *Client) GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectHealthRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListIssues(ctx context.Context, id ProjectId, params *ListIssuesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIssuesRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIssue(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIssueRequest(c.Server, id, issueId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateIssueWithBody(ctx context.Context, id ProjectId, issueId IssueId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIssueRequestWithBody(c.Server, id, issueId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateIssue(ctx context.Context, id ProjectId, issueId IssueId, body UpdateIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIssueRequest(c.Server, id, issueId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -25746,6 +26232,364 @@ func NewListImportSourcesRequest(server string, provider ImportProvider, params 
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListIssueNotesRequest generates requests for ListIssueNotes
+func NewListIssueNotesRequest(server string, params *ListIssueNotesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issue-notes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.IssueId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "issue_id", *params.IssueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.RunId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "run_id", *params.RunId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Kind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "kind", *params.Kind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateIssueNoteRequest calls the generic CreateIssueNote builder with application/json body
+func NewCreateIssueNoteRequest(server string, body CreateIssueNoteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateIssueNoteRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateIssueNoteRequestWithBody generates requests for CreateIssueNote with any type of body
+func NewCreateIssueNoteRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issue-notes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteIssueNoteRequest generates requests for DeleteIssueNote
+func NewDeleteIssueNoteRequest(server string, noteId IssueNoteId, params *DeleteIssueNoteParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "note_id", noteId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issue-notes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetIssueNoteRequest generates requests for GetIssueNote
+func NewGetIssueNoteRequest(server string, noteId IssueNoteId, params *GetIssueNoteParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "note_id", noteId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issue-notes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateIssueNoteRequest calls the generic UpdateIssueNote builder with application/json body
+func NewUpdateIssueNoteRequest(server string, noteId IssueNoteId, params *UpdateIssueNoteParams, body UpdateIssueNoteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateIssueNoteRequestWithBody(server, noteId, params, "application/json", bodyReader)
+}
+
+// NewUpdateIssueNoteRequestWithBody generates requests for UpdateIssueNote with any type of body
+func NewUpdateIssueNoteRequestWithBody(server string, noteId IssueNoteId, params *UpdateIssueNoteParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "note_id", noteId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issue-notes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -35287,6 +36131,198 @@ func NewGetProjectHealthRequest(server string, id ProjectId) (*http.Request, err
 	return req, nil
 }
 
+// NewListIssuesRequest generates requests for ListIssues
+func NewListIssuesRequest(server string, id ProjectId, params *ListIssuesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/issues", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.ResourceId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_id", *params.ResourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetIssueRequest generates requests for GetIssue
+func NewGetIssueRequest(server string, id ProjectId, issueId IssueId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "issueId", issueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/issues/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateIssueRequest calls the generic UpdateIssue builder with application/json body
+func NewUpdateIssueRequest(server string, id ProjectId, issueId IssueId, body UpdateIssueJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateIssueRequestWithBody(server, id, issueId, "application/json", bodyReader)
+}
+
+// NewUpdateIssueRequestWithBody generates requests for UpdateIssue with any type of body
+func NewUpdateIssueRequestWithBody(server string, id ProjectId, issueId IssueId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "issueId", issueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/issues/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteProjectLogoRequest generates requests for DeleteProjectLogo
 func NewDeleteProjectLogoRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -40551,6 +41587,25 @@ type ClientWithResponsesInterface interface {
 	// ListImportSourcesWithResponse request
 	ListImportSourcesWithResponse(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*ListImportSourcesClientResponse, error)
 
+	// ListIssueNotesWithResponse request
+	ListIssueNotesWithResponse(ctx context.Context, params *ListIssueNotesParams, reqEditors ...RequestEditorFn) (*ListIssueNotesClientResponse, error)
+
+	// CreateIssueNoteWithBodyWithResponse request with any body
+	CreateIssueNoteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIssueNoteClientResponse, error)
+
+	CreateIssueNoteWithResponse(ctx context.Context, body CreateIssueNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIssueNoteClientResponse, error)
+
+	// DeleteIssueNoteWithResponse request
+	DeleteIssueNoteWithResponse(ctx context.Context, noteId IssueNoteId, params *DeleteIssueNoteParams, reqEditors ...RequestEditorFn) (*DeleteIssueNoteClientResponse, error)
+
+	// GetIssueNoteWithResponse request
+	GetIssueNoteWithResponse(ctx context.Context, noteId IssueNoteId, params *GetIssueNoteParams, reqEditors ...RequestEditorFn) (*GetIssueNoteClientResponse, error)
+
+	// UpdateIssueNoteWithBodyWithResponse request with any body
+	UpdateIssueNoteWithBodyWithResponse(ctx context.Context, noteId IssueNoteId, params *UpdateIssueNoteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIssueNoteClientResponse, error)
+
+	UpdateIssueNoteWithResponse(ctx context.Context, noteId IssueNoteId, params *UpdateIssueNoteParams, body UpdateIssueNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIssueNoteClientResponse, error)
+
 	// ListLavaflowResourcesWithResponse request
 	ListLavaflowResourcesWithResponse(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*ListLavaflowResourcesClientResponse, error)
 
@@ -41165,6 +42220,17 @@ type ClientWithResponsesInterface interface {
 
 	// GetProjectHealthWithResponse request
 	GetProjectHealthWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectHealthClientResponse, error)
+
+	// ListIssuesWithResponse request
+	ListIssuesWithResponse(ctx context.Context, id ProjectId, params *ListIssuesParams, reqEditors ...RequestEditorFn) (*ListIssuesClientResponse, error)
+
+	// GetIssueWithResponse request
+	GetIssueWithResponse(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*GetIssueClientResponse, error)
+
+	// UpdateIssueWithBodyWithResponse request with any body
+	UpdateIssueWithBodyWithResponse(ctx context.Context, id ProjectId, issueId IssueId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIssueClientResponse, error)
+
+	UpdateIssueWithResponse(ctx context.Context, id ProjectId, issueId IssueId, body UpdateIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIssueClientResponse, error)
 
 	// DeleteProjectLogoWithResponse request
 	DeleteProjectLogoWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*DeleteProjectLogoClientResponse, error)
@@ -44021,6 +45087,179 @@ func (r ListImportSourcesClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListImportSourcesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListIssueNotesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedIssueNotes
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListIssueNotesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListIssueNotesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListIssueNotesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateIssueNoteClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *IssueNote
+	JSON201      *IssueNote
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateIssueNoteClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateIssueNoteClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateIssueNoteClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteIssueNoteClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteIssueNoteClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteIssueNoteClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteIssueNoteClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetIssueNoteClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *IssueNote
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIssueNoteClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIssueNoteClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetIssueNoteClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateIssueNoteClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *IssueNote
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON413      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateIssueNoteClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateIssueNoteClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateIssueNoteClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -49778,6 +51017,101 @@ func (r GetProjectHealthClientResponse) ContentType() string {
 	return ""
 }
 
+type ListIssuesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedIssues
+	JSON400      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListIssuesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListIssuesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListIssuesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetIssueClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Issue
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIssueClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIssueClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetIssueClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateIssueClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Issue
+	JSON400      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateIssueClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateIssueClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateIssueClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type DeleteProjectLogoClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -53784,6 +55118,67 @@ func (c *ClientWithResponses) ListImportSourcesWithResponse(ctx context.Context,
 	return ParseListImportSourcesClientResponse(rsp)
 }
 
+// ListIssueNotesWithResponse request returning *ListIssueNotesClientResponse
+func (c *ClientWithResponses) ListIssueNotesWithResponse(ctx context.Context, params *ListIssueNotesParams, reqEditors ...RequestEditorFn) (*ListIssueNotesClientResponse, error) {
+	rsp, err := c.ListIssueNotes(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListIssueNotesClientResponse(rsp)
+}
+
+// CreateIssueNoteWithBodyWithResponse request with arbitrary body returning *CreateIssueNoteClientResponse
+func (c *ClientWithResponses) CreateIssueNoteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIssueNoteClientResponse, error) {
+	rsp, err := c.CreateIssueNoteWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIssueNoteClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateIssueNoteWithResponse(ctx context.Context, body CreateIssueNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIssueNoteClientResponse, error) {
+	rsp, err := c.CreateIssueNote(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIssueNoteClientResponse(rsp)
+}
+
+// DeleteIssueNoteWithResponse request returning *DeleteIssueNoteClientResponse
+func (c *ClientWithResponses) DeleteIssueNoteWithResponse(ctx context.Context, noteId IssueNoteId, params *DeleteIssueNoteParams, reqEditors ...RequestEditorFn) (*DeleteIssueNoteClientResponse, error) {
+	rsp, err := c.DeleteIssueNote(ctx, noteId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteIssueNoteClientResponse(rsp)
+}
+
+// GetIssueNoteWithResponse request returning *GetIssueNoteClientResponse
+func (c *ClientWithResponses) GetIssueNoteWithResponse(ctx context.Context, noteId IssueNoteId, params *GetIssueNoteParams, reqEditors ...RequestEditorFn) (*GetIssueNoteClientResponse, error) {
+	rsp, err := c.GetIssueNote(ctx, noteId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIssueNoteClientResponse(rsp)
+}
+
+// UpdateIssueNoteWithBodyWithResponse request with arbitrary body returning *UpdateIssueNoteClientResponse
+func (c *ClientWithResponses) UpdateIssueNoteWithBodyWithResponse(ctx context.Context, noteId IssueNoteId, params *UpdateIssueNoteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIssueNoteClientResponse, error) {
+	rsp, err := c.UpdateIssueNoteWithBody(ctx, noteId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIssueNoteClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateIssueNoteWithResponse(ctx context.Context, noteId IssueNoteId, params *UpdateIssueNoteParams, body UpdateIssueNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIssueNoteClientResponse, error) {
+	rsp, err := c.UpdateIssueNote(ctx, noteId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIssueNoteClientResponse(rsp)
+}
+
 // ListLavaflowResourcesWithResponse request returning *ListLavaflowResourcesClientResponse
 func (c *ClientWithResponses) ListLavaflowResourcesWithResponse(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*ListLavaflowResourcesClientResponse, error) {
 	rsp, err := c.ListLavaflowResources(ctx, params, reqEditors...)
@@ -55729,6 +57124,41 @@ func (c *ClientWithResponses) GetProjectHealthWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetProjectHealthClientResponse(rsp)
+}
+
+// ListIssuesWithResponse request returning *ListIssuesClientResponse
+func (c *ClientWithResponses) ListIssuesWithResponse(ctx context.Context, id ProjectId, params *ListIssuesParams, reqEditors ...RequestEditorFn) (*ListIssuesClientResponse, error) {
+	rsp, err := c.ListIssues(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListIssuesClientResponse(rsp)
+}
+
+// GetIssueWithResponse request returning *GetIssueClientResponse
+func (c *ClientWithResponses) GetIssueWithResponse(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*GetIssueClientResponse, error) {
+	rsp, err := c.GetIssue(ctx, id, issueId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIssueClientResponse(rsp)
+}
+
+// UpdateIssueWithBodyWithResponse request with arbitrary body returning *UpdateIssueClientResponse
+func (c *ClientWithResponses) UpdateIssueWithBodyWithResponse(ctx context.Context, id ProjectId, issueId IssueId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIssueClientResponse, error) {
+	rsp, err := c.UpdateIssueWithBody(ctx, id, issueId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIssueClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateIssueWithResponse(ctx context.Context, id ProjectId, issueId IssueId, body UpdateIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIssueClientResponse, error) {
+	rsp, err := c.UpdateIssue(ctx, id, issueId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIssueClientResponse(rsp)
 }
 
 // DeleteProjectLogoWithResponse request returning *DeleteProjectLogoClientResponse
@@ -60402,6 +61832,297 @@ func ParseListImportSourcesClientResponse(rsp *http.Response) (*ListImportSource
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListIssueNotesClientResponse parses an HTTP response from a ListIssueNotesWithResponse call
+func ParseListIssueNotesClientResponse(rsp *http.Response) (*ListIssueNotesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListIssueNotesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedIssueNotes
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateIssueNoteClientResponse parses an HTTP response from a CreateIssueNoteWithResponse call
+func ParseCreateIssueNoteClientResponse(rsp *http.Response) (*CreateIssueNoteClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateIssueNoteClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IssueNote
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest IssueNote
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteIssueNoteClientResponse parses an HTTP response from a DeleteIssueNoteWithResponse call
+func ParseDeleteIssueNoteClientResponse(rsp *http.Response) (*DeleteIssueNoteClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteIssueNoteClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetIssueNoteClientResponse parses an HTTP response from a GetIssueNoteWithResponse call
+func ParseGetIssueNoteClientResponse(rsp *http.Response) (*GetIssueNoteClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIssueNoteClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IssueNote
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateIssueNoteClientResponse parses an HTTP response from a UpdateIssueNoteWithResponse call
+func ParseUpdateIssueNoteClientResponse(rsp *http.Response) (*UpdateIssueNoteClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateIssueNoteClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IssueNote
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 
@@ -68634,6 +70355,119 @@ func ParseGetProjectHealthClientResponse(rsp *http.Response) (*GetProjectHealthC
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListIssuesClientResponse parses an HTTP response from a ListIssuesWithResponse call
+func ParseListIssuesClientResponse(rsp *http.Response) (*ListIssuesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListIssuesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedIssues
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetIssueClientResponse parses an HTTP response from a GetIssueWithResponse call
+func ParseGetIssueClientResponse(rsp *http.Response) (*GetIssueClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIssueClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Issue
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateIssueClientResponse parses an HTTP response from a UpdateIssueWithResponse call
+func ParseUpdateIssueClientResponse(rsp *http.Response) (*UpdateIssueClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateIssueClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Issue
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
