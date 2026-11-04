@@ -600,7 +600,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SandboxSession'
         default:
-          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment. Code `sandbox_plan_limit_exceeded` (403) means the requested resources exceed the plan. Code `sandbox_allowance_exhausted` (429) means the remaining allowance or credits cannot admit the operation. Code `sandbox_limits_unsupported` (400) means the selected image predates `limits`; redeploy the template, or retry once the preset is updated. Code `sandbox_limits_exceed_session` (400) means `limits.vcpus` is more than the session's memory size provides.
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment. Code `sandbox_plan_limit_exceeded` (403) means the requested resources exceed the plan. Code `sandbox_allowance_exhausted` (429) means the remaining allowance or credits cannot admit the operation. Code `sandbox_limits_unsupported` (400) means the selected image predates `limits`; redeploy the template or recreate the named Sandbox, or retry once the preset is updated. Code `sandbox_limits_exceed_session` (400) means `limits.vcpus` is more than the session has; raise `memory_mb` or lower `limits.vcpus`.
           content:
             application/json:
               schema:
@@ -18757,18 +18757,24 @@ components:
           type: integer
           description: Enforced disk cap in MiB. Never higher than requested; lower when the session's disk has less free space.
         applied:
-          description: |
-            `true` when every requested cap is enforced, `false` when the session
-            could not enforce them, and `unknown` until the session reports.
-            Terminate a session that reports anything but `true` if you rely on
-            the caps.
-          oneOf:
-            - type: boolean
-            - type: string
-              enum:
-                - unknown
+          $ref: '#/components/schemas/SandboxLimitsApplied'
       required:
         - applied
+    SandboxLimitsApplied:
+      type: string
+      description: |
+        `enforced` when every requested cap is enforced, `not_enforced` when the
+        session could not enforce them, and `unknown` until the session reports.
+        Terminate a session that reports anything but `enforced` if you rely on
+        the caps.
+      enum:
+        - enforced
+        - not_enforced
+        - unknown
+      x-enum-varnames:
+        - SandboxLimitsEnforced
+        - SandboxLimitsNotEnforced
+        - SandboxLimitsUnknown
     SandboxCommandRequest:
       type: object
       additionalProperties: false

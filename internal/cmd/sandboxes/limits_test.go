@@ -96,7 +96,7 @@ func TestOneShotExecHasNoLimits(t *testing.T) {
 
 func TestSessionOutputShowsLimits(t *testing.T) {
 	t.Parallel()
-	for _, applied := range []string{`true`, `false`, `"unknown"`} {
+	for _, applied := range []string{`"enforced"`, `"not_enforced"`, `"unknown"`} {
 		limits := `{"vcpus":1,"disk_mib":256,"applied":` + applied + `}`
 		session := `{"id":"` + testSession + `","project_id":"` + testProject + `","region":"us-east-1","memory_mb":1024,"state":"starting","desired_state":"running","created_at":"2026-11-04T00:00:00Z","expires_at":null,"sandbox_id":null,"limits":` + limits + `}`
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +156,7 @@ func TestRunExplainsLimitsRefusals(t *testing.T) {
 		code, hint string
 	}{
 		{"sandbox_limits_exceed_session", "Lower --vcpus or raise --memory: a 1024 MB session provides 2 vCPUs and a 2048 MB session 4"},
-		{"sandbox_limits_unsupported", "The selected image predates session limits. Redeploy the template, or retry once the preset is updated"},
+		{"sandbox_limits_unsupported", "The selected image predates session limits. Redeploy the template or recreate the named Sandbox, or retry once the preset is updated"},
 		{"", ""},
 	} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

@@ -3495,6 +3495,27 @@ func (e SandboxExecutionRequestMemoryMb) Valid() bool {
 	}
 }
 
+// Defines values for SandboxLimitsApplied.
+const (
+	SandboxLimitsEnforced    SandboxLimitsApplied = "enforced"
+	SandboxLimitsNotEnforced SandboxLimitsApplied = "not_enforced"
+	SandboxLimitsUnknown     SandboxLimitsApplied = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SandboxLimitsApplied enum.
+func (e SandboxLimitsApplied) Valid() bool {
+	switch e {
+	case SandboxLimitsEnforced:
+		return true
+	case SandboxLimitsNotEnforced:
+		return true
+	case SandboxLimitsUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxPresetMemoryMb.
 const (
 	SandboxPresetMemoryMbN1024 SandboxPresetMemoryMb = 1024
@@ -3564,21 +3585,6 @@ func (e SandboxSessionState) Valid() bool {
 	case SandboxSessionStateTerminating:
 		return true
 	case SandboxSessionStateUnknown:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SandboxSessionAppliedLimitsApplied1.
-const (
-	Unknown SandboxSessionAppliedLimitsApplied1 = "unknown"
-)
-
-// Valid indicates whether the value is a known member of the SandboxSessionAppliedLimitsApplied1 enum.
-func (e SandboxSessionAppliedLimitsApplied1) Valid() bool {
-	switch e {
-	case Unknown:
 		return true
 	default:
 		return false
@@ -10837,6 +10843,12 @@ type SandboxFileWriteRequest struct {
 	Path string `json:"path"`
 }
 
+// SandboxLimitsApplied `enforced` when every requested cap is enforced, `not_enforced` when the
+// session could not enforce them, and `unknown` until the session reports.
+// Terminate a session that reports anything but `enforced` if you rely on
+// the caps.
+type SandboxLimitsApplied string
+
 // SandboxPagination defines model for SandboxPagination.
 type SandboxPagination struct {
 	HasMore    bool    `json:"has_more"`
@@ -10894,31 +10906,17 @@ type SandboxSessionState string
 // when the session was created with `limits`. The session stays
 // `starting` until `applied` is known.
 type SandboxSessionAppliedLimits struct {
-	// Applied `true` when every requested cap is enforced, `false` when the session
-	// could not enforce them, and `unknown` until the session reports.
-	// Terminate a session that reports anything but `true` if you rely on
+	// Applied `enforced` when every requested cap is enforced, `not_enforced` when the
+	// session could not enforce them, and `unknown` until the session reports.
+	// Terminate a session that reports anything but `enforced` if you rely on
 	// the caps.
-	Applied SandboxSessionAppliedLimits_Applied `json:"applied"`
+	Applied SandboxLimitsApplied `json:"applied"`
 
 	// DiskMib Enforced disk cap in MiB. Never higher than requested; lower when the session's disk has less free space.
 	DiskMib *int `json:"disk_mib,omitempty"`
 
 	// Vcpus Enforced vCPU cap. Never higher than requested; lower when the session has fewer vCPUs.
 	Vcpus *int `json:"vcpus,omitempty"`
-}
-
-// SandboxSessionAppliedLimitsApplied0 defines model for .
-type SandboxSessionAppliedLimitsApplied0 = bool
-
-// SandboxSessionAppliedLimitsApplied1 defines model for SandboxSessionAppliedLimits.Applied.1.
-type SandboxSessionAppliedLimitsApplied1 string
-
-// SandboxSessionAppliedLimits_Applied `true` when every requested cap is enforced, `false` when the session
-// could not enforce them, and `unknown` until the session reports.
-// Terminate a session that reports anything but `true` if you rely on
-// the caps.
-type SandboxSessionAppliedLimits_Applied struct {
-	union json.RawMessage
 }
 
 // SandboxSessionLimits Caps the session's code runs under, enforced inside the session. Each
@@ -15218,68 +15216,6 @@ func (t *SandboxExecutionRequest) UnmarshalJSON(b []byte) error {
 		}
 	}
 
-	return err
-}
-
-// AsSandboxSessionAppliedLimitsApplied0 returns the union data inside the SandboxSessionAppliedLimits_Applied as a SandboxSessionAppliedLimitsApplied0
-func (t SandboxSessionAppliedLimits_Applied) AsSandboxSessionAppliedLimitsApplied0() (SandboxSessionAppliedLimitsApplied0, error) {
-	var body SandboxSessionAppliedLimitsApplied0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSandboxSessionAppliedLimitsApplied0 overwrites any union data inside the SandboxSessionAppliedLimits_Applied as the provided SandboxSessionAppliedLimitsApplied0
-func (t *SandboxSessionAppliedLimits_Applied) FromSandboxSessionAppliedLimitsApplied0(v SandboxSessionAppliedLimitsApplied0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSandboxSessionAppliedLimitsApplied0 performs a merge with any union data inside the SandboxSessionAppliedLimits_Applied, using the provided SandboxSessionAppliedLimitsApplied0
-func (t *SandboxSessionAppliedLimits_Applied) MergeSandboxSessionAppliedLimitsApplied0(v SandboxSessionAppliedLimitsApplied0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSandboxSessionAppliedLimitsApplied1 returns the union data inside the SandboxSessionAppliedLimits_Applied as a SandboxSessionAppliedLimitsApplied1
-func (t SandboxSessionAppliedLimits_Applied) AsSandboxSessionAppliedLimitsApplied1() (SandboxSessionAppliedLimitsApplied1, error) {
-	var body SandboxSessionAppliedLimitsApplied1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSandboxSessionAppliedLimitsApplied1 overwrites any union data inside the SandboxSessionAppliedLimits_Applied as the provided SandboxSessionAppliedLimitsApplied1
-func (t *SandboxSessionAppliedLimits_Applied) FromSandboxSessionAppliedLimitsApplied1(v SandboxSessionAppliedLimitsApplied1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSandboxSessionAppliedLimitsApplied1 performs a merge with any union data inside the SandboxSessionAppliedLimits_Applied, using the provided SandboxSessionAppliedLimitsApplied1
-func (t *SandboxSessionAppliedLimits_Applied) MergeSandboxSessionAppliedLimitsApplied1(v SandboxSessionAppliedLimitsApplied1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t SandboxSessionAppliedLimits_Applied) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *SandboxSessionAppliedLimits_Applied) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
 	return err
 }
 

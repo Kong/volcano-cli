@@ -220,7 +220,7 @@ func limitsError(err error) error {
 	case "sandbox_limits_exceed_session":
 		return fmt.Errorf("%w\nLower --vcpus or raise --memory: a 1024 MB session provides 2 vCPUs and a 2048 MB session 4", err)
 	case "sandbox_limits_unsupported":
-		return fmt.Errorf("%w\nThe selected image predates session limits. Redeploy the template, or retry once the preset is updated", err)
+		return fmt.Errorf("%w\nThe selected image predates session limits. Redeploy the template or recreate the named Sandbox, or retry once the preset is updated", err)
 	default:
 		return err
 	}

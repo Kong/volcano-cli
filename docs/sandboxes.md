@@ -84,7 +84,7 @@ A session created with caps reports them under `limits`:
 ```json
 {
   "limits": {
-    "applied": true,
+    "applied": "enforced",
     "disk_mib": 2048,
     "vcpus": 1
   }
@@ -94,15 +94,16 @@ A session created with caps reports them under `limits`:
 These are the caps the session enforces: never higher than requested, and lower
 when the session has less. The session stays `starting` until it reports
 whether the caps hold, so wait for `running` before you rely on them. `applied`
-is then `true` when every cap is enforced. If you rely on the caps, terminate a
-session that reports `false`.
+is then `enforced` when every cap is enforced. If you rely on the caps,
+terminate a session that reports `not_enforced`.
 
 Local sessions accept the same flags. A local session provides at most 2 vCPUs,
-and its `/workspace` and `/tmp` together hold at most 640 MiB, so `limits`
-reports the lower value when you ask for more.
+and its `/workspace` and `/tmp` together hold at most 640 MiB beyond the
+template's workspace contents, so `limits` reports the lower value when you ask
+for more.
 
-If the selected image predates caps, `run` is refused: redeploy the template,
-or retry once the preset is updated.
+If the selected image predates caps, `run` is refused: redeploy the template or
+recreate the named Sandbox, or retry once the preset is updated.
 
 ## Save a template
 
