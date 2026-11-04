@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -191,6 +192,8 @@ func (c *commands) listRefusal(err error, path *string) error {
 		return api.WithCause(fmt.Errorf("%s is not a directory in the session's workspace: it is missing, is a file, or passes through a symlink", listedName(path)), err)
 	case api.Code(err) == codeUnreadable:
 		return api.WithCause(fmt.Errorf("%s can't be listed: the session user lacks read or execute permission on it, or execute permission on a directory above it", listedName(path)), err)
+	case api.Status(err) == http.StatusForbidden:
+		return api.WithCause(errors.New("this credential can't list the session's files: it needs the sandboxes.files.read permission"), err)
 	case api.RouteMissing(err):
 		return api.WithCause(errors.New("this Volcano API cannot list Sandbox files yet"), err)
 	}

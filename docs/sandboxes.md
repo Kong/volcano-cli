@@ -94,7 +94,9 @@ contents. The listing includes every entry below the directory; pass
 `symlink` and never followed. A path that is missing, is a file, or passes
 through a symlink is refused as not a directory. A path the session user can't
 list, or can't reach because a directory above it lacks execute permission, is
-refused as unreadable.
+refused as unreadable. A credential for the session's project that lacks the
+`sandboxes.files.read` permission is refused with 403; a project the credential
+can't reach answers 404, like one that doesn't exist.
 
 Add `--sha256` for each regular file's SHA-256 digest. A file without a digest
 says why in its place, and is unverified:

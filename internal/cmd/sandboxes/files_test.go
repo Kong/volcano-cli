@@ -389,6 +389,11 @@ func TestFilesListExplainsRefusals(t *testing.T) {
 			body:   `{"error":"the session user cannot list the path","code":"sandbox_path_unreadable"}`,
 			want:   "the workspace root can't be listed",
 		},
+		"missing permission": {
+			status: http.StatusForbidden,
+			body:   `{"error":"sandbox access denied"}`,
+			want:   "this credential can't list the session's files: it needs the sandboxes.files.read permission",
+		},
 		"sandboxes off": {
 			status: http.StatusNotFound,
 			body:   `{"error":"sandboxes are not available","code":"feature_unavailable"}`,
