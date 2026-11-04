@@ -3496,6 +3496,9 @@ paths:
         saved before any repository was connected. Frontend settings are off
         until set here; the frontend need not exist when they are saved, since
         frontend_name is resolved at deploy time.
+
+        apply_migrations is the exception to the full replace: omitting it
+        leaves the saved value unchanged. It is off until set here.
       operationId: updateProjectGitDeploySettings
       security:
         - UserToken: []
@@ -3516,7 +3519,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectGitDeploySettings'
         '400':
-          description: Malformed request body, or frontend_app_root without frontend_name
+          description: |
+            Malformed request body, frontend_app_root without frontend_name, or
+            apply_migrations set to true where database migrations are not
+            available (code `feature_unavailable`)
           content:
             application/json:
               schema:
@@ -3549,6 +3555,198 @@ paths:
                 $ref: '#/components/schemas/Error'
         '500':
           description: Failed to update project git deploy settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/git-deployment-runs:
+    get:
+      tags:
+        - Projects
+        - Git Connections
+      summary: List a project's Git deployment runs
+      description: |
+        Lists the deployment runs Git auto deploy recorded for the project,
+        newest push first. Each push to the production branch records one run,
+        which says whether the push deployed and, when it failed or was
+        skipped, why.
+
+        A run that applied migrations names the migration run it started on
+        each database. Get one at
+        `GET /projects/{id}/databases/{databaseName}/migration-runs/{runId}`
+        for its files.
+
+        Project access tokens can list runs, including read-only ones.
+      operationId: listGitDeploymentRuns
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/IssueCursor'
+        - name: status
+          in: query
+          required: false
+          description: Return only runs in this status.
+          schema:
+            $ref: '#/components/schemas/GitDeploymentRunStatus'
+        - name: branch
+          in: query
+          required: false
+          description: Return only runs for pushes to this branch.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGitDeploymentRuns'
+        '400':
+          description: A filter or the cursor is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/git-deployment-runs/{runId}:
+    get:
+      tags:
+        - Projects
+        - Git Connections
+      summary: Get a Git deployment run
+      description: |
+        Returns one deployment run: the commit it deployed, its status, the
+        migration runs it started, and why it failed or was skipped.
+
+        Project access tokens can read runs, including read-only ones.
+      operationId: getGitDeploymentRun
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: runId
+          in: path
+          required: true
+          description: Deployment run ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitDeploymentRun'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project or run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/git-deploy-settings/manifest-sections:
+    put:
+      tags:
+        - Projects
+        - Git Connections
+      summary: Choose which volcano-config.yaml sections a push applies
+      description: |
+        Replaces the `volcano-config.yaml` sections a push to the production
+        branch applies after its deploys succeed. Empty, the default, applies
+        none. Opting a section in gives anyone who can push to the production
+        branch control of it.
+
+        Inside an opted-in section a push only adds: it never deletes,
+        replaces, or widens exposure. Those changes are skipped and left for
+        `volcano cloud config deploy`. A push that sets a secret or leaves a
+        `${...}` unresolved in an opted-in section applies none of its config.
+
+        Project access tokens are refused. What a push may change is a
+        person's decision, made with a platform token.
+      operationId: setProjectGitManifestSections
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetProjectGitManifestSectionsRequest'
+      responses:
+        '200':
+          description: The project's updated Git auto-deploy settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectGitDeploySettings'
+        '400':
+          description: Malformed request body or an unknown section
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: |
+            Project not owned by the caller, or the request used a project
+            access token. A full-scope token gets `project access tokens
+            cannot choose what a push applies; a person chooses with a
+            platform token`, and a read-only token gets `project access token
+            is read-only`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to update the project's manifest sections
           content:
             application/json:
               schema:
@@ -21764,6 +21962,14 @@ components:
         frontend_app_root:
           type: string
           description: App root (subdirectory) the frontend builds from. Omitted for the repo root.
+        apply_migrations:
+          type: boolean
+          description: Whether a push applies the commit's pending migrations, the SQL files under volcano/migrations, before it deploys anything. Each database gets a migration run with source `git_deploy`; when one fails, nothing from the push deploys and the live version keeps serving. A push starts a migration run only while the project owner's account is `active`; otherwise it starts none, deploys nothing, and fails with code `owner_not_active`. A run an earlier attempt of the push started before the account changed keeps its outcome, but the push still deploys none of its code and fails with `owner_not_active`; its message says the schema changes stay. Nothing retries that push; push again once the account is `active`, and that push skips the migrations already applied. Reads back as saved even where the `databases.migrations` capability is unavailable; there, a push whose commit has migrations deploys nothing.
+        manifest_sections:
+          type: array
+          description: The volcano-config.yaml sections a push applies after its deploys succeed. Empty applies none. Set with PUT /projects/{id}/git-deploy-settings/manifest-sections.
+          items:
+            $ref: '#/components/schemas/ProjectGitManifestSection'
         updated_at:
           type: string
           format: date-time
@@ -21771,10 +21977,32 @@ components:
       required:
         - auto_deploy_enabled
         - deploy_functions
+        - apply_migrations
+        - manifest_sections
         - updated_at
+    ProjectGitManifestSection:
+      type: string
+      description: A volcano-config.yaml section a push can apply.
+      enum:
+        - frontends
+      x-enum-varnames:
+        - ProjectGitManifestSectionFrontends
+    SetProjectGitManifestSectionsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        sections:
+          type: array
+          description: Every section a push applies. An empty list applies none.
+          maxItems: 16
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/ProjectGitManifestSection'
+      required:
+        - sections
     UpdateProjectGitDeploySettingsRequest:
       type: object
-      description: Full replace of a project's Git auto-deploy settings.
+      description: Full replace of a project's Git auto-deploy settings, except apply_migrations, which keeps its saved value when omitted.
       properties:
         auto_deploy_enabled:
           type: boolean
@@ -21786,9 +22014,119 @@ components:
         frontend_app_root:
           type: string
           description: App root the frontend builds from. Requires frontend_name; omit for the repo root.
+        apply_migrations:
+          type: boolean
+          description: Apply the commit's pending migrations before each push deploys. Anyone who can push to the production branch can then run any SQL as the database owner, so protect that branch first. Off until set. Omit to leave the saved value unchanged. Turning it on answers `400` with code `feature_unavailable` where the `databases.migrations` capability is unavailable; `false`, or the saved `true` sent back, is accepted even there. While the project owner's account is `read_only`, the request answers `403` whatever it sends; an `inactive` owner's credentials answer `401`.
       required:
         - auto_deploy_enabled
         - deploy_functions
+    GitDeploymentRunStatus:
+      type: string
+      enum:
+        - pending
+        - running
+        - succeeded
+        - failed
+        - superseded
+        - skipped
+      x-enum-varnames:
+        - GitDeploymentRunStatusPending
+        - GitDeploymentRunStatusRunning
+        - GitDeploymentRunStatusSucceeded
+        - GitDeploymentRunStatusFailed
+        - GitDeploymentRunStatusSuperseded
+        - GitDeploymentRunStatusSkipped
+      description: 'Where a run is. `pending` and `running` have not ended. `succeeded`: every deployment the run dispatched succeeded, or the commit only had migrations to apply. `failed`: `error` says why. `superseded`: a newer push replaced the run before it started. `skipped`: there was nothing to deploy; `error` says why.'
+    GitDeploymentRunError:
+      type: object
+      description: Why a run failed or was skipped.
+      properties:
+        code:
+          type: string
+          description: 'Stable machine-readable reason. For a failed run: `migration_failed`, `migration_invalid_layout`, `migration_timeout`, `feature_unavailable`, `source_invalid`, `child_deploy_failed`, `child_deploy_not_started`, `deploy_refused`, `typescript_not_compiled`, `deploy_failed`, `max_attempts_exhausted`, `owner_not_active`, or `project_deleting`. `source_invalid`, `deploy_refused`, and `typescript_not_compiled` fail the same way if the same commit is pushed again; `child_deploy_not_started`, `deploy_failed`, and `max_attempts_exhausted` may succeed on another push; for `owner_not_active`, reactivating the owner''s account restores deployment eligibility; push again to deploy. `project_deleting` means the project is being deleted. For a skipped run: `auto_deploy_disabled`, `binding_changed`, `disconnected`, `project_missing`, or `nothing_to_deploy`. Treat a code you do not know as a failure.'
+        message:
+          type: string
+          description: What happened. For `migration_failed`, `migration_invalid_layout`, `source_invalid`, `deploy_refused`, `child_deploy_not_started`, and `typescript_not_compiled` it names the database, files, resource, or setting at fault when Volcano has them.
+      required:
+        - code
+        - message
+    GitDeploymentMigrationRun:
+      type: object
+      description: A migration run a deployment run started. Get it at `GET /projects/{id}/databases/{databaseName}/migration-runs/{runId}` with `database.name` and `id`.
+      properties:
+        id:
+          type: string
+          format: uuid
+        database:
+          $ref: '#/components/schemas/ResourceReference'
+      required:
+        - id
+        - database
+    GitDeploymentRun:
+      type: object
+      description: One push's deployment through Git auto deploy.
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/GitDeploymentRunStatus'
+        branch:
+          type: string
+          description: The branch the push updated, the project's production branch at the time.
+        commit_sha:
+          type: string
+          description: The commit the run deploys.
+        apply_migrations:
+          type: boolean
+          description: 'Whether the run applies the commit''s migrations: the project''s `apply_migrations` Git deploy setting when the push arrived.'
+        migration_runs:
+          type: array
+          description: The migration runs the run started, one per database, ordered by database name. Empty when it started none.
+          items:
+            $ref: '#/components/schemas/GitDeploymentMigrationRun'
+        error:
+          $ref: '#/components/schemas/GitDeploymentRunError'
+        created_at:
+          type: string
+          format: date-time
+          description: When the push was recorded.
+        started_at:
+          type: string
+          format: date-time
+          description: When a worker first picked the run up.
+        completed_at:
+          type: string
+          format: date-time
+          description: When the run ended.
+      required:
+        - id
+        - status
+        - branch
+        - commit_sha
+        - apply_migrations
+        - migration_runs
+        - created_at
+    PaginatedGitDeploymentRuns:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/GitDeploymentRun'
+        limit:
+          type: integer
+          description: Number of items per page
+        has_more:
+          type: boolean
+          description: Whether a next page exists
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page (present if has_more is true)
+      required:
+        - data
+        - limit
+        - has_more
     ProjectLockLeaseRequest:
       type: object
       additionalProperties: false

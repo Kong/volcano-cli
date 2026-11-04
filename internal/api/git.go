@@ -148,3 +148,22 @@ func (c *Client) UpdateProjectGitDeploySettings(
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
 		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
 }
+
+// SetProjectGitManifestSections replaces the volcano-config.yaml sections a
+// push to the production branch applies. The API refuses a project access
+// token: only a person may choose.
+func (c *Client) SetProjectGitManifestSections(
+	ctx context.Context, projectID uuid.UUID, sections []apiclient.ProjectGitManifestSection,
+) (*apiclient.ProjectGitDeploySettings, error) {
+	// The field is required, so choosing none sends [] rather than null.
+	if sections == nil {
+		sections = []apiclient.ProjectGitManifestSection{}
+	}
+	resp, err := c.client.SetProjectGitManifestSectionsWithResponse(ctx, projectID,
+		apiclient.SetProjectGitManifestSectionsJSONRequestBody{Sections: sections})
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
+		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
+}
