@@ -30,11 +30,8 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	env := localModeE2EEnv(t)
 	projectDir := localModeE2EProjectDir(t)
 	writeLocalModeE2EFixtures(t, projectDir)
-	cleanup := func() {
-		_, _ = runVolcanoLocalModeE2EAllowFailure(t, volcanoBin, env, projectDir, "stop", "--clean")
-	}
-	cleanup()
-	t.Cleanup(cleanup)
+	stopLocalModeE2EStack(t, volcanoBin, env, projectDir)
+	registerLocalModeE2EStopClean(t, volcanoBin, env, projectDir)
 
 	startOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "start")
 	requireContains(t, startOutput, "Volcano is ready for local development.")
