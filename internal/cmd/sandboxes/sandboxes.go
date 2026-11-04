@@ -52,7 +52,7 @@ func NewLocal(deps, usageDeps cliruntime.Deps) *cobra.Command {
 func newCommands(deps, usageDeps cliruntime.Deps, local bool) *cobra.Command {
 	c := &commands{deps: deps, usageDeps: usageDeps, local: local}
 	cmd := &cobra.Command{Use: "sandboxes", Short: "Run isolated commands and manage temporary sessions"}
-	cmd.PersistentFlags().BoolVar(&c.json, "json", false, "Print compact JSON; use structured results for exec, shell, and files read")
+	cmd.PersistentFlags().BoolVar(&c.json, "json", false, "Print compact JSON; use structured results for exec, shell, files read, and files list")
 	cmd.AddCommand(c.presets(), c.usage(), c.execute(), c.shell(), c.run(), c.sessions(), c.get(), c.control("suspend"), c.control("resume"), c.control("terminate"), c.files(), c.templates(), c.deployments())
 	return cmd
 }

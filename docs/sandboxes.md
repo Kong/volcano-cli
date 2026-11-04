@@ -35,6 +35,7 @@ volcano cloud sandboxes sessions
 volcano cloud sandboxes get SESSION_ID
 volcano cloud sandboxes exec SESSION_ID -- sh -c 'echo hello > /workspace/message'
 volcano cloud sandboxes files read SESSION_ID /workspace/message
+volcano cloud sandboxes files list SESSION_ID
 volcano cloud sandboxes shell SESSION_ID
 volcano cloud sandboxes suspend SESSION_ID
 volcano cloud sandboxes resume SESSION_ID
@@ -65,6 +66,51 @@ volcano cloud sandboxes files write SESSION_ID /workspace/input.bin < input.bin
 volcano cloud sandboxes files read SESSION_ID /workspace/output.bin > output.bin
 ```
 
+## List files
+
+List a directory in the session's workspace. Name it as `src` or
+`/workspace/src`, or omit it to list the whole workspace:
+
+```bash
+volcano cloud sandboxes files list SESSION_ID src
+```
+
+```text
+Type       Mode          Size  Path
+-----------------------------------
+file       0644            31  src/main.py
+directory  0755             -  src/pkg
+file       0600             5  src/pkg/data.txt
+symlink    0777             -  src/pkg-link
+file       0755            20  src/run.sh
+
+Total: 5 entries
+```
+
+Paths are relative to the workspace root and work with `files read` and
+`files write`. Entries are sorted by path, so a directory comes right before its
+contents. The listing includes every entry below the directory; pass
+`--recursive=false` for its direct entries only. A symlink is listed as
+`symlink` and never followed. A path that is missing, is a file, or passes
+through a symlink is refused as not a directory.
+
+Add `--sha256` for each regular file's SHA-256 digest. A file larger than
+256 MiB, with more than one hard link, owned by another user, or unreadable by
+its owner gets no digest. If a file changes while it is hashed, run the command
+again.
+
+The command reads every page before it prints. `--limit` sets the most entries
+per request, from 1 to 10000. With `--json` it prints every entry as one JSON
+array; `mode` is the permission bits as a number (420 is `0644`), and `sha256`
+appears only with `--sha256`:
+
+```bash
+volcano cloud sandboxes files list SESSION_ID src --sha256 --json
+```
+
+A session started before file listing was available can't list its files.
+Start a new session; for a custom template, redeploy the template first.
+
 ## Save a template
 
 ```bash
@@ -91,13 +137,15 @@ A template saves a preset and memory size. Custom image builds are not supported
 | `--timeout` | `exec` | Command deadline: 1–60 seconds for one-shot execution, 1–3600 for session execution; defaults to 60 |
 | `--duration` | `run` | Override session lifetime in seconds: cloud 30–28800; local 0 (unlimited) or positive. Omitted inherits the template |
 | `--request-id` | `exec`, `run` | UUID used to retry the same request safely |
-| `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, and `files read` return structured results |
+| `--sha256` | `files list` | Add each regular file's SHA-256 digest |
+| `--recursive` | `files list` | `--recursive=false` lists only the directory's direct entries |
+| `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, `files read`, and `files list` return structured results |
 
 Use a new request ID for each intent. After a network failure, retry with the original ID and identical arguments. A canceled client does not prove the remote command stopped.
 
 ## Output format
 
-Session, preset, template, and file-write commands always return JSON, indented by default and compact with `--json`. This JSON format is supported for scripts. `exec` and `shell` normally write guest stdout/stderr, and `files read` writes raw bytes; use `--json` for their API response instead. JSON execution results retain timeout and truncation flags without adding warnings to the JSON stream. `deployments source` writes the original tar.gz bytes to stdout and rejects `--json`; redirect its output to a file.
+Session, preset, template, and file-write commands always return JSON, indented by default and compact with `--json`. This JSON format is supported for scripts. `exec` and `shell` normally write guest stdout/stderr, `files read` writes raw bytes, and `files list` prints a table; use `--json` for their structured results instead. JSON execution results retain timeout and truncation flags without adding warnings to the JSON stream. `deployments source` writes the original tar.gz bytes to stdout and rejects `--json`; redirect its output to a file.
 
 Template creation requires an explicit `--preset` from `sandboxes presets`. Shell command lines may be up to 64 KiB. For commands longer than the 60-second one-shot limit, start a session and use `exec SESSION_ID --timeout SECONDS`.
 

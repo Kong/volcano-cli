@@ -1,17 +1,32 @@
 package sandboxes
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/output"
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+)
+
+// Codes of the file listing refusals a user can act on.
+const (
+	codeImageOutdated    = "sandbox_image_outdated"
+	codeWorkspaceChanged = "sandbox_workspace_changed"
+	codeNotDirectory     = "sandbox_path_not_directory"
 )
 
 func (c *commands) files() *cobra.Command {
-	cmd := &cobra.Command{Use: "files", Short: "Read or write session files"}
+	cmd := &cobra.Command{Use: "files", Short: "List, read, or write session files"}
 	cmd.AddCommand(&cobra.Command{Use: "read <session-id> <path>", Short: "Write file bytes to stdout", Args: cobra.ExactArgs(2), RunE: func(cmd *cobra.Command, args []string) error {
 		id, err := uuid.Parse(args[0])
 		if err != nil {
@@ -55,5 +70,130 @@ func (c *commands) files() *cobra.Command {
 			Path string `json:"path"`
 		}{args[1]})
 	}})
+	cmd.AddCommand(c.listFiles())
 	return cmd
+}
+
+func (c *commands) listFiles() *cobra.Command {
+	var withSHA256, recursive bool
+	var limit int
+	cmd := &cobra.Command{
+		Use:   "list <session-id> [path]",
+		Short: "List workspace entries",
+		Long: `List a directory in the session's workspace: each entry's type, permission
+bits, size, and path relative to the workspace root, sorted by path. Name the
+directory as src or /workspace/src; omit it to list the whole workspace.
+
+The listing includes every entry below the directory unless --recursive=false.
+It reports a symlink as a symlink and never follows it. --sha256 adds each
+regular file's SHA-256 digest. The command reads every page before it prints;
+--json prints the entries as one JSON array.`,
+		Example: fmt.Sprintf("  %s\n  %s\n  %s",
+			cliruntime.CommandPath(c.deps, "sandboxes files list SESSION_ID"),
+			cliruntime.CommandPath(c.deps, "sandboxes files list SESSION_ID src --sha256"),
+			cliruntime.CommandPath(c.deps, "sandboxes files list SESSION_ID /workspace/src --recursive=false --json")),
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := uuid.Parse(args[0])
+			if err != nil {
+				return err
+			}
+			// Send only what the user chose; the API owns the defaults.
+			var body apiclient.SandboxFileListRequest
+			if len(args) == 2 {
+				body.Path = &args[1]
+			}
+			if cmd.Flags().Changed("recursive") {
+				body.Recursive = &recursive
+			}
+			if withSHA256 {
+				body.IncludeSha256 = &withSHA256
+			}
+			if limit != 0 {
+				body.Limit = &limit
+			}
+			project, err := c.project()
+			if err != nil {
+				return err
+			}
+			entries, err := listAllFiles(cmd.Context(), project.API, id, body)
+			if err != nil {
+				return c.listRefusal(err, body.Path)
+			}
+			if c.json {
+				return writeListing(cmd.OutOrStdout(), entries)
+			}
+			output.SandboxFiles(cmd.OutOrStdout(), entries, withSHA256)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&withSHA256, "sha256", false, "Add each regular file's SHA-256 digest")
+	cmd.Flags().BoolVar(&recursive, "recursive", true, "List every entry below the directory; --recursive=false lists only its direct entries")
+	cmd.Flags().IntVar(&limit, "limit", 0, "Most entries per request, 1 to 10000 (server default if 0)")
+	return cmd
+}
+
+// listAllFiles reads every page of a listing. Each request repeats the first
+// one's path and options with the previous page's cursor, as the API requires.
+func listAllFiles(ctx context.Context, client *api.Client, id uuid.UUID, body apiclient.SandboxFileListRequest) ([]apiclient.SandboxFileEntry, error) {
+	entries := []apiclient.SandboxFileEntry{}
+	for {
+		page, err := client.ListSandboxFiles(ctx, id, body)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, page.Entries...)
+		if page.NextCursor == nil || *page.NextCursor == "" {
+			return entries, nil
+		}
+		// Following a cursor that does not move would never end.
+		if body.Cursor != nil && *body.Cursor == *page.NextCursor {
+			return nil, errors.New("the Volcano API returned the same file listing page twice")
+		}
+		body.Cursor = page.NextCursor
+	}
+}
+
+// listRefusal says what to do about a listing refusal the user can act on. It
+// keeps the refusal, so the exit code still reports it.
+func (c *commands) listRefusal(err error, path *string) error {
+	switch {
+	case api.Code(err) == codeImageOutdated:
+		return api.WithCause(fmt.Errorf("this session's image predates file listing: start a new session with %s; for a custom template, redeploy it with %s first",
+			cliruntime.CommandPath(c.deps, "sandboxes run"), cliruntime.CommandPath(c.deps, "sandboxes templates deploy")), err)
+	case api.Code(err) == codeWorkspaceChanged:
+		return api.WithCause(errors.New("a file changed while the listing hashed it; run the command again"), err)
+	case api.Code(err) == codeNotDirectory:
+		name := "the workspace root"
+		if path != nil {
+			name = strconv.Quote(*path)
+		}
+		return api.WithCause(fmt.Errorf("%s is not a directory in the session's workspace: it is missing, is a file, or passes through a symlink", name), err)
+	case api.RouteMissing(err):
+		return api.WithCause(errors.New("this Volcano API cannot list Sandbox files yet"), err)
+	}
+	return err
+}
+
+// writeListing prints entries as one compact JSON array. It escapes DEL and
+// the C1 controls, which encoding/json passes through, like the C0 controls:
+// a program in the Sandbox names its files, and the array can reach a
+// terminal. These runes only appear inside JSON strings, where the escape
+// means the same.
+func writeListing(w io.Writer, entries []apiclient.SandboxFileEntry) error {
+	data, err := json.Marshal(entries)
+	if err != nil {
+		return err
+	}
+	var b strings.Builder
+	for _, r := range string(data) {
+		if r == 0x7f || (r >= 0x80 && r <= 0x9f) {
+			fmt.Fprintf(&b, "\\u%04x", r)
+			continue
+		}
+		b.WriteRune(r)
+	}
+	b.WriteByte('\n')
+	_, err = io.WriteString(w, b.String())
+	return err
 }
