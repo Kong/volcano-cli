@@ -323,9 +323,9 @@ func (s Service) Disable(ctx context.Context) (*apiclient.LavaflowSettings, erro
 	return s.update(ctx, "turn LavaFlow off", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, false, nil)
 }
 
-// UpdateSettings changes the fields update sets and keeps the rest. Only
-// autonomy merge checks the capabilities first; otherwise the save says why
-// when LavaFlow isn't available. A non-nil confirm runs after those checks,
+// UpdateSettings changes the fields update sets and keeps the rest. Only a
+// change to autonomy merge checks the capabilities first; otherwise the save
+// says why when LavaFlow isn't available. A non-nil confirm runs after those checks,
 // just before the change.
 func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSettingsUpdate,
 	confirm func() error,
@@ -370,8 +370,9 @@ func validMergePolicy(policy *apiclient.LavaflowMergePolicyUpdate) error {
 // update refuses a project access token before sending anything. Every
 // change reads the settings first, which refuses a project without LavaFlow
 // records with the route's reason, and checks can_update before it asks or
-// sends. A change that turns LavaFlow on, or sets autonomy merge, then checks
-// the project's capabilities, so it isn't asked for when it would be refused.
+// sends. A change that turns LavaFlow on, or changes autonomy to merge, then
+// checks the project's capabilities, so it isn't asked for when it would be
+// refused.
 // A non-nil confirm runs just before the change.
 func (s Service) update(ctx context.Context, verb string, update apiclient.LavaflowSettingsUpdate,
 	turnsOn bool, confirm func() error,
@@ -396,7 +397,8 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 			return nil, err
 		}
 	}
-	if update.Autonomy != nil && *update.Autonomy == apiclient.Merge {
+	// The save accepts the saved autonomy again without merging available.
+	if update.Autonomy != nil && *update.Autonomy == apiclient.Merge && current.Autonomy != apiclient.Merge {
 		if err := requireMergeAvailable(ctx, authenticated); err != nil {
 			return nil, err
 		}

@@ -357,6 +357,19 @@ func TestSettingsSetLeavesMergingToTheSaveWhenTheCapabilitiesDontSay(t *testing.
 	}
 }
 
+// A project already at merge sends merge again, as an idempotent apply does,
+// while merging isn't available: the save accepts the saved autonomy, so the
+// CLI doesn't refuse it first.
+func TestSettingsSetResendsMergeWhileMergingIsntAvailable(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.settings["autonomy"], s.mergeCapability = "merge", "unavailable" })
+
+	_, _, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
+		"settings", "set", "--autonomy", "merge", "--custom-context", "Checkout runs on Fridays.", "--yes")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"autonomy": "merge", "custom_context": "Checkout runs on Fridays."}, fake.lastUpdate(t))
+}
+
 // Human review paths are part of merging, so Volcano refuses them where
 // merging isn't available, and the CLI says so.
 func TestSettingsSetSaysReviewPathsNeedMerging(t *testing.T) {
