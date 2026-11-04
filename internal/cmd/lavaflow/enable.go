@@ -35,13 +35,17 @@ func newEnable(deps cliruntime.Deps) *cobra.Command {
 		Long: clilavaflow.OnDescription + `
 
 This turns LavaFlow on for the current project. Before it does, it prints
-the sentence above and:
+the sentence above, or that LavaFlow opens no fix pull requests while no
+repository is connected, and:
 ` + clilavaflow.EnableNotice + `
 and asks you to confirm; --yes skips the question. Only the project's owner
 can turn it on, from their own session: a project access token is refused. The
-owner's plan has to include LavaFlow. Connect a repository with 'volcano
-git connect' so LavaFlow can open fix pull requests. Choose how far it goes
-with '` + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy") + `'.`,
+owner's plan has to include LavaFlow. Connect a repository with 'volcano git
+connect'. If you change it later, turn LavaFlow on again. Choose how far it
+goes with '` + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy") + `'.
+While something stops LavaFlow fixing issues, such as no repository, enable
+warns instead of reporting success and ends with Volcano's reason and the
+command to run.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
@@ -57,8 +61,8 @@ with '` + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy") + `'.
 }
 
 func runEnable(ctx context.Context, opts enableOptions) error {
-	settings, err := clilavaflow.NewService(opts.deps).Enable(ctx, func() error {
-		return confirmEnable(opts)
+	settings, err := clilavaflow.NewService(opts.deps).Enable(ctx, func(disclosure string) error {
+		return confirmEnable(opts, disclosure)
 	})
 	if errors.Is(err, errDeclined) {
 		return nil
@@ -69,14 +73,14 @@ func runEnable(ctx context.Context, opts enableOptions) error {
 	if opts.jsonOutput {
 		return writeJSON(opts.out, settings)
 	}
-	output.LavaflowSettingsSaved(opts.out, "LavaFlow is on", settings)
+	output.LavaflowTurnedOn(opts.out, settings, fixCommands(opts.deps))
 	return nil
 }
 
 // confirmEnable says what LavaFlow does and where it sends the project's
 // data before it asks.
-func confirmEnable(opts enableOptions) error {
-	return confirmChange(opts.yes, opts.in, opts.errOut, clilavaflow.EnableDisclosure, "Turn LavaFlow on?")
+func confirmEnable(opts enableOptions, disclosure string) error {
+	return confirmChange(opts.yes, opts.in, opts.errOut, disclosure, "Turn LavaFlow on?")
 }
 
 // confirmChange says what a change does, even with --yes, on stderr so --json

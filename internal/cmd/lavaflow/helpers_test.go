@@ -69,10 +69,13 @@ type lavaflowServer struct {
 	// refusalHeaders go with every refusal, such as Retry-After.
 	refusalHeaders map[string]string
 	// repoReads counts reads of the repository connection.
-	repoReads    int
-	refuse       int
-	refuseMethod string
-	refusal      map[string]any
+	repoReads int
+	// blockerWhenOn is the fix_blocker the API derives once a save leaves
+	// LavaFlow on; nil leaves fix_blocker as set.
+	blockerWhenOn map[string]any
+	refuse        int
+	refuseMethod  string
+	refusal       map[string]any
 	// routesMissing answers every LavaFlow route, capabilities included,
 	// with the router's bare 404, as a platform release older than LavaFlow
 	// does.
@@ -106,6 +109,15 @@ func defaultLavaflowSettings() map[string]any {
 	return map[string]any{
 		"project_id": lavaflowProjectID, "enabled": false, "autonomy": "open_pr", "custom_context": "", "system_prompt": "",
 		"updated_at": nil, "updated_by": nil, "can_update": true, "merge_policy": map[string]any{"human_review_paths": []any{}},
+		"repository": nil, "fix_blocker": nil,
+	}
+}
+
+// lavaflowLinkedRepository is the settings' repository for lavaflowRepo.
+func lavaflowLinkedRepository() map[string]any {
+	return map[string]any{
+		"repo_full_name": lavaflowRepo, "repo_id": 1, "repo_installation_id": 2,
+		"production_branch": "main", "root_directory": "", "updated_at": "2026-10-20T10:00:00Z",
 	}
 }
 
@@ -194,6 +206,9 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		// An omitted field keeps its saved value.
 		maps.Copy(s.settings, update)
+		if s.blockerWhenOn != nil && s.settings["enabled"] == true {
+			s.settings["fix_blocker"] = s.blockerWhenOn
+		}
 		s.settings["updated_at"], s.settings["updated_by"] = "2026-10-30T12:00:00Z", "11111111-1111-4111-8111-111111111111"
 		s.write(w, http.StatusOK, s.settings)
 	case r.Method == http.MethodGet && route == "/stats":

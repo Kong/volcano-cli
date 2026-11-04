@@ -58,8 +58,12 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 
 	env.runCloudCLI(t, "lavaflow", "status").requireSuccess(t, "LavaFlow: off", "Repository: none connected",
 		"Turn it on with volcano cloud lavaflow enable")
+	// The project has no repository, so Volcano's fix_blocker says to link one.
 	env.runCloudCLI(t, "lavaflow", "enable", "--yes").requireSuccess(t,
-		"LavaFlow sends this project's logs and source code to an AI service that Volcano operates.", "LavaFlow is on")
+		"LavaFlow sends this project's logs and source code to an AI service that Volcano operates.",
+		"LavaFlow is on, but it isn't fixing issues yet", "Run volcano git connect <git-url>.")
+	env.runCloudCLI(t, "lavaflow", "settings").requireSuccess(t, "Repository: none connected",
+		"Run volcano git connect <git-url>.")
 	env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only",
 		"--custom-context", "cli-e2e context").requireSuccess(t, "LavaFlow's settings are saved")
 

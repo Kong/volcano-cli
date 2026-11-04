@@ -23,8 +23,10 @@ func newSettings(deps cliruntime.Deps) *cobra.Command {
 		Use:   "settings",
 		Short: "Show LavaFlow's settings",
 		Long: `Show LavaFlow's settings for the current project: whether it is on, how far it
-goes, and the custom context and system prompt in full. Change them with
-'` + cliruntime.CommandPath(deps, "lavaflow settings set") + `'.`,
+goes, the repository and branch its fix pull requests go to, and the custom
+context and system prompt in full. While something stops LavaFlow fixing
+issues, it ends with Volcano's reason and the command to run. Change the
+settings with '` + cliruntime.CommandPath(deps, "lavaflow settings set") + `'.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
@@ -45,6 +47,6 @@ func runSettings(ctx context.Context, opts settingsOptions) error {
 	if opts.jsonOutput {
 		return writeJSON(opts.out, settings)
 	}
-	output.LavaflowSettings(opts.out, settings)
+	output.LavaflowSettings(opts.out, settings, fixCommands(opts.deps))
 	return nil
 }

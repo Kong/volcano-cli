@@ -147,6 +147,6 @@ func runSettingsSet(ctx context.Context, opts settingsSetOptions, update apiclie
 	if opts.jsonOutput {
 		return writeJSON(opts.out, settings)
 	}
-	output.LavaflowSettingsSaved(opts.out, "LavaFlow's settings are saved", settings)
+	output.LavaflowSettingsSaved(opts.out, "LavaFlow's settings are saved", settings, fixCommands(opts.deps))
 	return nil
 }

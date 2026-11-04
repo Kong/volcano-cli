@@ -15,6 +15,15 @@ import (
 // both trees, so it never takes the cloud prefix.
 const gitConnectCommand = "volcano git connect"
 
+// fixCommands names the commands that act on what stops LavaFlow fixing
+// issues, in the tree the command runs in.
+func fixCommands(deps cliruntime.Deps) output.LavaflowCommands {
+	return output.LavaflowCommands{
+		GitConnect: gitConnectCommand + " <git-url>",
+		Enable:     cliruntime.CommandPath(deps, "lavaflow enable"),
+	}
+}
+
 type statusOptions struct {
 	deps       cliruntime.Deps
 	jsonOutput bool

@@ -25256,6 +25256,16 @@ components:
         can_update:
           type: boolean
           description: 'Whether the caller can save the settings: true only for the project''s owner with a platform token while the owner''s account is active; false for any project access token and for a read-only account.'
+        repository:
+          allOf:
+            - $ref: '#/components/schemas/ProjectGitConnectionSummary'
+          nullable: true
+          description: The GitHub repository the project is linked to, as `GET /projects/{id}/git-connection` reports it. LavaFlow opens fix pull requests there, against `production_branch`, unless `fix_blocker` says why not. Null when the project has none.
+        fix_blocker:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowFailure'
+          nullable: true
+          description: 'What stops LavaFlow from fixing issues although it is on, null when nothing a person can change does, and while the project''s `lavaflow` capability isn''t available. `message` is text to show as given. `repository_required`: the project has no linked repository. With `autonomy` `open_pr` or `merge`, LavaFlow diagnoses issues but fixes none; turned on for a repository the project no longer links, it starts no runs. Link a repository with `PUT /projects/{id}/git-connection` or `volcano git connect <git-url>`; linking the one LavaFlow was turned on for resumes it. `repository_changed`: the project is linked to another repository than when LavaFlow was turned on, or to one linked after it was turned on with none. LavaFlow starts no runs until the owner turns it on again, with `{"enabled": true}` or `volcano cloud lavaflow enable`, which makes the linked repository the one it fixes. New codes may appear; show the `message` of one you don''t know.'
       required:
         - project_id
         - enabled
@@ -25266,6 +25276,8 @@ components:
         - updated_at
         - updated_by
         - can_update
+        - repository
+        - fix_blocker
     LavaflowSettingsUpdate:
       type: object
       additionalProperties: false
@@ -25523,7 +25535,7 @@ components:
           description: Stable code, such as `timed_out` or `feature_paused`.
         message:
           type: string
-          description: Fixed text for the code.
+          description: Text to show for the code.
       required:
         - code
         - message
