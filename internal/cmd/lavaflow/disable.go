@@ -44,6 +44,7 @@ func runDisable(ctx context.Context, opts disableOptions) error {
 	if opts.jsonOutput {
 		return writeJSON(opts.out, settings)
 	}
-	output.LavaflowSettingsSaved(opts.out, "LavaFlow is off. Its runs and records stay readable.", settings)
+	output.LavaflowSettingsSaved(opts.out, "LavaFlow is off. Its runs and records stay readable.", settings,
+		fixCommands(opts.deps))
 	return nil
 }

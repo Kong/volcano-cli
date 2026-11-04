@@ -27,6 +27,23 @@ import (
 const OnDescription = "LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, " +
 	"and opens fix pull requests in your connected repository."
 
+// OnDescriptionWithoutRepository is OnDescription for a project with no
+// repository, where LavaFlow opens no fix pull requests.
+const OnDescriptionWithoutRepository = "LavaFlow uses AI to diagnose this project's errors from their logs and " +
+	"deployed source. It opens fix pull requests only in a connected repository, and this project has none."
+
+// What the API's fix_blocker says stops LavaFlow fixing issues while it is
+// on. Its message is Volcano's to show as given; a code the CLI doesn't know
+// gets the message alone.
+const (
+	// FixBlockerRepositoryRequired: the project has no repository. Connect
+	// one.
+	FixBlockerRepositoryRequired = "repository_required"
+	// FixBlockerRepositoryChanged: the project's repository changed since
+	// LavaFlow was turned on. Turn it on again.
+	FixBlockerRepositoryChanged = "repository_changed"
+)
+
 // ErrUnavailable reports an API without LavaFlow: a platform release older
 // than LavaFlow, which has none of its routes. Said in place of the 404 it
 // answers, which otherwise reads as a missing project or run.
@@ -306,13 +323,34 @@ const EnableNotice = "LavaFlow sends this project's logs and source code to an A
 // or not it then asks: the approved AI disclosure, then where the data goes.
 const EnableDisclosure = OnDescription + "\n" + EnableNotice
 
+// EnableDisclosureWithoutRepository is EnableDisclosure for a project with no
+// repository.
+const EnableDisclosureWithoutRepository = OnDescriptionWithoutRepository + "\n" + EnableNotice
+
 // Enable turns LavaFlow on for the current project, sending enabled alone so
 // the other settings keep their values. confirm runs once the checks that
-// need no answer have passed and before anything changes; an error from it
-// stops the change and is returned as is.
-func (s Service) Enable(ctx context.Context, confirm func() error) (*apiclient.LavaflowSettings, error) {
+// need no answer have passed and before anything changes, with the
+// disclosure for the project: EnableDisclosureWithoutRepository when it has
+// no repository. An error from confirm stops the change and is returned as
+// is.
+func (s Service) Enable(ctx context.Context, confirm func(disclosure string) error) (*apiclient.LavaflowSettings, error) {
 	enabled := true
-	return s.update(ctx, "turn LavaFlow on", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, true, confirm)
+	return s.update(ctx, "turn LavaFlow on", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, true,
+		func(authenticated *clisession.ProjectSession, current *apiclient.LavaflowSettings) error {
+			disclosure := EnableDisclosure
+			// An API older than the settings' repository leaves it out, so
+			// the connection says.
+			if current.Repository == nil {
+				state, _, err := repository(ctx, authenticated)
+				if err != nil {
+					return err
+				}
+				if state == RepositoryNotConnected {
+					disclosure = EnableDisclosureWithoutRepository
+				}
+			}
+			return confirm(disclosure)
+		})
 }
 
 // Disable turns LavaFlow off for the current project, sending enabled alone
@@ -342,7 +380,11 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 			return nil, fmt.Errorf("the %s is %d characters long: the most is %d", name, len([]rune(*text)), MaxTextLength)
 		}
 	}
-	return s.update(ctx, "change LavaFlow's settings", update, false, confirm)
+	var ask func(*clisession.ProjectSession, *apiclient.LavaflowSettings) error
+	if confirm != nil {
+		ask = func(*clisession.ProjectSession, *apiclient.LavaflowSettings) error { return confirm() }
+	}
+	return s.update(ctx, "change LavaFlow's settings", update, false, ask)
 }
 
 // The most paths a merge policy holds for a person, and the longest one.
@@ -373,9 +415,9 @@ func validMergePolicy(policy *apiclient.LavaflowMergePolicyUpdate) error {
 // sends. A change that turns LavaFlow on, or changes autonomy to merge, then
 // checks the project's capabilities, so it isn't asked for when it would be
 // refused.
-// A non-nil confirm runs just before the change.
+// A non-nil confirm runs just before the change, with the settings it read.
 func (s Service) update(ctx context.Context, verb string, update apiclient.LavaflowSettingsUpdate,
-	turnsOn bool, confirm func() error,
+	turnsOn bool, confirm func(*clisession.ProjectSession, *apiclient.LavaflowSettings) error,
 ) (*apiclient.LavaflowSettings, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
@@ -404,7 +446,7 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 		}
 	}
 	if confirm != nil {
-		if err := confirm(); err != nil {
+		if err := confirm(authenticated, current); err != nil {
 			return nil, err
 		}
 	}

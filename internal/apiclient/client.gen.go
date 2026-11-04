@@ -8279,11 +8279,17 @@ type LavaflowSettings struct {
 	// Enabled Whether LavaFlow works on the project's issues. Off by default.
 	Enabled bool `json:"enabled"`
 
+	// FixBlocker What stops LavaFlow from fixing issues although it is on, null when nothing a person can change does, and while the project's `lavaflow` capability isn't available. `message` is text to show as given. `repository_required`: the project has no linked repository. With `autonomy` `open_pr` or `merge`, LavaFlow diagnoses issues but fixes none; turned on for a repository the project no longer links, it starts no runs. Link a repository with `PUT /projects/{id}/git-connection` or `volcano git connect <git-url>`; linking the one LavaFlow was turned on for resumes it. `repository_changed`: the project is linked to another repository than when LavaFlow was turned on, or to one linked after it was turned on with none. LavaFlow starts no runs until the owner turns it on again, with `{"enabled": true}` or `volcano cloud lavaflow enable`, which makes the linked repository the one it fixes. New codes may appear; show the `message` of one you don't know.
+	FixBlocker *LavaflowFailure `json:"fix_blocker"`
+
 	// MergePolicy Your rules for fixes LavaFlow must never merge. They apply with `autonomy: merge`; at another autonomy they are saved and do nothing.
 	MergePolicy LavaflowMergePolicy `json:"merge_policy"`
 
 	// ProjectId The project the settings belong to.
 	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// Repository The GitHub repository the project is linked to, as `GET /projects/{id}/git-connection` reports it. LavaFlow opens fix pull requests there, against `production_branch`, unless `fix_blocker` says why not. Null when the project has none.
+	Repository *ProjectGitConnectionSummary `json:"repository"`
 
 	// SystemPrompt Instructions for LavaFlow's runs, to follow after LavaFlow's own, which take precedence. Empty when unset. Saved, but runs do not use it yet.
 	SystemPrompt string `json:"system_prompt"`

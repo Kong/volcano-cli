@@ -106,6 +106,15 @@ func defaultLavaflowSettings() map[string]any {
 	return map[string]any{
 		"project_id": lavaflowProjectID, "enabled": false, "autonomy": "open_pr", "custom_context": "", "system_prompt": "",
 		"updated_at": nil, "updated_by": nil, "can_update": true, "merge_policy": map[string]any{"human_review_paths": []any{}},
+		"repository": nil, "fix_blocker": nil,
+	}
+}
+
+// lavaflowLinkedRepository is the settings' repository for lavaflowRepo.
+func lavaflowLinkedRepository() map[string]any {
+	return map[string]any{
+		"repo_full_name": lavaflowRepo, "repo_id": 1, "repo_installation_id": 2,
+		"production_branch": "main", "root_directory": "", "updated_at": "2026-10-20T10:00:00Z",
 	}
 }
 

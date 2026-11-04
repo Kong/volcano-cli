@@ -39,8 +39,8 @@ the same when the owner's plan couldn't be read.
 - Belongs to a **project**. It reads the runtime errors of the project's
   functions, frontends and durable functions.
 - Opens pull requests in the repository the **Git connection** names. Without
-  one, LavaFlow diagnoses issues and opens no pull requests. See
-  [git.md](git.md).
+  one, LavaFlow diagnoses issues and opens no pull requests. After you change
+  the repository, turn LavaFlow on again. See [git.md](git.md).
 - Fixes code it can read at the commit that built it. See
   [Source commit](deploy.md#source-commit).
 - Cloud only. LavaFlow runs on Volcano's cloud service, which local
@@ -109,6 +109,21 @@ sentences, which go to stderr so `--json` output stays JSON. Without `--yes`, `e
 terminal to answer: in a script or CI job it exits non-zero and changes
 nothing.
 
+With no repository connected, `enable` says LavaFlow opens fix pull requests
+only in a connected repository. Once LavaFlow is on, it warns instead of
+reporting success:
+
+```text
+Warning: LavaFlow is on, but it isn't fixing issues yet
+LavaFlow: on
+Autonomy: open fix pull requests
+Repository: none connected
+Human review paths: none
+Custom context: not set
+System prompt: not set
+Warning: Link your project to GitHub to start automatically fixing your issues. Run volcano git connect <git-url>.
+```
+
 `disable` turns it off. No new run starts; past runs and their pull requests
 stay readable.
 
@@ -123,6 +138,7 @@ LavaFlow: on
 Autonomy: open fix pull requests
 Merging: available
 Repository: acme/shop
+Branch: main
 Custom context: not set
 System prompt: not set
 Updated: 2026-10-30 12:00
@@ -131,10 +147,20 @@ Updated: 2026-10-30 12:00
 While LavaFlow is off, the status says what it does and how to turn it on.
 When you use a project access token, which can read but not change the
 settings, the status says so instead.
-When it is set to open pull requests and no repository is connected, the
-status says to run `volcano git connect`. When LavaFlow isn't available for
-a project that has LavaFlow records, the status notes that it can't be turned
-on or changed, and that the owner can still turn it off.
+`Branch` is the branch fix pull requests target.
+
+While LavaFlow is on but something stops it fixing issues, `status`,
+`settings` and `enable` end with Volcano's reason and the command to run:
+`volcano git connect <git-url>` when the project has no repository, and
+`volcano cloud lavaflow enable` when the project's repository changed since
+LavaFlow was turned on. For a reason the CLI has no command for, they print
+Volcano's words alone. With `--json`, the settings carry the reason as
+`fix_blocker`, with a `code` and a `message`, and the repository and branch
+as `repository`; each is `null` when there is none.
+
+When LavaFlow isn't available for a project that has LavaFlow records, the
+status notes that it can't be turned on or changed, and that the owner can
+still turn it off.
 
 `Merging` says whether you can choose autonomy `merge` for the project.
 While it reads `not available for this project yet`,

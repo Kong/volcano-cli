@@ -10,6 +10,55 @@ import (
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
+// LavaflowCommands names the commands that act on a fix blocker.
+type LavaflowCommands struct {
+	// GitConnect connects a repository, for repository_required.
+	GitConnect string
+	// Enable turns LavaFlow on again, for repository_changed.
+	Enable string
+}
+
+// The API's fix_blocker codes the CLI has a command for.
+const (
+	lavaflowRepositoryRequired = "repository_required"
+	lavaflowRepositoryChanged  = "repository_changed"
+)
+
+// lavaflowFixBlocker says, in Volcano's words, what stops LavaFlow fixing
+// issues while it is on, and the command that acts on it. A code without a
+// command gets Volcano's words alone.
+func lavaflowFixBlocker(w io.Writer, on bool, blocker *apiclient.LavaflowFailure, commands LavaflowCommands) {
+	if blocker == nil {
+		return
+	}
+	var command string
+	switch blocker.Code {
+	case lavaflowRepositoryRequired:
+		command = commands.GitConnect
+	case lavaflowRepositoryChanged:
+		command = commands.Enable
+	}
+	if command == "" {
+		Warning(w, "%s", clean(blocker.Message))
+		return
+	}
+	Warning(w, "%s Run %s.", clean(blocker.Message), theme.Command(command, on))
+}
+
+// lavaflowRepository names the repository fix pull requests go to and their
+// branch. An API older than the settings' repository leaves it out, so a
+// missing one is said only when fix_blocker says the project has none.
+func lavaflowRepository(w io.Writer, on bool, settings *apiclient.LavaflowSettings) {
+	if settings.Repository != nil {
+		kv(w, on, "Repository", "%s", clean(settings.Repository.RepoFullName))
+		kv(w, on, "Branch", "%s", clean(settings.Repository.ProductionBranch))
+		return
+	}
+	if settings.FixBlocker != nil && settings.FixBlocker.Code == lavaflowRepositoryRequired {
+		kv(w, on, "Repository", "none connected")
+	}
+}
+
 // LavaflowStatusDetails is what the status command shows.
 type LavaflowStatusDetails struct {
 	Settings *apiclient.LavaflowSettings
@@ -41,6 +90,9 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	switch details.RepositoryState {
 	case "connected":
 		kv(w, on, "Repository", "%s", clean(details.Repository))
+		if settings.Repository != nil {
+			kv(w, on, "Branch", "%s", clean(settings.Repository.ProductionBranch))
+		}
 	case "not_connected":
 		kv(w, on, "Repository", "none connected")
 	}
@@ -62,6 +114,14 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 		}
 		return
 	}
+	if settings.FixBlocker != nil {
+		lavaflowFixBlocker(w, on, settings.FixBlocker, LavaflowCommands{
+			GitConnect: details.GitConnectCommand + " <git-url>",
+			Enable:     details.EnableCommand,
+		})
+		return
+	}
+	// An API older than fix_blocker leaves it out.
 	opensFixes := settings.Autonomy == apiclient.OpenPr || settings.Autonomy == apiclient.Merge
 	if details.RepositoryState == "not_connected" && opensFixes {
 		Warning(w, "Connect a repository so LavaFlow can open fix pull requests: %s",
@@ -70,26 +130,46 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 }
 
 // LavaflowSettings renders every setting, with the custom context and system
-// prompt in full.
-func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings) {
+// prompt in full, then what stops LavaFlow fixing issues.
+func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings, commands LavaflowCommands) {
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
+	lavaflowRepository(w, on, settings)
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
 	block(w, on, "System prompt", settings.SystemPrompt)
+	lavaflowFixBlocker(w, on, settings.FixBlocker, commands)
 }
 
-// LavaflowSettingsSaved renders the settings a change left.
-func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.LavaflowSettings) {
+// LavaflowSettingsSaved renders the settings a change left, then what stops
+// LavaFlow fixing issues.
+func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.LavaflowSettings, commands LavaflowCommands) {
 	Success(w, "%s", message)
+	lavaflowSavedSettings(w, settings, commands)
+}
+
+// LavaflowTurnedOn renders the settings enable left. While something stops
+// LavaFlow fixing issues, it warns instead of reporting success.
+func LavaflowTurnedOn(w io.Writer, settings *apiclient.LavaflowSettings, commands LavaflowCommands) {
+	if settings.FixBlocker != nil {
+		Warning(w, "LavaFlow is on, but it isn't fixing issues yet")
+	} else {
+		Success(w, "LavaFlow is on")
+	}
+	lavaflowSavedSettings(w, settings, commands)
+}
+
+func lavaflowSavedSettings(w io.Writer, settings *apiclient.LavaflowSettings, commands LavaflowCommands) {
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
+	lavaflowRepository(w, on, settings)
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
+	lavaflowFixBlocker(w, on, settings.FixBlocker, commands)
 }
 
 // LavaflowStats renders the issues LavaFlow took on and the fix pull requests
