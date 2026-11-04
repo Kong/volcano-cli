@@ -799,7 +799,7 @@ var ErrManifestNotFound = errors.New("no volcano-config.yaml file found.\ncreate
 
 // ResolveManifestPath returns the manifest path that config commands should
 // use. An explicit path is used as-is (after existence check); otherwise the
-// CLI looks for volcano/volcano-config.yaml then volcano-config.yaml in the
+// CLI looks for volcano-config.yaml then volcano/volcano-config.yaml in the
 // working directory. When nothing is found it returns ErrManifestNotFound.
 func ResolveManifestPath(fileArg string) (string, error) {
 	if trimmed := strings.TrimSpace(fileArg); trimmed != "" {
@@ -813,33 +813,23 @@ func ResolveManifestPath(fileArg string) (string, error) {
 		return trimmed, nil
 	}
 
-	candidates := []string{nestedManifestPath, rootManifestPath}
-	found := make([]string, 0, len(candidates))
-	for _, candidate := range candidates {
+	for _, candidate := range []string{rootManifestPath, nestedManifestPath} {
 		exists, err := fileExists(candidate)
 		if err != nil {
 			return "", err
 		}
 		if exists {
-			found = append(found, candidate)
+			return candidate, nil
 		}
 	}
-
-	switch len(found) {
-	case 0:
-		return "", ErrManifestNotFound
-	case 1:
-		return found[0], nil
-	default:
-		return "", fmt.Errorf("found multiple volcano-config.yaml files: %s.\nplease keep only one volcano-config.yaml file, or specify explicitly with --file", strings.Join(found, ", "))
-	}
+	return "", ErrManifestNotFound
 }
 
 // DefaultPullPath returns where `config pull` writes when no --file is given:
 // an existing manifest location if one is found, else volcano/volcano-config.yaml
 // when the volcano directory exists, else ./volcano-config.yaml.
 func DefaultPullPath() string {
-	for _, candidate := range []string{nestedManifestPath, rootManifestPath} {
+	for _, candidate := range []string{rootManifestPath, nestedManifestPath} {
 		if exists, _ := fileExists(candidate); exists {
 			return candidate
 		}
@@ -851,7 +841,7 @@ func DefaultPullPath() string {
 }
 
 func fileExists(path string) (bool, error) {
-	_, err := os.Stat(path)
+	_, err := os.Lstat(path)
 	if err == nil {
 		return true, nil
 	}

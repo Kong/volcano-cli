@@ -85,8 +85,11 @@ warnings and operational notices) without changing anything — for example to
 validate a manifest in CI.
 
 If --file is omitted, the CLI looks for (in order):
-  1. volcano/volcano-config.yaml (recommended)
-  2. ./volcano-config.yaml (project root)`,
+  1. ./volcano-config.yaml (project root)
+  2. volcano/volcano-config.yaml
+
+When both exist, the project-root file wins. An invalid selected file fails
+without falling back. Use --file to explicitly select another manifest.`,
 		Example: fmt.Sprintf(`  %s
   %s
   %s`,
