@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.64.0](https://github.com/Kong/volcano-cli/compare/v0.63.0...v0.64.0) (2026-11-04)
+
+
+### Features
+
+* **config:** refuse a lavaflow section in the project configuration ([#399](https://github.com/Kong/volcano-cli/issues/399)) ([9dc50e4](https://github.com/Kong/volcano-cli/commit/9dc50e45d34cb5d5c341704ca41350b665583fa6))
+
 ## [0.63.0](https://github.com/Kong/volcano-cli/compare/v0.62.0...v0.63.0) (2026-11-03)
 
 
