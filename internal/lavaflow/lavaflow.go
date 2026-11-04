@@ -72,15 +72,6 @@ const MergeDisclosure = "At autonomy merge, LavaFlow can merge its fix pull requ
 // LavaFlow doesn't merge for this project yet.
 var ErrMergingNotAvailable = errors.New("LavaFlow merging isn't available for this project yet")
 
-// ErrOwnerCantPush reports permission_missing: LavaFlow merges with the
-// owner's GitHub account, which can't push to the repository.
-var ErrOwnerCantPush = errors.New("LavaFlow can't merge for this project: " +
-	"the project owner's GitHub account can't push to its repository")
-
-// connectGitHubDocs is the docs section on connecting GitHub, which a
-// permission_missing refusal points to.
-const connectGitHubDocs = "platform/projects/git-deploy.md#1-connect-github"
-
 // ErrCantTurnOn reports, before enable asks, that the project's capabilities
 // say LavaFlow can't be turned on for a project that has LavaFlow records.
 // The capability counts both the rollout and the owner's plan without saying
@@ -112,7 +103,6 @@ const (
 	codeFeatureUnavailable = "feature_unavailable"
 	codePlanRequired       = "plan_required"
 	codePersonRequired     = "person_required"
-	codePermissionMissing  = "permission_missing"
 )
 
 // Limits the API sets.
@@ -436,22 +426,23 @@ func pushCheckUnanswered(now time.Time, err error) error {
 
 // refused says why the API refused a change, by its code rather than its
 // status, keeping the refusal as the cause for the exit code. person_required
-// keeps Volcano's words, which say how to sign in instead. A 400 with
+// keeps Volcano's words, which say what the owner does instead. A 400 with
 // feature_unavailable refuses autonomy merge while merging is off for the
-// project, and permission_missing refuses it while the owner's GitHub account
-// can't push to the repository. A 403 without a code covers more than the
-// plan here, so it adds the API's words, quoted as Volcano's: for a plan that
-// couldn't be read they read like a plan refusal, which isn't the CLI's
-// conclusion.
+// project. A 403 without a code covers more than the plan here, so it adds the
+// API's words, quoted as Volcano's: for a plan that couldn't be read they read
+// like a plan refusal, which isn't the CLI's conclusion.
 func refused(cfg *config.Config, err error) error {
 	switch {
 	case api.Code(err) == codePersonRequired:
-		// Volcano says why in its own words, such as a token that never
-		// expires or a sign-in that ended, and how to sign in instead.
-		// A token in VOLCANO_TOKEN wins over a sign-in, so say so.
+		// Volcano says why in its own words: a credential that isn't the
+		// owner's own one that expires, an owner whose GitHub account can't
+		// push to the repository, or a project with no repository. When its
+		// words say to sign in with volcano login, a token in VOLCANO_TOKEN
+		// wins over that sign-in, so say so; unsetting it fixes nothing about
+		// the repository.
 		if message := api.Message(err); message != "" {
 			refusal := fmt.Errorf("LavaFlow's settings weren't changed: %s", message)
-			if cfg.TokenFromEnv() {
+			if cfg.TokenFromEnv() && strings.Contains(message, "volcano login") {
 				refusal = fmt.Errorf("%w. %s is set, and its token is used instead of a 'volcano login' sign-in "+
 					"until you unset it", refusal, config.TokenEnv)
 			}
@@ -460,12 +451,6 @@ func refused(cfg *config.Config, err error) error {
 		return personDecides(cfg, err)
 	case api.Code(err) == codeFeatureUnavailable && api.Status(err) == http.StatusBadRequest:
 		return api.WithCause(ErrMergingNotAvailable, err)
-	case api.Code(err) == codePermissionMissing:
-		refusal := ErrOwnerCantPush
-		if message := api.Message(err); message != "" {
-			refusal = fmt.Errorf("%w (%s)", ErrOwnerCantPush, message)
-		}
-		return api.WithCause(fmt.Errorf("%w. To connect GitHub, see 'volcano docs get %s'", refusal, connectGitHubDocs), err)
 	case api.Code(err) == "" && api.Status(err) == http.StatusForbidden:
 		if message := api.Message(err); message != "" {
 			return api.WithCause(fmt.Errorf("%w. Volcano said: %q", ErrChangeRefused, message), err)

@@ -251,9 +251,11 @@ func TestSettingsSetSaysWhenToTryMergingAgain(t *testing.T) {
 	}
 }
 
-// The API refuses autonomy merge while merging is off for the project, or
-// while the owner's GitHub account can't push to the repository, and the CLI
-// says which.
+// The API refuses autonomy merge while merging is off for the project, and
+// with person_required, in its own words, while the owner's GitHub account
+// can't push to the repository or the project has none. The CLI says which.
+// A token in VOLCANO_TOKEN has nothing to do with the repository, so a
+// refusal about it doesn't say to unset the token.
 func TestSettingsSetSaysWhyMergingIsRefused(t *testing.T) {
 	for name, tc := range map[string]struct {
 		status        int
@@ -265,24 +267,41 @@ func TestSettingsSetSaysWhyMergingIsRefused(t *testing.T) {
 			"LavaFlow merging isn't available for this project yet",
 		},
 		"owner can't push": {
-			http.StatusForbidden, "the owner's GitHub connection needs reconnecting", "permission_missing",
-			"LavaFlow can't merge for this project: the project owner's GitHub account can't push to its repository " +
-				"(the owner's GitHub connection needs reconnecting). To connect GitHub, see " +
-				"'volcano docs get platform/projects/git-deploy.md#1-connect-github'",
+			http.StatusForbidden, ownerCantPushRefusal, "person_required",
+			"LavaFlow's settings weren't changed: " + ownerCantPushRefusal,
+		},
+		"no repository": {
+			http.StatusForbidden, noRepositoryRefusal, "person_required",
+			"LavaFlow's settings weren't changed: " + noRepositoryRefusal,
 		},
 	} {
-		fake, deps := newLavaflowServer(t)
-		fake.set(func(s *lavaflowServer) {
-			s.refuse, s.refuseMethod = tc.status, http.MethodPut
-			s.refusal = map[string]any{"error": tc.message, "code": tc.code}
-		})
+		for _, envToken := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s, VOLCANO_TOKEN %t", name, envToken), func(t *testing.T) {
+				fake, deps := newLavaflowServer(t)
+				fake.set(func(s *lavaflowServer) {
+					s.refuse, s.refuseMethod = tc.status, http.MethodPut
+					s.refusal = map[string]any{"error": tc.message, "code": tc.code}
+				})
+				if envToken {
+					t.Setenv("VOLCANO_TOKEN", "pk-secret")
+				}
 
-		_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "merge", "--yes")
-		require.Error(t, err, name)
-		assert.Equal(t, tc.want, err.Error(), name)
-		assert.Equal(t, tc.status, api.Status(err), name)
+				_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "merge", "--yes")
+				require.Error(t, err)
+				assert.Equal(t, tc.want, err.Error())
+				assert.Equal(t, tc.status, api.Status(err))
+			})
+		}
 	}
 }
+
+// Volcano's words when the owner's GitHub account can't push to the
+// project's repository, and when the project has none.
+const (
+	ownerCantPushRefusal = "give the project owner's GitHub account push access to the project's repository, " +
+		"then turn this on"
+	noRepositoryRefusal = "connect the project to a GitHub repository its owner can push to, then turn this on"
+)
 
 // Where the project's capabilities say LavaFlow is available but merging
 // isn't, --autonomy merge says so before it warns or asks, --yes included,

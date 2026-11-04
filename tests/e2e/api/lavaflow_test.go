@@ -131,8 +131,7 @@ func requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires(t *testing.T, env *
 		return
 	}
 	merging.requireFailure(t, "run your CI with the secrets your pull request workflows get",
-		"LavaFlow's settings weren't changed: a platform token that never expires can't let LavaFlow merge; "+
-			"run `volcano login`, or create a token with an expiry")
+		"LavaFlow's settings weren't changed: this token never expires; sign in with `volcano login` to turn this on")
 	if merging.code != 5 {
 		t.Fatalf("settings set --autonomy merge exited %d, want 5:\n%s", merging.code, redactCredentials(merging.output))
 	}
