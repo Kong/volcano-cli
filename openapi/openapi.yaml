@@ -18738,7 +18738,7 @@ components:
           maxProperties: 64
         keep_output:
           type: boolean
-          description: Set false to keep no output. stdout and stderr are returned once in this response and never stored, and a retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. Omit it to use the session's `executions.keep_output`. True in a session that keeps no output is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
+          description: Set false to keep no output. stdout and stderr are returned once in this response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. Omit it to use the session's `executions.keep_output`. True in a session that keeps no output is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
       required:
         - command
     SandboxExecutionRequest:
@@ -18783,7 +18783,7 @@ components:
         keep_output:
           type: boolean
           default: true
-          description: Set false to keep no output. stdout and stderr are returned once in this response and never stored, and a retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
+          description: Set false to keep no output. stdout and stderr are returned once in this response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
       required:
         - region
         - command
@@ -18820,7 +18820,7 @@ components:
           type: boolean
         output_kept:
           type: boolean
-          description: False when the command kept no output. Its streams appear only in the response to the request that ran it; a retry with the same Idempotency-Key returns them empty.
+          description: False when the command kept no output. Its streams appear only in the response to the request that ran it, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns them empty.
       required:
         - stdout
         - stderr
@@ -18851,7 +18851,7 @@ components:
           type: boolean
         output_kept:
           type: boolean
-          description: False when the command kept no output. Its streams appear only in the response to the request that ran it; a retry with the same Idempotency-Key returns them empty.
+          description: False when the command kept no output. Its streams appear only in the response to the request that ran it, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns them empty.
         session_id:
           type: string
           format: uuid
@@ -18879,7 +18879,7 @@ components:
       properties:
         keep_output:
           type: boolean
-          description: When false, every command in the session keeps no output. stdout and stderr are returned once in the command's response and are never stored, so a retry with the same Idempotency-Key returns the exit code with empty streams. A command in such a session that sets `keep_output` to true is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
+          description: When false, every command in the session keeps no output. stdout and stderr are returned once in the command's response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with empty streams. A command in such a session that sets `keep_output` to true is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
       required:
         - keep_output
     SandboxFileWriteRequest:
