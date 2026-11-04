@@ -19,7 +19,8 @@ import (
 
 // TestLocalModeE2ESandboxFiles lists a session's workspace through the CLI:
 // exact entries with types, modes, sizes and digests, a symlink reported and
-// not followed, paging, and the refusal for a path that is not a directory. It
+// not followed, paging, why a hard-linked file has no digest, and the refusal
+// for a path that is not a directory. It
 // has its own stack and project, so a failure here does not stop the smoke's
 // later checks.
 func TestLocalModeE2ESandboxFiles(t *testing.T) {
@@ -106,6 +107,21 @@ func TestLocalModeE2ESandboxFiles(t *testing.T) {
 	assert.Equal(t, append([]apiclient.SandboxFileEntry{{Path: "src", Type: apiclient.Directory, Mode: 0o755}}, withoutDigests...), underSrc)
 
 	requireContains(t, run("files", "list", session.ID, "src"), "symlink    0777             -  src/pkg-link")
+
+	// A file with a second hard link is one the read route does not serve, so
+	// it gets no digest and says why.
+	run("exec", session.ID, "--", "sh", "-c", strings.Join([]string{
+		"mkdir /workspace/linked",
+		"echo linked > /workspace/linked/a",
+		"chmod 644 /workspace/linked/a",
+		"ln /workspace/linked/a /workspace/linked/b",
+	}, " && "))
+	unreadable := apiclient.Unreadable
+	assert.Equal(t, []apiclient.SandboxFileEntry{
+		{Path: "linked/a", Type: apiclient.File, Size: int64(len("linked\n")), Mode: 0o644, Sha256Skipped: &unreadable},
+		{Path: "linked/b", Type: apiclient.File, Size: int64(len("linked\n")), Mode: 0o644, Sha256Skipped: &unreadable},
+	}, list(session.ID, "linked", "--sha256"))
+	requireContains(t, run("files", "list", session.ID, "linked", "--sha256"), "skipped: unreadable")
 
 	for _, path := range []string{"src/main.py", "src/pkg-link", "src/missing"} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "files", "list", session.ID, path)

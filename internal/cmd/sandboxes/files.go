@@ -20,9 +20,8 @@ import (
 
 // Codes of the file listing refusals a user can act on.
 const (
-	codeImageOutdated    = "sandbox_image_outdated"
-	codeWorkspaceChanged = "sandbox_workspace_changed"
-	codeNotDirectory     = "sandbox_path_not_directory"
+	codeImageOutdated = "sandbox_image_outdated"
+	codeNotDirectory  = "sandbox_path_not_directory"
 )
 
 func (c *commands) files() *cobra.Command {
@@ -86,8 +85,11 @@ directory as src or /workspace/src; omit it to list the whole workspace.
 
 The listing includes every entry below the directory unless --recursive=false.
 It reports a symlink as a symlink and never follows it. --sha256 adds each
-regular file's SHA-256 digest. The command reads every page before it prints;
---json prints the entries as one JSON array.`,
+regular file's SHA-256 digest, or why the file has none: budget (over
+256 MiB), changing (it changed while hashed; list it again later), or
+unreadable (more than one hard link, another owner, or no owner read). The
+command reads every page before it prints; --json prints the entries as one
+JSON array.`,
 		Example: fmt.Sprintf("  %s\n  %s\n  %s",
 			cliruntime.CommandPath(c.deps, "sandboxes files list SESSION_ID"),
 			cliruntime.CommandPath(c.deps, "sandboxes files list SESSION_ID src --sha256"),
@@ -99,26 +101,33 @@ regular file's SHA-256 digest. The command reads every page before it prints;
 				return err
 			}
 			// Send only what the user chose; the API owns the defaults.
-			var body apiclient.SandboxFileListRequest
+			params := apiclient.ListSandboxSessionFilesParams{SessionId: id}
 			if len(args) == 2 {
-				body.Path = &args[1]
+				params.Path = &args[1]
 			}
 			if cmd.Flags().Changed("recursive") {
-				body.Recursive = &recursive
+				params.Recursive = &recursive
 			}
 			if withSHA256 {
-				body.IncludeSha256 = &withSHA256
+				params.IncludeSha256 = &withSHA256
 			}
 			if limit != 0 {
-				body.Limit = &limit
+				params.Limit = &limit
 			}
 			project, err := c.project()
 			if err != nil {
 				return err
 			}
-			entries, err := listAllFiles(cmd.Context(), project.API, id, body)
+			// The listing names the session's own project, which need not be
+			// the selected one; other session commands accept any session too.
+			session, err := project.API.SandboxSession(cmd.Context(), id)
 			if err != nil {
-				return c.listRefusal(err, body.Path)
+				return err
+			}
+			params.ProjectId = session.ProjectId
+			entries, err := listAllFiles(cmd.Context(), project.API, params)
+			if err != nil {
+				return c.listRefusal(err, params.Path)
 			}
 			if c.json {
 				return writeListing(cmd.OutOrStdout(), entries)
@@ -135,10 +144,10 @@ regular file's SHA-256 digest. The command reads every page before it prints;
 
 // listAllFiles reads every page of a listing. Each request repeats the first
 // one's path and options with the previous page's cursor, as the API requires.
-func listAllFiles(ctx context.Context, client *api.Client, id uuid.UUID, body apiclient.SandboxFileListRequest) ([]apiclient.SandboxFileEntry, error) {
+func listAllFiles(ctx context.Context, client *api.Client, params apiclient.ListSandboxSessionFilesParams) ([]apiclient.SandboxFileEntry, error) {
 	entries := []apiclient.SandboxFileEntry{}
 	for {
-		page, err := client.ListSandboxFiles(ctx, id, body)
+		page, err := client.ListSandboxFiles(ctx, &params)
 		if err != nil {
 			return nil, err
 		}
@@ -147,10 +156,10 @@ func listAllFiles(ctx context.Context, client *api.Client, id uuid.UUID, body ap
 			return entries, nil
 		}
 		// Following a cursor that does not move would never end.
-		if body.Cursor != nil && *body.Cursor == *page.NextCursor {
+		if params.Cursor != nil && *params.Cursor == *page.NextCursor {
 			return nil, errors.New("the Volcano API returned the same file listing page twice")
 		}
-		body.Cursor = page.NextCursor
+		params.Cursor = page.NextCursor
 	}
 }
 
@@ -161,8 +170,6 @@ func (c *commands) listRefusal(err error, path *string) error {
 	case api.Code(err) == codeImageOutdated:
 		return api.WithCause(fmt.Errorf("this session's image predates file listing: start a new session with %s; for a custom template, redeploy it with %s first",
 			cliruntime.CommandPath(c.deps, "sandboxes run"), cliruntime.CommandPath(c.deps, "sandboxes templates deploy")), err)
-	case api.Code(err) == codeWorkspaceChanged:
-		return api.WithCause(errors.New("a file changed while the listing hashed it; run the command again"), err)
 	case api.Code(err) == codeNotDirectory:
 		name := "the workspace root"
 		if path != nil {

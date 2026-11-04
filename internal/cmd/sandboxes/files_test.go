@@ -3,9 +3,13 @@ package sandboxes
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,32 +19,51 @@ import (
 	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
-const filesListPath = "/sandbox-sessions/" + testSession + "/files/list"
+const (
+	filesListPath = "/sandbox-session-files"
+	sessionPath   = "/sandbox-sessions/" + testSession
+	// sessionProject owns testSession. It is not the selected project, so a
+	// listing that names the selected project instead fails the tests.
+	sessionProject = "44444444-4444-4444-8444-444444444444"
+	sessionBody    = `{"id":"` + testSession + `","project_id":"` + sessionProject + `","sandbox_id":null,"state":"running","desired_state":"running","region":"us-east-1","memory_mb":1024,"created_at":"2026-11-04T00:00:00Z","expires_at":null}`
+)
 
-// listServer answers each listing request with the next of pages and records
-// every request body it received.
-func listServer(t *testing.T, pages ...string) (*httptest.Server, *[]map[string]any) {
+// listQuery is the query a listing of testSession sends, with extra
+// parameters added.
+func listQuery(extra url.Values) url.Values {
+	query := url.Values{"project_id": {sessionProject}, "session_id": {testSession}}
+	maps.Copy(query, extra)
+	return query
+}
+
+// listServer reads testSession as a session of sessionProject, answers each
+// listing request with the next of pages, and records every listing query.
+func listServer(t *testing.T, pages ...string) (*httptest.Server, *[]url.Values) {
 	t.Helper()
-	var bodies []map[string]any
+	var queries []url.Values
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, filesListPath, r.URL.Path)
-		var body map[string]any
-		if !assert.NoError(t, json.NewDecoder(r.Body).Decode(&body)) {
-			w.WriteHeader(http.StatusBadRequest)
+		assert.Equal(t, http.MethodGet, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case sessionPath:
+			_, _ = w.Write([]byte(sessionBody))
+			return
+		case filesListPath:
+		default:
+			t.Errorf("unexpected request %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		bodies = append(bodies, body)
-		if len(bodies) > len(pages) {
-			t.Errorf("unexpected request %d: %v", len(bodies), body)
+		queries = append(queries, r.URL.Query())
+		if len(queries) > len(pages) {
+			t.Errorf("unexpected request %d: %v", len(queries), r.URL.Query())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(pages[len(bodies)-1]))
+		_, _ = w.Write([]byte(pages[len(queries)-1]))
 	}))
 	t.Cleanup(server.Close)
-	return server, &bodies
+	return server, &queries
 }
 
 func runFilesList(t *testing.T, server *httptest.Server, args ...string) (string, error) {
@@ -58,16 +81,16 @@ func runFilesList(t *testing.T, server *httptest.Server, args ...string) (string
 
 func TestFilesListFollowsEveryPageWithTheSameRequest(t *testing.T) {
 	t.Parallel()
-	server, bodies := listServer(t,
-		`{"entries":[{"path":"src/a","type":"directory","size":0,"mode":493},{"path":"src/a/b.py","type":"file","size":3,"mode":420,"sha256":"`+strings.Repeat("a", 64)+`"}],"next_cursor":"page-2"}`,
-		`{"entries":[{"path":"src/c","type":"symlink","size":0,"mode":511}]}`,
+	server, queries := listServer(t,
+		`{"project_id":"`+sessionProject+`","session_id":"`+testSession+`","entries":[{"path":"src/a","type":"directory","size":0,"mode":493},{"path":"src/a/b.py","type":"file","size":3,"mode":420,"sha256":"`+strings.Repeat("a", 64)+`"}],"next_cursor":"page-2"}`,
+		`{"project_id":"`+sessionProject+`","session_id":"`+testSession+`","entries":[{"path":"src/c","type":"symlink","size":0,"mode":511}]}`,
 	)
 	out, err := runFilesList(t, server, testSession, "src", "--recursive=false", "--sha256", "--limit", "2", "--json")
 	require.NoError(t, err)
 
-	first := map[string]any{"path": "src", "recursive": false, "include_sha256": true, "limit": float64(2)}
-	second := map[string]any{"path": "src", "recursive": false, "include_sha256": true, "limit": float64(2), "cursor": "page-2"}
-	assert.Equal(t, []map[string]any{first, second}, *bodies)
+	first := listQuery(url.Values{"path": {"src"}, "recursive": {"false"}, "include_sha256": {"true"}, "limit": {"2"}})
+	second := listQuery(url.Values{"path": {"src"}, "recursive": {"false"}, "include_sha256": {"true"}, "limit": {"2"}, "cursor": {"page-2"}})
+	assert.Equal(t, []url.Values{first, second}, *queries, "the session's project, not the selected one, on every page")
 
 	assert.Equal(t, 1, strings.Count(out, "\n"), "compact JSON on one line")
 	var entries []apiclient.SandboxFileEntry
@@ -82,17 +105,59 @@ func TestFilesListFollowsEveryPageWithTheSameRequest(t *testing.T) {
 
 func TestFilesListLeavesDefaultsToTheAPI(t *testing.T) {
 	t.Parallel()
-	server, bodies := listServer(t, `{"entries":[]}`)
+	server, queries := listServer(t, `{"entries":[]}`)
 	out, err := runFilesList(t, server, testSession, "--json")
 	require.NoError(t, err)
-	assert.Equal(t, []map[string]any{{}}, *bodies, "no path, recursion, digest, or limit unless asked")
+	assert.Equal(t, []url.Values{listQuery(nil)}, *queries, "no path, recursion, digest, or limit unless asked")
 	assert.Equal(t, "[]\n", out)
 
-	server, bodies = listServer(t, `{"entries":[]}`)
+	server, queries = listServer(t, `{"entries":[]}`)
 	out, err = runFilesList(t, server, testSession, "--recursive")
 	require.NoError(t, err)
-	assert.Equal(t, []map[string]any{{"recursive": true}}, *bodies)
+	assert.Equal(t, []url.Values{listQuery(url.Values{"recursive": {"true"}})}, *queries)
 	assert.Equal(t, "No entries\n", out)
+}
+
+func TestFilesListSaysWhyAFileHasNoDigest(t *testing.T) {
+	t.Parallel()
+	sum := strings.Repeat("0123456789abcdef", 4)
+	page := `{"entries":[` +
+		`{"path":"big.bin","type":"file","size":300000000,"mode":420,"sha256_skipped":"budget"},` +
+		`{"path":"hashed.txt","type":"file","size":3,"mode":420,"sha256":"` + sum + `"},` +
+		`{"path":"linked.txt","type":"file","size":3,"mode":420,"sha256_skipped":"unreadable"},` +
+		`{"path":"log.txt","type":"file","size":3,"mode":420,"sha256_skipped":"changing"},` +
+		`{"path":"new.txt","type":"file","size":3,"mode":420,"sha256_skipped":"new\u001b[31m"},` +
+		`{"path":"pkg","type":"directory","size":0,"mode":493}]}`
+
+	server, _ := listServer(t, page)
+	out, err := runFilesList(t, server, testSession, "--sha256")
+	require.NoError(t, err)
+	digest := func(value string) string { return fmt.Sprintf("%-64s", value) }
+	assert.Equal(t, []string{
+		"file       0644     300000000  " + digest("skipped: budget") + "  big.bin",
+		"file       0644             3  " + sum + "  hashed.txt",
+		"file       0644             3  " + digest("skipped: unreadable") + "  linked.txt",
+		"file       0644             3  " + digest("skipped: changing") + "  log.txt",
+		"file       0644             3  " + digest(`skipped: "new\x1b[31m"`) + "  new.txt",
+		"directory  0755             -  " + digest("-") + "  pkg",
+	}, strings.Split(out, "\n")[2:8])
+
+	server, _ = listServer(t, page)
+	out, err = runFilesList(t, server, testSession, "--sha256", "--json")
+	require.NoError(t, err)
+	var entries []apiclient.SandboxFileEntry
+	require.NoError(t, json.Unmarshal([]byte(out), &entries))
+	require.Len(t, entries, 6)
+	skipped := func(reason apiclient.SandboxFileEntrySha256Skipped) *apiclient.SandboxFileEntrySha256Skipped {
+		return &reason
+	}
+	assert.Equal(t, skipped(apiclient.Budget), entries[0].Sha256Skipped)
+	assert.Nil(t, entries[1].Sha256Skipped)
+	assert.Equal(t, &sum, entries[1].Sha256)
+	assert.Equal(t, skipped(apiclient.Unreadable), entries[2].Sha256Skipped)
+	assert.Equal(t, skipped(apiclient.Changing), entries[3].Sha256Skipped)
+	assert.Contains(t, out, `"sha256_skipped":"changing"`)
+	assert.Contains(t, out, `"sha256_skipped":"new\u001b[31m"`, "the JSON escapes an unknown reason's controls")
 }
 
 func TestFilesListPrintsATableWithPathLast(t *testing.T) {
@@ -195,12 +260,6 @@ func TestFilesListExplainsRefusals(t *testing.T) {
 			prefix: "volcano cloud",
 			want:   "start a new session with volcano cloud sandboxes run; for a custom template, redeploy it with volcano cloud sandboxes templates deploy first",
 		},
-		"workspace changed": {
-			status: http.StatusConflict,
-			body:   `{"error":"a file changed while it was hashed","code":"sandbox_workspace_changed"}`,
-			args:   []string{"--sha256"},
-			want:   "a file changed while the listing hashed it; run the command again",
-		},
 		"not a directory": {
 			status: http.StatusBadRequest,
 			body:   `{"error":"path is not a directory","code":"sandbox_path_not_directory"}`,
@@ -225,7 +284,13 @@ func TestFilesListExplainsRefusals(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == sessionPath {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(sessionBody))
+					return
+				}
+				assert.Equal(t, filesListPath, r.URL.Path)
 				if strings.HasPrefix(tc.body, "{") {
 					w.Header().Set("Content-Type", "application/json")
 				}
@@ -251,16 +316,35 @@ func TestFilesListExplainsRefusals(t *testing.T) {
 	}
 }
 
+func TestFilesListStopsWhenTheSessionCannotBeRead(t *testing.T) {
+	t.Parallel()
+	var listed atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != sessionPath {
+			listed.Store(true)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"sandbox session not found"}`))
+	}))
+	t.Cleanup(server.Close)
+	out, err := runFilesList(t, server, testSession)
+	require.ErrorContains(t, err, "sandbox session not found")
+	assert.Equal(t, http.StatusNotFound, api.Status(err))
+	assert.False(t, listed.Load(), "no listing without the session's project")
+	assert.Empty(t, out)
+}
+
 func TestFilesListRefusesAnInvalidSessionIDBeforeAnyRequest(t *testing.T) {
 	t.Parallel()
-	server, bodies := listServer(t)
+	server, queries := listServer(t)
 	_, err := runFilesList(t, server, "not-a-session")
 	require.Error(t, err)
-	assert.Empty(t, *bodies)
+	assert.Empty(t, *queries)
 
 	_, err = runFilesList(t, server, testSession, "src", "extra")
 	require.ErrorContains(t, err, "accepts between 1 and 2 arg(s)")
-	assert.Empty(t, *bodies)
+	assert.Empty(t, *queries)
 }
 
 func mustJSON(t *testing.T, value any) string {

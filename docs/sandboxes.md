@@ -94,15 +94,20 @@ contents. The listing includes every entry below the directory; pass
 `symlink` and never followed. A path that is missing, is a file, or passes
 through a symlink is refused as not a directory.
 
-Add `--sha256` for each regular file's SHA-256 digest. A file larger than
-256 MiB, with more than one hard link, owned by another user, or unreadable by
-its owner gets no digest. If a file changes while it is hashed, run the command
-again.
+Add `--sha256` for each regular file's SHA-256 digest. A file without a digest
+says why in its place, and is unverified:
+
+| Reason | File |
+|---|---|
+| `skipped: budget` | Larger than 256 MiB |
+| `skipped: changing` | Changed while it was hashed; list it again later |
+| `skipped: unreadable` | Has more than one hard link, is owned by another user, or is unreadable by its owner |
 
 The command reads every page before it prints. `--limit` sets the most entries
 per request, from 1 to 10000. With `--json` it prints every entry as one JSON
 array; `mode` is the permission bits as a number (420 is `0644`), and `sha256`
-appears only with `--sha256`:
+or `sha256_skipped` (`budget`, `changing`, or `unreadable`) appears only with
+`--sha256`:
 
 ```bash
 volcano cloud sandboxes files list SESSION_ID src --sha256 --json

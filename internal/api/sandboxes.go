@@ -127,8 +127,8 @@ func (c *Client) ReadSandboxFile(ctx context.Context, id uuid.UUID, body apiclie
 }
 
 // ListSandboxFiles calls the Sandbox ListSandboxSessionFiles operation.
-func (c *Client) ListSandboxFiles(ctx context.Context, id uuid.UUID, body apiclient.SandboxFileListRequest) (*apiclient.SandboxFileListResult, error) {
-	response, err := c.client.ListSandboxSessionFilesWithResponse(ctx, id, body)
+func (c *Client) ListSandboxFiles(ctx context.Context, params *apiclient.ListSandboxSessionFilesParams) (*apiclient.SandboxFileListResult, error) {
+	response, err := c.client.ListSandboxSessionFilesWithResponse(ctx, params)
 	if err != nil {
 		return nil, err
 	}

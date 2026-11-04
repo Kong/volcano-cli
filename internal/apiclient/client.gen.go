@@ -3495,6 +3495,27 @@ func (e SandboxExecutionRequestMemoryMb) Valid() bool {
 	}
 }
 
+// Defines values for SandboxFileEntrySha256Skipped.
+const (
+	Budget     SandboxFileEntrySha256Skipped = "budget"
+	Changing   SandboxFileEntrySha256Skipped = "changing"
+	Unreadable SandboxFileEntrySha256Skipped = "unreadable"
+)
+
+// Valid indicates whether the value is a known member of the SandboxFileEntrySha256Skipped enum.
+func (e SandboxFileEntrySha256Skipped) Valid() bool {
+	switch e {
+	case Budget:
+		return true
+	case Changing:
+		return true
+	case Unreadable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxFileEntryType.
 const (
 	Directory SandboxFileEntryType = "directory"
@@ -10834,8 +10855,11 @@ type SandboxFileEntry struct {
 	// Path Path relative to the workspace root, usable with the read and write file routes.
 	Path string `json:"path"`
 
-	// Sha256 Lowercase hex SHA-256 of the file's content, present only when `include_sha256` is true. It is omitted for other types, for a file over 256 MiB, and for a file with more than one hard link, owned by another user, or unreadable by its owner.
+	// Sha256 Lowercase hex SHA-256 of a regular file's content, present only when `include_sha256` is true and the file could be hashed.
 	Sha256 *string `json:"sha256,omitempty"`
+
+	// Sha256Skipped Why a regular file has no `sha256` when `include_sha256` is true. `budget` is a file over 256 MiB. `changing` is a file that changed while it was hashed or kept changing; list it again later. `unreadable` is a file the read route does not serve: owned by another user, unreadable by its owner, or with more than one hard link. Treat such a file as unverified.
+	Sha256Skipped *SandboxFileEntrySha256Skipped `json:"sha256_skipped,omitempty"`
 
 	// Size Size in bytes of a regular file; 0 for every other type.
 	Size int64 `json:"size"`
@@ -10844,26 +10868,11 @@ type SandboxFileEntry struct {
 	Type SandboxFileEntryType `json:"type"`
 }
 
+// SandboxFileEntrySha256Skipped Why a regular file has no `sha256` when `include_sha256` is true. `budget` is a file over 256 MiB. `changing` is a file that changed while it was hashed or kept changing; list it again later. `unreadable` is a file the read route does not serve: owned by another user, unreadable by its owner, or with more than one hard link. Treat such a file as unverified.
+type SandboxFileEntrySha256Skipped string
+
 // SandboxFileEntryType Entry type from the entry itself. A symlink is reported, never followed.
 type SandboxFileEntryType string
-
-// SandboxFileListRequest defines model for SandboxFileListRequest.
-type SandboxFileListRequest struct {
-	// Cursor Opaque cursor from the previous page's `next_cursor`. Send the same `path` and `recursive` with it.
-	Cursor *string `json:"cursor,omitempty"`
-
-	// IncludeSha256 Add the SHA-256 digest of each regular file's content. A call reads at most 256 MiB to hash; a page ends early, with `next_cursor`, before a file that would pass that budget.
-	IncludeSha256 *bool `json:"include_sha256,omitempty"`
-
-	// Limit Most entries to return. A page can hold fewer, so continue while `next_cursor` is present.
-	Limit *int `json:"limit,omitempty"`
-
-	// Path Workspace directory to list, such as `src` or `/workspace/src`. Omit it, or pass `.` or `/workspace`, to list the workspace root. The path must be a directory; it is never reached through a symlink.
-	Path *string `json:"path,omitempty"`
-
-	// Recursive List every entry below the directory. When false, list only its direct entries.
-	Recursive *bool `json:"recursive,omitempty"`
-}
 
 // SandboxFileListResult defines model for SandboxFileListResult.
 type SandboxFileListResult struct {
@@ -10872,6 +10881,12 @@ type SandboxFileListResult struct {
 
 	// NextCursor Present when more entries remain. Pass it as `cursor` to get the next page.
 	NextCursor *string `json:"next_cursor,omitempty"`
+
+	// ProjectId The project the session belongs to.
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// SessionId The session listed.
+	SessionId openapi_types.UUID `json:"session_id"`
 }
 
 // SandboxFileReadRequest defines model for SandboxFileReadRequest.
@@ -13719,6 +13734,30 @@ type ListVariablesParams struct {
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// ListSandboxSessionFilesParams defines parameters for ListSandboxSessionFiles.
+type ListSandboxSessionFilesParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+
+	// SessionId The session to list. A session outside `project_id` answers like one that doesn't exist.
+	SessionId openapi_types.UUID `form:"session_id" json:"session_id"`
+
+	// Path Workspace directory to list, such as `src` or `/workspace/src`. Omit it, or pass `.` or `/workspace`, to list the workspace root. The path must be a directory; it is never reached through a symlink.
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
+
+	// Recursive List every entry below the directory. When false, list only its direct entries.
+	Recursive *bool `form:"recursive,omitempty" json:"recursive,omitempty"`
+
+	// IncludeSha256 Add the SHA-256 digest of each regular file's content. A call reads at most 256 MiB to hash; a page ends early, with `next_cursor`, before a file that would pass that budget. A file without a digest says why in `sha256_skipped`.
+	IncludeSha256 *bool `form:"include_sha256,omitempty" json:"include_sha256,omitempty"`
+
+	// Limit Most entries to return. A page can hold fewer, so continue while `next_cursor` is present.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor from the previous page's `next_cursor`. It is valid only for the same project and session; send the same `path` and `recursive` with it.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ExecuteSandboxSessionParams defines parameters for ExecuteSandboxSession.
 type ExecuteSandboxSessionParams struct {
 	IdempotencyKey openapi_types.UUID `json:"Idempotency-Key"`
@@ -14177,9 +14216,6 @@ type CreateSandboxSessionAccessJSONRequestBody = SandboxAccessRequest
 
 // ExecuteSandboxSessionJSONRequestBody defines body for ExecuteSandboxSession for application/json ContentType.
 type ExecuteSandboxSessionJSONRequestBody = SandboxCommandRequest
-
-// ListSandboxSessionFilesJSONRequestBody defines body for ListSandboxSessionFiles for application/json ContentType.
-type ListSandboxSessionFilesJSONRequestBody = SandboxFileListRequest
 
 // ReadSandboxSessionFileJSONRequestBody defines body for ReadSandboxSessionFile for application/json ContentType.
 type ReadSandboxSessionFileJSONRequestBody = SandboxFileReadRequest
@@ -16683,6 +16719,9 @@ type ClientInterface interface {
 	// DownloadPublicFile request
 	DownloadPublicFile(ctx context.Context, projectId openapi_types.UUID, bucketName BucketName, path string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListSandboxSessionFiles request
+	ListSandboxSessionFiles(ctx context.Context, params *ListSandboxSessionFilesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// TerminateSandboxSession request
 	TerminateSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -16698,11 +16737,6 @@ type ClientInterface interface {
 	ExecuteSandboxSessionWithBody(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ExecuteSandboxSession(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, body ExecuteSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListSandboxSessionFilesWithBody request with any body
-	ListSandboxSessionFilesWithBody(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	ListSandboxSessionFiles(ctx context.Context, sessionId openapi_types.UUID, body ListSandboxSessionFilesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ReadSandboxSessionFileWithBody request with any body
 	ReadSandboxSessionFileWithBody(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -21851,6 +21885,18 @@ func (c *Client) DownloadPublicFile(ctx context.Context, projectId openapi_types
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListSandboxSessionFiles(ctx context.Context, params *ListSandboxSessionFilesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSandboxSessionFilesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) TerminateSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTerminateSandboxSessionRequest(c.Server, sessionId)
 	if err != nil {
@@ -21913,30 +21959,6 @@ func (c *Client) ExecuteSandboxSessionWithBody(ctx context.Context, sessionId op
 
 func (c *Client) ExecuteSandboxSession(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, body ExecuteSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewExecuteSandboxSessionRequest(c.Server, sessionId, params, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListSandboxSessionFilesWithBody(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListSandboxSessionFilesRequestWithBody(c.Server, sessionId, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListSandboxSessionFiles(ctx context.Context, sessionId openapi_types.UUID, body ListSandboxSessionFilesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListSandboxSessionFilesRequest(c.Server, sessionId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -38901,6 +38923,124 @@ func NewDownloadPublicFileRequest(server string, projectId openapi_types.UUID, b
 	return req, nil
 }
 
+// NewListSandboxSessionFilesRequest generates requests for ListSandboxSessionFiles
+func NewListSandboxSessionFilesRequest(server string, params *ListSandboxSessionFilesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-session-files")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "session_id", params.SessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Path != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", *params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Recursive != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "recursive", *params.Recursive, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.IncludeSha256 != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_sha256", *params.IncludeSha256, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewTerminateSandboxSessionRequest generates requests for TerminateSandboxSession
 func NewTerminateSandboxSessionRequest(server string, sessionId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -39072,53 +39212,6 @@ func NewExecuteSandboxSessionRequestWithBody(server string, sessionId openapi_ty
 		req.Header.Set("Idempotency-Key", headerParam0)
 
 	}
-
-	return req, nil
-}
-
-// NewListSandboxSessionFilesRequest calls the generic ListSandboxSessionFiles builder with application/json body
-func NewListSandboxSessionFilesRequest(server string, sessionId openapi_types.UUID, body ListSandboxSessionFilesJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewListSandboxSessionFilesRequestWithBody(server, sessionId, "application/json", bodyReader)
-}
-
-// NewListSandboxSessionFilesRequestWithBody generates requests for ListSandboxSessionFiles with any type of body
-func NewListSandboxSessionFilesRequestWithBody(server string, sessionId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/sandbox-sessions/%s/files/list", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -41556,6 +41649,9 @@ type ClientWithResponsesInterface interface {
 	// DownloadPublicFileWithResponse request
 	DownloadPublicFileWithResponse(ctx context.Context, projectId openapi_types.UUID, bucketName BucketName, path string, reqEditors ...RequestEditorFn) (*DownloadPublicFileClientResponse, error)
 
+	// ListSandboxSessionFilesWithResponse request
+	ListSandboxSessionFilesWithResponse(ctx context.Context, params *ListSandboxSessionFilesParams, reqEditors ...RequestEditorFn) (*ListSandboxSessionFilesClientResponse, error)
+
 	// TerminateSandboxSessionWithResponse request
 	TerminateSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*TerminateSandboxSessionClientResponse, error)
 
@@ -41571,11 +41667,6 @@ type ClientWithResponsesInterface interface {
 	ExecuteSandboxSessionWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExecuteSandboxSessionClientResponse, error)
 
 	ExecuteSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, body ExecuteSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*ExecuteSandboxSessionClientResponse, error)
-
-	// ListSandboxSessionFilesWithBodyWithResponse request with any body
-	ListSandboxSessionFilesWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ListSandboxSessionFilesClientResponse, error)
-
-	ListSandboxSessionFilesWithResponse(ctx context.Context, sessionId openapi_types.UUID, body ListSandboxSessionFilesJSONRequestBody, reqEditors ...RequestEditorFn) (*ListSandboxSessionFilesClientResponse, error)
 
 	// ReadSandboxSessionFileWithBodyWithResponse request with any body
 	ReadSandboxSessionFileWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReadSandboxSessionFileClientResponse, error)
@@ -52011,6 +52102,37 @@ func (r DownloadPublicFileClientResponse) ContentType() string {
 	return ""
 }
 
+type ListSandboxSessionFilesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxFileListResult
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSandboxSessionFilesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSandboxSessionFilesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSandboxSessionFilesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type TerminateSandboxSessionClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -52129,37 +52251,6 @@ func (r ExecuteSandboxSessionClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ExecuteSandboxSessionClientResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type ListSandboxSessionFilesClientResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *SandboxFileListResult
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r ListSandboxSessionFilesClientResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListSandboxSessionFilesClientResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListSandboxSessionFilesClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -56679,6 +56770,15 @@ func (c *ClientWithResponses) DownloadPublicFileWithResponse(ctx context.Context
 	return ParseDownloadPublicFileClientResponse(rsp)
 }
 
+// ListSandboxSessionFilesWithResponse request returning *ListSandboxSessionFilesClientResponse
+func (c *ClientWithResponses) ListSandboxSessionFilesWithResponse(ctx context.Context, params *ListSandboxSessionFilesParams, reqEditors ...RequestEditorFn) (*ListSandboxSessionFilesClientResponse, error) {
+	rsp, err := c.ListSandboxSessionFiles(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSandboxSessionFilesClientResponse(rsp)
+}
+
 // TerminateSandboxSessionWithResponse request returning *TerminateSandboxSessionClientResponse
 func (c *ClientWithResponses) TerminateSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*TerminateSandboxSessionClientResponse, error) {
 	rsp, err := c.TerminateSandboxSession(ctx, sessionId, reqEditors...)
@@ -56729,23 +56829,6 @@ func (c *ClientWithResponses) ExecuteSandboxSessionWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseExecuteSandboxSessionClientResponse(rsp)
-}
-
-// ListSandboxSessionFilesWithBodyWithResponse request with arbitrary body returning *ListSandboxSessionFilesClientResponse
-func (c *ClientWithResponses) ListSandboxSessionFilesWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ListSandboxSessionFilesClientResponse, error) {
-	rsp, err := c.ListSandboxSessionFilesWithBody(ctx, sessionId, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListSandboxSessionFilesClientResponse(rsp)
-}
-
-func (c *ClientWithResponses) ListSandboxSessionFilesWithResponse(ctx context.Context, sessionId openapi_types.UUID, body ListSandboxSessionFilesJSONRequestBody, reqEditors ...RequestEditorFn) (*ListSandboxSessionFilesClientResponse, error) {
-	rsp, err := c.ListSandboxSessionFiles(ctx, sessionId, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListSandboxSessionFilesClientResponse(rsp)
 }
 
 // ReadSandboxSessionFileWithBodyWithResponse request with arbitrary body returning *ReadSandboxSessionFileClientResponse
@@ -71291,6 +71374,39 @@ func ParseDownloadPublicFileClientResponse(rsp *http.Response) (*DownloadPublicF
 	return response, nil
 }
 
+// ParseListSandboxSessionFilesClientResponse parses an HTTP response from a ListSandboxSessionFilesWithResponse call
+func ParseListSandboxSessionFilesClientResponse(rsp *http.Response) (*ListSandboxSessionFilesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSandboxSessionFilesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxFileListResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseTerminateSandboxSessionClientResponse parses an HTTP response from a TerminateSandboxSessionWithResponse call
 func ParseTerminateSandboxSessionClientResponse(rsp *http.Response) (*TerminateSandboxSessionClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -71406,39 +71522,6 @@ func ParseExecuteSandboxSessionClientResponse(rsp *http.Response) (*ExecuteSandb
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SandboxCommandResult
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListSandboxSessionFilesClientResponse parses an HTTP response from a ListSandboxSessionFilesWithResponse call
-func ParseListSandboxSessionFilesClientResponse(rsp *http.Response) (*ListSandboxSessionFilesClientResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListSandboxSessionFilesClientResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SandboxFileListResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

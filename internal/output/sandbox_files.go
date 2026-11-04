@@ -34,8 +34,11 @@ func SandboxFiles(w io.Writer, entries []apiclient.SandboxFileEntry, withSHA256 
 			continue
 		}
 		digest := "-"
-		if entry.Sha256 != nil {
+		switch {
+		case entry.Sha256 != nil:
 			digest = *entry.Sha256
+		case entry.Sha256Skipped != nil:
+			digest = "skipped: " + sandboxPath(string(*entry.Sha256Skipped))
 		}
 		fmt.Fprintf(w, "%-9s  %-4s  %12s  %-64s  %s\n", entry.Type, mode, size, digest, path)
 	}
@@ -49,7 +52,8 @@ func SandboxFiles(w io.Writer, entries []apiclient.SandboxFileEntry, withSHA256 
 // sandboxPath prints a workspace path as it is, or as a quoted Go string when
 // it holds a quote, a backslash, or a character that is not printable, such as
 // an escape, a newline, or a tab. A program in the Sandbox names its files, so
-// a name must not move the cursor, change colors, or break the table.
+// a name must not move the cursor, change colors, or break the table. The table
+// prints a digest's skip reason through it as well.
 func sandboxPath(path string) string {
 	quoted := strconv.Quote(path)
 	if quoted[1:len(quoted)-1] == path {
