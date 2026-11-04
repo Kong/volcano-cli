@@ -36,21 +36,22 @@ func SandboxFiles(w, warnings io.Writer, listing *apiclient.SandboxFileListResul
 		tableHead(w, on, false, 35, "%-9s  %-4s  %12s  %s", "Type", "Mode", "Size", "Path")
 	}
 	for _, entry := range entries {
+		kind := sandboxText(string(entry.Type))
 		size := sandboxSize(entry, on)
 		mode := fmt.Sprintf("%04o", entry.Mode)
-		path := sandboxPath(entry.Path)
+		path := sandboxText(entry.Path)
 		if !withSHA256 {
-			fmt.Fprintf(w, "%-9s  %-4s  %s  %s\n", entry.Type, mode, size, path)
+			fmt.Fprintf(w, "%-9s  %-4s  %s  %s\n", kind, mode, size, path)
 			continue
 		}
 		digest := "-"
 		switch {
 		case entry.Sha256 != nil:
-			digest = *entry.Sha256
+			digest = sandboxText(*entry.Sha256)
 		case entry.Sha256Skipped != nil:
-			digest = "skipped: " + sandboxPath(string(*entry.Sha256Skipped))
+			digest = "skipped: " + sandboxText(string(*entry.Sha256Skipped))
 		}
-		fmt.Fprintf(w, "%-9s  %-4s  %s  %-64s  %s\n", entry.Type, mode, size, digest, path)
+		fmt.Fprintf(w, "%-9s  %-4s  %s  %-64s  %s\n", kind, mode, size, digest, path)
 	}
 	noun := "entries"
 	if len(entries) == 1 {
@@ -128,15 +129,16 @@ func countNoun(n int, one, many string) string {
 	return strconv.Itoa(n) + " " + many
 }
 
-// sandboxPath prints a workspace path as it is, or as a quoted Go string when
-// it holds a quote, a backslash, or a character that is not printable, such as
-// an escape, a newline, or a tab. A program in the Sandbox names its files, so
-// a name must not move the cursor, change colors, or break the table. The table
-// prints a digest's skip reason through it as well.
-func sandboxPath(path string) string {
-	quoted := strconv.Quote(path)
-	if quoted[1:len(quoted)-1] == path {
-		return path
+// sandboxText prints a string from the listing as it is, or as a quoted Go
+// string when it holds a quote, a backslash, or a character that is not
+// printable, such as an escape, a newline, or a tab. A program in the Sandbox
+// names its files, so a name must not move the cursor, change colors, or break
+// the table. The table prints every string the server sends through it: the
+// path, the type, the digest, and a digest's skip reason.
+func sandboxText(text string) string {
+	quoted := strconv.Quote(text)
+	if quoted[1:len(quoted)-1] == text {
+		return text
 	}
 	return quoted
 }

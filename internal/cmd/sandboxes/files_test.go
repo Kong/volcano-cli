@@ -324,6 +324,26 @@ func TestFilesListQuotesOnlyPathsThatNeedIt(t *testing.T) {
 	}
 }
 
+// The server names an entry's type and digest as well as its path. The table
+// quotes any of them that holds a control.
+func TestFilesListQuotesTheTypeAndDigest(t *testing.T) {
+	t.Parallel()
+	page := `{"entries":[{"path":"a","type":"file\u001b[2J","size":0,"mode":420,"sha256":"\u001b]8;;x\u0007"}]}`
+	row := func(columns ...string) string { return strings.Join(columns, "  ") }
+
+	server, _ := listServer(t, page)
+	out, err := runFilesList(t, server, testSession)
+	require.NoError(t, err)
+	assert.Equal(t, row(`"file\x1b[2J"`, "0644", fmt.Sprintf("%12s", "-"), "a"), strings.Split(out, "\n")[2])
+	assert.NotContains(t, out, "\x1b")
+
+	server, _ = listServer(t, page)
+	out, err = runFilesList(t, server, testSession, "--sha256")
+	require.NoError(t, err)
+	assert.Equal(t, row(`"file\x1b[2J"`, "0644", fmt.Sprintf("%12s", "-"), fmt.Sprintf("%-64s", `"\x1b]8;;x\a"`), "a"), strings.Split(out, "\n")[2])
+	assert.NotContains(t, out, "\x1b")
+}
+
 func TestFilesListJSONEscapesEveryControl(t *testing.T) {
 	t.Parallel()
 	path := "a\u001bb\u007fc\u009bd"
