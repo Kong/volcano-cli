@@ -27,8 +27,8 @@ func newStatus(deps cliruntime.Deps) *cobra.Command {
 		Use:   "status",
 		Short: "Show whether LavaFlow is on",
 		Long: `Show whether LavaFlow is on for the current project, how far it goes, whether
-a custom context and system prompt are set, and which repository its fix pull
-requests go to.`,
+it can merge its fixes, whether a custom context and system prompt are set,
+and which repository its fix pull requests go to.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
@@ -51,6 +51,7 @@ func runStatus(ctx context.Context, opts statusOptions) error {
 	output.LavaflowStatus(opts.out, output.LavaflowStatusDetails{
 		Settings:          status.Settings,
 		Available:         status.Available,
+		MergeAvailable:    status.MergeAvailable,
 		RepositoryState:   status.RepositoryState,
 		Repository:        status.Repository,
 		Description:       clilavaflow.OnDescription,

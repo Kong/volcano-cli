@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.66.0](https://github.com/Kong/volcano-cli/compare/v0.65.1...v0.66.0) (2026-11-04)
+
+
+### Features
+
+* **lavaflow:** say merging isn't available before asking to turn it on ([#417](https://github.com/Kong/volcano-cli/issues/417)) ([ba4cc10](https://github.com/Kong/volcano-cli/commit/ba4cc10298e904d11242cdd4e8cb15ec7d1b34ec))
+
+## [0.65.1](https://github.com/Kong/volcano-cli/compare/v0.65.0...v0.65.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **lavaflow:** say a held fix is yours to merge only while its pull request is open ([#414](https://github.com/Kong/volcano-cli/issues/414)) ([05a88f7](https://github.com/Kong/volcano-cli/commit/05a88f7c5d69fae2be04f952b19a8de2ff65be85))
+
+## [0.65.0](https://github.com/Kong/volcano-cli/compare/v0.64.0...v0.65.0) (2026-11-04)
+
+
+### Features
+
+* **lavaflow:** show whether merge is available in lavaflow status ([#413](https://github.com/Kong/volcano-cli/issues/413)) ([58f20a3](https://github.com/Kong/volcano-cli/commit/58f20a31e5c7f708937d9873c46faf81cdb2673f))
+
+## [0.64.0](https://github.com/Kong/volcano-cli/compare/v0.63.0...v0.64.0) (2026-11-04)
+
+
+### Features
+
+* **config:** refuse a lavaflow section in the project configuration ([#399](https://github.com/Kong/volcano-cli/issues/399)) ([9dc50e4](https://github.com/Kong/volcano-cli/commit/9dc50e45d34cb5d5c341704ca41350b665583fa6))
+
 ## [0.63.0](https://github.com/Kong/volcano-cli/compare/v0.62.0...v0.63.0) (2026-11-03)
 
 

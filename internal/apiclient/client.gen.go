@@ -7224,7 +7224,7 @@ type EmailTemplateTemplateType string
 
 // Error defines model for Error.
 type Error struct {
-	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
+	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token, or that the change needs the owner signed in with `volcano login`. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
 	Code  *string `json:"code,omitempty"`
 	Error string  `json:"error"`
 }
@@ -7391,7 +7391,7 @@ type FrontendCandidateList struct {
 
 // FrontendCustomDomainConflictError defines model for FrontendCustomDomainConflictError.
 type FrontendCustomDomainConflictError struct {
-	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
+	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token, or that the change needs the owner signed in with `volcano login`. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
 	Code  *string `json:"code,omitempty"`
 	Error string  `json:"error"`
 
@@ -8120,7 +8120,7 @@ type LavaflowFailure struct {
 
 // LavaflowHoldReason One reason LavaFlow holds the fix for a person.
 type LavaflowHoldReason struct {
-	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
+	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `ungated_workflows`: the fix opened past workflows that can run it with the repository's secrets before a person approves it, as the project's owner allowed, so LavaFlow never starts its CI or merges it. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
 	Code string `json:"code"`
 
 	// Paths The changed paths that matched, for a path code.
@@ -8149,7 +8149,7 @@ type LavaflowMerge struct {
 
 // LavaflowMergePolicy Your rules for fixes LavaFlow must never merge. They apply with `autonomy: merge`; at another autonomy they are saved and do nothing.
 type LavaflowMergePolicy struct {
-	// HumanReviewPaths Globs of paths whose change LavaFlow never merges: a fix that changes one is held and handed to you. Paths are relative to the repository root, such as `db/migrations/**`. `*` and `?` match within one directory, `**/` spans any number of directories, and a final `**` matches the rest. A pattern that starts with `/`, `./` or `../`, ends with `/`, or holds an empty, `.` or `..` segment answers `400`. Volcano's own held paths, such as deploy configuration and authentication code, are always held too. Defaults to none.
+	// HumanReviewPaths Globs of paths whose change LavaFlow never merges: a fix that changes one is held and handed to you. Paths are relative to the repository root, such as `db/migrations/**`. `*` and `?` match within one directory, `**/` spans any number of directories, and a final `**` matches the rest. A pattern that starts with `/`, `./` or `../`, ends with `/`, holds an empty, `.` or `..` segment, or holds a NUL character answers `400`. Volcano's own held paths, such as deploy configuration and authentication code, are always held too. Defaults to none.
 	HumanReviewPaths []string `json:"human_review_paths"`
 }
 
@@ -8158,7 +8158,7 @@ type LavaflowMergePolicyUpdate struct {
 	HumanReviewPaths *[]string `json:"human_review_paths,omitempty"`
 }
 
-// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `removed_from_queue`: the merge queue dropped it. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused; a waiting fix keeps its status and resumes. `paused_too_long`: merging stayed paused for more than 7 days. New reasons may appear.
+// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `branch_behind`: the base branch requires the fix to be up to date with it, and LavaFlow doesn't update fix branches. `removed_from_queue`: the fix isn't in the merge queue, and LavaFlow can't tell why, for example because its checks failed there or someone removed it. `reads_failed`: LavaFlow failed to read the pull request for about an hour while the fix may have been queued, so it took the fix out of the merge queue, when it could still reach it, and stopped. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `request_rejected`: GitHub refused LavaFlow's request to start the checks on the fix. `ci_start_commit_mismatch`: GitHub reports a different commit from the one LavaFlow made to start the checks. `queue_carries_ci_skip`: the repository's merge queue could carry the fix commit's instruction to skip checks into the base branch. `merge_carries_ci_skip`: the repository allows no squash merge, so merging would carry that instruction into the base branch. Each of these four hands the fix to you for good. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused; a waiting fix keeps its status and resumes. `paused_too_long`: merging stayed paused for more than 7 days. `cancelled`: the project is being deleted, so LavaFlow stopped waiting on the merge. New reasons may appear.
 type LavaflowMergeReason = string
 
 // LavaflowMergeStatus `waiting_for_checks`: LavaFlow waits for the checks on the fix's commit. `queued`: the fix is in the repository's merge queue. `merged`: the pull request merged. `held`: something in `hold_reasons` needs a person. LavaFlow commented on the pull request once and never merges, pushes to, rebases or dequeues it again; review it and merge it yourself if you want it. `stopped`: LavaFlow left the pull request open for you, for `reason`.
@@ -44193,6 +44193,7 @@ type UpdateLavaflowSettingsClientResponse struct {
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON413      *Error
 	JSON429      *Error
 	JSON503      *Error
@@ -60694,6 +60695,13 @@ func ParseUpdateLavaflowSettingsClientResponse(rsp *http.Response) (*UpdateLavaf
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
 		var dest Error

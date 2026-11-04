@@ -286,6 +286,92 @@ func TestSettingsSetSaysWhyMergingIsRefused(t *testing.T) {
 	}
 }
 
+// Where the project's capabilities say LavaFlow is available but merging
+// isn't, --autonomy merge says so before it warns or asks, --yes included,
+// and sends nothing, with the exit code the save's refusal has.
+func TestSettingsSetSaysMergingIsntAvailableBeforeAsking(t *testing.T) {
+	for _, tc := range []struct {
+		capability string
+		args       []string
+	}{
+		{"unavailable", nil},
+		{"limited", nil},
+		{"unavailable", []string{"--yes", "--json"}},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) { s.mergeCapability = tc.capability })
+
+		_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"),
+			append([]string{"settings", "set", "--autonomy", "merge"}, tc.args...)...)
+		require.ErrorIs(t, err, clilavaflow.ErrMergingNotAvailable, "%q %q", tc.capability, tc.args)
+		assert.Equal(t, "LavaFlow merging isn't available for this project yet", err.Error())
+		assert.Equal(t, http.StatusBadRequest, api.Status(err))
+		assert.NotContains(t, errOut, clilavaflow.MergeWarning, "nothing is said")
+		assert.NotContains(t, errOut, "Let LavaFlow merge fixes?", "nothing is asked")
+		assert.Empty(t, fake.updates)
+	}
+}
+
+// Where merging is available, --autonomy merge asks as before.
+func TestSettingsSetAsksWhereMergingIsAvailable(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.mergeCapability = "available" })
+
+	_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"),
+		"settings", "set", "--autonomy", "merge")
+	require.NoError(t, err)
+	assert.Contains(t, errOut, clilavaflow.MergeDisclosure)
+	assert.Contains(t, errOut, "Let LavaFlow merge fixes?")
+	assert.Equal(t, map[string]any{"autonomy": "merge"}, fake.lastUpdate(t))
+}
+
+// When the capabilities can't be read or don't list merging, --autonomy merge
+// asks as before and the save decides. Where LavaFlow itself isn't available,
+// the save refuses with LavaFlow's own reason and exit code.
+func TestSettingsSetLeavesMergingToTheSaveWhenTheCapabilitiesDontSay(t *testing.T) {
+	for name, tc := range map[string]struct {
+		server func(*lavaflowServer)
+		want   string
+		status int
+	}{
+		"unreadable": {func(s *lavaflowServer) {
+			s.mergeCapability, s.capabilitiesFailure = "unavailable", http.StatusInternalServerError
+			s.refuse, s.refuseMethod = http.StatusBadRequest, http.MethodPut
+			s.refusal = map[string]any{"error": "autonomy merge is not available", "code": "feature_unavailable"}
+		}, "LavaFlow merging isn't available for this project yet", http.StatusBadRequest},
+		"not listed": {func(s *lavaflowServer) {
+			s.refuse, s.refuseMethod = http.StatusBadRequest, http.MethodPut
+			s.refusal = map[string]any{"error": "autonomy merge is not available", "code": "feature_unavailable"}
+		}, "LavaFlow merging isn't available for this project yet", http.StatusBadRequest},
+		"LavaFlow unavailable": {func(s *lavaflowServer) {
+			s.capability, s.mergeCapability, s.gateOff = "read_only", "unavailable", true
+		}, lavaflowNotAvailable, http.StatusNotFound},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(tc.server)
+
+		_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"),
+			"settings", "set", "--autonomy", "merge")
+		require.Error(t, err, name)
+		assert.Equal(t, tc.want, err.Error(), name)
+		assert.Equal(t, tc.status, api.Status(err), name)
+		assert.Contains(t, errOut, "Let LavaFlow merge fixes?", "%s: it asked, so the save refused", name)
+	}
+}
+
+// A project already at merge sends merge again, as an idempotent apply does,
+// while merging isn't available: the save accepts the saved autonomy, so the
+// CLI doesn't refuse it first.
+func TestSettingsSetResendsMergeWhileMergingIsntAvailable(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.settings["autonomy"], s.mergeCapability = "merge", "unavailable" })
+
+	_, _, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
+		"settings", "set", "--autonomy", "merge", "--custom-context", "Checkout runs on Fridays.", "--yes")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"autonomy": "merge", "custom_context": "Checkout runs on Fridays."}, fake.lastUpdate(t))
+}
+
 // Human review paths are part of merging, so Volcano refuses them where
 // merging isn't available, and the CLI says so.
 func TestSettingsSetSaysReviewPathsNeedMerging(t *testing.T) {
