@@ -419,7 +419,9 @@ for a durable function you deployed, check its visibility with
 
 A durable function is never invocable over HTTP the way a public standard
 function is, whatever its level: starting an execution is all the level
-allows. Polling and stopping always need a project-scoped credential.
+allows. An anon key reads and stops only the executions whose `client_token`
+it sends, and a signed-in user also the ones they started. See
+[Durable functions](/platform/functions/durable-functions#wait-for-the-result).
 
 A new durable function starts `private`, and `durable get` shows the level.
 To change it without rebuilding, declare `visibility` in
