@@ -247,8 +247,9 @@ upload matched it, so commit your changes before you deploy. Of the deploys
 the CLI runs, only frontend deploys can get LavaFlow fix pull requests for
 now. A workflow run for a pull request deploys GitHub's merge commit, which is
 on no branch, so that deployment is recorded unverified.
-`frontends deploy --from` and a redeploy keep the commit of the build they
-publish.
+`frontends deploy --from` keeps the commit of the build it publishes. A
+redeploy reports no commit of its own, and LavaFlow reads it as the commit of
+the build that made its artifact.
 
 To send nothing, set:
 
