@@ -435,11 +435,11 @@ func refused(cfg *config.Config, err error) error {
 	switch {
 	case api.Code(err) == codePersonRequired:
 		// Volcano says why in its own words: a credential that isn't the
-		// owner's own one that expires, an owner whose GitHub account can't
-		// push to the repository, or a project with no repository. When its
-		// words say to sign in with volcano login, a token in VOLCANO_TOKEN
-		// wins over that sign-in, so say so; unsetting it fixes nothing about
-		// the repository.
+		// owner's live volcano login sign-in, an owner whose GitHub account
+		// can't push to the repository, or a project with no repository.
+		// When its words say to sign in with volcano login, a token in
+		// VOLCANO_TOKEN wins over that sign-in, so say so; unsetting it
+		// fixes nothing about the repository.
 		if message := api.Message(err); message != "" {
 			refusal := fmt.Errorf("LavaFlow's settings weren't changed: %s", message)
 			if cfg.TokenFromEnv() && strings.Contains(message, "volcano login") {

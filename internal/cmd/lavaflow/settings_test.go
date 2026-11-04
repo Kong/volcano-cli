@@ -251,6 +251,22 @@ func TestSettingsSetSaysWhenToTryMergingAgain(t *testing.T) {
 	}
 }
 
+// A save that kept losing a race with another change answers 409 and saved
+// nothing; the CLI says so in Volcano's words.
+func TestSettingsSetSaysASaveThatRacedSavedNothing(t *testing.T) {
+	const message = "the LavaFlow settings changed while saving; nothing was saved, send the request again"
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.refuse, s.refuseMethod = http.StatusConflict, http.MethodPut
+		s.refusal = map[string]any{"error": message}
+	})
+
+	_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--custom-context", "Deploys run on Fridays.")
+	require.Error(t, err)
+	assert.Equal(t, "failed to change LavaFlow's settings: HTTP 409: "+message, err.Error())
+	assert.Equal(t, http.StatusConflict, api.Status(err))
+}
+
 // The API refuses autonomy merge while merging is off for the project, and
 // with person_required, in its own words, while the owner's GitHub account
 // can't push to the repository or the project has none. The CLI says which.
