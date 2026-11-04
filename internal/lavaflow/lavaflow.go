@@ -103,6 +103,10 @@ var ErrOwnerDecides = errors.New("only the project's owner can change LavaFlow's
 // capabilityID is LavaFlow's entry in a project's capabilities.
 const capabilityID = "lavaflow"
 
+// mergeCapabilityID is the entry for LavaFlow merging its fixes: autonomy
+// merge and the merge policy.
+const mergeCapabilityID = "lavaflow.merge"
+
 // Codes of the API's refusals.
 const (
 	codeFeatureUnavailable = "feature_unavailable"
@@ -137,7 +141,11 @@ type Status struct {
 	// project, from its capabilities; omitted when they could not be read.
 	// While it is false, a project's records stay readable and LavaFlow can
 	// still be turned off.
-	Available       *bool  `json:"available,omitempty"`
+	Available *bool `json:"available,omitempty"`
+	// MergeAvailable is whether LavaFlow can merge its fixes for the project,
+	// from its capabilities; omitted when they could not be read or don't
+	// list merging.
+	MergeAvailable  *bool  `json:"merge_available,omitempty"`
 	RepositoryState string `json:"repository_state"`
 	// Repository is the connected repository's full name, set only when
 	// RepositoryState is RepositoryConnected.
@@ -207,7 +215,7 @@ func (s Service) Status(ctx context.Context) (*Status, error) {
 		return nil, unavailable(fmt.Errorf("failed to get LavaFlow settings: %w", err))
 	}
 	status := &Status{Settings: settings}
-	if status.Available, err = availability(ctx, authenticated); err != nil {
+	if status.Available, status.MergeAvailable, err = availability(ctx, authenticated); err != nil {
 		return nil, err
 	}
 	status.RepositoryState, status.Repository, err = repository(ctx, authenticated)
@@ -230,16 +238,29 @@ func (s Service) Settings(ctx context.Context) (*apiclient.LavaflowSettings, err
 	return settings, nil
 }
 
-// availability reads whether LavaFlow takes changes for the project. It is
-// detail the status adds, so a capabilities read that fails leaves it unknown;
-// a cancel or deadline still ends the command.
-func availability(ctx context.Context, authenticated *clisession.ProjectSession) (*bool, error) {
+// availability reads whether LavaFlow takes changes for the project, and
+// whether it can merge its fixes. It is detail the status adds, so a
+// capabilities read that fails leaves both unknown; a cancel or deadline still
+// ends the command.
+func availability(ctx context.Context, authenticated *clisession.ProjectSession) (lavaflow, merge *bool, err error) {
 	capabilities, err := authenticated.API.ListProjectCapabilities(ctx, authenticated.ProjectID)
 	if err != nil {
-		return nil, ctx.Err()
+		return nil, nil, ctx.Err()
 	}
 	available := availableIn(capabilities)
-	return &available, nil
+	return &available, mergeAvailableIn(capabilities), nil
+}
+
+// mergeAvailableIn reports the merge capability entry as available, and any
+// other status as unavailable. It is nil when the list has no entry, as from
+// an API older than it, which may still take autonomy merge.
+func mergeAvailableIn(capabilities *apiclient.CapabilityList) *bool {
+	i := slices.IndexFunc(capabilities.Data, func(c apiclient.Capability) bool { return c.Id == mergeCapabilityID })
+	if i < 0 {
+		return nil
+	}
+	available := capabilities.Data[i].Status == apiclient.CapabilityStatusAvailable
+	return &available
 }
 
 func repository(ctx context.Context, authenticated *clisession.ProjectSession) (state, name string, err error) {

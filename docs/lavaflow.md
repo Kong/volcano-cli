@@ -121,6 +121,7 @@ volcano cloud lavaflow status
 ```text
 LavaFlow: on
 Autonomy: open fix pull requests
+Merging: available
 Repository: acme/shop
 Custom context: not set
 System prompt: not set
@@ -135,10 +136,17 @@ status says to run `volcano git connect`. When LavaFlow isn't available for
 a project that has LavaFlow records, the status notes that it can't be turned
 on or changed, and that the owner can still turn it off.
 
+`Merging` says whether you can choose autonomy `merge` for the project.
+While it reads `not available for this project yet`,
+`settings set --autonomy merge` is refused. The line is left out when the
+project's capabilities could not be read or don't list merging.
+
 With `--json`, `repository_state` is `connected`, `not_connected`, or
 `unknown` when the connection could not be read. `available` is `true` when
 LavaFlow can be turned on and changed for the project and `false` when it
 can't; it is left out when the project's capabilities could not be read.
+`merge_available` is `true` when LavaFlow can merge its fixes for the project
+and `false` when it can't; it is left out when the `Merging` line is.
 
 ## Choose how far it goes
 
@@ -192,10 +200,10 @@ code 5. Merging applies to the
 repository the project is connected to when you turn it on: once the project
 is connected to another, autonomy reads `open_pr` until you turn merge on
 again. Merging is only for a project where
-it's available; elsewhere `--autonomy merge` says "LavaFlow merging isn't
-available for this project yet" and exits with code 1. When the owner's
-GitHub account can't push to the project's repository, it says so, adds what
-Volcano said, points to
+it's available, which `status` shows; elsewhere `--autonomy merge` says
+"LavaFlow merging isn't available for this project yet" and exits with
+code 1. When the owner's GitHub account can't push to the project's
+repository, it says so, adds what Volcano said, points to
 [connecting GitHub](/platform/projects/git-deploy#1-connect-github), and exits
 with code 5.
 
@@ -218,8 +226,11 @@ the project, a waiting fix says `paused while merging is off`. `held` and
 `stopped` are final: LavaFlow doesn't touch the pull request again, and it's
 yours to review and merge on GitHub. A held fix lists each reason in Volcano's
 words, with the paths it names; a stopped fix gives its reason, such as
-`checks failed`. In `list`, their runs show `Held: yours to merge` or
-`Stopped: yours to merge` as their status.
+`checks failed`. While the pull request is open, `show` ends with a line
+saying it's yours, and in `list` the run shows `Held: yours to merge` or
+`Stopped: yours to merge` as its status. Once someone merges or closes the
+pull request, `show` keeps the `Merge:` line and its reasons, and `list`
+shows the run's own status.
 
 ```text
 Merge: held
@@ -277,9 +288,10 @@ reviewing the fix" (`reviewing`). An open pull request shows as "PR open". A
 status the CLI doesn't know prints as the API gives it.
 
 `show` prints a run's diagnosis and root cause, the evidence and log lines it
-read, its review, the fix pull request and when it opened, and the diff when
-the run has one. A pull request opened before LavaFlow recorded the time has
-no open time. A run that failed says why.
+read, its review, the fix pull request and when it opened, where its merge is
+(see [Merge fixes](#merge-fixes)), and the diff when the run has one. A pull
+request opened before LavaFlow recorded the time has no open time. A run that
+failed says why.
 
 ```bash
 volcano cloud lavaflow show 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
