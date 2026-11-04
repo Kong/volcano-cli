@@ -50,7 +50,8 @@ type lavaflowServer struct {
 	// capabilitiesFailure answers the capabilities read with that status.
 	capabilitiesFailure int
 	// gateOff is LavaFlow unavailable for a project with records: the reads
-	// answer, and the PUT takes only turning it off. planOff says the owner's
+	// answer, and the PUT takes only turning it off, with ungated workflows
+	// or without. planOff says the owner's
 	// plan is why, so the PUT answers plan_required instead of
 	// feature_unavailable.
 	gateOff  bool
@@ -184,7 +185,10 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.write(w, http.StatusOK, settings)
 	case r.Method == http.MethodPut && route == "/settings":
 		s.updates = append(s.updates, update)
-		if s.gateOff && !maps.Equal(update, map[string]any{"enabled": false}) {
+		// Turning it off, and allow_ungated_workflows off with it, is all the
+		// PUT takes while LavaFlow is unavailable.
+		if s.gateOff && !maps.Equal(update, map[string]any{"enabled": false}) &&
+			!maps.Equal(update, map[string]any{"enabled": false, "allow_ungated_workflows": false}) {
 			if s.planOff {
 				s.write(w, http.StatusForbidden, map[string]any{"error": "LavaFlow needs a plan that includes it", "code": "plan_required"})
 				return

@@ -498,6 +498,37 @@ func TestSettingsSetAllowsUngatedWorkflowsOnlyAfterAsking(t *testing.T) {
 	assert.Contains(t, out, "Ungated workflows: not allowed\n")
 }
 
+// While LavaFlow isn't available, Volcano turns ungated workflows off only
+// with LavaFlow itself, so the CLI sends both and says so. A capabilities read
+// that fails leaves the save to say why.
+func TestSettingsSetTurnsOffUngatedWorkflowsWhileLavaFlowIsntAvailable(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.capability, s.gateOff = "read_only", true
+		s.settings["enabled"], s.settings["allow_ungated_workflows"] = true, true
+	})
+	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
+		"settings", "set", "--allow-ungated-workflows", "false", "--json")
+	require.NoError(t, err)
+	assert.Equal(t, ungatedWorkflowsOffTurnsLavaFlowOff+"\n", errOut)
+	assert.Equal(t, map[string]any{"enabled": false, "allow_ungated_workflows": false}, fake.lastUpdate(t))
+	saved := decodeJSON(t, out)
+	assert.Equal(t, false, saved["enabled"])
+	assert.Equal(t, false, saved["allow_ungated_workflows"])
+
+	fake, deps = newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.capability, s.gateOff, s.capabilitiesFailure = "read_only", true, http.StatusInternalServerError
+		s.settings["allow_ungated_workflows"] = true
+	})
+	_, errOut, err = executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
+		"settings", "set", "--allow-ungated-workflows", "false")
+	require.Error(t, err)
+	assert.Equal(t, http.StatusNotFound, api.Status(err))
+	assert.NotContains(t, errOut, ungatedWorkflowsOffTurnsLavaFlowOff)
+	assert.Equal(t, map[string]any{"allow_ungated_workflows": false}, fake.lastUpdate(t))
+}
+
 // Turning on merging and ungated workflows in one change says what each does,
 // then asks once; a no sends nothing.
 func TestSettingsSetAsksOnceAboutMergingAndUngatedWorkflows(t *testing.T) {

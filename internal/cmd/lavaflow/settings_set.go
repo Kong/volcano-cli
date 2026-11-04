@@ -60,7 +60,8 @@ one.
 
 %[7]s
 It prints that and asks first; --yes skips the question. false turns it off
-without asking.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength, apiclient.Merge,
+without asking. While LavaFlow isn't available for the project, Volcano turns
+it off only together with LavaFlow, so false turns LavaFlow off too.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength, apiclient.Merge,
 			clilavaflow.MergeDisclosure, clilavaflow.MaxHumanReviewPaths, ungatedWorkflowsDisclosure,
 			clilavaflow.UngatedWorkflowsSetting, clilavaflow.UngatedWorkflowsRules),
 		Example: "  " + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy diagnose_only") + "\n" +
@@ -151,7 +152,18 @@ func settingsUpdate(cmd *cobra.Command, opts settingsSetOptions) (apiclient.Lava
 }
 
 func runSettingsSet(ctx context.Context, opts settingsSetOptions, update apiclient.LavaflowSettingsUpdate) error {
-	settings, err := clilavaflow.NewService(opts.deps).UpdateSettings(ctx, update, confirmation(opts, update))
+	service := clilavaflow.NewService(opts.deps)
+	var settings *apiclient.LavaflowSettings
+	var err error
+	if turnsOffUngatedWorkflowsOnly(update) {
+		var lavaflowOff bool
+		settings, lavaflowOff, err = service.TurnOffUngatedWorkflows(ctx)
+		if err == nil && lavaflowOff {
+			_, _ = fmt.Fprintln(opts.errOut, ungatedWorkflowsOffTurnsLavaFlowOff)
+		}
+	} else {
+		settings, err = service.UpdateSettings(ctx, update, confirmation(opts, update))
+	}
 	if errors.Is(err, errDeclined) {
 		return nil
 	}
@@ -163,6 +175,18 @@ func runSettingsSet(ctx context.Context, opts settingsSetOptions, update apiclie
 	}
 	output.LavaflowSettingsSaved(opts.out, "LavaFlow's settings are saved", settings)
 	return nil
+}
+
+// ungatedWorkflowsOffTurnsLavaFlowOff is what settings set prints, on stderr,
+// when turning ungated workflows off turned LavaFlow off too.
+const ungatedWorkflowsOffTurnsLavaFlowOff = "LavaFlow isn't available for this project, and Volcano turns " +
+	"ungated workflows off then only together with LavaFlow, so LavaFlow is off too."
+
+// turnsOffUngatedWorkflowsOnly reports whether update changes nothing but
+// turning ungated workflows off.
+func turnsOffUngatedWorkflowsOnly(update apiclient.LavaflowSettingsUpdate) bool {
+	return update.AllowUngatedWorkflows != nil && !*update.AllowUngatedWorkflows && update.Autonomy == nil &&
+		update.MergePolicy == nil && update.CustomContext == nil && update.SystemPrompt == nil && update.Enabled == nil
 }
 
 // ungatedWorkflowsDisclosure is what settings set prints, and its help says,

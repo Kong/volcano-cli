@@ -272,8 +272,11 @@ nothing and exits with a non-zero code. When Volcano refuses it, for example
 for a platform token that never expires, or while the owner's GitHub account
 can't push to the repository, the command says why in Volcano's words and
 exits with code 5. Any of the owner's credentials turns it off, with
-`--allow-ungated-workflows false`, which asks nothing. `settings` shows it as
-`Ungated workflows:`, `allowed for the connected repository` or `not allowed`.
+`--allow-ungated-workflows false`, which asks nothing. While LavaFlow isn't
+available for the project, Volcano turns the setting off only together with
+LavaFlow, so the command turns LavaFlow off too and says so on stderr.
+`settings` shows it as `Ungated workflows:`, `allowed for the connected
+repository` or `not allowed`.
 
 When a run's pull request opened past ungated workflows, `show` lists the
 first ungated workflow job on each branch or commit LavaFlow checked: its file,
