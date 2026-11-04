@@ -18,6 +18,16 @@ func (c *Client) ListProjectCapabilities(ctx context.Context, projectID uuid.UUI
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON401, resp.JSON404)
 }
 
+// ListCapabilities returns which features accept new work in this
+// environment. It needs no token, and every caller gets the same answer.
+func (c *Client) ListCapabilities(ctx context.Context) (*apiclient.CapabilityList, error) {
+	resp, err := c.client.ListCapabilitiesWithResponse(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200)
+}
+
 // LavaFlow's routes are top-level and name one project each: project_id is
 // a query parameter on the reads and a body field on the settings save. A
 // project the caller can't use answers 404 like one that doesn't exist.

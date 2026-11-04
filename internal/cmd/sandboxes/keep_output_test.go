@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// capabilitiesPath is the test project's capability list.
-const capabilitiesPath = "/projects/" + testProject + "/capabilities"
+// capabilitiesPath is the environment's capability list.
+const capabilitiesPath = "/capabilities"
 
 func capabilitiesBody(status string) string {
 	return `{"data":[{"id":"sandboxes","status":"available"},{"id":"sandboxes.output_not_kept","status":"` + status + `"}]}`

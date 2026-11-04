@@ -112,7 +112,7 @@ volcano cloud sandboxes run --preset python3.12 --keep-output=false
 
 `--json` results include `output_kept`, which is `false` for a command that kept no output.
 
-Before sending `--keep-output=false`, the CLI checks the project's `sandboxes.output_not_kept` capability. Where it is unavailable, the command stops without running anything and says so.
+Before sending `--keep-output=false`, the CLI checks the `sandboxes.output_not_kept` capability in `GET /capabilities`. Where it is unavailable, the command stops without running anything and says so.
 
 ## Output format
 

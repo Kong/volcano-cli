@@ -70,15 +70,16 @@ const outputNotKeptCapability = "sandboxes.output_not_kept"
 
 var errOutputNotKeptUnavailable = errors.New("--keep-output=false is not available here: the sandboxes.output_not_kept capability is unavailable; run without it")
 
-// requireOutputNotKept reads the project's capabilities before asking to keep
-// no output, so an environment without it refuses before anything is sent.
+// requireOutputNotKept reads the environment's capabilities before asking to
+// keep no output, so an environment without it refuses before anything is
+// sent. The capability is environment-wide, and the list needs no token.
 func requireOutputNotKept(ctx context.Context, project *session.ProjectSession, keep *bool) error {
 	if keep == nil || *keep {
 		return nil
 	}
-	capabilities, err := project.API.ListProjectCapabilities(ctx, project.ProjectID)
+	capabilities, err := project.API.ListCapabilities(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to read the project's capabilities: %w", err)
+		return fmt.Errorf("failed to read capabilities: %w", err)
 	}
 	for _, capability := range capabilities.Data {
 		if capability.Id == outputNotKeptCapability && capability.Status == apiclient.CapabilityStatusAvailable {
