@@ -323,8 +323,9 @@ func TestSettingsSetHelpSaysWhatUngatedWorkflowsRisk(t *testing.T) {
 		"Whether LavaFlow opens a fix's pull request even where a workflow could run it, or put its text into a " +
 			"command, with the repository's secrets before a person approves it.",
 		"Off by default; while off, such a fix stays on its run and no pull request opens.",
-		"Only the project's owner, signed in with `volcano login`, turns it on, for the repository their GitHub " +
-			"account can push to.",
+		"Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the " +
+			"platform token `volcano login` stores, or another platform token that expires.",
+		"It applies to the repository their GitHub account can push to.",
 		"Any of the owner's credentials turns it off.",
 		"Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it " +
 			"applies only to that repository.",

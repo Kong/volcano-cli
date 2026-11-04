@@ -233,9 +233,10 @@ The pull request is now yours to review and merge on GitHub.
 By default, LavaFlow doesn't open a fix's pull request where a workflow in
 the repository could run it, or put its text into a command, with the
 repository's secrets before a person approves it: the fix stays on its run
-instead. Only the project's owner, signed in with `volcano login`, can turn
-that on, for the repository the project is connected to now, while their
-GitHub account can push to it:
+instead. Only the project's owner can turn that on, signed in as a person:
+with `volcano login`, or another platform token that expires. It applies to the
+repository the project is connected to now, while their GitHub account can push
+to it:
 
 ```bash
 volcano cloud lavaflow settings set --allow-ungated-workflows true
