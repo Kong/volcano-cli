@@ -360,6 +360,20 @@ func TestFilesListJSONEscapesEveryControl(t *testing.T) {
 	assert.Equal(t, path, listing.Entries[0].Path)
 }
 
+// A listing that never ends stops after maxListPages pages.
+func TestFilesListStopsAfterItsLastPage(t *testing.T) {
+	t.Parallel()
+	pages := make([]string, maxListPages+1)
+	for i := range pages {
+		pages[i] = fmt.Sprintf(`{"entries":[{"path":"f%06d","type":"file","size":0,"mode":420}],"next_cursor":"c%d"}`, i, i)
+	}
+	server, queries := listServer(t, pages...)
+	out, err := runFilesList(t, server, testSession, "--json")
+	require.ErrorContains(t, err, "the file listing did not end after 1000 pages")
+	assert.Len(t, *queries, maxListPages)
+	assert.Empty(t, out, "a stopped listing prints no partial result")
+}
+
 func TestFilesListStopsWhenTheCursorDoesNotMove(t *testing.T) {
 	t.Parallel()
 	server, bodies := listServer(t,

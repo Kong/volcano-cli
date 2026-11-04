@@ -152,12 +152,16 @@ one JSON object: the API's fields, with every page's entries in entries.`,
 	return cmd
 }
 
+// maxListPages stops a listing that never ends, such as a workspace a program
+// in the Sandbox keeps filling while the command reads it.
+const maxListPages = 1000
+
 // listAllFiles reads every page of a listing into one result with every
 // page's entries and no cursor. Each request repeats the first one's path and
 // options with the previous page's cursor, as the API requires.
 func listAllFiles(ctx context.Context, client *api.Client, params apiclient.ListSandboxSessionFilesParams) (*apiclient.SandboxFileListResult, error) {
 	listing := &apiclient.SandboxFileListResult{Entries: []apiclient.SandboxFileEntry{}}
-	for {
+	for pages := 1; ; pages++ {
 		page, err := client.ListSandboxFiles(ctx, &params)
 		if err != nil {
 			return nil, err
@@ -176,6 +180,9 @@ func listAllFiles(ctx context.Context, client *api.Client, params apiclient.List
 		// Following a cursor that does not move would never end.
 		if params.Cursor != nil && *params.Cursor == *page.NextCursor {
 			return nil, errors.New("the Volcano API returned the same file listing page twice")
+		}
+		if pages == maxListPages {
+			return nil, fmt.Errorf("the file listing did not end after %d pages: list a subdirectory, or raise --limit", maxListPages)
 		}
 		params.Cursor = page.NextCursor
 	}

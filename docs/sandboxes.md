@@ -107,8 +107,8 @@ says why in its place, and is unverified:
 | `skipped: changing` | Changed while it was hashed; list it again later |
 | `skipped: unreadable` | Not owned by the session user, has its owner-read bit (`0400`) clear, or has more than one hard link |
 
-The command reads every page before it prints. `--limit` sets the most entries
-per request, from 1 to 10000. With `--json` it prints one JSON object with the
+The command reads every page before it prints, and stops with an error after
+1000 pages. `--limit` sets the most entries per request, from 1 to 10000. With `--json` it prints one JSON object with the
 API's fields: `project_id`, `session_id`, every page's entries in `entries`,
 and `unsupported_names` when the listed directory holds names the listing
 skipped. In an entry, `mode` is the permission bits as a number (420 is
