@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.0](https://github.com/Kong/volcano-cli/compare/v0.65.1...v0.66.0) (2026-11-04)
+
+
+### Features
+
+* **lavaflow:** say merging isn't available before asking to turn it on ([#417](https://github.com/Kong/volcano-cli/issues/417)) ([ba4cc10](https://github.com/Kong/volcano-cli/commit/ba4cc10298e904d11242cdd4e8cb15ec7d1b34ec))
+
 ## [0.65.1](https://github.com/Kong/volcano-cli/compare/v0.65.0...v0.65.1) (2026-11-04)
 
 
