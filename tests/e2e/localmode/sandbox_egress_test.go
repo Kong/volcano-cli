@@ -1,6 +1,7 @@
 package localmode
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"testing"
@@ -44,15 +45,17 @@ func requireLocalModeSandboxEgress(t *testing.T, binary string, env []string, di
 		t.Helper()
 		return runVolcanoLocalModeE2EStdout(t, binary, env, dir, append([]string{"sandboxes"}, args...)...)
 	}
-	output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "run", "--preset", "python3.12", "--duration", "300", "--egress", "deny_all", "--json")
-	if err != nil {
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
+	defer cancel()
+	created := captureLocalModeCommand(ctx, binary, env, dir, "sandboxes", "run", "--preset", "python3.12", "--duration", "300", "--egress", "deny_all", "--json")
+	if created.err != nil {
 		// Published images can predate the network policy; Hosting's candidate-image lane must accept it.
-		require.NotEqual(t, "1", os.Getenv("VOLCANO_E2E_REQUIRE_SANDBOX_NETWORK"), "candidate image must accept the network policy: %s", output)
-		require.Contains(t, output, "HTTP 400", "an image without the policy refuses the unknown field")
+		require.NotEqual(t, "1", os.Getenv("VOLCANO_E2E_REQUIRE_SANDBOX_NETWORK"), "candidate image must accept the network policy: %s", created.stderr)
+		require.Contains(t, created.stderr, "HTTP 400", "an image without the policy refuses the unknown field")
 		return
 	}
 	var session egressSession
-	require.NoError(t, json.Unmarshal([]byte(output), &session), output)
+	require.NoError(t, json.Unmarshal([]byte(created.stdout), &session), created.stdout)
 	t.Cleanup(func() {
 		_, _ = runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "terminate", session.ID)
 	})
@@ -62,8 +65,8 @@ func requireLocalModeSandboxEgress(t *testing.T, binary string, env []string, di
 	assert.Contains(t, run("exec", "--preset", "python3.12", "--egress", "deny_all", "--", "python", "-c", networkProbe), "dns denied tcp denied loopback reached")
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "get", session.ID, "--json")
-		if !assert.NoError(c, err, output) || !assert.NoError(c, json.Unmarshal([]byte(output), &session), output) {
+		read := captureLocalModeCommand(t.Context(), binary, env, dir, "sandboxes", "get", session.ID, "--json")
+		if !assert.NoError(c, read.err, read.stderr) || !assert.NoError(c, json.Unmarshal([]byte(read.stdout), &session), read.stdout) {
 			return
 		}
 		assert.Equal(c, "running", session.State)
