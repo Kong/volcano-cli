@@ -26,14 +26,17 @@ func requireLocalModeRunsSandboxes(t *testing.T, binary string, env []string, di
 	require.Contains(t, run("exec", "--preset", "python3.12", "--", "python", "-c", "print('sandbox-python')"), "sandbox-python")
 	require.Contains(t, run("exec", "--preset", "node22", "--", "node", "-e", "console.log('sandbox-node')"), "sandbox-node")
 	var session struct {
-		ID string `json:"id"`
+		ID     string          `json:"id"`
+		Limits json.RawMessage `json:"limits"`
 	}
 	require.NoError(t, json.Unmarshal([]byte(run("run", "--preset", "python3.12", "--duration", "300", "--json")), &session))
 	require.NotEmpty(t, session.ID)
 	t.Cleanup(func() {
 		_, _ = runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "terminate", session.ID)
 	})
-	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"running"`, "sandboxes", "get", session.ID, "--json")
+	require.Nil(t, session.Limits, "a session created without --vcpus or --disk-mib has no limits")
+	running := waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"running"`, "sandboxes", "get", session.ID, "--json")
+	require.NotContains(t, running, `"limits"`)
 	run("exec", session.ID, "--", "sh", "-c", "printf retained > /workspace/value")
 	require.Equal(t, "retained", run("files", "read", session.ID, "/workspace/value"))
 	shell := exec.CommandContext(t.Context(), binary, "sandboxes", "shell", session.ID)
@@ -50,6 +53,7 @@ func requireLocalModeRunsSandboxes(t *testing.T, binary string, env []string, di
 	require.Equal(t, "retained", run("files", "read", session.ID, "/workspace/value"))
 	run("terminate", session.ID)
 	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"terminated"`, "sandboxes", "get", session.ID, "--json")
+	requireLocalModeSandboxLimits(t, binary, env, dir)
 	requireLocalModeSandboxUsage(t, binary, env, dir)
 	requireLocalModeCustomSandbox(t, binary, env, dir)
 }

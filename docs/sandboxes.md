@@ -65,6 +65,45 @@ volcano cloud sandboxes files write SESSION_ID /workspace/input.bin < input.bin
 volcano cloud sandboxes files read SESSION_ID /workspace/output.bin > output.bin
 ```
 
+## Cap CPU and disk
+
+```bash
+volcano cloud sandboxes run --preset python3.12 --vcpus 1 --disk-mib 2048
+volcano cloud sandboxes get SESSION_ID
+```
+
+`--vcpus` caps the CPU time the session's commands and template service use
+together, from 1 to 4 vCPUs. A 1024 MB session provides 2 vCPUs and a 2048 MB
+session 4; asking for more is refused. `--disk-mib` caps the space the session
+can write, from 64 to 6144 MiB, including `/workspace` and `/tmp`. A write past
+it fails with `No space left on device`. Without either flag, the session has no
+caps.
+
+A session created with caps reports them under `limits`:
+
+```json
+{
+  "limits": {
+    "applied": true,
+    "disk_mib": 2048,
+    "vcpus": 1
+  }
+}
+```
+
+These are the caps the session enforces: never higher than requested, and lower
+when the session has less. The session stays `starting` until it reports
+whether the caps hold, so wait for `running` before you rely on them. `applied`
+is then `true` when every cap is enforced. If you rely on the caps, terminate a
+session that reports `false`.
+
+Local sessions accept the same flags. A local session provides at most 2 vCPUs,
+and its `/workspace` and `/tmp` together hold at most 640 MiB, so `limits`
+reports the lower value when you ask for more.
+
+If the selected image predates caps, `run` is refused: redeploy the template,
+or retry once the preset is updated.
+
 ## Save a template
 
 ```bash
@@ -90,6 +129,8 @@ A template saves a preset and memory size. Custom image builds are not supported
 | `--region` | `exec`, `run` | Select a region; defaults to `us-east-1` |
 | `--timeout` | `exec` | Command deadline: 1–60 seconds for one-shot execution, 1–3600 for session execution; defaults to 60 |
 | `--duration` | `run` | Override session lifetime in seconds: cloud 30–28800; local 0 (unlimited) or positive. Omitted inherits the template |
+| `--vcpus` | `run` | Cap CPU at 1–4 vCPUs, up to what the session's memory provides |
+| `--disk-mib` | `run` | Cap the space the session can write at 64–6144 MiB |
 | `--request-id` | `exec`, `run` | UUID used to retry the same request safely |
 | `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, and `files read` return structured results |
 

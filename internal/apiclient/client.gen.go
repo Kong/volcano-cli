@@ -3570,6 +3570,21 @@ func (e SandboxSessionState) Valid() bool {
 	}
 }
 
+// Defines values for SandboxSessionAppliedLimitsApplied1.
+const (
+	Unknown SandboxSessionAppliedLimitsApplied1 = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SandboxSessionAppliedLimitsApplied1 enum.
+func (e SandboxSessionAppliedLimitsApplied1) Valid() bool {
+	switch e {
+	case Unknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxTemplateStatus.
 const (
 	SandboxTemplateStatusDeleting    SandboxTemplateStatus = "deleting"
@@ -5849,6 +5864,10 @@ type CreateProjectRequestTemplateId string
 
 // CreateSandboxSessionRequest defines model for CreateSandboxSessionRequest.
 type CreateSandboxSessionRequest struct {
+	// Limits Caps the session's code runs under, enforced inside the session. Each
+	// cap is an upper bound; the session's own size still bounds both.
+	Limits *SandboxSessionLimits `json:"limits,omitempty"`
+
 	// MaxDurationSeconds Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime.
 	MaxDurationSeconds *int `json:"max_duration_seconds,omitempty"`
 
@@ -10850,9 +10869,14 @@ type SandboxSession struct {
 	// ExpiresAt Absolute VM expiry. Null means unlimited in local mode.
 	ExpiresAt *time.Time         `json:"expires_at"`
 	Id        openapi_types.UUID `json:"id"`
-	MemoryMb  int                `json:"memory_mb"`
-	ProjectId openapi_types.UUID `json:"project_id"`
-	Region    string             `json:"region"`
+
+	// Limits The caps the session enforces, as the session reports them. Present only
+	// when the session was created with `limits`. The session stays
+	// `starting` until `applied` is known.
+	Limits    *SandboxSessionAppliedLimits `json:"limits,omitempty"`
+	MemoryMb  int                          `json:"memory_mb"`
+	ProjectId openapi_types.UUID           `json:"project_id"`
+	Region    string                       `json:"region"`
 
 	// SandboxId Explicit template used to create the session. Null when created directly from a preset.
 	SandboxId *openapi_types.UUID `json:"sandbox_id"`
@@ -10865,6 +10889,53 @@ type SandboxSessionDesiredState string
 
 // SandboxSessionState defines model for SandboxSession.State.
 type SandboxSessionState string
+
+// SandboxSessionAppliedLimits The caps the session enforces, as the session reports them. Present only
+// when the session was created with `limits`. The session stays
+// `starting` until `applied` is known.
+type SandboxSessionAppliedLimits struct {
+	// Applied `true` when every requested cap is enforced, `false` when the session
+	// could not enforce them, and `unknown` until the session reports.
+	// Terminate a session that reports anything but `true` if you rely on
+	// the caps.
+	Applied SandboxSessionAppliedLimits_Applied `json:"applied"`
+
+	// DiskMib Enforced disk cap in MiB. Never higher than requested; lower when the session's disk has less free space.
+	DiskMib *int `json:"disk_mib,omitempty"`
+
+	// Vcpus Enforced vCPU cap. Never higher than requested; lower when the session has fewer vCPUs.
+	Vcpus *int `json:"vcpus,omitempty"`
+}
+
+// SandboxSessionAppliedLimitsApplied0 defines model for .
+type SandboxSessionAppliedLimitsApplied0 = bool
+
+// SandboxSessionAppliedLimitsApplied1 defines model for SandboxSessionAppliedLimits.Applied.1.
+type SandboxSessionAppliedLimitsApplied1 string
+
+// SandboxSessionAppliedLimits_Applied `true` when every requested cap is enforced, `false` when the session
+// could not enforce them, and `unknown` until the session reports.
+// Terminate a session that reports anything but `true` if you rely on
+// the caps.
+type SandboxSessionAppliedLimits_Applied struct {
+	union json.RawMessage
+}
+
+// SandboxSessionLimits Caps the session's code runs under, enforced inside the session. Each
+// cap is an upper bound; the session's own size still bounds both.
+type SandboxSessionLimits struct {
+	// DiskMib Space the session can write beyond its image's contents, in MiB.
+	// It covers every path commands and the template service can write,
+	// including `/workspace` and `/tmp`. A write past it fails with
+	// `ENOSPC`. `/dev/shm` is memory, capped separately at 64 MiB.
+	DiskMib *int `json:"disk_mib,omitempty"`
+
+	// Vcpus CPU time the session's commands and template service may use
+	// together, in vCPUs. A 1024 MiB session has 2 vCPUs and a 2048 MiB
+	// session has 4; asking for more answers 400 with code
+	// `sandbox_limits_exceed_session`.
+	Vcpus *int `json:"vcpus,omitempty"`
+}
 
 // SandboxSessionPage defines model for SandboxSessionPage.
 type SandboxSessionPage struct {
@@ -14198,6 +14269,13 @@ func (t CreateSandboxSessionRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	if t.Limits != nil {
+		object["limits"], err = json.Marshal(t.Limits)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'limits': %w", err)
+		}
+	}
+
 	if t.MaxDurationSeconds != nil {
 		object["max_duration_seconds"], err = json.Marshal(t.MaxDurationSeconds)
 		if err != nil {
@@ -14243,6 +14321,13 @@ func (t *CreateSandboxSessionRequest) UnmarshalJSON(b []byte) error {
 	err = json.Unmarshal(b, &object)
 	if err != nil {
 		return err
+	}
+
+	if raw, found := object["limits"]; found {
+		err = json.Unmarshal(raw, &t.Limits)
+		if err != nil {
+			return fmt.Errorf("error reading 'limits': %w", err)
+		}
 	}
 
 	if raw, found := object["max_duration_seconds"]; found {
@@ -15133,6 +15218,68 @@ func (t *SandboxExecutionRequest) UnmarshalJSON(b []byte) error {
 		}
 	}
 
+	return err
+}
+
+// AsSandboxSessionAppliedLimitsApplied0 returns the union data inside the SandboxSessionAppliedLimits_Applied as a SandboxSessionAppliedLimitsApplied0
+func (t SandboxSessionAppliedLimits_Applied) AsSandboxSessionAppliedLimitsApplied0() (SandboxSessionAppliedLimitsApplied0, error) {
+	var body SandboxSessionAppliedLimitsApplied0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSandboxSessionAppliedLimitsApplied0 overwrites any union data inside the SandboxSessionAppliedLimits_Applied as the provided SandboxSessionAppliedLimitsApplied0
+func (t *SandboxSessionAppliedLimits_Applied) FromSandboxSessionAppliedLimitsApplied0(v SandboxSessionAppliedLimitsApplied0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSandboxSessionAppliedLimitsApplied0 performs a merge with any union data inside the SandboxSessionAppliedLimits_Applied, using the provided SandboxSessionAppliedLimitsApplied0
+func (t *SandboxSessionAppliedLimits_Applied) MergeSandboxSessionAppliedLimitsApplied0(v SandboxSessionAppliedLimitsApplied0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSandboxSessionAppliedLimitsApplied1 returns the union data inside the SandboxSessionAppliedLimits_Applied as a SandboxSessionAppliedLimitsApplied1
+func (t SandboxSessionAppliedLimits_Applied) AsSandboxSessionAppliedLimitsApplied1() (SandboxSessionAppliedLimitsApplied1, error) {
+	var body SandboxSessionAppliedLimitsApplied1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSandboxSessionAppliedLimitsApplied1 overwrites any union data inside the SandboxSessionAppliedLimits_Applied as the provided SandboxSessionAppliedLimitsApplied1
+func (t *SandboxSessionAppliedLimits_Applied) FromSandboxSessionAppliedLimitsApplied1(v SandboxSessionAppliedLimitsApplied1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSandboxSessionAppliedLimitsApplied1 performs a merge with any union data inside the SandboxSessionAppliedLimits_Applied, using the provided SandboxSessionAppliedLimitsApplied1
+func (t *SandboxSessionAppliedLimits_Applied) MergeSandboxSessionAppliedLimitsApplied1(v SandboxSessionAppliedLimitsApplied1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t SandboxSessionAppliedLimits_Applied) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *SandboxSessionAppliedLimits_Applied) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
 	return err
 }
 
