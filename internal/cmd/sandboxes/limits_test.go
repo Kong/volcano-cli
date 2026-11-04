@@ -126,8 +126,16 @@ func TestSessionOutputShowsLimits(t *testing.T) {
 				cmd := New(testDeps(server))
 				var out bytes.Buffer
 				cmd.SetOut(&out)
+				cmd.SetErr(&bytes.Buffer{})
+				cmd.SilenceUsage = true // as the root command does
 				cmd.SetArgs(line)
-				require.NoError(t, cmd.Execute(), strings.Join(line, " "))
+				err := cmd.Execute()
+				// A session read whose caps are not enforced still prints, then fails.
+				if applied == `"not_enforced"` && args[0] != "sessions" {
+					require.ErrorContains(t, err, "could not enforce its requested limits", strings.Join(line, " "))
+				} else {
+					require.NoError(t, err, strings.Join(line, " "))
+				}
 				assert.JSONEq(t, limits, readLimits(t, out.Bytes()), "applied=%s %s", applied, strings.Join(line, " "))
 			}
 		}
