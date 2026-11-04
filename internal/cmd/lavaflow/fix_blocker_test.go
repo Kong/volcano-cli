@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 )
 
@@ -42,7 +43,8 @@ func TestStatusAndSettingsSayWhatStopsLavaFlowAndWhatToRun(t *testing.T) {
 			"Warning: " + repositoryChangedMessage + " Run volcano cloud lavaflow enable.",
 		},
 		"a code the CLI doesn't know": {
-			map[string]any{"code": "quota_reached", "message": "LavaFlow reached this month's limit."}, nil,
+			map[string]any{"code": "quota_reached", "message": "LavaFlow reached this month's limit."},
+			nil,
 			"Warning: LavaFlow reached this month's limit.\n",
 		},
 	} {
@@ -63,6 +65,36 @@ func TestStatusAndSettingsSayWhatStopsLavaFlowAndWhatToRun(t *testing.T) {
 			})
 		}
 	}
+}
+
+// Both commands are the owner's, so anyone else gets Volcano's words alone.
+func TestSomeoneWhoCantChangeLavaFlowGetsTheReasonWithoutACommand(t *testing.T) {
+	for message, blocker := range map[string]map[string]any{
+		repositoryRequiredMessage: repositoryRequired(),
+		repositoryChangedMessage:  repositoryChanged(),
+	} {
+		for _, command := range []string{"status", "settings"} {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) { s.settings["enabled"], s.settings["fix_blocker"] = true, blocker })
+			t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"secret")
+
+			out, err := executeLavaflowCommand(t, New(deps), command)
+			require.NoError(t, err, command)
+			assert.Contains(t, out, "Warning: "+message+"\n", command)
+			assert.NotContains(t, out, " Run ", command)
+		}
+	}
+}
+
+// Volcano sends no blocker while LavaFlow is off; one it sends anyway isn't
+// shown, since nothing is stopped.
+func TestABlockerWhileLavaFlowIsOffIsntShown(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.settings["fix_blocker"] = repositoryRequired() })
+
+	out, err := executeLavaflowCommand(t, New(deps), "settings")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "Warning:")
 }
 
 // settings names the repository and branch fix pull requests go to, and says
@@ -115,6 +147,7 @@ func TestEnableWithoutARepositoryWarns(t *testing.T) {
 	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""), "enable", "--yes")
 	require.NoError(t, err)
 	assert.Equal(t, clilavaflow.EnableDisclosureWithoutRepository+"\n", errOut)
+	assert.Zero(t, fake.repoReads, "Volcano's blocker says there is no repository")
 	assert.NotContains(t, errOut, "in your connected repository")
 	assert.True(t, strings.HasPrefix(out, "Warning: LavaFlow is on, but it isn't fixing issues yet\n"), "%q", out)
 	assert.NotContains(t, out, "✓")

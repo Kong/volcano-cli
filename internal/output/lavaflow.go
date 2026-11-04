@@ -25,24 +25,32 @@ const (
 )
 
 // lavaflowFixBlocker says, in Volcano's words, what stops LavaFlow fixing
-// issues while it is on, and the command that acts on it. A code without a
-// command gets Volcano's words alone.
-func lavaflowFixBlocker(w io.Writer, on bool, blocker *apiclient.LavaflowFailure, commands LavaflowCommands) {
-	if blocker == nil {
+// issues while it is on, and the command that acts on it. Both commands are
+// the owner's, so anyone else, and a code without a command, gets Volcano's
+// words alone.
+func lavaflowFixBlocker(w io.Writer, on bool, settings *apiclient.LavaflowSettings, commands LavaflowCommands) {
+	blocker := settings.FixBlocker
+	if blocker == nil || !settings.Enabled {
 		return
+	}
+	message := clean(blocker.Message)
+	if message == "" {
+		message = "LavaFlow isn't fixing issues: " + clean(blocker.Code) + "."
 	}
 	var command string
-	switch blocker.Code {
-	case lavaflowRepositoryRequired:
-		command = commands.GitConnect
-	case lavaflowRepositoryChanged:
-		command = commands.Enable
+	if settings.CanUpdate {
+		switch blocker.Code {
+		case lavaflowRepositoryRequired:
+			command = commands.GitConnect
+		case lavaflowRepositoryChanged:
+			command = commands.Enable
+		}
 	}
 	if command == "" {
-		Warning(w, "%s", clean(blocker.Message))
+		Warning(w, "%s", message)
 		return
 	}
-	Warning(w, "%s Run %s.", clean(blocker.Message), theme.Command(command, on))
+	Warning(w, "%s Run %s.", message, theme.Command(command, on))
 }
 
 // lavaflowRepository names the repository fix pull requests go to and their
@@ -87,13 +95,15 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	if details.MergeAvailable != nil {
 		kv(w, on, "Merging", "%s", lavaflowMergeAvailability(*details.MergeAvailable))
 	}
-	switch details.RepositoryState {
-	case "connected":
+	// The settings name the repository and branch together; an API older
+	// than them leaves the git connection to say.
+	switch {
+	case settings.Repository != nil:
+		kv(w, on, "Repository", "%s", clean(settings.Repository.RepoFullName))
+		kv(w, on, "Branch", "%s", clean(settings.Repository.ProductionBranch))
+	case details.RepositoryState == "connected":
 		kv(w, on, "Repository", "%s", clean(details.Repository))
-		if settings.Repository != nil {
-			kv(w, on, "Branch", "%s", clean(settings.Repository.ProductionBranch))
-		}
-	case "not_connected":
+	case details.RepositoryState == "not_connected":
 		kv(w, on, "Repository", "none connected")
 	}
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
@@ -115,7 +125,7 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 		return
 	}
 	if settings.FixBlocker != nil {
-		lavaflowFixBlocker(w, on, settings.FixBlocker, LavaflowCommands{
+		lavaflowFixBlocker(w, on, settings, LavaflowCommands{
 			GitConnect: details.GitConnectCommand + " <git-url>",
 			Enable:     details.EnableCommand,
 		})
@@ -140,7 +150,7 @@ func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings, command
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
 	block(w, on, "System prompt", settings.SystemPrompt)
-	lavaflowFixBlocker(w, on, settings.FixBlocker, commands)
+	lavaflowFixBlocker(w, on, settings, commands)
 }
 
 // LavaflowSettingsSaved renders the settings a change left, then what stops
@@ -153,7 +163,7 @@ func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.Lava
 // LavaflowTurnedOn renders the settings enable left. While something stops
 // LavaFlow fixing issues, it warns instead of reporting success.
 func LavaflowTurnedOn(w io.Writer, settings *apiclient.LavaflowSettings, commands LavaflowCommands) {
-	if settings.FixBlocker != nil {
+	if settings.FixBlocker != nil && settings.Enabled {
 		Warning(w, "LavaFlow is on, but it isn't fixing issues yet")
 	} else {
 		Success(w, "LavaFlow is on")
@@ -169,7 +179,7 @@ func lavaflowSavedSettings(w io.Writer, settings *apiclient.LavaflowSettings, co
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
-	lavaflowFixBlocker(w, on, settings.FixBlocker, commands)
+	lavaflowFixBlocker(w, on, settings, commands)
 }
 
 // LavaflowStats renders the issues LavaFlow took on and the fix pull requests

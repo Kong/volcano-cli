@@ -98,6 +98,8 @@ Turn LavaFlow on? Type 'y' or 'yes' to confirm: y
 ✓ LavaFlow is on
 LavaFlow: on
 Autonomy: open fix pull requests
+Repository: acme/shop
+Branch: main
 Human review paths: none
 Custom context: not set
 System prompt: not set
@@ -153,8 +155,8 @@ While LavaFlow is on but something stops it fixing issues, `status`,
 `settings` and `enable` end with Volcano's reason and the command to run:
 `volcano git connect <git-url>` when the project has no repository, and
 `volcano cloud lavaflow enable` when the project's repository changed since
-LavaFlow was turned on. For a reason the CLI has no command for, they print
-Volcano's words alone. With `--json`, the settings carry the reason as
+LavaFlow was turned on. Both are the owner's to run, so anyone else, and a
+reason the CLI has no command for, gets Volcano's words alone. With `--json`, the settings carry the reason as
 `fix_blocker`, with a `code` and a `message`, and the repository and branch
 as `repository`; each is `null` when there is none.
 

@@ -28,21 +28,15 @@ const OnDescription = "LavaFlow uses AI to diagnose this project's errors from t
 	"and opens fix pull requests in your connected repository."
 
 // OnDescriptionWithoutRepository is OnDescription for a project with no
-// repository, where LavaFlow opens no fix pull requests.
+// repository, where LavaFlow opens no fix pull requests. It keeps the
+// approved AI wording and drops only the claim about a connected
+// repository.
 const OnDescriptionWithoutRepository = "LavaFlow uses AI to diagnose this project's errors from their logs and " +
 	"deployed source. It opens fix pull requests only in a connected repository, and this project has none."
 
-// What the API's fix_blocker says stops LavaFlow fixing issues while it is
-// on. Its message is Volcano's to show as given; a code the CLI doesn't know
-// gets the message alone.
-const (
-	// FixBlockerRepositoryRequired: the project has no repository. Connect
-	// one.
-	FixBlockerRepositoryRequired = "repository_required"
-	// FixBlockerRepositoryChanged: the project's repository changed since
-	// LavaFlow was turned on. Turn it on again.
-	FixBlockerRepositoryChanged = "repository_changed"
-)
+// fixBlockerRepositoryRequired is the API's fix_blocker code for a project
+// with no repository.
+const fixBlockerRepositoryRequired = "repository_required"
 
 // ErrUnavailable reports an API without LavaFlow: a platform release older
 // than LavaFlow, which has none of its routes. Said in place of the 404 it
@@ -338,6 +332,9 @@ func (s Service) Enable(ctx context.Context, confirm func(disclosure string) err
 	return s.update(ctx, "turn LavaFlow on", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, true,
 		func(authenticated *clisession.ProjectSession, current *apiclient.LavaflowSettings) error {
 			disclosure := EnableDisclosure
+			if current.FixBlocker != nil && current.FixBlocker.Code == fixBlockerRepositoryRequired {
+				return confirm(EnableDisclosureWithoutRepository)
+			}
 			// An API older than the settings' repository leaves it out, so
 			// the connection says.
 			if current.Repository == nil {
