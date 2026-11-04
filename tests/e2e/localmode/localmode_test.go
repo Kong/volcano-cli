@@ -148,6 +148,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeDeploysWholeProject(t, volcanoBin, env)
 	requireLocalModeDeployHonorsItsFlagsAndReportsAFailedBuild(t, volcanoBin, env)
 	requireLocalModeDeploysStarter(t, volcanoBin, env)
+	requireLocalModeDeploysTypeScriptFunctions(t, volcanoBin, env)
 
 	resetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "reset", "--yes")
 	requireContains(t, resetOutput, "Local reset complete.")

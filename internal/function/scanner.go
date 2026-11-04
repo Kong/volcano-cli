@@ -14,6 +14,9 @@ import (
 type RuntimeCatalog struct {
 	byExtension  map[string]apiclient.FunctionRuntimeOption
 	byEntrypoint map[string]apiclient.FunctionRuntimeOption
+	// typeScript is the runtime a TypeScript handler deploys on, nil when the
+	// catalog has no default Node.js runtime.
+	typeScript *apiclient.FunctionRuntimeOption
 }
 
 // RuntimeCatalogFromOptions converts the API runtime catalog to scanner/package metadata.
@@ -31,6 +34,9 @@ func RuntimeCatalogFromOptions(options []apiclient.FunctionRuntimeOption) Runtim
 			catalog.byExtension[extension] = option
 		}
 		catalog.byEntrypoint[option.Deployment.Entrypoint] = option
+		if option.Language == typeScriptLanguage {
+			catalog.typeScript = &option
+		}
 	}
 
 	return catalog
@@ -86,6 +92,9 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 
 		runtime, ok := catalog.runtimeForFile(entry.Name())
 		if !ok {
+			runtime, ok = catalog.typeScriptRuntimeForFile(entry.Name())
+		}
+		if !ok {
 			continue
 		}
 		functions = append(functions, SourceInfo{
@@ -95,6 +104,7 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 		})
 	}
 
+	functions = dropShadowedTypeScriptFiles(functions)
 	sort.Slice(functions, func(i, j int) bool {
 		return functions[i].Name < functions[j].Name
 	})
@@ -142,7 +152,23 @@ func normalizeTarget(target string) string {
 	return name
 }
 
+// detectDirectoryRuntime chooses a directory function's entry: an index.*
+// entrypoint, JavaScript before TypeScript, then any other runtime entrypoint
+// by name, such as main.py.
 func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (apiclient.FunctionRuntimeOption, string, bool) {
+	runtime, entryFile, ok := detectEntrypoint(dirPath, catalog)
+	if ok && isIndexEntrypoint(entryFile) {
+		return runtime, entryFile, true
+	}
+	if tsRuntime, tsEntry, found := catalog.typeScriptDirectoryEntry(dirPath); found {
+		return tsRuntime, tsEntry, true
+	}
+	return runtime, entryFile, ok
+}
+
+// detectEntrypoint finds the first file, by name, named as a runtime's
+// entrypoint, such as index.js or main.py.
+func detectEntrypoint(dirPath string, catalog RuntimeCatalog) (apiclient.FunctionRuntimeOption, string, bool) {
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
 		return apiclient.FunctionRuntimeOption{}, "", false
@@ -154,8 +180,7 @@ func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (apiclient.F
 		}
 		if runtime, ok := catalog.runtimeForEntrypoint(entry.Name()); ok {
 			entryFile := filepath.Join(dirPath, entry.Name())
-			info, err := os.Lstat(entryFile)
-			if err == nil && info.Mode().IsRegular() {
+			if isRegularFile(entryFile) {
 				return runtime, entryFile, true
 			}
 		}

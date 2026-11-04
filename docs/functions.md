@@ -44,6 +44,38 @@ scope it declared, giving it every project variable. With no
 `volcano-config.yaml` at all there is nothing to declare and deploy runs
 normally.
 
+## Function layout
+
+Each supported file or directory directly under `volcano/functions` is one function.
+Names starting with `_`, such as `_lib/`, hold shared code that every function
+archive includes.
+
+| Entry | Function | Entry file |
+|---|---|---|
+| `hello.js`, `hello.mjs`, `hello.py`, `hello.rb` | `hello` | the file itself |
+| `hello.ts`, `hello.mts`, `hello.cts` | `hello` | the file itself, compiled by Volcano |
+| `checkout/` | `checkout` | `index.js`, else `index.ts`, `index.mts` or `index.cts`, else `main.py` or `main.rb` |
+
+### TypeScript
+
+The CLI uploads a TypeScript handler as source, and Volcano compiles it to
+JavaScript during the build, in the cloud and in local mode:
+
+- Types are removed without being checked, so a type error doesn't fail the
+  deploy. Run `tsc --noEmit` in your own CI to catch type errors.
+- `.mts` compiles to an ES module and `.cts` to CommonJS. `.ts` is an ES module
+  when the function's `package.json` sets `"type": "module"`, CommonJS otherwise.
+- Imports through `paths` in a `tsconfig.json` inside the function's directory
+  resolve. Packages from `package.json` load from the installed dependencies.
+- JavaScript wins: `hello.js` beside `hello.ts`, or `checkout/index.js`,
+  `index.mjs` or `index.cjs` beside `checkout/index.ts`, deploys the JavaScript.
+- `.tsx` and declaration files such as `types.d.ts` aren't functions. A
+  directory needs its handler at its top, such as `checkout/index.ts`, not
+  `checkout/src/index.ts`.
+
+See [TypeScript](/platform/functions/creating-functions#typescript) for how the
+build compiles it.
+
 ## CLI operations
 
 | Operation | Command |
