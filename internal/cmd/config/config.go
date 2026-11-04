@@ -249,6 +249,9 @@ func runPull(ctx context.Context, opts pullOptions) error {
 	if slices.Contains(pulled.Removed, projectconfig.RemovedNotificationsWebhook) {
 		output.Note(opts.out, "the server returned notifications.webhook; it was removed so no webhook URL was written to disk")
 	}
+	if slices.Contains(pulled.Removed, projectconfig.RemovedLavaFlow) {
+		output.Note(opts.out, "the server returned a lavaflow section; it was removed because LavaFlow isn't part of the project configuration")
+	}
 	return nil
 }
 

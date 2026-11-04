@@ -45,14 +45,15 @@ func (s Service) Deploy(ctx context.Context, manifest *Manifest, dryRun bool) (*
 type PullResult struct {
 	Manifest []byte
 
-	// Removed lists the sections, RemovedVariables or
-	// RemovedNotificationsWebhook, taken out before the manifest was returned.
+	// Removed lists the sections, RemovedVariables, RemovedNotificationsWebhook
+	// or RemovedLavaFlow, taken out before the manifest was returned.
 	Removed []string
 }
 
 // Pull downloads the project's current configuration as the server-rendered
-// canonical YAML manifest, with variable values and the webhook URL removed if
-// the server included them (see sanitizePulledManifest).
+// canonical YAML manifest, with variable values, the webhook URL, and a
+// lavaflow section removed if the server included them (see
+// sanitizePulledManifest).
 func (s Service) Pull(ctx context.Context) (PullResult, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {

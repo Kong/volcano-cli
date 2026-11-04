@@ -135,7 +135,9 @@ Key semantics:
 - A top-level `lavaflow` section is refused, naming its line, and nothing is
   sent. LavaFlow isn't part of the project configuration: delete the section,
   and turn LavaFlow on or off or change its settings with
-  `volcano cloud lavaflow`. See [lavaflow.md](lavaflow.md).
+  `volcano cloud lavaflow`. See [lavaflow.md](lavaflow.md). If an older
+  server exports the section, `config pull` removes it before writing the
+  file.
 - `config pull` leaves `notifications.webhook` out, because its URL can carry
   the receiver's token. A manifest without it keeps the saved webhook; set
   `url: ""` to remove it, or declare the URL through a `${ENV_VAR}` reference.

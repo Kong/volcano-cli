@@ -144,3 +144,21 @@ notifications:
 	assert.Equal(t, []string{RemovedNotificationsWebhook}, removed)
 	assert.Equal(t, "version: 1\n", string(got))
 }
+
+// An older server exports a lavaflow section, which Parse refuses, so pull
+// drops it and what it writes loads again.
+func TestSanitizePulledManifestDropsLavaFlowSection(t *testing.T) {
+	got, removed, err := sanitizePulledManifest([]byte(`version: 1
+project:
+  name: shop
+lavaflow:
+  enabled: true
+  max_stage: diagnose
+`))
+	require.NoError(t, err)
+	assert.Equal(t, []string{RemovedLavaFlow}, removed)
+	assert.Equal(t, "version: 1\nproject:\n  name: shop\n", string(got))
+
+	_, err = Parse(got, noEnv)
+	require.NoError(t, err)
+}
