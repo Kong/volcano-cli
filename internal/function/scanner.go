@@ -104,7 +104,10 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 		})
 	}
 
-	functions = dropShadowedTypeScriptFiles(functions)
+	functions, err = resolveTypeScriptFiles(functions)
+	if err != nil {
+		return nil, err
+	}
 	sort.Slice(functions, func(i, j int) bool {
 		return functions[i].Name < functions[j].Name
 	})

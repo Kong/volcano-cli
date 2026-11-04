@@ -1,6 +1,7 @@
 package function
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -87,10 +88,12 @@ func singleFileEntrypoint(info SourceInfo) string {
 	return entrypoint
 }
 
-// dropShadowedTypeScriptFiles drops a single-file TypeScript function, such as
+// resolveTypeScriptFiles drops a single-file TypeScript function, such as
 // checkout.ts, when another source takes its name, such as checkout.js. That
-// source deployed before Volcano compiled TypeScript, and it still does.
-func dropShadowedTypeScriptFiles(sources []SourceInfo) []SourceInfo {
+// source deployed before Volcano compiled TypeScript, and it still does. Two
+// TypeScript files with one name, such as checkout.ts and checkout.mts, are an
+// error, as they are on the server: neither is the obvious handler.
+func resolveTypeScriptFiles(sources []SourceInfo) ([]SourceInfo, error) {
 	typeScriptFile := func(source SourceInfo) bool {
 		return !source.IsDir && isTypeScriptSource(filepath.Base(source.Path))
 	}
@@ -100,9 +103,22 @@ func dropShadowedTypeScriptFiles(sources []SourceInfo) []SourceInfo {
 			taken[source.Name] = true
 		}
 	}
-	return slices.DeleteFunc(sources, func(source SourceInfo) bool {
+	sources = slices.DeleteFunc(sources, func(source SourceInfo) bool {
 		return typeScriptFile(source) && taken[source.Name]
 	})
+
+	files := map[string]string{}
+	for _, source := range sources {
+		if !typeScriptFile(source) {
+			continue
+		}
+		file := filepath.Base(source.Path)
+		if other, ok := files[source.Name]; ok {
+			return nil, fmt.Errorf("function %q has two TypeScript files, %s and %s, in volcano/functions; keep one", source.Name, other, file)
+		}
+		files[source.Name] = file
+	}
+	return sources, nil
 }
 
 func isRegularFile(path string) bool {

@@ -63,6 +63,37 @@ func TestScanSourcesFindsTypeScriptFunctions(t *testing.T) {
 				}
 			}
 			assert.Equal(t, tc.want, got)
+			assert.Len(t, sources, len(tc.want), "one source per function")
+		})
+	}
+}
+
+func TestScanSourcesRejectsTwoTypeScriptFilesForOneFunction(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		files   []string
+		wantErr string
+	}{
+		{name: "ts and mts", files: []string{"hello.ts", "hello.mts"}, wantErr: `function "hello" has two TypeScript files, hello.mts and hello.ts, in volcano/functions; keep one`},
+		{name: "cts and ts", files: []string{"hello.cts", "hello.ts"}, wantErr: `function "hello" has two TypeScript files, hello.cts and hello.ts, in volcano/functions; keep one`},
+		{name: "javascript settles it", files: []string{"hello.js", "hello.mts", "hello.ts"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			functionsDir := filepath.Join(dir, "volcano", "functions")
+			require.NoError(t, os.MkdirAll(functionsDir, 0o755))
+			for _, file := range tc.files {
+				require.NoError(t, os.WriteFile(filepath.Join(functionsDir, file), []byte(""), 0o644))
+			}
+
+			sources, err := ScanSources(dir, testRuntimeCatalog(t))
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Len(t, sources, 1)
+			assert.Equal(t, filepath.Join(functionsDir, "hello.js"), sources[0].Path)
 		})
 	}
 }

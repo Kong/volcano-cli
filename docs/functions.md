@@ -69,6 +69,8 @@ JavaScript during the build, in the cloud and in local mode:
   resolve. Packages from `package.json` load from the installed dependencies.
 - JavaScript wins: `hello.js` beside `hello.ts`, or `checkout/index.js`,
   `index.mjs` or `index.cjs` beside `checkout/index.ts`, deploys the JavaScript.
+- Two TypeScript files with one name and no JavaScript, such as `hello.ts` and
+  `hello.mts`, stop the deploy until you keep one.
 - `.tsx` and declaration files such as `types.d.ts` aren't functions. A
   directory needs its handler at its top, such as `checkout/index.ts`, not
   `checkout/src/index.ts`.
