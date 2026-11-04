@@ -119,7 +119,7 @@ func TestScanSourcesNeedsANodeRuntimeForTypeScript(t *testing.T) {
 	assert.Empty(t, sources)
 }
 
-func TestMatchesTargetNamesTypeScriptSource(t *testing.T) {
+func TestFindTargetNamesTypeScriptSource(t *testing.T) {
 	dir := t.TempDir()
 	functionsDir := filepath.Join(dir, "volcano", "functions")
 	require.NoError(t, os.MkdirAll(functionsDir, 0o755))
@@ -127,7 +127,34 @@ func TestMatchesTargetNamesTypeScriptSource(t *testing.T) {
 
 	sources, err := ScanSources(dir, testRuntimeCatalog(t))
 	require.NoError(t, err)
-	require.Len(t, sources, 1)
-	assert.True(t, MatchesTarget(sources[0], "hello", dir))
-	assert.True(t, MatchesTarget(sources[0], filepath.Join("volcano", "functions", "hello.ts"), dir))
+	for _, target := range []string{"hello", filepath.Join("volcano", "functions", "hello.ts")} {
+		source, found := FindTarget(sources, target, dir)
+		require.True(t, found, target)
+		assert.Equal(t, "hello", source.Name, target)
+	}
+}
+
+// A path to a source's file names that source, even when its basename is
+// another function's name: index.ts beside orders/index.js is function index.
+func TestFindTargetPrefersPathsOverNames(t *testing.T) {
+	dir := t.TempDir()
+	functionsDir := filepath.Join(dir, "volcano", "functions")
+	require.NoError(t, os.MkdirAll(filepath.Join(functionsDir, "orders"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(functionsDir, "index.ts"), []byte(""), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(functionsDir, "orders", "index.js"), []byte(""), 0o644))
+
+	sources, err := ScanSources(dir, testRuntimeCatalog(t))
+	require.NoError(t, err)
+	require.Len(t, sources, 2)
+
+	source, found := FindTarget(sources, filepath.Join("volcano", "functions", "orders", "index.js"), dir)
+	require.True(t, found)
+	assert.Equal(t, "orders", source.Name)
+
+	source, found = FindTarget(sources, "index", dir)
+	require.True(t, found)
+	assert.Equal(t, "index", source.Name)
+
+	_, found = FindTarget(sources, "missing", dir)
+	assert.False(t, found)
 }

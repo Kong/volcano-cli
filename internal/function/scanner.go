@@ -121,14 +121,27 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 	return functions, nil
 }
 
-// MatchesTarget reports whether a scanned source is the one a --file value
-// names, by function name or by path to its source.
-func MatchesTarget(source SourceInfo, target, baseDir string) bool {
+// FindTarget returns the scanned source a --file value names. A path to a
+// source's file wins over a function name, so -f volcano/functions/orders/index.js
+// deploys orders even when another function is named index.
+func FindTarget(sources []SourceInfo, target, baseDir string) (SourceInfo, bool) {
 	target = strings.TrimSpace(target)
-	if source.Name == normalizeTarget(target) {
-		return true
+	for _, source := range sources {
+		if matchesPath(source, target, baseDir) {
+			return source, true
+		}
 	}
+	name := normalizeTarget(target)
+	for _, source := range sources {
+		if source.Name == name {
+			return source, true
+		}
+	}
+	return SourceInfo{}, false
+}
 
+// matchesPath reports whether target is the path to a scanned source's file.
+func matchesPath(source SourceInfo, target, baseDir string) bool {
 	sourcePath, err := filepath.Abs(source.Path)
 	if err != nil {
 		return false
