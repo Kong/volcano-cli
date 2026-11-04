@@ -54,7 +54,7 @@ archive includes.
 |---|---|---|
 | `hello.js`, `hello.mjs`, `hello.py`, `hello.rb` | `hello` | the file itself |
 | `hello.ts`, `hello.mts`, `hello.cts` | `hello` | the file itself, compiled by Volcano |
-| `checkout/` | `checkout` | `index.js`, else `index.ts`, `index.mts` or `index.cts`, else `main.py` or `main.rb` |
+| `checkout/` | `checkout` | `index.js`, else `main.py` or `main.rb`, else `index.ts`, `index.mts` or `index.cts` |
 
 ### TypeScript
 
@@ -67,8 +67,10 @@ JavaScript during the build, in the cloud and in local mode:
   when the function's `package.json` sets `"type": "module"`, CommonJS otherwise.
 - Imports through `paths` in a `tsconfig.json` inside the function's directory
   resolve. Packages from `package.json` load from the installed dependencies.
-- JavaScript wins: `hello.js` beside `hello.ts`, or `checkout/index.js`,
-  `index.mjs` or `index.cjs` beside `checkout/index.ts`, deploys the JavaScript.
+- TypeScript never changes what an existing function deploys: `hello.js` or
+  `hello.py` beside `hello.ts`, or `checkout/index.js`, `index.mjs`,
+  `index.cjs`, `main.py` or `main.rb` beside `checkout/index.ts`, deploys that
+  file instead.
 - Two TypeScript files with one name and no JavaScript, such as `hello.ts` and
   `hello.mts`, stop the deploy until you keep one.
 - `.tsx` and declaration files such as `types.d.ts` aren't functions. A

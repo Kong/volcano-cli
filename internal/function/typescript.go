@@ -69,14 +69,6 @@ func (c RuntimeCatalog) typeScriptDirectoryEntry(dirPath string) (apiclient.Func
 	return apiclient.FunctionRuntimeOption{}, "", false
 }
 
-// isIndexEntrypoint reports whether a directory entry is named index.*. An
-// index file comes before any other runtime's entrypoint, so index.ts beside
-// main.py deploys as Node.js, as it does on the server.
-func isIndexEntrypoint(entryFile string) bool {
-	name := filepath.Base(entryFile)
-	return strings.TrimSuffix(name, filepath.Ext(name)) == "index"
-}
-
 // singleFileEntrypoint is the archive path a single-file function's source
 // takes: the runtime's entrypoint, such as index.js, keeping a TypeScript
 // file's extension so the build compiles it, such as index.ts.

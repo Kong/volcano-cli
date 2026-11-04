@@ -155,18 +155,15 @@ func normalizeTarget(target string) string {
 	return name
 }
 
-// detectDirectoryRuntime chooses a directory function's entry: an index.*
-// entrypoint, JavaScript before TypeScript, then any other runtime entrypoint
-// by name, such as main.py.
+// detectDirectoryRuntime chooses a directory function's entry: a runtime
+// entrypoint such as index.js, main.py or main.rb, else a TypeScript index.
+// TypeScript ranks last so it never changes the runtime of a directory that
+// already deploys, such as main.py beside index.ts.
 func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (apiclient.FunctionRuntimeOption, string, bool) {
-	runtime, entryFile, ok := detectEntrypoint(dirPath, catalog)
-	if ok && isIndexEntrypoint(entryFile) {
+	if runtime, entryFile, ok := detectEntrypoint(dirPath, catalog); ok {
 		return runtime, entryFile, true
 	}
-	if tsRuntime, tsEntry, found := catalog.typeScriptDirectoryEntry(dirPath); found {
-		return tsRuntime, tsEntry, true
-	}
-	return runtime, entryFile, ok
+	return catalog.typeScriptDirectoryEntry(dirPath)
 }
 
 // detectEntrypoint finds the first file, by name, named as a runtime's
