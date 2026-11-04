@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -68,15 +69,28 @@ func listServer(t *testing.T, pages ...string) (*httptest.Server, *[]url.Values)
 
 func runFilesList(t *testing.T, server *httptest.Server, args ...string) (string, error) {
 	t.Helper()
+	out, _, err := runFilesListOutputs(t, server, args...)
+	return out, err
+}
+
+// runFilesListOutputs runs files list and returns its stdout and stderr.
+func runFilesListOutputs(t *testing.T, server *httptest.Server, args ...string) (string, string, error) {
+	t.Helper()
 	cmd := New(testDeps(server))
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
-	var out bytes.Buffer
+	var out, errOut bytes.Buffer
 	cmd.SetOut(&out)
-	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetErr(&errOut)
 	cmd.SetArgs(append([]string{"files", "list"}, args...))
 	err := cmd.Execute()
-	return out.String(), err
+	return out.String(), errOut.String(), err
+}
+
+// listPage is a listing page of testSession in sessionProject; rest holds
+// further top-level fields, each with a leading comma.
+func listPage(entries, rest string) string {
+	return `{"project_id":"` + sessionProject + `","session_id":"` + testSession + `","entries":[` + entries + `]` + rest + `}`
 }
 
 func TestFilesListFollowsEveryPageWithTheSameRequest(t *testing.T) {
@@ -93,23 +107,27 @@ func TestFilesListFollowsEveryPageWithTheSameRequest(t *testing.T) {
 	assert.Equal(t, []url.Values{first, second}, *queries, "the session's project, not the selected one, on every page")
 
 	assert.Equal(t, 1, strings.Count(out, "\n"), "compact JSON on one line")
-	var entries []apiclient.SandboxFileEntry
-	require.NoError(t, json.Unmarshal([]byte(out), &entries))
+	var listing apiclient.SandboxFileListResult
+	require.NoError(t, json.Unmarshal([]byte(out), &listing))
 	sum := strings.Repeat("a", 64)
-	assert.Equal(t, []apiclient.SandboxFileEntry{
-		{Path: "src/a", Type: apiclient.Directory, Mode: 0o755},
-		{Path: "src/a/b.py", Type: apiclient.File, Size: 3, Mode: 0o644, Sha256: &sum},
-		{Path: "src/c", Type: apiclient.Symlink, Mode: 0o777},
-	}, entries)
+	assert.Equal(t, apiclient.SandboxFileListResult{
+		ProjectId: uuid.MustParse(sessionProject),
+		SessionId: uuid.MustParse(testSession),
+		Entries: []apiclient.SandboxFileEntry{
+			{Path: "src/a", Type: apiclient.Directory, Mode: 0o755},
+			{Path: "src/a/b.py", Type: apiclient.File, Size: 3, Mode: 0o644, Sha256: &sum},
+			{Path: "src/c", Type: apiclient.Symlink, Mode: 0o777},
+		},
+	}, listing, "every page's entries, and no cursor")
 }
 
 func TestFilesListLeavesDefaultsToTheAPI(t *testing.T) {
 	t.Parallel()
-	server, queries := listServer(t, `{"entries":[]}`)
+	server, queries := listServer(t, listPage("", ""))
 	out, err := runFilesList(t, server, testSession, "--json")
 	require.NoError(t, err)
 	assert.Equal(t, []url.Values{listQuery(nil)}, *queries, "no path, recursion, digest, or limit unless asked")
-	assert.Equal(t, "[]\n", out)
+	assert.JSONEq(t, `{"entries":[],"project_id":"`+sessionProject+`","session_id":"`+testSession+`"}`, out, "an empty listing is an empty entries array")
 
 	server, queries = listServer(t, `{"entries":[]}`)
 	out, err = runFilesList(t, server, testSession, "--recursive")
@@ -145,8 +163,9 @@ func TestFilesListSaysWhyAFileHasNoDigest(t *testing.T) {
 	server, _ = listServer(t, page)
 	out, err = runFilesList(t, server, testSession, "--sha256", "--json")
 	require.NoError(t, err)
-	var entries []apiclient.SandboxFileEntry
-	require.NoError(t, json.Unmarshal([]byte(out), &entries))
+	var listing apiclient.SandboxFileListResult
+	require.NoError(t, json.Unmarshal([]byte(out), &listing))
+	entries := listing.Entries
 	require.Len(t, entries, 6)
 	skipped := func(reason apiclient.SandboxFileEntrySha256Skipped) *apiclient.SandboxFileEntrySha256Skipped {
 		return &reason
@@ -171,8 +190,9 @@ func TestFilesListPrintsATableWithPathLast(t *testing.T) {
 		`{"path":"src/\u001b[31mred\tname","type":"file","size":1,"mode":384}]}`
 
 	server, _ := listServer(t, page)
-	out, err := runFilesList(t, server, testSession)
+	out, errOut, err := runFilesListOutputs(t, server, testSession)
 	require.NoError(t, err)
+	assert.Empty(t, errOut, "a complete listing warns of nothing")
 	assert.Equal(t, `Type       Mode          Size  Path
 -----------------------------------
 directory  0755             -  src
@@ -191,6 +211,98 @@ Total: 5 entries
 	assert.Equal(t, "Type       Mode          Size  SHA-256                                                           Path", lines[0])
 	assert.Equal(t, "file       0644            15  "+sum+"  src/main.py", lines[3])
 	assert.Equal(t, "file       6755     300000000  -                                                                 src/big.bin", lines[4])
+}
+
+// incompletePage lists directories the listing could not enter or could not
+// fully carry, and skipped one name directly in the listed directory.
+var incompletePage = listPage(
+	`{"path":"src","type":"directory","size":0,"mode":493},`+
+		`{"path":"src/data","type":"directory","size":0,"mode":493,"unsupported_names":2},`+
+		`{"path":"src/data/ok.txt","type":"file","size":3,"mode":420},`+
+		`{"path":"src/locked","type":"directory","size":0,"mode":0,"unreadable":true},`+
+		`{"path":"src/z","type":"directory","size":0,"mode":448,"unsupported_names":1},`+
+		`{"path":"vault","type":"directory","size":0,"mode":256,"unreadable":true}`,
+	`,"unsupported_names":1`)
+
+func TestFilesListMarksWhatItCouldNotList(t *testing.T) {
+	t.Parallel()
+	server, _ := listServer(t, incompletePage)
+	out, errOut, err := runFilesListOutputs(t, server, testSession)
+	require.NoError(t, err, "an incomplete listing still succeeds")
+	assert.Equal(t, `Type       Mode          Size  Path
+-----------------------------------
+directory  0755             -  src
+directory  0755    incomplete  src/data
+file       0644             3  src/data/ok.txt
+directory  0000    unreadable  src/locked
+directory  0700    incomplete  src/z
+directory  0400    unreadable  vault
+
+Total: 6 entries
+`, out)
+	assert.Equal(t, "\n"+`Warning: The listing is incomplete.
+  2 directories marked unreadable were not entered: the session user lacks read or execute permission on them.
+  4 names were skipped, with everything below them, because they are not UTF-8 or their paths would pass 4096 bytes (1 in the listed directory, 3 in 2 directories marked incomplete).
+`, errOut)
+
+	server, _ = listServer(t, incompletePage)
+	out, _, err = runFilesListOutputs(t, server, testSession, "--sha256")
+	require.NoError(t, err)
+	assert.Equal(t, "directory  0000    unreadable  "+fmt.Sprintf("%-64s", "-")+"  src/locked", strings.Split(out, "\n")[5])
+}
+
+func TestFilesListWarnsOfOneSkippedNameOrDirectory(t *testing.T) {
+	t.Parallel()
+	server, _ := listServer(t, listPage(`{"path":"locked","type":"directory","size":0,"mode":0,"unreadable":true}`, `,"unsupported_names":1`))
+	_, errOut, err := runFilesListOutputs(t, server, testSession)
+	require.NoError(t, err)
+	assert.Equal(t, "\n"+`Warning: The listing is incomplete.
+  1 directory marked unreadable was not entered: the session user lacks read or execute permission on it.
+  1 name was skipped, with everything below it, because it is not UTF-8 or its path would pass 4096 bytes (1 in the listed directory).
+`, errOut)
+
+	server, _ = listServer(t, listPage(`{"path":"odd","type":"directory","size":0,"mode":493,"unsupported_names":3}`, ""))
+	_, errOut, err = runFilesListOutputs(t, server, testSession)
+	require.NoError(t, err)
+	assert.Equal(t, "\n"+`Warning: The listing is incomplete.
+  3 names were skipped, with everything below them, because they are not UTF-8 or their paths would pass 4096 bytes (3 in 1 directory marked incomplete).
+`, errOut)
+}
+
+func TestFilesListWarnsWhenItListsNothingButSkippedNames(t *testing.T) {
+	t.Parallel()
+	server, _ := listServer(t, listPage("", `,"unsupported_names":2`))
+	out, errOut, err := runFilesListOutputs(t, server, testSession, "odd")
+	require.NoError(t, err)
+	assert.Equal(t, "No entries\n", out)
+	assert.Contains(t, errOut, "\nWarning: The listing is incomplete.\n")
+	assert.Contains(t, errOut, "2 names were skipped, with everything below them, because they are not UTF-8 or their paths would pass 4096 bytes (2 in the listed directory).")
+}
+
+func TestFilesListJSONPassesTheListingThrough(t *testing.T) {
+	t.Parallel()
+	server, _ := listServer(t, incompletePage)
+	out, errOut, err := runFilesListOutputs(t, server, testSession, "--json")
+	require.NoError(t, err)
+	assert.JSONEq(t, incompletePage, out, "the API's fields as it sent them")
+	assert.Empty(t, errOut, "the JSON carries the markers; no warning")
+}
+
+func TestFilesListKeepsTheLargestSkippedCountAcrossPages(t *testing.T) {
+	t.Parallel()
+	server, _ := listServer(t,
+		listPage(`{"path":"a","type":"file","size":0,"mode":420}`, `,"unsupported_names":2,"next_cursor":"page-2"`),
+		listPage(`{"path":"b","type":"file","size":0,"mode":420}`, `,"unsupported_names":3,"next_cursor":"page-3"`),
+		listPage(`{"path":"c","type":"file","size":0,"mode":420}`, ""),
+	)
+	out, err := runFilesList(t, server, testSession, "--json")
+	require.NoError(t, err)
+	var listing apiclient.SandboxFileListResult
+	require.NoError(t, json.Unmarshal([]byte(out), &listing))
+	require.NotNil(t, listing.UnsupportedNames, "a later page without the count keeps an earlier one")
+	assert.Equal(t, 3, *listing.UnsupportedNames)
+	assert.Len(t, listing.Entries, 3)
+	assert.Nil(t, listing.NextCursor)
 }
 
 func TestFilesListQuotesOnlyPathsThatNeedIt(t *testing.T) {
@@ -222,10 +334,10 @@ func TestFilesListJSONEscapesEveryControl(t *testing.T) {
 	assert.NotContains(t, out, "\u001b")
 	assert.NotContains(t, out, "\u007f")
 	assert.NotContains(t, out, "\u009b")
-	var entries []apiclient.SandboxFileEntry
-	require.NoError(t, json.Unmarshal([]byte(out), &entries))
-	require.Len(t, entries, 1)
-	assert.Equal(t, path, entries[0].Path)
+	var listing apiclient.SandboxFileListResult
+	require.NoError(t, json.Unmarshal([]byte(out), &listing))
+	require.Len(t, listing.Entries, 1)
+	assert.Equal(t, path, listing.Entries[0].Path)
 }
 
 func TestFilesListStopsWhenTheCursorDoesNotMove(t *testing.T) {
@@ -266,10 +378,16 @@ func TestFilesListExplainsRefusals(t *testing.T) {
 			args:   []string{"src/main.py"},
 			want:   `"src/main.py" is not a directory in the session's workspace: it is missing, is a file, or passes through a symlink`,
 		},
-		"unsupported name": {
+		"unreadable": {
 			status: http.StatusBadRequest,
-			body:   `{"error":"the listing reached a name that is not UTF-8","code":"sandbox_path_unsupported"}`,
-			want:   "HTTP 400: the listing reached a name that is not UTF-8",
+			body:   `{"error":"the session user cannot list the path","code":"sandbox_path_unreadable"}`,
+			args:   []string{"src/locked"},
+			want:   `"src/locked" can't be listed: the session user lacks read or execute permission on it, or execute permission on a directory above it`,
+		},
+		"unreadable root": {
+			status: http.StatusBadRequest,
+			body:   `{"error":"the session user cannot list the path","code":"sandbox_path_unreadable"}`,
+			want:   "the workspace root can't be listed",
 		},
 		"sandboxes off": {
 			status: http.StatusNotFound,

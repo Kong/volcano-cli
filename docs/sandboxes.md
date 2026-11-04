@@ -92,7 +92,9 @@ Paths are relative to the workspace root and work with `files read` and
 contents. The listing includes every entry below the directory; pass
 `--recursive=false` for its direct entries only. A symlink is listed as
 `symlink` and never followed. A path that is missing, is a file, or passes
-through a symlink is refused as not a directory.
+through a symlink is refused as not a directory. A path the session user can't
+list, or can't reach because a directory above it lacks execute permission, is
+refused as unreadable.
 
 Add `--sha256` for each regular file's SHA-256 digest. A file without a digest
 says why in its place, and is unverified:
@@ -101,13 +103,16 @@ says why in its place, and is unverified:
 |---|---|
 | `skipped: budget` | Larger than 256 MiB |
 | `skipped: changing` | Changed while it was hashed; list it again later |
-| `skipped: unreadable` | Has more than one hard link, is owned by another user, or is unreadable by its owner |
+| `skipped: unreadable` | Not owned by the session user, has its owner-read bit (`0400`) clear, or has more than one hard link |
 
 The command reads every page before it prints. `--limit` sets the most entries
-per request, from 1 to 10000. With `--json` it prints every entry as one JSON
-array; `mode` is the permission bits as a number (420 is `0644`), and `sha256`
-or `sha256_skipped` (`budget`, `changing`, or `unreadable`) appears only with
-`--sha256`:
+per request, from 1 to 10000. With `--json` it prints one JSON object with the
+API's fields: `project_id`, `session_id`, every page's entries in `entries`,
+and `unsupported_names` when the listed directory holds names the listing
+skipped. In an entry, `mode` is the permission bits as a number (420 is
+`0644`); `sha256` or `sha256_skipped` (`budget`, `changing`, or `unreadable`)
+appears only with `--sha256`; `unreadable: true` marks a directory the listing
+didn't enter; and `unsupported_names` counts the names skipped in a directory:
 
 ```bash
 volcano cloud sandboxes files list SESSION_ID src --sha256 --json
@@ -115,6 +120,36 @@ volcano cloud sandboxes files list SESSION_ID src --sha256 --json
 
 A session started before file listing was available can't list its files.
 Start a new session; for a custom template, redeploy the template first.
+
+### Incomplete listings
+
+A listing leaves out a directory's contents when the session user can't list
+it, and names that are not UTF-8 or whose paths would pass 4096 bytes, with
+everything below them. The table marks each such directory in the Size column:
+
+| Marker | Directory |
+|---|---|
+| `unreadable` | The session user lacks read or execute permission on it; its contents aren't listed |
+| `incomplete` | Holds names the listing skipped |
+
+```text
+Type       Mode          Size  Path
+-----------------------------------
+directory  0000    unreadable  src/locked
+directory  0755    incomplete  src/pkg
+file       0600             5  src/pkg/data.txt
+
+Total: 3 entries
+
+Warning: The listing is incomplete.
+  1 directory marked unreadable was not entered: the session user lacks read or execute permission on it.
+  2 names were skipped, with everything below them, because they are not UTF-8 or their paths would pass 4096 bytes (1 in the listed directory, 1 in 1 directory marked incomplete).
+```
+
+The warning goes to stderr after the table. It also counts names skipped in the
+listed directory itself, which has no row. The command still succeeds. With
+`--json`, the same facts are in `unreadable` and `unsupported_names`, and no
+warning is printed.
 
 ## Save a template
 

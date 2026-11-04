@@ -19,10 +19,10 @@ import (
 
 // TestLocalModeE2ESandboxFiles lists a session's workspace through the CLI:
 // exact entries with types, modes, sizes and digests, a symlink reported and
-// not followed, paging, why a hard-linked file has no digest, and the refusal
-// for a path that is not a directory. It
-// has its own stack and project, so a failure here does not stop the smoke's
-// later checks.
+// not followed, paging, why a hard-linked file has no digest, a directory the
+// session user can't list and names the listing can't carry, and the refusals
+// for a path that is not a directory or can't be listed. It has its own stack
+// and project, so a failure here does not stop the smoke's later checks.
 func TestLocalModeE2ESandboxFiles(t *testing.T) {
 	if os.Getenv("VOLCANO_LOCALMODE_E2E") != "1" {
 		t.Skip("set VOLCANO_LOCALMODE_E2E=1 to run disposable Docker acceptance")
@@ -38,12 +38,16 @@ func TestLocalModeE2ESandboxFiles(t *testing.T) {
 		t.Helper()
 		return runVolcanoLocalModeE2EStdout(t, binary, env, dir, append([]string{"sandboxes"}, args...)...)
 	}
+	listing := func(args ...string) apiclient.SandboxFileListResult {
+		t.Helper()
+		var result apiclient.SandboxFileListResult
+		output := run(append([]string{"files", "list"}, append(args, "--json")...)...)
+		require.NoError(t, json.Unmarshal([]byte(output), &result), output)
+		return result
+	}
 	list := func(args ...string) []apiclient.SandboxFileEntry {
 		t.Helper()
-		var entries []apiclient.SandboxFileEntry
-		output := run(append([]string{"files", "list"}, append(args, "--json")...)...)
-		require.NoError(t, json.Unmarshal([]byte(output), &entries), output)
-		return entries
+		return listing(args...).Entries
 	}
 	var session struct {
 		ID string `json:"id"`
@@ -108,8 +112,7 @@ func TestLocalModeE2ESandboxFiles(t *testing.T) {
 
 	requireContains(t, run("files", "list", session.ID, "src"), "symlink    0777             -  src/pkg-link")
 
-	// A file with a second hard link is one the read route does not serve, so
-	// it gets no digest and says why.
+	// A file with more than one hard link gets no digest and says why.
 	run("exec", session.ID, "--", "sh", "-c", strings.Join([]string{
 		"mkdir /workspace/linked",
 		"echo linked > /workspace/linked/a",
@@ -127,6 +130,45 @@ func TestLocalModeE2ESandboxFiles(t *testing.T) {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "files", "list", session.ID, path)
 		require.Error(t, err, "listing %s must fail\n%s", path, output)
 		requireContains(t, output, `"`+path+`" is not a directory in the session's workspace`)
+	}
+
+	// The session user can't list a mode-000 directory: the listing marks it
+	// unreadable, leaves out what it holds, and walks on. Names that are not
+	// UTF-8 are counted in their directory, never listed.
+	run("exec", session.ID, "--", "sh", "-c", strings.Join([]string{
+		"mkdir -p /workspace/perm/locked /workspace/perm/open",
+		"echo hidden > /workspace/perm/locked/hidden.txt",
+		"echo open > /workspace/perm/open/visible.txt",
+		`touch "/workspace/perm/$(printf 'bad-\377')" "/workspace/perm/open/$(printf 'bad-\376')"`,
+		"chmod 755 /workspace/perm /workspace/perm/open",
+		"chmod 644 /workspace/perm/open/visible.txt",
+		"chmod 000 /workspace/perm/locked",
+	}, " && "))
+	yes, one := true, 1
+	perm := listing(session.ID, "perm")
+	assert.Equal(t, session.ID, perm.SessionId.String())
+	assert.Equal(t, []apiclient.SandboxFileEntry{
+		{Path: "perm/locked", Type: apiclient.Directory, Mode: 0, Unreadable: &yes},
+		{Path: "perm/open", Type: apiclient.Directory, Mode: 0o755, UnsupportedNames: &one},
+		{Path: "perm/open/visible.txt", Type: apiclient.File, Size: int64(len("open\n")), Mode: 0o644},
+	}, perm.Entries, "the walk continues past the unreadable directory")
+	assert.Equal(t, &one, perm.UnsupportedNames, "the name directly in perm")
+
+	human := runVolcanoLocalModeE2E(t, binary, env, dir, "sandboxes", "files", "list", session.ID, "perm")
+	requireContains(t, human, "directory  0000    unreadable  perm/locked\n")
+	requireContains(t, human, "directory  0755    incomplete  perm/open\n")
+	requireContains(t, human, "file       0644             5  perm/open/visible.txt\n")
+	requireNotContains(t, human, "hidden.txt")
+	requireContains(t, human, "Warning: The listing is incomplete.\n")
+	requireContains(t, human, "1 directory marked unreadable was not entered")
+	requireContains(t, human, "2 names were skipped, with everything below them, because they are not UTF-8 or their paths would pass 4096 bytes (1 in the listed directory, 1 in 1 directory marked incomplete).")
+
+	// Only sandbox_path_unreadable gets this message: the directory itself,
+	// and a path that passes through it.
+	for _, path := range []string{"perm/locked", "perm/locked/hidden.txt"} {
+		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "files", "list", session.ID, path)
+		require.Error(t, err, "listing %s must fail\n%s", path, output)
+		requireContains(t, output, `"`+path+`" can't be listed: the session user lacks read or execute permission`)
 	}
 }
 

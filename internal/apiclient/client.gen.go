@@ -10858,7 +10858,7 @@ type SandboxFileEntry struct {
 	// Sha256 Lowercase hex SHA-256 of a regular file's content, present only when `include_sha256` is true and the file could be hashed.
 	Sha256 *string `json:"sha256,omitempty"`
 
-	// Sha256Skipped Why a regular file has no `sha256` when `include_sha256` is true. `budget` is a file over 256 MiB. `changing` is a file that changed while it was hashed or kept changing; list it again later. `unreadable` is a file the read route does not serve: owned by another user, unreadable by its owner, or with more than one hard link. Treat such a file as unverified.
+	// Sha256Skipped Why a regular file has no `sha256` when `include_sha256` is true. `budget` is a file over 256 MiB. `changing` is a file that changed while it was hashed or kept changing; list it again later. `unreadable` is a file the session user doesn't own, whose owner-read bit (`0400`) is clear, or that has more than one hard link. Treat such a file as unverified.
 	Sha256Skipped *SandboxFileEntrySha256Skipped `json:"sha256_skipped,omitempty"`
 
 	// Size Size in bytes of a regular file; 0 for every other type.
@@ -10866,9 +10866,15 @@ type SandboxFileEntry struct {
 
 	// Type Entry type from the entry itself. A symlink is reported, never followed.
 	Type SandboxFileEntryType `json:"type"`
+
+	// Unreadable True on a directory the session user can't list; the listing doesn't enter it. The user's permission bits on the directory lack read or execute: the owner bits when the user owns it, the group bits when it belongs to the user's group, and the other bits otherwise. Absent on every other entry.
+	Unreadable *bool `json:"unreadable,omitempty"`
+
+	// UnsupportedNames In a recursive listing, how many names directly inside this directory no entry can carry: names that are not UTF-8, or whose path would pass 4096 bytes. The listing skips them and everything below them. Absent when there are none.
+	UnsupportedNames *int `json:"unsupported_names,omitempty"`
 }
 
-// SandboxFileEntrySha256Skipped Why a regular file has no `sha256` when `include_sha256` is true. `budget` is a file over 256 MiB. `changing` is a file that changed while it was hashed or kept changing; list it again later. `unreadable` is a file the read route does not serve: owned by another user, unreadable by its owner, or with more than one hard link. Treat such a file as unverified.
+// SandboxFileEntrySha256Skipped Why a regular file has no `sha256` when `include_sha256` is true. `budget` is a file over 256 MiB. `changing` is a file that changed while it was hashed or kept changing; list it again later. `unreadable` is a file the session user doesn't own, whose owner-read bit (`0400`) is clear, or that has more than one hard link. Treat such a file as unverified.
 type SandboxFileEntrySha256Skipped string
 
 // SandboxFileEntryType Entry type from the entry itself. A symlink is reported, never followed.
@@ -10887,6 +10893,9 @@ type SandboxFileListResult struct {
 
 	// SessionId The session listed.
 	SessionId openapi_types.UUID `json:"session_id"`
+
+	// UnsupportedNames How many names directly inside the listed directory no entry can carry: names that are not UTF-8, or whose path would pass 4096 bytes. The listing skips them and everything below them. Every page reports it. Absent when there are none.
+	UnsupportedNames *int `json:"unsupported_names,omitempty"`
 }
 
 // SandboxFileReadRequest defines model for SandboxFileReadRequest.
