@@ -639,6 +639,28 @@ func TestPullStripsNotificationsWebhookFromServer(t *testing.T) {
 	assert.Contains(t, string(written), "notifications:\n  email:\n    enabled: true\n")
 }
 
+// An older server exports a lavaflow section, which the next deploy would
+// refuse, so pull leaves it out and says so.
+func TestPullStripsLavaFlowSectionFromOlderServer(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/yaml")
+		_, _ = w.Write([]byte("version: 1\nlavaflow:\n  enabled: true\nshared_variables:\n  - LOG_LEVEL\n"))
+	}))
+	defer server.Close()
+
+	out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "pull")
+	require.NoError(t, err)
+	assert.Contains(t, out, "the server returned a lavaflow section")
+
+	written, err := os.ReadFile(filepath.Join(dir, "volcano-config.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, "version: 1\nshared_variables:\n  - LOG_LEVEL\n", string(written))
+}
+
 // TestPullRejectsUnparseableManifest fails closed: bytes the CLI could not
 // inspect are never written, so the value-free promise always holds.
 func TestPullRejectsUnparseableManifest(t *testing.T) {

@@ -31,6 +31,13 @@ func TestManifestAcceptsEveryProjectConfigField(t *testing.T) {
 		assert.Containsf(t, missing, field, "%s now decodes; remove its pending entry (%s)", field, change)
 		missing = slices.DeleteFunc(missing, func(m string) bool { return m == field })
 	}
+	// Each refused field is one the API ignores and never exports, which the
+	// manifest refuses with its own message rather than decode.
+	refused := map[string]string{"lavaflow": "LavaFlow is turned on with its own commands"}
+	for field, why := range refused {
+		assert.Containsf(t, missing, field, "%s now decodes, but the manifest refuses it: %s", field, why)
+		missing = slices.DeleteFunc(missing, func(m string) bool { return m == field })
+	}
 	assert.Empty(t, missing, "ProjectConfig fields the CLI manifest cannot decode")
 }
 

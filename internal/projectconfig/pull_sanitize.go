@@ -20,6 +20,7 @@ var ErrUnsafePulledManifest = errors.New("downloaded configuration could not be 
 const (
 	RemovedVariables            = "variables"
 	RemovedNotificationsWebhook = "notifications.webhook"
+	RemovedLavaFlow             = "lavaflow"
 )
 
 // pulledManifestIndent matches the two-space indentation the server uses in the
@@ -43,6 +44,9 @@ const pulledManifestIndent = 2
 //
 // `notifications.webhook` goes the same way: its URL can carry the receiver's
 // token, and the manifest is a file users commit.
+//
+// So does a top-level `lavaflow` section, which an older server exports: Parse
+// refuses it, so keeping it would make the pulled manifest fail its next load.
 //
 // A manifest that cannot be parsed is rejected rather than written: bytes we
 // could not inspect cannot be promised to be value-free.
@@ -81,6 +85,10 @@ func sanitizePulledManifest(manifest []byte) ([]byte, []string, error) {
 		value := root.Content[i+1]
 		if key.Value == "variables" {
 			removed = append(removed, RemovedVariables)
+			continue
+		}
+		if key.Value == "lavaflow" {
+			removed = append(removed, RemovedLavaFlow)
 			continue
 		}
 		if key.Value == "notifications" && dropYAMLKey(value, "webhook") {
