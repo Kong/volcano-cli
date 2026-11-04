@@ -92,3 +92,51 @@ func TestStatusSaysWhenTheCallerCantChangeIt(t *testing.T) {
 	assert.Contains(t, out, clilavaflow.OnDescription)
 	assert.NotContains(t, out, "Turn it on")
 }
+
+// The status says whether autonomy merge can be chosen, from the project's
+// lavaflow.merge capability. Any status but available is unavailable, and an
+// API that doesn't list merging leaves it out rather than guess.
+func TestStatusSaysWhetherLavaFlowCanMerge(t *testing.T) {
+	for capability, want := range map[string]any{
+		"available":   true,
+		"unavailable": false,
+		"limited":     false,
+		"":            nil,
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) { s.mergeCapability = capability })
+
+		out, err := executeLavaflowCommand(t, New(deps), "status")
+		require.NoError(t, err, "%q", capability)
+		switch want {
+		case true:
+			assert.Contains(t, out, "Merging: available\n", "%q", capability)
+		case false:
+			assert.Contains(t, out, "Merging: not available for this project yet\n", "%q", capability)
+		default:
+			assert.NotContains(t, out, "Merging:", "%q", capability)
+		}
+		assertLavaFlowWording(t, out)
+
+		out, err = executeLavaflowCommand(t, New(deps), "status", "--json")
+		require.NoError(t, err, "%q", capability)
+		got, listed := decodeJSON(t, out)["merge_available"]
+		assert.Equal(t, want != nil, listed, "%q", capability)
+		assert.Equal(t, want, got, "%q", capability)
+	}
+}
+
+// A capabilities read that fails leaves merging unknown, as it does LavaFlow's
+// own availability.
+func TestStatusLeavesMergingOutWhenTheCapabilitiesCantBeRead(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.mergeCapability, s.capabilitiesFailure = "available", http.StatusInternalServerError
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status", "--json")
+	require.NoError(t, err)
+	status := decodeJSON(t, out)
+	assert.NotContains(t, status, "merge_available")
+	assert.NotContains(t, status, "available")
+}
