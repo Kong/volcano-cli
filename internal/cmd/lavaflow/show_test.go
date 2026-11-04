@@ -179,3 +179,25 @@ func TestShowSaysWhereTheMergeIs(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, out, "Merge:")
 }
+
+// A held or stopped fix whose pull request a person merged or closed keeps
+// its merge line and reasons, without saying the pull request is still
+// theirs to merge.
+func TestShowDropsTheHandOffOnceThePullRequestCloses(t *testing.T) {
+	yours := "The pull request is now yours to review and merge on GitHub."
+	for _, status := range []string{"held", "stopped"} {
+		for _, state := range []string{"merged", "closed"} {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.holdFix(holdReason("label", "The pull request has the needs-human-review label."))
+				s.runs[0]["merge"].(map[string]any)["status"] = status
+				s.runs[0]["pull_request"].(map[string]any)["state"] = state
+			})
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err, status+"/"+state)
+			assert.Contains(t, out, "Merge: "+status+"\n", status+"/"+state)
+			assert.NotContains(t, out, yours, status+"/"+state)
+		}
+	}
+}

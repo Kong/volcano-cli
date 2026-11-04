@@ -44,6 +44,11 @@ type lavaflowServer struct {
 	// capability is the status of LavaFlow's capabilities entry; empty
 	// leaves the entry out.
 	capability string
+	// mergeCapability is the status of LavaFlow merging's capabilities entry;
+	// empty leaves the entry out, as an API older than it does.
+	mergeCapability string
+	// capabilitiesFailure answers the capabilities read with that status.
+	capabilitiesFailure int
 	// gateOff is LavaFlow unavailable for a project with records: the reads
 	// answer, and the PUT takes only turning it off. planOff says the owner's
 	// plan is why, so the PUT answers plan_required instead of
@@ -120,9 +125,16 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == project+"/capabilities" {
+		if s.capabilitiesFailure != 0 {
+			s.write(w, s.capabilitiesFailure, map[string]any{"error": "capabilities unavailable"})
+			return
+		}
 		items := []any{map[string]any{"id": "sandboxes", "status": "available"}}
 		if s.capability != "" {
 			items = append(items, map[string]any{"id": "lavaflow", "status": s.capability})
+		}
+		if s.mergeCapability != "" {
+			items = append(items, map[string]any{"id": "lavaflow.merge", "status": s.mergeCapability})
 		}
 		s.write(w, http.StatusOK, map[string]any{"data": items})
 		return
