@@ -73,4 +73,6 @@ func requireLocalModeSandboxEgress(t *testing.T, binary string, env []string, di
 	}, 2*time.Minute, 2*time.Second)
 	assert.Equal(t, "deny_all", session.Network.Applied, "a running session reports its observed network")
 	assert.Contains(t, run("exec", session.ID, "--", "python", "-c", networkProbe), "dns denied tcp denied loopback reached")
+	run("terminate", session.ID)
+	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"terminated"`, "sandboxes", "get", session.ID, "--json")
 }

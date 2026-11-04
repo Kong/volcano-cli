@@ -65,7 +65,9 @@ func TestEgressIsRefusedBeforeTransport(t *testing.T) {
 		args []string
 		want string
 	}{
-		"unknown policy":   {[]string{"run", "--preset", "python3.12", "--egress", "allow_all"}, "--egress must be default or deny_all"},
+		"unknown policy":   {[]string{"run", "--preset", "python3.12", "--egress", "allow_all"}, `"--egress" flag: must be default or deny_all`},
+		"empty policy":     {[]string{"run", "--preset", "python3.12", "--egress="}, `"--egress" flag: must be default or deny_all`},
+		"empty exec":       {[]string{"exec", "--preset", "python3.12", "--egress", "", "--", "true"}, `"--egress" flag: must be default or deny_all`},
 		"existing session": {[]string{"exec", testSession, "--egress", "deny_all", "--", "true"}, "egress only apply when creating a sandbox"},
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -14,9 +14,26 @@ import (
 )
 
 type launchOptions struct {
-	preset, template, region, key, egress string
-	memory, duration, timeout             int
+	preset, template, region, key string
+	egress                        egressFlag
+	memory, duration, timeout     int
 }
+
+// egressFlag validates at parse time, so an explicit --egress= is refused
+// instead of falling back to the server default.
+type egressFlag apiclient.SandboxSessionNetworkRequestEgress
+
+func (f *egressFlag) Set(value string) error {
+	if !apiclient.SandboxSessionNetworkRequestEgress(value).Valid() {
+		return errors.New("must be default or deny_all")
+	}
+	*f = egressFlag(value)
+	return nil
+}
+
+func (f *egressFlag) String() string { return string(*f) }
+
+func (*egressFlag) Type() string { return "policy" }
 
 func (o *launchOptions) flags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.preset, "preset", "", "Preset from sandboxes presets")
@@ -24,7 +41,7 @@ func (o *launchOptions) flags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.region, "region", "us-east-1", "Sandbox region")
 	cmd.Flags().StringVar(&o.key, "request-id", "", "UUID idempotency key; reuse when retrying the same request")
 	cmd.Flags().IntVar(&o.memory, "memory", 0, "Memory in MB (1024 or 2048; defaults to the preset or template)")
-	cmd.Flags().StringVar(&o.egress, "egress", "", "Outbound network for the session's lifetime: default, or deny_all for no DNS, internet, or port access")
+	cmd.Flags().Var(&o.egress, "egress", "Outbound network for the session's lifetime: default, or deny_all for no DNS, internet, or port access")
 }
 
 func (o launchOptions) request() (apiclient.CreateSandboxSessionRequest, uuid.UUID, error) {
@@ -40,11 +57,7 @@ func (o launchOptions) request() (apiclient.CreateSandboxSessionRequest, uuid.UU
 		result.MemoryMb = &memory
 	}
 	if o.egress != "" {
-		egress := apiclient.SandboxSessionNetworkRequestEgress(o.egress)
-		if !egress.Valid() {
-			return result, uuid.Nil, errors.New("--egress must be default or deny_all")
-		}
-		result.Network = &apiclient.SandboxSessionNetworkRequest{Egress: egress}
+		result.Network = &apiclient.SandboxSessionNetworkRequest{Egress: apiclient.SandboxSessionNetworkRequestEgress(o.egress)}
 	}
 	if o.preset != "" {
 		preset := o.preset
