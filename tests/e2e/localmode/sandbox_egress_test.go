@@ -48,7 +48,7 @@ func requireLocalModeSandboxEgress(t *testing.T, binary string, env []string, di
 	if err != nil {
 		// Published images can predate the network policy; Hosting's candidate-image lane must accept it.
 		require.NotEqual(t, "1", os.Getenv("VOLCANO_E2E_REQUIRE_SANDBOX_NETWORK"), "candidate image must accept the network policy: %s", output)
-		require.Contains(t, output, "network")
+		require.Contains(t, output, "HTTP 400", "an image without the policy refuses the unknown field")
 		return
 	}
 	var session egressSession
