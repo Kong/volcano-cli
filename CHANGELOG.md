@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.65.1](https://github.com/Kong/volcano-cli/compare/v0.65.0...v0.65.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **lavaflow:** say a held fix is yours to merge only while its pull request is open ([#414](https://github.com/Kong/volcano-cli/issues/414)) ([05a88f7](https://github.com/Kong/volcano-cli/commit/05a88f7c5d69fae2be04f952b19a8de2ff65be85))
+
 ## [0.65.0](https://github.com/Kong/volcano-cli/compare/v0.64.0...v0.65.0) (2026-11-04)
 
 
