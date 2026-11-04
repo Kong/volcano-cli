@@ -1,0 +1,439 @@
+# How the volcano CLI (Kong/volcano-cli) reaches each operation in
+# api/openapi.yaml. Every route and dashboard action needs a CLI path; a missing
+# one is a gap to close, not an exception.
+#
+# Each operation, keyed by method and path as the spec writes them, has
+# exactly one of:
+#
+#   command   the full volcano command path that calls it, or that gives the
+#             same result through another operation; `flags` optionally names
+#             the flags that select it
+#   manifest  the volcano-config.yaml section, when `volcano cloud config
+#             deploy` is the only way the CLI reaches it
+#   reason    one of `reasons` below; a gap links its `issue`, and a retiring
+#             route links the `pr` that removes it
+#
+# TestEveryOperationHasACLIEntry fails until a new operation is listed. The
+# volcano CLI vendors this file and checks that each command exists.
+
+reasons:
+  data_plane: An application, SDK or end user calls it with an application credential or none.
+  client_protocol: A protocol endpoint other clients speak directly, such as /mcp, the OpenAPI document and capability discovery.
+  browser: A redirect leg a CLI flow drives indirectly, such as an OAuth callback around a device-style poll.
+  gap: A command should call it and none does yet.
+  retiring: The route is being removed.
+
+operations:
+  'GET /sandboxes/presets': { command: volcano cloud sandboxes presets }
+  'GET /projects/{id}/sandboxes': { command: volcano cloud sandboxes templates list }
+  'POST /projects/{id}/sandboxes': { command: volcano cloud sandboxes templates create }
+  'GET /projects/{id}/sandboxes/{sandboxId}': { command: volcano cloud sandboxes templates get }
+  'PATCH /projects/{id}/sandboxes/{sandboxId}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2429 }
+  'DELETE /projects/{id}/sandboxes/{sandboxId}': { command: volcano cloud sandboxes templates delete }
+  'POST /projects/{id}/sandboxes/{sandboxId}/deployments': { command: volcano cloud sandboxes templates deploy }
+  'GET /projects/{id}/sandboxes/{sandboxId}/deployments': { command: volcano cloud sandboxes deployments list }
+  'GET /projects/{id}/sandboxes/{sandboxId}/deployments/{deploymentId}':
+    { command: volcano cloud sandboxes deployments get }
+  'GET /projects/{id}/sandboxes/{sandboxId}/deployments/{deploymentId}/logs':
+    { command: volcano cloud sandboxes deployments logs }
+  'GET /projects/{id}/sandboxes/{sandboxId}/deployments/{deploymentId}/source':
+    { command: volcano cloud sandboxes deployments source }
+  'GET /projects/{id}/sandbox-sessions': { command: volcano cloud sandboxes sessions }
+  'POST /projects/{id}/sandbox-sessions': { command: volcano cloud sandboxes run }
+  'POST /projects/{id}/sandbox-executions': { command: volcano cloud sandboxes exec }
+  'GET /sandbox-sessions/{sessionId}': { command: volcano cloud sandboxes get }
+  'DELETE /sandbox-sessions/{sessionId}': { command: volcano cloud sandboxes terminate }
+  'POST /sandbox-sessions/{sessionId}/suspend': { command: volcano cloud sandboxes suspend }
+  'POST /sandbox-sessions/{sessionId}/resume': { command: volcano cloud sandboxes resume }
+  'POST /sandbox-sessions/{sessionId}/exec': { command: volcano cloud sandboxes exec }
+  'POST /sandbox-sessions/{sessionId}/files/read': { command: volcano cloud sandboxes files read }
+  'POST /sandbox-sessions/{sessionId}/files/write': { command: volcano cloud sandboxes files write }
+  'PUT /sandbox-sessions/{sessionId}/grants/{subjectId}': { reason: data_plane }
+  'DELETE /sandbox-sessions/{sessionId}/grants/{subjectId}': { reason: data_plane }
+  'POST /sandbox-sessions/{sessionId}/access':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2429 }
+  'POST /user/imports/connect': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2426 }
+  'GET /imports/{provider}/callback': { reason: browser }
+  'GET /user/imports/connections': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2426 }
+  'DELETE /user/imports/connections/{connectionId}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2426 }
+  'GET /imports/{provider}/sources': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2426 }
+  'POST /imports/{provider}/preflight': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2426 }
+  'POST /imports/{provider}/runs': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2426 }
+  'GET /imports/{provider}/runs/{runId}': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2426 }
+  'POST /user/git/connect': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2412 }
+  'GET /user/git/connections': { command: volcano git connect }
+  'DELETE /user/git/connections/{connectionId}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2428 }
+  'GET /user/git/connections/{connectionId}/installations': { command: volcano git connect }
+  'GET /user/git/connections/{connectionId}/installations/{installationId}/repositories':
+    { command: volcano git connect }
+  'GET /user/domains': { command: volcano cloud domains list }
+  'POST /user/domains': { command: volcano cloud domains verify }
+  'DELETE /user/domains/{domain}': { command: volcano cloud domains remove }
+  'GET /github/callback': { reason: browser }
+  'GET /projects': { command: volcano projects }
+  'POST /projects': { command: volcano projects create }
+  'GET /projects/{id}': { command: volcano projects get }
+  'PATCH /projects/{id}': { command: volcano projects rename }
+  'DELETE /projects/{id}': { command: volcano projects delete }
+  'GET /projects/{id}/health': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2420 }
+  'POST /projects/{id}/metrics/query': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2420 }
+  'GET /projects/{id}/logo': { reason: data_plane }
+  'POST /projects/{id}/logo': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'DELETE /projects/{id}/logo': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'GET /projects/{id}/usage': { command: volcano projects usage }
+  'PUT /projects/{id}/shared-variables': { manifest: shared_variables }
+  'PUT /projects/{id}/frontend-shared-variables': { manifest: frontend_shared_variables }
+  'GET /projects/{id}/config': { command: volcano cloud config pull }
+  'PUT /projects/{id}/config': { command: volcano cloud config deploy }
+  'GET /projects/{id}/source-export': { command: volcano cloud deploy }
+  'POST /projects/{id}/source-export': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2428 }
+  'DELETE /projects/{id}/source-export': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2428 }
+  'PUT /projects/{id}/git-connection/production-branch': { command: volcano git production-branch }
+  'PUT /projects/{id}/git-connection/root-directory': { command: volcano git root-directory }
+  'GET /projects/{id}/git-connection/owner-push':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2428 }
+  'GET /projects/{id}/git-connection': { command: volcano git status }
+  'PUT /projects/{id}/git-connection': { command: volcano git connect }
+  'DELETE /projects/{id}/git-connection': { command: volcano git disconnect }
+  'GET /projects/{id}/git-deploy-settings': { command: volcano git status }
+  'PUT /projects/{id}/git-deploy-settings': { command: volcano git auto-deploy }
+  'GET /projects/{id}/databases/{databaseName}/queries':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2420 }
+  'GET /deployments': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2420 }
+  'GET /projects/{id}/deployments': { command: volcano cloud deploy }
+  'GET /projects/{id}/deployments/summary': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2420 }
+  'GET /projects/{id}/domains': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2430 }
+  'GET /projects/{id}/functions': { command: volcano cloud functions list }
+  'POST /projects/{id}/functions': { command: volcano cloud functions deploy }
+  'GET /projects/{id}/functions/{functionId}': { command: volcano cloud functions get }
+  'PATCH /projects/{id}/functions/{functionId}': { command: volcano cloud functions update }
+  'DELETE /projects/{id}/functions/{functionId}': { command: volcano cloud functions delete }
+  'POST /functions/{functionId}/invoke': { command: volcano cloud functions invoke }
+  'POST /durable-functions/{functionId}/executions': { reason: data_plane }
+  'GET /durable-functions/{functionId}/executions/{executionId}': { reason: data_plane }
+  'POST /durable-functions/{functionId}/executions/{executionId}/stop': { reason: data_plane }
+  'POST /durable-functions/{functionId}/executions/{executionId}/messages': { reason: data_plane }
+  'GET /durable-functions/{functionId}/executions/{executionId}/messages': { reason: data_plane }
+  'GET /functions/resolve': { reason: data_plane }
+  'POST /projects/{id}/logs/activity': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2420 }
+  'POST /projects/{id}/logs/search': { command: volcano cloud functions logs }
+  'POST /projects/{id}/logs/stream': { command: volcano cloud functions logs, flags: [--follow] }
+  'POST /projects/{id}/functions/batch': { command: volcano cloud functions deploy }
+  'GET /projects/{id}/schedulers': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2430 }
+  'GET /projects/{id}/notifications': { command: volcano cloud notifications get }
+  'PUT /projects/{id}/notifications': { command: volcano cloud notifications set }
+  'POST /projects/{id}/notifications/webhook-secret': { command: volcano cloud notifications rotate-webhook-secret }
+  'POST /projects/{id}/notifications/test': { command: volcano cloud notifications test }
+  'GET /projects/{id}/functions/{functionId}/schedulers': { command: volcano cloud functions schedulers list }
+  'POST /projects/{id}/functions/{functionId}/schedulers': { command: volcano cloud functions schedulers create }
+  'GET /projects/{id}/functions/{functionId}/schedulers/{schedulerId}':
+    { command: volcano cloud functions schedulers list }
+  'PATCH /projects/{id}/functions/{functionId}/schedulers/{schedulerId}':
+    { command: volcano cloud functions schedulers enable }
+  'DELETE /projects/{id}/functions/{functionId}/schedulers/{schedulerId}':
+    { command: volcano cloud functions schedulers delete }
+  'GET /projects/{id}/functions/{functionId}/deployments': { command: volcano cloud functions logs }
+  'GET /projects/{id}/durable-functions': { command: volcano cloud durable list }
+  'POST /projects/{id}/durable-functions': { command: volcano cloud durable deploy }
+  'GET /projects/{id}/durable-functions/{functionId}': { command: volcano cloud durable get }
+  'DELETE /projects/{id}/durable-functions/{functionId}': { command: volcano cloud durable delete }
+  'GET /projects/{id}/durable-functions/{functionId}/deployments':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2420 }
+  'GET /projects/{id}/durable-functions/{functionId}/schedulers': { command: volcano cloud durable schedulers list }
+  'POST /projects/{id}/durable-functions/{functionId}/schedulers': { command: volcano cloud durable schedulers create }
+  'GET /projects/{id}/durable-functions/{functionId}/schedulers/{schedulerId}':
+    { command: volcano cloud durable schedulers list }
+  'PATCH /projects/{id}/durable-functions/{functionId}/schedulers/{schedulerId}':
+    { command: volcano cloud durable schedulers enable }
+  'DELETE /projects/{id}/durable-functions/{functionId}/schedulers/{schedulerId}':
+    { command: volcano cloud durable schedulers delete }
+  'POST /projects/{id}/durable-functions/{functionId}/executions': { command: volcano cloud durable start }
+  'GET /projects/{id}/durable-functions/{functionId}/executions': { command: volcano cloud durable executions list }
+  'GET /projects/{id}/durable-functions/{functionId}/executions/{executionId}':
+    { command: volcano cloud durable executions get }
+  'GET /projects/{id}/durable-functions/{functionId}/executions/{executionId}/operations':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2420 }
+  'POST /projects/{id}/durable-functions/{functionId}/executions/{executionId}/stop':
+    { command: volcano cloud durable executions stop }
+  'POST /projects/{id}/durable-functions/{functionId}/executions/{executionId}/messages':
+    { command: volcano cloud durable messages send }
+  'GET /projects/{id}/durable-functions/{functionId}/executions/{executionId}/messages':
+    { command: volcano cloud durable messages list }
+  'GET /projects/{id}/durable-functions/{functionId}/executions/{executionId}/message-waits':
+    { command: volcano cloud durable messages waits }
+  'POST /durable-messages/waits': { reason: data_plane }
+  'POST /durable-messages/sessions': { reason: data_plane }
+  'POST /durable-messages/publish': { reason: data_plane }
+  'POST /durable-callbacks': { reason: data_plane }
+  'POST /durable-callbacks/succeed': { command: volcano cloud durable callbacks succeed }
+  'POST /durable-callbacks/fail': { command: volcano cloud durable callbacks fail }
+  'POST /durable-callbacks/heartbeat': { command: volcano cloud durable callbacks heartbeat }
+  'POST /durable-approvals': { reason: data_plane }
+  'GET /projects/{id}/issues': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2427 }
+  'GET /projects/{id}/issues/{issueId}': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2427 }
+  'PATCH /projects/{id}/issues/{issueId}': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2427 }
+  'GET /projects/{id}/durable-approvals': { command: volcano cloud durable approvals list }
+  'GET /projects/{id}/durable-approvals/stats': { command: volcano cloud durable approvals stats }
+  'GET /projects/{id}/durable-approvals/{approvalId}': { command: volcano cloud durable approvals get }
+  'POST /projects/{id}/durable-approvals/{approvalId}/approve': { command: volcano cloud durable approvals approve }
+  'POST /projects/{id}/durable-approvals/{approvalId}/deny': { command: volcano cloud durable approvals deny }
+  'GET /projects/{id}/frontends': { command: volcano cloud frontends list }
+  'POST /projects/{id}/frontends': { command: volcano cloud frontends deploy }
+  'GET /projects/{id}/frontends/{frontendId}': { command: volcano cloud frontends get }
+  'DELETE /projects/{id}/frontends/{frontendId}': { command: volcano cloud frontends delete }
+  'POST /projects/{id}/frontends/{frontendId}/redeploy': { command: volcano cloud frontends redeploy }
+  'GET /projects/{id}/frontends/{frontendId}/domain': { command: volcano cloud frontends domain get }
+  'POST /projects/{id}/frontends/{frontendId}/domain': { command: volcano cloud frontends domain create }
+  'DELETE /projects/{id}/frontends/{frontendId}/domain': { command: volcano cloud frontends domain delete }
+  'GET /projects/{id}/frontends/{frontendId}/domains': { command: volcano cloud frontends domains list }
+  'POST /projects/{id}/frontends/{frontendId}/domains': { command: volcano cloud frontends domains add }
+  'GET /projects/{id}/frontends/{frontendId}/domains/{domain}': { command: volcano cloud frontends domains get }
+  'PATCH /projects/{id}/frontends/{frontendId}/domains/{domain}': { command: volcano cloud frontends domains update }
+  'DELETE /projects/{id}/frontends/{frontendId}/domains/{domain}': { command: volcano cloud frontends domains remove }
+  'GET /projects/{id}/frontends/{frontendId}/deployments': { command: volcano cloud frontends logs }
+  'POST /projects/{id}/frontends/{frontendId}/deployments': { command: volcano cloud frontends deploy, flags: [--from] }
+  'GET /projects/{id}/frontends/{frontendId}/candidates': { command: volcano cloud frontends preview list }
+  'POST /projects/{id}/frontends/{frontendId}/candidates': { command: volcano cloud frontends preview create }
+  'GET /projects/{id}/frontends/{frontendId}/candidates/{candidateId}': { command: volcano cloud frontends preview get }
+  'DELETE /projects/{id}/frontends/{frontendId}/candidates/{candidateId}':
+    { command: volcano cloud frontends preview delete }
+  'POST /projects/{id}/frontends/{frontendId}/candidates/{candidateId}/deployments':
+    { command: volcano cloud frontends preview deploy }
+  'GET /projects/{id}/frontends/{frontendId}/serving': { command: volcano cloud frontends serving }
+  'POST /projects/{id}/frontends/{frontendId}/serving/rollback': { command: volcano cloud frontends rollback }
+  'POST /projects/{id}/frontends/{frontendId}/candidates/{candidateId}/promote':
+    { command: volcano cloud frontends preview promote }
+  'GET /projects/{id}/frontends/{frontendId}/usage':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2420 }
+  'GET /projects/{id}/frontends/{frontendId}/function-routes': { command: volcano cloud frontends routes list }
+  'POST /projects/{id}/frontends/{frontendId}/function-routes': { command: volcano cloud frontends routes create }
+  'PUT /projects/{id}/frontends/{frontendId}/function-routes/{routeId}':
+    { command: volcano cloud frontends routes update }
+  'DELETE /projects/{id}/frontends/{frontendId}/function-routes/{routeId}':
+    { command: volcano cloud frontends routes delete }
+  'GET /projects/{id}/frontends/{frontendId}/frontend-routes': { command: volcano cloud frontends routes list }
+  'POST /projects/{id}/frontends/{frontendId}/frontend-routes': { command: volcano cloud frontends routes create }
+  'PUT /projects/{id}/frontends/{frontendId}/frontend-routes/{routeId}':
+    { command: volcano cloud frontends routes update }
+  'DELETE /projects/{id}/frontends/{frontendId}/frontend-routes/{routeId}':
+    { command: volcano cloud frontends routes delete }
+  'GET /projects/{id}/variable-environments':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2423 }
+  'POST /projects/{id}/variable-environments':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2423 }
+  'GET /projects/{id}/variable-environments/{environmentId}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2423 }
+  'PATCH /projects/{id}/variable-environments/{environmentId}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2423 }
+  'DELETE /projects/{id}/variable-environments/{environmentId}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2423 }
+  'GET /projects/{id}/variables': { command: volcano cloud variables list }
+  'POST /projects/{id}/variables': { command: volcano cloud variables deploy }
+  'GET /projects/{id}/databases': { command: volcano cloud databases list }
+  'POST /projects/{id}/databases': { command: volcano cloud databases create }
+  'GET /projects/{id}/databases/{databaseName}': { command: volcano cloud databases get }
+  'DELETE /projects/{id}/databases/{databaseName}': { command: volcano cloud databases delete }
+  'GET /projects/{id}/databases/{databaseName}/branches': { command: volcano cloud databases branches list }
+  'POST /projects/{id}/databases/{databaseName}/branches': { command: volcano cloud databases branches create }
+  'GET /projects/{id}/databases/{databaseName}/branches/{branchName}': { command: volcano cloud databases branches get }
+  'PATCH /projects/{id}/databases/{databaseName}/branches/{branchName}':
+    { command: volcano cloud databases branches extend }
+  'DELETE /projects/{id}/databases/{databaseName}/branches/{branchName}':
+    { command: volcano cloud databases branches delete }
+  'POST /projects/{id}/databases/{databaseName}/branches/{branchName}/reset':
+    { command: volcano cloud databases branches reset }
+  'POST /projects/{id}/databases/{databaseName}/branches/{branchName}/reset-password':
+    { command: volcano cloud databases branches rotate-password }
+  'GET /projects/{id}/databases/{databaseName}/backups': { command: volcano cloud databases backups list }
+  'POST /projects/{id}/databases/{databaseName}/backups': { command: volcano cloud databases backups create }
+  'GET /projects/{id}/databases/{databaseName}/backups/{backupName}': { command: volcano cloud databases backups get }
+  'DELETE /projects/{id}/databases/{databaseName}/backups/{backupName}':
+    { command: volcano cloud databases backups delete }
+  'GET /projects/{id}/databases/{databaseName}/backup-schedule':
+    { command: volcano cloud databases backup-schedule get }
+  'PUT /projects/{id}/databases/{databaseName}/backup-schedule':
+    { command: volcano cloud databases backup-schedule set }
+  'GET /projects/{id}/databases/{databaseName}/restores': { command: volcano cloud databases restores list }
+  'POST /projects/{id}/databases/{databaseName}/restores': { command: volcano cloud databases restore }
+  'GET /projects/{id}/databases/{databaseName}/restores/{restoreId}': { command: volcano cloud databases restores get }
+  'GET /projects/{id}/databases/{databaseName}/migrations':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2421 }
+  'POST /projects/{id}/databases/{databaseName}/migrations/baseline':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2421 }
+  'GET /projects/{id}/databases/{databaseName}/migration-runs':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2421 }
+  'POST /projects/{id}/databases/{databaseName}/migration-runs':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2421 }
+  'GET /projects/{id}/databases/{databaseName}/migration-runs/{runId}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2421 }
+  'POST /projects/{id}/databases/{databaseName}/reset-password':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2422 }
+  'PATCH /projects/{id}/databases/{databaseName}/type':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2421 }
+  'GET /projects/{id}/databases/{databaseName}/stats':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2421 }
+  'POST /databases/{databaseName}/query/ping': { reason: data_plane }
+  'POST /databases/{databaseName}/query/select': { reason: data_plane }
+  'POST /databases/{databaseName}/query/insert': { reason: data_plane }
+  'POST /databases/{databaseName}/query/update': { reason: data_plane }
+  'POST /databases/{databaseName}/query/delete': { reason: data_plane }
+  'POST /databases/{databaseName}/branches/{branchName}/query/ping': { reason: data_plane }
+  'POST /databases/{databaseName}/branches/{branchName}/query/select': { reason: data_plane }
+  'POST /databases/{databaseName}/branches/{branchName}/query/insert': { reason: data_plane }
+  'POST /databases/{databaseName}/branches/{branchName}/query/update': { reason: data_plane }
+  'POST /databases/{databaseName}/branches/{branchName}/query/delete': { reason: data_plane }
+  'GET /databases/regions': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2421 }
+  'GET /databases/postgres-versions': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2421 }
+  'GET /functions/runtimes': { command: volcano cloud functions runtimes }
+  'GET /functions/regions': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2421 }
+  'GET /projects/{id}/variables/{name}': { command: volcano cloud variables get }
+  'PUT /projects/{id}/variables/{name}': { command: volcano cloud variables deploy }
+  'DELETE /projects/{id}/variables/{name}': { command: volcano cloud variables delete }
+  'GET /auth/password-policy': { reason: data_plane }
+  'POST /auth/signup': { reason: data_plane }
+  'POST /auth/signin': { reason: data_plane }
+  'POST /auth/refresh': { reason: data_plane }
+  'POST /auth/logout': { reason: data_plane }
+  'POST /auth/forgot-password': { reason: data_plane }
+  'POST /auth/reset-password': { reason: data_plane }
+  'POST /auth/confirm': { reason: data_plane }
+  'POST /auth/resend-confirmation': { reason: data_plane }
+  'POST /auth/signup-anonymous': { reason: data_plane }
+  'POST /auth/user/convert-anonymous': { reason: data_plane }
+  'POST /auth/user/change-email': { reason: data_plane }
+  'POST /auth/user/confirm-email-change': { reason: data_plane }
+  'DELETE /auth/user/cancel-email-change': { reason: data_plane }
+  'GET /auth/user/sessions': { reason: data_plane }
+  'DELETE /auth/user/sessions': { reason: data_plane }
+  'DELETE /auth/user/sessions/{sessionId}': { reason: data_plane }
+  'GET /auth/user': { reason: data_plane }
+  'PUT /auth/user': { reason: data_plane }
+  'GET /auth/user/identities': { reason: data_plane }
+  'DELETE /auth/user/identities/{identityId}': { reason: data_plane }
+  'GET /auth/user/methods': { reason: data_plane }
+  'POST /auth/user/methods/{methodId}/promote': { reason: data_plane }
+  'GET /projects/{id}/auth/insights': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2424 }
+  'GET /projects/{id}/auth/users': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2424 }
+  'GET /projects/{id}/auth/users/{userId}': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2424 }
+  'DELETE /projects/{id}/auth/users/{userId}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2424 }
+  'GET /projects/{id}/auth/users/{userId}/sessions':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2424 }
+  'DELETE /projects/{id}/auth/users/{userId}/sessions':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2424 }
+  'DELETE /projects/{id}/auth/users/{userId}/sessions/{sessionId}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2424 }
+  'POST /projects/{id}/auth/users/{userId}/ban':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2424 }
+  'POST /projects/{id}/auth/users/{userId}/unban':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2424 }
+  'GET /projects/{id}/email-templates': { manifest: auth.email.templates }
+  'POST /projects/{id}/email-templates': { manifest: auth.email.templates }
+  'GET /projects/{id}/email-templates/{type}': { manifest: auth.email.templates }
+  'PUT /projects/{id}/email-templates/{type}': { manifest: auth.email.templates }
+  'DELETE /projects/{id}/email-templates/{type}': { manifest: auth.email.templates }
+  'GET /email-templates/defaults': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'GET /email-templates/defaults/{type}': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'GET /projects/{id}/auth/config': { manifest: auth }
+  'PUT /projects/{id}/auth/config': { manifest: auth }
+  'POST /projects/{id}/auth/config/test-email':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'GET /projects/{id}/auth/hosted-pages/{pageType}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'PUT /projects/{id}/auth/hosted-pages/{pageType}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'GET /projects/{id}/auth/pages/appearance':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'PUT /projects/{id}/auth/pages/theme': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'DELETE /projects/{id}/auth/pages/theme': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'PUT /projects/{id}/auth/pages/{pageType}/layout':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'DELETE /projects/{id}/auth/pages/{pageType}/layout':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'GET /projects/{id}/auth/pages/{pageType}/preview': { reason: browser }
+  'POST /projects/{id}/auth/pages/{pageType}/preview':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'GET /projects/{id}/auth/hosted/{pageType}': { reason: data_plane }
+  'GET /projects/{id}/auth/hosted': { reason: data_plane }
+  'GET /projects/{id}/auth/hosted/login/options': { reason: data_plane }
+  'POST /projects/{id}/auth/hosted/login/check-email': { reason: data_plane }
+  'GET /projects/{id}/auth/methods': { manifest: auth.providers }
+  'PUT /projects/{id}/auth/methods': { manifest: auth.providers }
+  'GET /projects/{id}/oauth/configs': { manifest: auth.providers.oauth }
+  'POST /projects/{id}/oauth/configs': { manifest: auth.providers.oauth }
+  'GET /projects/{id}/oauth/configs/{provider}': { manifest: auth.providers.oauth }
+  'PUT /projects/{id}/oauth/configs/{provider}': { manifest: auth.providers.oauth }
+  'DELETE /projects/{id}/oauth/configs/{provider}': { manifest: auth.providers.oauth }
+  'GET /projects/{id}/oauth/providers': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2425 }
+  'GET /auth/oauth/{provider}/authorize': { reason: data_plane }
+  'GET /auth/oauth/{provider}/callback': { reason: data_plane }
+  'POST /auth/oauth/exchange': { reason: data_plane }
+  'POST /auth/device/authorize': { command: volcano login }
+  'POST /auth/device/token': { command: volcano login }
+  'POST /auth/device/verify': { reason: data_plane }
+  'POST /auth/platform/exchange': { command: volcano login }
+  'GET /auth/oauth/providers': { reason: data_plane }
+  'POST /auth/oauth/{provider}/link': { reason: data_plane }
+  'DELETE /auth/oauth/{provider}/unlink': { reason: data_plane }
+  'POST /auth/oauth/{provider}/refresh-token': { reason: data_plane }
+  'GET /auth/oauth/{provider}/token': { reason: data_plane }
+  'POST /auth/oauth/{provider}/call-api': { reason: data_plane }
+  'GET /projects/{id}/anon-keys': { command: volcano projects keys anon list }
+  'POST /projects/{id}/anon-keys': { command: volcano projects keys anon create }
+  'GET /projects/{id}/anon-keys/{keyId}': { command: volcano projects keys anon list }
+  'DELETE /projects/{id}/anon-keys/{keyId}': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2422 }
+  'POST /projects/{id}/anon-keys/{keyId}/regenerate':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2422 }
+  'POST /projects/{id}/anon-keys/{keyId}/set-default':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2422 }
+  'GET /projects/{id}/access-tokens': { command: volcano cloud access-tokens list }
+  'POST /projects/{id}/access-tokens': { command: volcano cloud access-tokens create }
+  'GET /projects/{id}/access-tokens/usage': { command: volcano cloud access-tokens usage }
+  'GET /projects/{id}/access-tokens/{tokenId}': { command: volcano cloud access-tokens get }
+  'DELETE /projects/{id}/access-tokens/{tokenId}': { command: volcano cloud access-tokens revoke }
+  'GET /projects/{id}/access-tokens/{tokenId}/usage': { command: volcano cloud access-tokens usage }
+  'GET /projects/{id}/service-keys': { command: volcano projects keys service list }
+  'POST /projects/{id}/service-keys': { command: volcano projects keys service create }
+  'GET /projects/{id}/service-keys/{keyId}': { command: volcano projects keys service get }
+  'DELETE /projects/{id}/service-keys/{keyId}':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2422 }
+  'POST /projects/{id}/service-keys/{keyId}/regenerate':
+    { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2422 }
+  'GET /projects/{id}/storage/buckets': { command: volcano cloud storage bucket list }
+  'POST /projects/{id}/storage/buckets': { command: volcano cloud storage bucket create }
+  'GET /projects/{id}/storage/buckets/{bucketName}': { command: volcano cloud storage bucket get }
+  'PATCH /projects/{id}/storage/buckets/{bucketName}': { command: volcano cloud storage bucket update }
+  'DELETE /projects/{id}/storage/buckets/{bucketName}': { command: volcano cloud storage bucket delete }
+  'GET /projects/{id}/storage/buckets/{bucketName}/policies': { command: volcano cloud storage policy list }
+  'POST /projects/{id}/storage/buckets/{bucketName}/policies': { command: volcano cloud storage policy create }
+  'DELETE /projects/{id}/storage/buckets/{bucketName}/policies/{policyId}':
+    { command: volcano cloud storage policy delete }
+  'GET /projects/{id}/storage/objects': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2430 }
+  'GET /projects/{id}/storage/stats': { command: volcano cloud storage stats }
+  'GET /projects/{id}/realtime/config': { manifest: realtime }
+  'PUT /projects/{id}/realtime/config': { manifest: realtime }
+  'GET /projects/{id}/realtime/stats': { reason: gap, issue: https://github.com/Kong/volcano-hosting/issues/2420 }
+  'GET /storage/{bucketName}': { command: volcano cloud storage object list }
+  'POST /locks/{key}/lease': { reason: data_plane }
+  'PATCH /locks/{key}/lease': { reason: data_plane }
+  'DELETE /locks/{key}/lease': { reason: data_plane }
+  'GET /locks/{key}': { reason: data_plane }
+  'DELETE /locks/{key}': { reason: data_plane }
+  'POST /storage/{bucketName}/move': { command: volcano cloud storage object move }
+  'POST /storage/{bucketName}/copy': { command: volcano cloud storage object copy }
+  'POST /storage/{bucketName}/{path}': { command: volcano cloud storage object upload }
+  'PUT /storage/{bucketName}/{path}': { reason: data_plane }
+  'GET /storage/{bucketName}/{path}': { command: volcano cloud storage object download }
+  'DELETE /storage/{bucketName}/{path}': { command: volcano cloud storage object delete }
+  'PATCH /storage/{bucketName}/{path}/visibility': { command: volcano cloud storage object visibility }
+  'GET /public/{projectId}/{bucketName}/{path}': { reason: data_plane }
+  'GET /health': { command: volcano start }
+  'GET /capabilities': { reason: client_protocol }
+  'GET /openapi.json': { reason: client_protocol }
+  'HEAD /openapi.json': { reason: client_protocol }
+  'GET /openapi.yaml': { reason: client_protocol }
+  'HEAD /openapi.yaml': { reason: client_protocol }
+  'POST /mcp': { reason: client_protocol }
