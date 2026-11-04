@@ -8101,7 +8101,7 @@ type LavaflowFailure struct {
 	// Code Stable code, such as `timed_out` or `feature_paused`.
 	Code string `json:"code"`
 
-	// Message Fixed text for the code.
+	// Message Text to show for the code.
 	Message string `json:"message"`
 }
 

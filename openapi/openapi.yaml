@@ -25535,7 +25535,7 @@ components:
           description: Stable code, such as `timed_out` or `feature_paused`.
         message:
           type: string
-          description: Fixed text for the code.
+          description: Text to show for the code.
       required:
         - code
         - message
