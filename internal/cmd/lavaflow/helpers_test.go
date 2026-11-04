@@ -61,6 +61,8 @@ type lavaflowServer struct {
 	queries       map[string][]url.Values
 	repoConnected bool
 	repoFailure   int
+	// refusalHeaders go with every refusal, such as Retry-After.
+	refusalHeaders map[string]string
 	// repoReads counts reads of the repository connection.
 	repoReads    int
 	refuse       int
@@ -98,7 +100,7 @@ func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
 func defaultLavaflowSettings() map[string]any {
 	return map[string]any{
 		"project_id": lavaflowProjectID, "enabled": false, "autonomy": "open_pr", "custom_context": "", "system_prompt": "",
-		"updated_at": nil, "updated_by": nil, "can_update": true, "allow_ungated_workflows": false,
+		"updated_at": nil, "updated_by": nil, "can_update": true, "allow_ungated_workflows": false, "merge_policy": map[string]any{"human_review_paths": []any{}},
 	}
 }
 
@@ -126,6 +128,9 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.refuse != 0 && (s.refuseMethod == "" || s.refuseMethod == r.Method) {
+		for name, value := range s.refusalHeaders {
+			w.Header().Set(name, value)
+		}
 		s.write(w, s.refuse, s.refusal)
 		return
 	}
@@ -320,6 +325,21 @@ func failedRun() map[string]any {
 		"failure":           map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},
 		"ungated_workflows": []any{},
 	}
+}
+
+// holdFix makes LavaFlow hold the fixed run's fix for a person, for these
+// reasons.
+func (s *lavaflowServer) holdFix(reasons ...map[string]any) {
+	items := make([]any, 0, len(reasons))
+	for _, reason := range reasons {
+		items = append(items, reason)
+	}
+	s.runs[0]["merge"] = map[string]any{"status": "held", "reason": nil, "hold_reasons": items}
+}
+
+// holdReason is a reason LavaFlow holds a fix, in the API's words.
+func holdReason(code, question string, paths ...string) map[string]any {
+	return map[string]any{"code": code, "question": question, "paths": append([]string{}, paths...)}
 }
 
 // summaries is what the list returns for runs: no diagnosis, review, diff or

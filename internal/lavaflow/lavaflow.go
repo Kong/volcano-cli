@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -57,6 +58,16 @@ var ErrPlanUnreadable = errors.New("LavaFlow couldn't read the project owner's p
 var ErrChangeRefused = errors.New("LavaFlow's settings weren't changed: a read-only access token or account " +
 	"can't change them, and otherwise the project owner's plan couldn't be read; try again later")
 
+// MergeWarning is what turning on merging risks, in the approved words the
+// docs also use.
+const MergeWarning = "Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, " +
+	"run your CI with the secrets your pull request workflows get."
+
+// MergeDisclosure is what autonomy merge does, then the warning. settings set
+// prints it before it turns merging on.
+const MergeDisclosure = "At autonomy merge, LavaFlow can merge its fix pull requests. " +
+	"A fix it holds or stops is yours to review and merge on GitHub. " + MergeWarning
+
 // UngatedWorkflowsWarning is what allowing ungated workflows risks, in the
 // approved words the API's contract and the docs also use.
 const UngatedWorkflowsWarning = "Workflows in the repository may then run LavaFlow's pull requests, or put their " +
@@ -69,8 +80,22 @@ const UngatedWorkflowsWarning = "Workflows in the repository may then run LavaFl
 // words, then the warning.
 const UngatedWorkflowsDisclosure = "Allowing ungated workflows lets LavaFlow open a fix's pull request even where " +
 	"a workflow could run it, or put its text into a command, with the repository's secrets before a person " +
-	"approves it. It applies only to the repository the project is connected to now, and reads as not allowed " +
-	"while the project is connected to any other. " + UngatedWorkflowsWarning
+	"approves it. It applies only to the repository the project is connected to now: connecting the project to " +
+	"another repository, or disconnecting it, turns it off, and connecting the first one again doesn't turn it " +
+	"back on. " + UngatedWorkflowsWarning
+
+// ErrMergingNotAvailable reports feature_unavailable for autonomy merge:
+// LavaFlow doesn't merge for this project yet.
+var ErrMergingNotAvailable = errors.New("LavaFlow merging isn't available for this project yet")
+
+// ErrOwnerCantPush reports permission_missing: LavaFlow merges with the
+// owner's GitHub account, which can't push to the repository.
+var ErrOwnerCantPush = errors.New("LavaFlow can't merge for this project: " +
+	"the project owner's GitHub account can't push to its repository")
+
+// connectGitHubDocs is the docs section on connecting GitHub, which a
+// permission_missing refusal points to.
+const connectGitHubDocs = "platform/projects/git-deploy.md#1-connect-github"
 
 // ErrCantTurnOn reports, before enable asks, that the project's capabilities
 // say LavaFlow can't be turned on for a project that has LavaFlow records.
@@ -99,6 +124,7 @@ const (
 	codeFeatureUnavailable = "feature_unavailable"
 	codePlanRequired       = "plan_required"
 	codePersonRequired     = "person_required"
+	codePermissionMissing  = "permission_missing"
 )
 
 // Limits the API sets.
@@ -282,7 +308,11 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 	confirm func() error,
 ) (*apiclient.LavaflowSettings, error) {
 	if update.Autonomy != nil && !update.Autonomy.Valid() {
-		return nil, fmt.Errorf("invalid autonomy %q: use %s or %s", *update.Autonomy, apiclient.DiagnoseOnly, apiclient.OpenPr)
+		return nil, fmt.Errorf("invalid autonomy %q: use %s, %s or %s",
+			*update.Autonomy, apiclient.DiagnoseOnly, apiclient.OpenPr, apiclient.Merge)
+	}
+	if err := validMergePolicy(update.MergePolicy); err != nil {
+		return nil, err
 	}
 	for name, text := range map[string]*string{"custom context": update.CustomContext, "system prompt": update.SystemPrompt} {
 		if text != nil && len([]rune(*text)) > MaxTextLength {
@@ -290,6 +320,28 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 		}
 	}
 	return s.update(ctx, "change LavaFlow's settings", update, false, confirm)
+}
+
+// The most paths a merge policy holds for a person, and the longest one.
+const (
+	MaxHumanReviewPaths      = 50
+	MaxHumanReviewPathLength = 200
+)
+
+func validMergePolicy(policy *apiclient.LavaflowMergePolicyUpdate) error {
+	if policy == nil || policy.HumanReviewPaths == nil {
+		return nil
+	}
+	paths := *policy.HumanReviewPaths
+	if len(paths) > MaxHumanReviewPaths {
+		return fmt.Errorf("%d human review paths: the most is %d", len(paths), MaxHumanReviewPaths)
+	}
+	for _, path := range paths {
+		if n := len([]rune(path)); n == 0 || n > MaxHumanReviewPathLength {
+			return fmt.Errorf("invalid human review path %q: use 1 to %d characters", path, MaxHumanReviewPathLength)
+		}
+	}
+	return nil
 }
 
 // update refuses a project access token before sending anything. Every
@@ -328,16 +380,39 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	}
 	settings, err := authenticated.API.UpdateLavaflowSettings(ctx, authenticated.ProjectID, update)
 	if err != nil {
+		if update.Autonomy != nil && *update.Autonomy == apiclient.Merge &&
+			(api.Status(err) == http.StatusTooManyRequests || api.Status(err) == http.StatusServiceUnavailable) {
+			return nil, pushCheckUnanswered(time.Now(), err)
+		}
 		return nil, refused(authenticated.Config, fmt.Errorf("failed to %s: %w", verb, err))
 	}
 	return settings, nil
 }
 
+// pushCheckUnanswered says autonomy merge wasn't saved because Volcano
+// couldn't check the owner's push access, and when to try again, keeping the
+// refusal as the cause for the exit code.
+func pushCheckUnanswered(now time.Time, err error) error {
+	refusal := "LavaFlow's settings weren't changed: Volcano couldn't check that the project owner's GitHub account " +
+		"can push to the repository"
+	// A Retry-After that has already passed on this clock says nothing.
+	if at, ok := api.RetryAt(err, now); ok {
+		if wait := at.Sub(now).Round(time.Second); wait > 0 {
+			return api.WithCause(fmt.Errorf("%s. Try again in %s", refusal, wait), err)
+		}
+	}
+	return api.WithCause(fmt.Errorf("%s. Try again later", refusal), err)
+}
+
 // refused says why the API refused a change, by its code rather than its
-// status, keeping the refusal as the cause for the exit code. A 403 without a
-// code covers more than the plan here, so it adds the API's words, quoted as
-// Volcano's: for a plan that couldn't be read they read like a plan refusal,
-// which isn't the CLI's conclusion.
+// status, keeping the refusal as the cause for the exit code. person_required
+// keeps Volcano's words, which say how to sign in instead. A 400 with
+// feature_unavailable refuses autonomy merge while merging is off for the
+// project, and permission_missing refuses it while the owner's GitHub account
+// can't push to the repository. A 403 without a code covers more than the
+// plan here, so it adds the API's words, quoted as Volcano's: for a plan that
+// couldn't be read they read like a plan refusal, which isn't the CLI's
+// conclusion.
 func refused(cfg *config.Config, err error) error {
 	switch {
 	case api.Code(err) == codePersonRequired:
@@ -353,6 +428,14 @@ func refused(cfg *config.Config, err error) error {
 			return api.WithCause(refusal, err)
 		}
 		return personDecides(cfg, err)
+	case api.Code(err) == codeFeatureUnavailable && api.Status(err) == http.StatusBadRequest:
+		return api.WithCause(ErrMergingNotAvailable, err)
+	case api.Code(err) == codePermissionMissing:
+		refusal := ErrOwnerCantPush
+		if message := api.Message(err); message != "" {
+			refusal = fmt.Errorf("%w (%s)", ErrOwnerCantPush, message)
+		}
+		return api.WithCause(fmt.Errorf("%w. To connect GitHub, see 'volcano docs get %s'", refusal, connectGitHubDocs), err)
 	case api.Code(err) == "" && api.Status(err) == http.StatusForbidden:
 		if message := api.Message(err); message != "" {
 			return api.WithCause(fmt.Errorf("%w. Volcano said: %q", ErrChangeRefused, message), err)

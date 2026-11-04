@@ -26,21 +26,25 @@ func TestStatusOffSaysWhatLavaFlowDoesAndHowToTurnItOn(t *testing.T) {
 	assertLavaFlowWording(t, out)
 }
 
+// LavaFlow opens fix pull requests at open_pr and at merge, so both ask for a
+// repository.
 func TestStatusOnWithoutARepositoryAsksForOne(t *testing.T) {
-	fake, deps := newLavaflowServer(t)
-	fake.set(func(s *lavaflowServer) {
-		s.settings["enabled"] = true
-		s.settings["custom_context"] = "Checkout runs on Fridays only."
-		s.repoConnected = false
-	})
+	for _, autonomy := range []string{"open_pr", "merge"} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.settings["enabled"], s.settings["autonomy"] = true, autonomy
+			s.settings["custom_context"] = "Checkout runs on Fridays only."
+			s.repoConnected = false
+		})
 
-	out, err := executeLavaflowCommand(t, New(deps), "status")
-	require.NoError(t, err)
-	assert.Contains(t, out, "LavaFlow: on")
-	assert.Contains(t, out, "Repository: none connected")
-	assert.Contains(t, out, "Custom context: set (30 characters)")
-	assert.Contains(t, out, "Connect a repository so LavaFlow can open fix pull requests: volcano git connect")
-	assert.NotContains(t, out, "Turn it on")
+		out, err := executeLavaflowCommand(t, New(deps), "status")
+		require.NoError(t, err, autonomy)
+		assert.Contains(t, out, "LavaFlow: on", autonomy)
+		assert.Contains(t, out, "Repository: none connected", autonomy)
+		assert.Contains(t, out, "Custom context: set (30 characters)", autonomy)
+		assert.Contains(t, out, "Connect a repository so LavaFlow can open fix pull requests: volcano git connect", autonomy)
+		assert.NotContains(t, out, "Turn it on", autonomy)
+	}
 }
 
 // Diagnosing needs no repository, and a connection that can't be read is

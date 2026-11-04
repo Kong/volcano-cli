@@ -144,7 +144,7 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
-	output.Success(opts.out, "Logged in successfully")
+	output.Success(opts.out, "%s", cliauth.LoggedInMessage(credentials.Email))
 	if credentials.Project == nil {
 		output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
 		return nil
@@ -245,7 +245,7 @@ func runSignup(ctx context.Context, opts signupOptions) error {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
-	output.Success(opts.out, "Signed up and logged in successfully")
+	output.Success(opts.out, "%s", cliauth.LoggedInMessage(credentials.Email))
 	output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
 	return nil
 }

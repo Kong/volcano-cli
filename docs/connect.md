@@ -138,7 +138,11 @@ refused it fails with exit code `2` instead of running browser login.
 ## New accounts and the project limit
 
 Run `volcano connect --signup` if you don't have an account yet. It opens
-the signup page, and the CLI is signed in when you finish.
+the signup page, and the CLI is signed in when you finish. `connect` prints
+`Logged in as <email>` with the account it signed in, or `Logged in successfully`
+when it cannot read the account. If you were already signed in to Volcano in the
+browser, signup does not create an account: the CLI signs in to that account,
+which can differ from the `--email` you gave.
 
 `--signup` needs an email address. It uses `--email`, else your global git
 email when that is a usable address. When neither is available, `connect`

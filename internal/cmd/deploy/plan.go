@@ -769,13 +769,53 @@ func (b planBuilder) config() step {
 	}
 	s.detail = strings.Join(paths, ", ")
 	manifests := b.manifests
+	commands := s.manual
 	s.run = func(ctx context.Context, r *runner) error {
+		inactive, err := r.inactiveScheduledFunctions(ctx, scheduledFunctions(manifests))
+		if err != nil {
+			return err
+		}
+		var deferred []startedDeployment
+		if len(inactive) > 0 {
+			deferred = r.refusedSchedulers(ctx, manifests, inactive)
+		}
+		held := map[string]bool{}
+		for _, d := range deferred {
+			held[d.name] = true
+		}
+		parsed := make([]*projectconfig.Manifest, 0, len(manifests))
 		for _, m := range manifests {
-			if err := configcmd.DeployManifest(ctx, r.opts.deps, m.manifest, m.path, r.opts.out, r.opts.errOut); err != nil {
+			manifest := m.manifest
+			if len(held) > 0 {
+				manifest = manifest.WithoutSchedulers(held)
+			}
+			if err := configcmd.DeployManifest(ctx, r.opts.deps, manifest, m.path, r.opts.out, r.opts.errOut); err != nil {
 				return err
 			}
+			parsed = append(parsed, m.manifest)
+		}
+		if schedulers, ok := projectconfig.SchedulersOnly(parsed, held); ok {
+			r.deferred, r.schedulers, r.configCommands = deferred, schedulers, commands
+			fmt.Fprintf(r.opts.out, "Left out schedulers for %s while %s\n",
+				strings.Join(deploymentNames(deferred), ", "), plural(len(deferred), "it deploys", "they deploy"))
 		}
 		return nil
 	}
 	return s
+}
+
+// scheduledFunctions names the functions the manifests give schedulers.
+func scheduledFunctions(manifests []manifestFile) map[string]bool {
+	names := map[string]bool{}
+	for _, m := range manifests {
+		if m.manifest.Functions == nil {
+			continue
+		}
+		for _, fn := range *m.manifest.Functions {
+			if fn.Schedulers != nil && len(*fn.Schedulers) > 0 {
+				names[fn.Name] = true
+			}
+		}
+	}
+	return names
 }

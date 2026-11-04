@@ -262,6 +262,10 @@ const localModeE2EPreviewPage = `export default function Home() {
 
 var localModeE2EPreviewURLPattern = regexp.MustCompile(`(?m)^URL:\s+(\S+)$`)
 
+// The server leaves a preview creating when its deployment fails, so only the
+// deployment line shows the failure.
+var localModeE2EPreviewDeploymentFailedPattern = regexp.MustCompile(`(?m)^Deployment:\s+\S+\s+\(failed\)$`)
+
 // requireLocalModeServesPreviews runs the preview lifecycle on the local tree: a
 // preview is served at its own host while the frontend serves its own build,
 // promoting it makes the frontend's host serve it, a rollback returns the
@@ -307,7 +311,7 @@ func awaitLocalModeE2EPreviewURL(t *testing.T, binary string, env []string, dir 
 	var last string
 	for time.Now().Before(deadline) {
 		last = runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "preview", "get", "web", "redesign")
-		if strings.Contains(last, "Status:   error") {
+		if localModeE2EPreviewFailed(last) {
 			t.Fatalf("local preview failed\n%s", last)
 		}
 		if strings.Contains(last, "Status:   ready") {
@@ -319,6 +323,31 @@ func awaitLocalModeE2EPreviewURL(t *testing.T, binary string, env []string, dir 
 	}
 	t.Fatalf("local preview never became ready\n%s", last)
 	return ""
+}
+
+// localModeE2EPreviewFailed reports whether preview get shows a preview that
+// will not become ready: one in error, or one whose deployment failed.
+func localModeE2EPreviewFailed(output string) bool {
+	return strings.Contains(output, "Status:   error") || localModeE2EPreviewDeploymentFailedPattern.MatchString(output)
+}
+
+func TestLocalModeE2EPreviewFailed(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		output string
+		want   bool
+	}{
+		{"provisioning", "Status:   creating\nURL:      -\nDeployment: dep-1 (provisioning)\n", false},
+		{"ready", "Status:   ready\nURL:      http://redesign.localhost\nDeployment: dep-1 (active)\n", false},
+		{"failed deployment", "Status:   creating\nURL:      -\nDeployment: dep-1 (failed)\nError:    start runtime: runtime not ready\n", true},
+		{"error", "Status:   error\nURL:      -\n", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := localModeE2EPreviewFailed(tc.output); got != tc.want {
+				t.Fatalf("localModeE2EPreviewFailed(%q) = %v, want %v", tc.output, got, tc.want)
+			}
+		})
+	}
 }
 
 func awaitLocalModeE2EPreviewGone(t *testing.T, binary string, env []string, dir string) {

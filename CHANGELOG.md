@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.63.0](https://github.com/Kong/volcano-cli/compare/v0.62.0...v0.63.0) (2026-11-03)
+
+
+### Features
+
+* **auth:** name the signed-in account after browser login and signup ([#400](https://github.com/Kong/volcano-cli/issues/400)) ([a6c9807](https://github.com/Kong/volcano-cli/commit/a6c980753a55da17154ba0dc7b0fc0cef13e79b9))
+
+## [0.62.0](https://github.com/Kong/volcano-cli/compare/v0.61.1...v0.62.0) (2026-11-03)
+
+
+### Features
+
+* **lavaflow:** merge fixes at autonomy merge, and say why a fix is held ([#402](https://github.com/Kong/volcano-cli/issues/402)) ([ef56147](https://github.com/Kong/volcano-cli/commit/ef56147e383855de138dad0b00eeda7824fcaaa4))
+
+## [0.61.1](https://github.com/Kong/volcano-cli/compare/v0.61.0...v0.61.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **deploy:** apply schedulers after their functions finish deploying ([#401](https://github.com/Kong/volcano-cli/issues/401)) ([7e3ca9e](https://github.com/Kong/volcano-cli/commit/7e3ca9e340c9283e4b0e7f93849c2119322b295f))
+
 ## [0.61.0](https://github.com/Kong/volcano-cli/compare/v0.60.0...v0.61.0) (2026-11-03)
 
 

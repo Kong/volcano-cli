@@ -91,6 +91,23 @@ func (c *Client) ExchangePlatformToken(ctx context.Context, authAccessToken, cli
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403)
 }
 
+// GetAuthUserEmail returns the email of the account an auth-user access token
+// belongs to.
+func (c *Client) GetAuthUserEmail(ctx context.Context, authAccessToken string) (string, error) {
+	resp, err := c.client.AuthGetUserWithResponse(ctx, authorizationEditor(authAccessToken))
+	if err != nil {
+		return "", fmt.Errorf("failed to read the signed-in account: %w", err)
+	}
+	result, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON401)
+	if err != nil {
+		return "", err
+	}
+	if result.User == nil {
+		return "", nil
+	}
+	return string(result.User.Email), nil
+}
+
 // WebSignupURL builds the Volcano Web signup URL used by the CLI signup flow.
 // next must be a same-origin relative path: Volcano Web's signup page rejects
 // any next value that isn't (see isSafeInternalPath in volcano-web).

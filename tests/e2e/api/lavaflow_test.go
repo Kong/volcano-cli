@@ -80,7 +80,8 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env.runCloudCLI(t, "lavaflow", "stats", "--days", "7").requireSuccess(t, "0 issue(s) opened and 0 fix pull request(s) opened")
 	env.runCloudCLI(t, "lavaflow", "resources").requireSuccess(t)
 	env.runCloudCLI(t, "lavaflow", "list").requireSuccess(t, "No runs")
-	requireAPIE2ELavaFlowUngatedWorkflows(t, env)
+	requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires(t, env)
+	requireAPIE2ELavaFlowUngatedWorkflowsRefuseATokenThatNeverExpires(t, env)
 	requireAPIE2ELavaFlowNeedsAPerson(t, env)
 
 	env.runCloudCLI(t, "lavaflow", "disable").requireSuccess(t, "LavaFlow is off")
@@ -105,44 +106,63 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings").requireSuccess(t, "LavaFlow: on")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "disable").
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
+	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings", "set", "--autonomy", "merge", "--yes").
+		requireFailure(t, "changing LavaFlow's settings needs a person's session")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings", "set", "--allow-ungated-workflows", "false").
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
 }
 
-// requireAPIE2ELavaFlowUngatedWorkflows allows ungated workflows on the
-// test's own disposable project, which has no connected repository, reads it
-// back, and always turns it off again.
-func requireAPIE2ELavaFlowUngatedWorkflows(t *testing.T, env *apiE2E) {
+// requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires asks for autonomy
+// merge with --yes and --json as the owner. The lane's owner token comes from
+// the management API, which mints tokens that never expire, so after the CLI
+// prints the merge warning, Volcano refuses the change with person_required in
+// its own words (exit 5). Where merging isn't available for the project, it's
+// refused as unavailable instead. Turning merge on, with a token from
+// `volcano login`, is covered by QA's staging gate, not here.
+func requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires(t *testing.T, env *apiE2E) {
 	t.Helper()
-	readBack := func() bool {
-		settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")
-		settings.requireSuccess(t)
-		var saved struct {
-			AllowUngatedWorkflows bool `json:"allow_ungated_workflows"`
-		}
-		if err := json.Unmarshal([]byte(settings.stdout), &saved); err != nil {
-			t.Fatalf("settings --json did not emit JSON: %v\n%s", err, settings.output)
-		}
-		return saved.AllowUngatedWorkflows
-	}
-	t.Cleanup(func() {
-		env.runCloudCLI(t, "lavaflow", "settings", "set", "--allow-ungated-workflows", "false").requireSuccess(t)
-	})
+	// Should Volcano save merge anyway, the project still goes back to
+	// diagnose_only before the next check.
+	defer func() {
+		env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only").
+			requireSuccess(t, "LavaFlow's settings are saved")
+	}()
 
-	allowed := env.runCloudCLI(t, "lavaflow", "settings", "set", "--allow-ungated-workflows", "true", "--yes", "--json")
-	allowed.requireSuccess(t, "Turn it on only if those workflows keep secrets away from untrusted code")
-	var saved struct {
-		AllowUngatedWorkflows bool `json:"allow_ungated_workflows"`
+	merging := env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "merge", "--yes", "--json")
+	if strings.Contains(merging.output, "LavaFlow merging isn't available for this project yet") {
+		merging.requireFailure(t)
+		return
 	}
-	if err := json.Unmarshal([]byte(allowed.stdout), &saved); err != nil || !saved.AllowUngatedWorkflows {
-		t.Fatalf("settings set --yes --json did not emit the saved settings as JSON (%v):\n%s", err, allowed.output)
-	}
-	if !readBack() {
-		t.Fatal("settings did not read back allow_ungated_workflows: true")
-	}
-	env.runCloudCLI(t, "lavaflow", "settings", "set", "--allow-ungated-workflows", "false").
-		requireSuccess(t, "Ungated workflows: not allowed")
-	if readBack() {
-		t.Fatal("settings did not read back allow_ungated_workflows: false")
+	requireRefusedForATokenThatNeverExpires(t, merging, "run your CI with the secrets your pull request workflows get")
+}
+
+// requireAPIE2ELavaFlowUngatedWorkflowsRefuseATokenThatNeverExpires asks to
+// allow ungated workflows with --yes and --json as the owner. As for merge,
+// the lane's owner token never expires, so after the CLI prints the warning,
+// Volcano refuses the change with person_required in its own words (exit 5).
+// Turning them off takes any of the owner's credentials, so the deferred
+// reset saves and prints them as not allowed. Allowing them, with a token
+// from `volcano login`, is covered by QA's staging gate, not here.
+func requireAPIE2ELavaFlowUngatedWorkflowsRefuseATokenThatNeverExpires(t *testing.T, env *apiE2E) {
+	t.Helper()
+	defer func() {
+		env.runCloudCLI(t, "lavaflow", "settings", "set", "--allow-ungated-workflows", "false").
+			requireSuccess(t, "Ungated workflows: not allowed")
+	}()
+
+	allowing := env.runCloudCLI(t, "lavaflow", "settings", "set", "--allow-ungated-workflows", "true", "--yes", "--json")
+	requireRefusedForATokenThatNeverExpires(t, allowing,
+		"Turn it on only if those workflows keep secrets away from untrusted code")
+}
+
+// requireRefusedForATokenThatNeverExpires checks a change the CLI warned
+// about, then Volcano refused with person_required because the token never
+// expires: the CLI keeps Volcano's words, which name `volcano login`, and
+// exits 5.
+func requireRefusedForATokenThatNeverExpires(t *testing.T, refused cliResult, warning string) {
+	t.Helper()
+	refused.requireFailure(t, warning, "LavaFlow's settings weren't changed: ", "never expires", "`volcano login`")
+	if refused.code != 5 {
+		t.Fatalf("the refused change exited %d, want 5:\n%s", refused.code, redactCredentials(refused.output))
 	}
 }

@@ -74,17 +74,23 @@ func runEnable(ctx context.Context, opts enableOptions) error {
 }
 
 // confirmEnable says what LavaFlow does and where it sends the project's
-// data, even with --yes, and on stderr so --json output stays JSON. Without --yes it asks, and
-// refuses when nothing can answer rather than read that as a no.
+// data before it asks.
 func confirmEnable(opts enableOptions) error {
-	if opts.yes {
-		fmt.Fprintln(opts.errOut, clilavaflow.EnableDisclosure)
+	return confirmChange(opts.yes, opts.in, opts.errOut, clilavaflow.EnableDisclosure, "Turn LavaFlow on?")
+}
+
+// confirmChange says what a change does, even with --yes, on stderr so --json
+// output stays JSON. Without --yes it asks, and refuses when nothing can
+// answer rather than read that as a no.
+func confirmChange(yes bool, in io.Reader, errOut io.Writer, disclosure, question string) error {
+	if yes {
+		fmt.Fprintln(errOut, disclosure)
 		return nil
 	}
-	if !confirm.CanPrompt(opts.in) {
-		return fmt.Errorf("%s\n\nstdin is not a terminal: confirmation required; pass --yes", clilavaflow.EnableDisclosure)
+	if !confirm.CanPrompt(in) {
+		return fmt.Errorf("%s\n\nstdin is not a terminal: confirmation required; pass --yes", disclosure)
 	}
-	confirmed, err := confirm.Action(opts.in, opts.errOut, clilavaflow.EnableDisclosure, "Turn LavaFlow on?")
+	confirmed, err := confirm.Action(in, errOut, disclosure, question)
 	if err != nil {
 		return err
 	}

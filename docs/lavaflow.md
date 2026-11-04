@@ -9,8 +9,9 @@ LavaFlow uses AI to diagnose this project's errors from their logs and
 deployed source, and opens fix pull requests in your connected repository.
 It covers every function, frontend and durable function in the project.
 Turning it on is the whole setup: there is nothing to install and no key to
-bring. LavaFlow never merges: you review and merge its pull requests like any
-other.
+bring. You review and merge its pull requests like any other, unless you
+choose autonomy `merge`: then LavaFlow can merge them, and a fix it holds or
+stops is yours to review and merge on GitHub.
 
 Where LavaFlow isn't available, every `volcano cloud lavaflow` command says
 why:
@@ -54,7 +55,7 @@ the same when the owner's plan couldn't be read.
 | Turn LavaFlow on | `volcano cloud lavaflow enable [--yes] [--json]` |
 | Turn LavaFlow off | `volcano cloud lavaflow disable [--json]` |
 | Show the settings in full | `volcano cloud lavaflow settings [--json]` |
-| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--allow-ungated-workflows true\|false] [--yes] [--json]` |
+| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--human-review-path p]... [--clear-human-review-paths] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--allow-ungated-workflows true\|false] [--yes] [--json]` |
 | Show issues and fix pull requests per day | `volcano cloud lavaflow stats [--days n] [--json]` |
 | Show what LavaFlow did for each resource | `volcano cloud lavaflow resources [--days n] [--json]` |
 | List runs | `volcano cloud lavaflow list [--status s] [--resource id] [--limit n] [--cursor c] [--json]` |
@@ -97,6 +98,8 @@ Turn LavaFlow on? Type 'y' or 'yes' to confirm: y
 ✓ LavaFlow is on
 LavaFlow: on
 Autonomy: open fix pull requests
+Human review paths: none
+Ungated workflows: not allowed
 Custom context: not set
 System prompt: not set
 ```
@@ -144,12 +147,14 @@ can't; it is left out when the project's capabilities could not be read.
 volcano cloud lavaflow settings set --autonomy diagnose_only
 ```
 
-`--autonomy` takes one of two values:
+`--autonomy` takes one of three values:
 
 - `open_pr`: LavaFlow diagnoses each issue and opens a fix pull request for
   you to review and merge.
 - `diagnose_only`: LavaFlow diagnoses each issue and leaves any fix to a
   person.
+- `merge`: LavaFlow can also merge its fix pull requests. See
+  [Merge fixes](#merge-fixes).
 
 Two more settings are saved for LavaFlow's runs, which don't use them yet:
 
@@ -162,13 +167,75 @@ Each takes up to 4,000 characters, from the flag or a file
 (`--custom-context-file`, `--system-prompt-file`). An empty value clears it.
 A setting you don't pass keeps its value. `settings` shows both in full.
 
+### Merge fixes
+
+At autonomy `merge`, LavaFlow can merge its fix pull requests. A fix it holds
+or stops is yours to review and merge on GitHub.
+
+```bash
+volcano cloud lavaflow settings set --autonomy merge
+```
+
+Turning on merge lets LavaFlow's fixes, including those from runs it starts
+on its own, run your CI with the secrets your pull request workflows get.
+
+`--autonomy merge` prints that and asks first. `--yes` skips the question but
+still prints it, on stderr, so `--json` output stays JSON. Without a terminal
+and without `--yes`, it changes nothing and exits with a non-zero code.
+
+Only the project's owner can turn merging on, signed in with `volcano login`
+while that sign-in lasts, or with a platform token that has an expiry. Volcano
+refuses a platform token that never expires, or a sign-in that ended, and the
+command says why in Volcano's words and exits with code 5. While
+`VOLCANO_TOKEN` is set, its token is used instead of a `volcano login`
+sign-in. A project access token is refused before anything is sent, also with
+code 5. Merging applies to the
+repository the project is connected to when you turn it on: once the project
+is connected to another, autonomy reads `open_pr` until you turn merge on
+again. Merging is only for a project where
+it's available; elsewhere `--autonomy merge` says "LavaFlow merging isn't
+available for this project yet" and exits with code 1. When the owner's
+GitHub account can't push to the project's repository, it says so, adds what
+Volcano said, points to
+[connecting GitHub](/platform/projects/git-deploy#1-connect-github), and exits
+with code 5.
+
+`--human-review-path` names a path whose changes always hold a fix for a
+person, such as `db/migrations/**`. Repeat it for each path, up to 50, each 1
+to 200 characters. It replaces the saved paths; `--clear-human-review-paths`
+removes them all. Volcano's own held paths, such as deploy configuration and
+authentication code, always hold a fix too. `settings` prints the paths. Like
+`--autonomy merge`, both flags need merging to be available for the project;
+elsewhere they say "LavaFlow merging isn't available for this project yet"
+and exit with code 1.
+
+```bash
+volcano cloud lavaflow settings set --human-review-path 'infra/**' --human-review-path 'db/migrations/**'
+```
+
+`show` prints `Merge:` with where the merge is: `waiting for CI`,
+`queued to merge`, `merged`, `held` or `stopped`. While merging is paused for
+the project, a waiting fix says `paused while merging is off`. `held` and
+`stopped` are final: LavaFlow doesn't touch the pull request again, and it's
+yours to review and merge on GitHub. A held fix lists each reason in Volcano's
+words, with the paths it names; a stopped fix gives its reason, such as
+`checks failed`. In `list`, their runs show `Held: yours to merge` or
+`Stopped: yours to merge` as their status.
+
+```text
+Merge: held
+  - It changes a path in human_review_paths. (db/migrations/0042_orders.sql)
+The pull request is now yours to review and merge on GitHub.
+```
+
 ### Allow ungated workflows
 
 By default, LavaFlow doesn't open a fix's pull request where a workflow in
 the repository could run it, or put its text into a command, with the
 repository's secrets before a person approves it: the fix stays on its run
-instead. Only the project's owner can change that, for the repository the
-project is connected to now:
+instead. Only the project's owner, signed in with `volcano login`, can change
+that, for the repository the project is connected to now, while their GitHub
+account can push to it:
 
 ```bash
 volcano cloud lavaflow settings set --allow-ungated-workflows true
@@ -180,15 +247,19 @@ reviews them. LavaFlow writes those changes from the project's error logs,
 which its users can influence. Turn it on only if those workflows keep secrets
 away from untrusted code; gating them on a label a person adds is safer.
 
-The setting applies only to the repository connected when a person turned it
-on. While the project is connected to any other repository, it reads as not
-allowed until a person turns it on again.
+Connecting the project to another repository, or disconnecting it, turns the
+setting off, and connecting the first repository again doesn't turn it back
+on.
 
-`settings set` prints that warning and asks before it turns the setting on;
-`--yes` skips the question but still prints the warning, on stderr. Without a
-terminal and without `--yes`, it refuses. `--allow-ungated-workflows false`
-turns it off without asking. `settings` shows it as `Ungated workflows:`,
-`allowed for the connected repository` or `not allowed`.
+`settings set` prints that warning and asks before it turns the setting on.
+`--yes` skips the question but still prints the warning, on stderr, so
+`--json` output stays JSON. Without a terminal and without `--yes`, it changes
+nothing and exits with a non-zero code. When Volcano refuses it, for example
+for a platform token that never expires, or while the owner's GitHub account
+can't push to the repository, the command says why in Volcano's words and
+exits with code 5. `--allow-ungated-workflows false` turns it off without
+asking. `settings` shows it as `Ungated workflows:`, `allowed for the
+connected repository` or `not allowed`.
 
 When a run's pull request opened past ungated workflows, `show` lists each
 workflow job: its file, the branch or commit whose workflows run it, the job

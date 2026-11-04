@@ -79,6 +79,12 @@ first step that fails. Afterwards the command waits for the deployments it
 started and prints each frontend's URL; --no-wait returns as soon as the config
 step is done.
 
+The server only adds or changes a scheduler on an active function. When a
+manifest adds or changes a scheduler on a function this run deployed that is
+still building, the config step leaves that function's schedulers out and
+applies them after the wait. With --no-wait, or when the wait fails, the
+command prints the config deploy commands that apply them later.
+
 Variables come from the env file or from a manifest's variables section, never
 both: applying that section deletes every variable it does not list. Pass
 --no-env-file when a manifest holds them.%s
@@ -140,10 +146,19 @@ func runDeploy(ctx context.Context, opts options) error {
 	if opts.noWait {
 		fmt.Fprintln(opts.out)
 		output.Success(opts.out, "Deployments started; not waiting for them to finish")
+		if len(r.deferred) > 0 {
+			fmt.Fprintln(opts.out, r.schedulerHint())
+		}
 		return nil
 	}
 	if err := r.wait(ctx, start); err != nil {
+		if len(r.deferred) > 0 {
+			return fmt.Errorf("%w\n\n%s", err, r.schedulerHint())
+		}
 		return err
+	}
+	if err := r.applyDeferredSchedulers(ctx); err != nil {
+		return fmt.Errorf("schedulers: %w\n\n%s", err, r.schedulerHint())
 	}
 	fmt.Fprintln(opts.out)
 	output.Success(opts.out, "Deployed in %s", now(opts.deps).Sub(start).Round(time.Second))

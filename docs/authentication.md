@@ -27,10 +27,17 @@ browser, the CLI completes the device-authorization handshake and saves your
 credentials to `~/.volcano/config.json`, so a single command signs you up
 and logs you in.
 
+The CLI ends up signed in as the account the browser uses. If you were already
+signed in to Volcano in that browser, signup does not create an account: it
+signs the CLI in to that account. When the login finishes, the CLI prints
+`Logged in as <email>` with the account it signed in, which can differ from
+the email you gave signup. If the CLI cannot read the account, it prints
+`Logged in successfully` instead.
+
 Already have an account? Authenticate with `volcano login`:
 
 ```bash
-# Browser-based login (default)
+# Browser-based login (default); prints "Logged in as <email>"
 volcano login
 
 # Token-based login (for CI/CD)

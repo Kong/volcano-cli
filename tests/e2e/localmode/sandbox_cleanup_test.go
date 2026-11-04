@@ -48,7 +48,7 @@ func testStopCleanSandboxes(t *testing.T, binary string, interrupted bool) {
 			_ = c.Run()
 		})
 	}
-	t.Cleanup(func() { _, _ = runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "stop", "--clean") })
+	registerLocalModeE2EStopClean(t, binary, env, dir)
 	run("start")
 	contextDir := filepath.Join(dir, "custom")
 	require.NoError(t, os.MkdirAll(contextDir, 0o700))

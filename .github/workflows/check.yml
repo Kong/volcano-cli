@@ -139,4 +139,17 @@ jobs:
       - name: Run local-mode CLI contract smoke
         env:
           VOLCANO_IMAGE: kong/volcano:local-nightly
+          # A failed test saves the stack's state here before stop --clean
+          # removes it.
+          VOLCANO_LOCALMODE_E2E_DIAGNOSTICS_DIR: ${{ runner.temp }}/localmode-e2e-diagnostics
         run: make localmode-e2e
+      - name: Upload local-mode E2E diagnostics
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          # A re-run must not collide with an earlier attempt's upload.
+          name: localmode-e2e-diagnostics-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/localmode-e2e-diagnostics
+          if-no-files-found: ignore
+          retention-days: 3

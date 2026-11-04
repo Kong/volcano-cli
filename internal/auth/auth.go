@@ -31,12 +31,20 @@ const maxConsecutiveDevicePollFailures = 3
 // of the exchange that follows an approved device login.
 const maxPlatformExchangeAttempts = 3
 
+// accountEmailReadTimeout bounds the best-effort read of the account email
+// after a completed login, so a slow answer does not hold the login up.
+const accountEmailReadTimeout = 5 * time.Second
+
 var platformExchangeRetryDelay = 500 * time.Millisecond
 
 // Credentials are the platform credentials produced by a successful login.
 type Credentials struct {
 	Token  string
 	UserID string
+	// Email is the account the login belongs to. It is not saved, and it is
+	// empty when the account could not be read: it only labels the login in the
+	// CLI's output.
+	Email string
 	// Project is the project login validated the token against, to be
 	// selected: saved as the active project, or, inside a linked directory, in
 	// the link. Nil when login resolved no project.
@@ -535,6 +543,7 @@ func (s Service) completeBrowserLogin(ctx context.Context, client *api.Client, c
 		deviceCode: deviceAuth.DeviceCode,
 		expiresIn:  time.Duration(deviceAuth.ExpiresIn) * time.Second,
 		interval:   time.Duration(deviceAuth.Interval) * time.Second,
+		readEmail:  true,
 	}, w)
 }
 
@@ -548,6 +557,9 @@ type devicePoll struct {
 	// pollNow polls once before the first interval, for a code that is
 	// already approved.
 	pollNow bool
+	// readEmail reads the account's email after the exchange, for a login whose
+	// output names the account.
+	readEmail bool
 }
 
 // errDeviceLoginTimeout is a device login that was still pending when its
@@ -599,7 +611,7 @@ func (s Service) pollDeviceLogin(ctx context.Context, client *api.Client, client
 func (s Service) waitForDeviceToken(ctx context.Context, client *api.Client, clientID string, poll devicePoll, w io.Writer) (Credentials, error) {
 	timeout := cliruntime.NewTimer(s.deps, poll.expiresIn)
 	defer timeout.Stop()
-	poller := devicePoller{client: client, clientID: clientID, deviceCode: poll.deviceCode, interval: poll.interval}
+	poller := devicePoller{client: client, clientID: clientID, deviceCode: poll.deviceCode, interval: poll.interval, readEmail: poll.readEmail}
 	if poller.interval <= 0 {
 		poller.interval = 5 * time.Second
 	}
@@ -643,6 +655,7 @@ type devicePoller struct {
 	interval   time.Duration
 	ticker     cliruntime.Ticker
 	failures   int
+	readEmail  bool
 }
 
 // exchange trades the device login's access token for a platform token. The
@@ -681,7 +694,17 @@ func (p *devicePoller) poll(ctx context.Context) (credentials Credentials, done 
 		if err != nil {
 			return Credentials{}, true, fmt.Errorf("failed to exchange platform token: %w", err)
 		}
-		return Credentials{Token: exchange.Token, UserID: exchange.UserId}, true, nil
+		credentials := Credentials{Token: exchange.Token, UserID: exchange.UserId}
+		if p.readEmail {
+			// The login is complete and the email only labels it, so a failed
+			// read is not an error.
+			emailCtx, cancel := context.WithTimeout(ctx, accountEmailReadTimeout)
+			if email, emailErr := p.client.GetAuthUserEmail(emailCtx, status.AccessToken); emailErr == nil {
+				credentials.Email = email
+			}
+			cancel()
+		}
+		return credentials, true, nil
 	}
 
 	switch status.Error {
@@ -694,4 +717,14 @@ func (p *devicePoller) poll(ctx context.Context) (credentials Credentials, done 
 	default:
 		return Credentials{}, true, &deviceTokenRefusal{code: status.Error, description: status.ErrorDescription, status: status.StatusCode}
 	}
+}
+
+// LoggedInMessage names the account when the login reported one. Login, signup
+// and connect all end here, and a browser signup can finish as an account that
+// already existed, so the message does not claim an account was created.
+func LoggedInMessage(email string) string {
+	if email == "" {
+		return "Logged in successfully"
+	}
+	return "Logged in as " + email
 }

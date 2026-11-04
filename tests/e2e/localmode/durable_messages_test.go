@@ -52,11 +52,8 @@ func TestLocalModeE2EDurableMessages(t *testing.T) {
 	requireDocker(t)
 	binary := buildLocalModeE2EBinary(t)
 	env, dir := localModeE2EEnv(t), localModeE2EProjectDir(t)
-	cleanup := func() {
-		_, _ = runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "stop", "--clean")
-	}
-	cleanup()
-	t.Cleanup(cleanup)
+	stopLocalModeE2EStack(t, binary, env, dir)
+	registerLocalModeE2EStopClean(t, binary, env, dir)
 
 	functionDir := filepath.Join("volcano", "functions", "message-pipeline")
 	writeLocalModeE2EFile(t, dir, "volcano-config.yaml", `

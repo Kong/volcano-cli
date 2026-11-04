@@ -56,7 +56,8 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 		}
 		return
 	}
-	if details.RepositoryState == "not_connected" && settings.Autonomy == apiclient.OpenPr {
+	opensFixes := settings.Autonomy == apiclient.OpenPr || settings.Autonomy == apiclient.Merge
+	if details.RepositoryState == "not_connected" && opensFixes {
 		Warning(w, "Connect a repository so LavaFlow can open fix pull requests: %s",
 			theme.Command(details.GitConnectCommand, on))
 	}
@@ -68,6 +69,7 @@ func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings) {
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
+	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
@@ -80,6 +82,7 @@ func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.Lava
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
+	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
@@ -144,7 +147,7 @@ func LavaflowRuns(w io.Writer, page LavaflowRunsPage) {
 		"ID", "Status", "Resource", "Title", "Started", "PR")
 	for _, run := range page.Runs {
 		fmt.Fprintf(w, "%-36s  %-31s  %-24s  %-30s  %-16s  %s\n",
-			run.Id.String(), Truncate(lavaflowRunStatus(run.Status), 31), Truncate(clean(run.Resource.Name), 24),
+			run.Id.String(), Truncate(lavaflowRunListStatus(run), 31), Truncate(clean(run.Resource.Name), 24),
 			Truncate(clean(stringOr(run.Title, "-")), 30), formatLavaflowTime(run.CreatedAt), lavaflowPullRequestCell(run.PullRequest))
 	}
 	summary(w, on, "Showing %d run(s)", len(page.Runs))
@@ -182,6 +185,9 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 		for _, workflow := range run.UngatedWorkflows {
 			fmt.Fprintf(w, "  - %s\n", lavaflowAllowedWorkflow(workflow))
 		}
+	}
+	if run.Merge != nil {
+		lavaflowMergeLines(w, on, run.Merge)
 	}
 	if run.Failure != nil && run.Failure.Message != "" {
 		// The API words each failure code itself, so it is printed as given.
@@ -255,8 +261,8 @@ func clean(text string) string {
 
 // lavaflowUngatedWorkflows says whether LavaFlow opens fixes past ungated
 // workflows. Allowing them applies only to the repository connected when a
-// person allowed them: while the project is connected to any other, Volcano
-// reads them as not allowed.
+// person allowed them: connecting another repository, or disconnecting it,
+// turns them off.
 func lavaflowUngatedWorkflows(allowed bool) string {
 	if allowed {
 		return "allowed for the connected repository"
@@ -295,8 +301,100 @@ func lavaflowAutonomy(autonomy apiclient.LavaflowAutonomy) string {
 		return "diagnose only: a person opens any fix"
 	case apiclient.OpenPr:
 		return "open fix pull requests"
+	case apiclient.Merge:
+		return "open fix pull requests and may merge them"
 	default:
 		return clean(string(autonomy))
+	}
+}
+
+// lavaflowHumanReviewPaths prints the paths whose changes always hold a fix
+// for a person, and nothing when the API doesn't report a merge policy.
+func lavaflowHumanReviewPaths(w io.Writer, on bool, policy apiclient.LavaflowMergePolicy) {
+	if policy.HumanReviewPaths == nil {
+		return
+	}
+	paths := "none"
+	if len(policy.HumanReviewPaths) > 0 {
+		paths = cleanList(policy.HumanReviewPaths)
+	}
+	kv(w, on, "Human review paths", "%s", paths)
+}
+
+// lavaflowMergeLines says where a run's merge is, and why LavaFlow held or
+// stopped it. Both are final: the pull request is then the person's. A status
+// the CLI doesn't know prints as the API gives it.
+func lavaflowMergeLines(w io.Writer, on bool, merge *apiclient.LavaflowMerge) {
+	status := lavaflowMergeStatus(merge.Status)
+	if merge.Reason != nil && *merge.Reason != "" {
+		status += " (" + lavaflowMergeReason(*merge.Reason) + ")"
+	}
+	kv(w, on, "Merge", "%s", status)
+	for _, reason := range merge.HoldReasons {
+		line := clean(reason.Question)
+		if strings.TrimSpace(line) == "" {
+			line = clean(strings.ReplaceAll(reason.Code, "_", " "))
+		}
+		if len(reason.Paths) > 0 {
+			line += " (" + cleanList(reason.Paths) + ")"
+		}
+		fmt.Fprintf(w, "  - %s\n", line)
+	}
+	if lavaflowMergeLeftToYou(merge.Status) {
+		fmt.Fprintln(w, "The pull request is now yours to review and merge on GitHub.")
+	}
+}
+
+// lavaflowMergeLeftToYou says whether LavaFlow left the pull request to
+// people for good.
+func lavaflowMergeLeftToYou(status apiclient.LavaflowMergeStatus) bool {
+	return status == apiclient.LavaflowMergeStatusHeld || status == apiclient.LavaflowMergeStatusStopped
+}
+
+func lavaflowMergeReason(reason string) string {
+	switch reason {
+	case "paused":
+		return "paused while merging is off"
+	default:
+		return clean(strings.ReplaceAll(reason, "_", " "))
+	}
+}
+
+func lavaflowMergeStatus(status apiclient.LavaflowMergeStatus) string {
+	switch status {
+	case apiclient.LavaflowMergeStatusWaitingForChecks:
+		return "waiting for CI"
+	case apiclient.LavaflowMergeStatusHeld:
+		return "held"
+	case apiclient.LavaflowMergeStatusQueued:
+		return "queued to merge"
+	case apiclient.LavaflowMergeStatusMerged:
+		return "merged"
+	case apiclient.LavaflowMergeStatusStopped:
+		return "stopped"
+	default:
+		return clean(string(status))
+	}
+}
+
+func cleanList(items []string) string {
+	cleaned := make([]string, len(items))
+	for i, item := range items {
+		cleaned[i] = clean(item)
+	}
+	return strings.Join(cleaned, ", ")
+}
+
+// lavaflowRunListStatus marks a run whose fix LavaFlow held or stopped, which
+// otherwise reads as an open pull request.
+func lavaflowRunListStatus(run apiclient.LavaflowRunSummary) string {
+	switch {
+	case run.Merge != nil && run.Merge.Status == apiclient.LavaflowMergeStatusHeld:
+		return "Held: yours to merge"
+	case run.Merge != nil && run.Merge.Status == apiclient.LavaflowMergeStatusStopped:
+		return "Stopped: yours to merge"
+	default:
+		return lavaflowRunStatus(run.Status)
 	}
 }
 

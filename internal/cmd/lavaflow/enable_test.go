@@ -246,7 +246,7 @@ func TestAPersonRequiredRefusalSaysToUnsetVolcanoToken(t *testing.T) {
 	})
 	t.Setenv("VOLCANO_TOKEN", "pk-secret")
 
-	_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--allow-ungated-workflows", "true", "--yes")
+	_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "merge", "--yes")
 	require.Error(t, err)
 	assert.Equal(t, "LavaFlow's settings weren't changed: "+neverExpires+". VOLCANO_TOKEN is set, and its token is "+
 		"used instead of a 'volcano login' sign-in until you unset it", err.Error())

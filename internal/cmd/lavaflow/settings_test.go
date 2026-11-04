@@ -1,6 +1,8 @@
 package lavaflow
 
 import (
+	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 )
 
@@ -60,9 +63,16 @@ func TestSettingsSetRefusesBeforeSending(t *testing.T) {
 		args []string
 		want string
 	}{
-		{nil, "nothing to change: pass --autonomy, --custom-context, --system-prompt, or --allow-ungated-workflows"},
-		{[]string{"--autonomy", "merge"}, `invalid autonomy "merge": use diagnose_only or open_pr`},
+		{nil, "nothing to change: pass --autonomy, --human-review-path, --clear-human-review-paths, " +
+			"--custom-context, --system-prompt, or --allow-ungated-workflows"},
 		{[]string{"--allow-ungated-workflows", "yes"}, `invalid --allow-ungated-workflows "yes": use true or false`},
+		{[]string{"--clear-human-review-paths=false"}, "nothing to change"},
+		{[]string{"--autonomy", "always"}, `invalid autonomy "always": use diagnose_only, open_pr or merge`},
+		{[]string{"--human-review-path", ""}, `invalid human review path "": use 1 to 200 characters`},
+		{[]string{"--human-review-path", strings.Repeat("a", 201)}, "use 1 to 200 characters"},
+		{tooManyReviewPaths(), "51 human review paths: the most is 50"},
+		{[]string{"--human-review-path", "a", "--clear-human-review-paths"}, "none of the others can be"},
+		{[]string{"--merge-mode", "auto"}, "unknown flag: --merge-mode"},
 		{[]string{"--system-prompt", tooLong}, "the system prompt is 4001 characters long: the most is 4000"},
 		{[]string{"--custom-context-file", filepath.Join(t.TempDir(), "missing.md")}, "failed to read"},
 		{[]string{"--custom-context", "a", "--custom-context-file", "b"}, "none of the others can be"},
@@ -107,16 +117,204 @@ func TestSettingsSetExamplesRunTheCloudCommand(t *testing.T) {
 	assert.Contains(t, out, "  volcano cloud lavaflow settings set --custom-context-file lavaflow-context.md\n")
 }
 
+func tooManyReviewPaths() []string {
+	args := make([]string, 0, 2*(clilavaflow.MaxHumanReviewPaths+1))
+	for i := range clilavaflow.MaxHumanReviewPaths + 1 {
+		args = append(args, "--human-review-path", fmt.Sprintf("infra/%d/**", i))
+	}
+	return args
+}
+
+// settings set --help says what autonomy merge does, in the approved words,
+// and that --yes skips the question.
+func TestSettingsSetHelpSaysWhatMergingDoes(t *testing.T) {
+	_, deps := newLavaflowServer(t)
+
+	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "merge\nis for a project where merging is available. "+clilavaflow.MergeDisclosure+
+		"\n--autonomy merge prints that and asks first; --yes skips the question.")
+	assert.Contains(t, out, "--human-review-path names a path whose changes always hold a fix for a")
+	merging, _, _ := strings.Cut(out, "--allow-ungated-workflows true:")
+	assert.NotContains(t, merging, "approv")
+}
+
+// --autonomy merge says what merging does and asks first, and changes
+// nothing on a no.
+func TestSettingsSetAsksBeforeMerging(t *testing.T) {
+	for answer, wantMerge := range map[string]bool{"y\n": true, "n\n": false} {
+		fake, deps := newLavaflowServer(t)
+
+		out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(answer),
+			"settings", "set", "--autonomy", "merge")
+		require.NoError(t, err, "%q", answer)
+		assert.Contains(t, errOut, clilavaflow.MergeDisclosure, "%q", answer)
+		assert.Contains(t, errOut, "Let LavaFlow merge fixes?", "%q", answer)
+		if !wantMerge {
+			assert.Empty(t, fake.updates, "%q", answer)
+			assert.Empty(t, out, "%q", answer)
+			continue
+		}
+		assert.Equal(t, map[string]any{"autonomy": "merge"}, fake.lastUpdate(t))
+		assert.Contains(t, out, "Autonomy: open fix pull requests and may merge them")
+	}
+}
+
+// --yes merges without asking, but still says what merging does, on stderr,
+// so --json output stays JSON.
+func TestSettingsSetMergesWithYesAndJSON(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+
+	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
+		"settings", "set", "--autonomy", "merge", "--yes", "--json")
+	require.NoError(t, err)
+	assert.Equal(t, clilavaflow.MergeDisclosure+"\n", errOut)
+	assert.Contains(t, errOut, "Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, "+
+		"run your CI with the secrets your pull request workflows get.", "--yes still says what it risks")
+	assert.Equal(t, "merge", decodeJSON(t, out)["autonomy"])
+	assert.Equal(t, map[string]any{"autonomy": "merge"}, fake.lastUpdate(t))
+}
+
+// Nothing can answer a prompt on a stdin that isn't a terminal, so
+// --autonomy merge refuses without --yes rather than read that as a no.
+func TestSettingsSetMergingWithoutATerminalNeedsYes(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	path := filepath.Join(t.TempDir(), "stdin")
+	require.NoError(t, os.WriteFile(path, []byte("y\n"), 0o600))
+	stdin, err := os.Open(path)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = stdin.Close() })
+
+	_, _, err = executeLavaflowCommandSplit(t, New(deps), stdin, "settings", "set", "--autonomy", "merge")
+	require.EqualError(t, err, clilavaflow.MergeDisclosure+"\n\nstdin is not a terminal: confirmation required; pass --yes")
+	assert.Empty(t, fake.updates)
+}
+
+// The human review paths replace the saved ones, or are cleared, and the
+// settings print them.
+func TestSettingsSetChangesTheHumanReviewPaths(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+
+	out, err := executeLavaflowCommand(t, New(deps), "settings", "set",
+		"--human-review-path", "infra/**", "--human-review-path", "db/migrations/**")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"merge_policy": map[string]any{"human_review_paths": []any{"infra/**", "db/migrations/**"}}},
+		fake.lastUpdate(t))
+	assert.Contains(t, out, "Human review paths: infra/**, db/migrations/**")
+
+	out, err = executeLavaflowCommand(t, New(deps), "settings")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Human review paths: infra/**, db/migrations/**")
+
+	out, err = executeLavaflowCommand(t, New(deps), "settings", "set", "--clear-human-review-paths")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"merge_policy": map[string]any{"human_review_paths": []any{}}}, fake.lastUpdate(t))
+	assert.Contains(t, out, "Human review paths: none")
+}
+
+// An API without a merge policy prints no human review paths.
+func TestSettingsWithoutAMergePolicyPrintsNoPaths(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { delete(s.settings, "merge_policy") })
+
+	out, err := executeLavaflowCommand(t, New(deps), "settings")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "Human review paths")
+}
+
+// When Volcano can't check the owner's push access for autonomy merge, it
+// answers 429 or 503, and the CLI says when to try again.
+func TestSettingsSetSaysWhenToTryMergingAgain(t *testing.T) {
+	for name, tc := range map[string]struct {
+		status  int
+		headers map[string]string
+		want    string
+	}{
+		"limited":    {http.StatusTooManyRequests, map[string]string{"Retry-After": "30"}, "Try again in 30s"},
+		"unanswered": {http.StatusServiceUnavailable, nil, "Try again later"},
+		"already passed": {
+			http.StatusServiceUnavailable,
+			map[string]string{"Retry-After": "Mon, 02 Jan 2006 15:04:05 GMT"},
+			"Try again later",
+		},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse, s.refuseMethod = tc.status, http.MethodPut
+			s.refusal = map[string]any{"error": "the push check didn't answer"}
+			s.refusalHeaders = tc.headers
+		})
+
+		_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "merge", "--yes")
+		require.Error(t, err, name)
+		assert.Equal(t, "LavaFlow's settings weren't changed: Volcano couldn't check that the project owner's GitHub "+
+			"account can push to the repository. "+tc.want, err.Error(), name)
+		assert.Equal(t, tc.status, api.Status(err), name)
+	}
+}
+
+// The API refuses autonomy merge while merging is off for the project, or
+// while the owner's GitHub account can't push to the repository, and the CLI
+// says which.
+func TestSettingsSetSaysWhyMergingIsRefused(t *testing.T) {
+	for name, tc := range map[string]struct {
+		status        int
+		message, code string
+		want          string
+	}{
+		"merging off": {
+			http.StatusBadRequest, "autonomy merge is not available", "feature_unavailable",
+			"LavaFlow merging isn't available for this project yet",
+		},
+		"owner can't push": {
+			http.StatusForbidden, "the owner's GitHub connection needs reconnecting", "permission_missing",
+			"LavaFlow can't merge for this project: the project owner's GitHub account can't push to its repository " +
+				"(the owner's GitHub connection needs reconnecting). To connect GitHub, see " +
+				"'volcano docs get platform/projects/git-deploy.md#1-connect-github'",
+		},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse, s.refuseMethod = tc.status, http.MethodPut
+			s.refusal = map[string]any{"error": tc.message, "code": tc.code}
+		})
+
+		_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "merge", "--yes")
+		require.Error(t, err, name)
+		assert.Equal(t, tc.want, err.Error(), name)
+		assert.Equal(t, tc.status, api.Status(err), name)
+	}
+}
+
+// Human review paths are part of merging, so Volcano refuses them where
+// merging isn't available, and the CLI says so.
+func TestSettingsSetSaysReviewPathsNeedMerging(t *testing.T) {
+	for _, args := range [][]string{
+		{"settings", "set", "--human-review-path", "db/migrations/**"},
+		{"settings", "set", "--clear-human-review-paths"},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse, s.refuseMethod = http.StatusBadRequest, http.MethodPut
+			s.refusal = map[string]any{"error": "merging is not available", "code": "feature_unavailable"}
+		})
+
+		_, err := executeLavaflowCommand(t, New(deps), args...)
+		require.Error(t, err, "%q", args)
+		assert.Equal(t, "LavaFlow merging isn't available for this project yet", err.Error(), "%q", args)
+	}
+}
+
 // settings set --help says what allowing ungated workflows does, that it
-// applies to the current repository only, and what it risks.
+// applies to the connected repository only, and what it risks.
 func TestSettingsSetHelpSaysWhatUngatedWorkflowsRisk(t *testing.T) {
 	_, deps := newLavaflowServer(t)
 
 	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--help")
 	require.NoError(t, err)
 	assert.Contains(t, out, "--allow-ungated-workflows true: "+clilavaflow.UngatedWorkflowsDisclosure+"\n")
-	assert.Contains(t, clilavaflow.UngatedWorkflowsDisclosure, "It applies only to the repository the project is connected "+
-		"to now, and reads as not allowed while the project is connected to any other.")
+	assert.Contains(t, clilavaflow.UngatedWorkflowsDisclosure, "It applies only to the repository the project is "+
+		"connected to now: connecting the project to another repository, or disconnecting it, turns it off")
 	assert.Contains(t, out, "for the connected repository: true or false")
 }
 
@@ -146,8 +344,7 @@ func TestSettingsSetAllowsUngatedWorkflowsOnlyAfterAsking(t *testing.T) {
 	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
 		"settings", "set", "--allow-ungated-workflows", "true", "--yes", "--json")
 	require.NoError(t, err)
-	assert.Contains(t, errOut, clilavaflow.UngatedWorkflowsDisclosure, "--yes still says what it risks")
-	assert.NotContains(t, errOut, "Allow ungated workflows?")
+	assert.Equal(t, clilavaflow.UngatedWorkflowsDisclosure+"\n", errOut, "--yes still says what it risks, and only that")
 	assert.Equal(t, true, decodeJSON(t, out)["allow_ungated_workflows"])
 	assert.Equal(t, map[string]any{"allow_ungated_workflows": true}, fake.lastUpdate(t))
 
@@ -171,6 +368,32 @@ func TestSettingsSetAllowsUngatedWorkflowsOnlyAfterAsking(t *testing.T) {
 	out, err = executeLavaflowCommand(t, New(deps), "settings")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Ungated workflows: not allowed\n")
+}
+
+// Turning on merging and ungated workflows in one change says what each does,
+// then asks once; a no sends nothing.
+func TestSettingsSetAsksOnceAboutMergingAndUngatedWorkflows(t *testing.T) {
+	for answer, wantSaved := range map[string]bool{"y\n": true, "n\n": false} {
+		fake, deps := newLavaflowServer(t)
+
+		_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(answer),
+			"settings", "set", "--autonomy", "merge", "--allow-ungated-workflows", "true")
+		require.NoError(t, err, "%q", answer)
+		assert.Contains(t, errOut, clilavaflow.MergeDisclosure+"\n"+clilavaflow.UngatedWorkflowsDisclosure+"\n", "%q", answer)
+		assert.Equal(t, 1, strings.Count(errOut, "Type 'y' or 'yes' to confirm"), "%q", answer)
+		assert.Contains(t, errOut, "Let LavaFlow merge fixes, and allow ungated workflows?", "%q", answer)
+		if !wantSaved {
+			assert.Empty(t, fake.updates, "%q", answer)
+			continue
+		}
+		assert.Equal(t, map[string]any{"autonomy": "merge", "allow_ungated_workflows": true}, fake.lastUpdate(t))
+	}
+
+	_, deps := newLavaflowServer(t)
+	_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
+		"settings", "set", "--autonomy", "merge", "--allow-ungated-workflows", "true", "--yes", "--json")
+	require.NoError(t, err)
+	assert.Equal(t, clilavaflow.MergeDisclosure+"\n"+clilavaflow.UngatedWorkflowsDisclosure+"\n", errOut)
 }
 
 // Only the owner allows ungated workflows: someone the settings say can't
