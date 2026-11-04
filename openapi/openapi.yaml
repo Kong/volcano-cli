@@ -879,10 +879,9 @@ paths:
       summary: Extract a tar archive into a session's workspace
       description: |
         Extracts a tar archive into a directory of a session's workspace. Send `multipart/form-data`
-        with `project_id` as the first field, then `session_id` and `path`, then the archive as the file
-        part `archive`. The project is authorized before anything after it is read. The archive may be
-        gzip-compressed; Volcano detects compression from its first bytes. The request streams to the
-        session, so the archive is never held whole in memory.
+        with `project_id`, `session_id` and `path`, in any order, then the archive as the file part
+        `archive`. The archive may be gzip-compressed; Volcano detects compression from its first bytes.
+        The request streams to the session, so the archive is never held whole in memory.
 
         Each call accepts at most 32 MiB of archive, 10,000 files and directories, and 256 MiB of
         uncompressed archive, counting tar headers. Split larger trees into several archives and create
@@ -890,7 +889,7 @@ paths:
 
         The archive may contain only regular files and directories. Entry names are relative to
         `path`, which is created when missing; an absolute name, a `..` component, a symbolic link, a
-        hard link, or a device refuses the whole archive. File and directory modes keep their
+        hard link, a sparse file, or a device refuses the whole archive. File and directory modes keep their
         permission bits; setuid, setgid and sticky bits are dropped. A file replaces an existing file or
         symbolic link at its path. Existing directories keep their modes. A symbolic link in the
         destination is never followed.
@@ -945,7 +944,8 @@ paths:
         only by the session user.
 
         A part may start anywhere up to the bytes already received, so a failed part can be resent. A
-        part at offset 0 starts the file again. Code `sandbox_file_part_out_of_order` (409) means the
+        part at offset 0 starts the file again. Resending the part that finished the file answers the
+        same completion while the file at `path` still matches `size` and `sha256`. Code `sandbox_file_part_out_of_order` (409) means the
         part starts past the bytes received; resend from the last part that succeeded. Code
         `sandbox_file_part_mismatch` (409) means the finished file differs from `size` or `sha256`; its
         parts are discarded, so start again at offset 0. Code `sandbox_path_conflict` (409) means a
@@ -18987,7 +18987,7 @@ components:
         - data
     SandboxFileArchiveForm:
       type: object
-      description: Send `project_id` first, then `session_id` and `path`, then the `archive` part.
+      description: Send `project_id`, `session_id` and `path`, in any order, then the `archive` part.
       properties:
         project_id:
           type: string

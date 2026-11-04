@@ -10814,7 +10814,7 @@ type SandboxFileArchive struct {
 	SessionId openapi_types.UUID `json:"session_id"`
 }
 
-// SandboxFileArchiveForm Send `project_id` first, then `session_id` and `path`, then the `archive` part.
+// SandboxFileArchiveForm Send `project_id`, `session_id` and `path`, in any order, then the `archive` part.
 type SandboxFileArchiveForm struct {
 	// Archive A tar archive, optionally gzip-compressed.
 	Archive openapi_types.File `json:"archive"`
