@@ -80,6 +80,12 @@ func collectLocalModeE2EDiagnostics(t *testing.T, env []string) {
 	// docker cp needs no shell in the image and reaches the logs of previews,
 	// which run under their own ID beside the frontends.
 	runtimeDir := filepath.Join(saveDir, "frontend-runtime")
+	// docker cp copies into an existing directory rather than replacing it, so
+	// clear one an earlier failed run left in a reused diagnostics directory.
+	if err := os.RemoveAll(runtimeDir); err != nil {
+		t.Logf("Could not clear %s: %v", runtimeDir, err)
+		return
+	}
 	if output, err := localModeE2EDocker(ctx, env, "cp", "volcano-server:"+localModeE2EFrontendRuntimeDir, runtimeDir); err != nil {
 		t.Logf("No frontend runtime logs copied: %v\n%s", err, output)
 		return
