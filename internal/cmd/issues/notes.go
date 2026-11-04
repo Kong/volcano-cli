@@ -23,7 +23,8 @@ import (
 var errDeclined = errors.New("declined")
 
 // maxStdinBytes bounds what a note read from stdin can take. The API takes at
-// most 2,048 characters, so anything longer is refused either way.
+// most 2,048 bytes once the text is normalized, so this much is refused
+// either way.
 const maxStdinBytes = 64 << 10
 
 // writeRules is what every command that writes a note says about who writes
@@ -32,16 +33,19 @@ const writeRules = `Only the project's owner writes notes, as a person: signed i
 login', or with a platform token that expires. A project access token, and a
 platform token that never expires, are refused.
 
-A note is plain text, up to 2,048 characters. Volcano checks it before it
-stores it and refuses, naming the rule, a note that holds:
+A note is plain text, up to 2,048 bytes once normalized to Unicode NFKC.
+Volcano checks it before it stores it and refuses, naming the rule, a note
+that holds:
   characters  a control, format, private-use or other invisible character
   size        over 2,048 bytes once normalized to Unicode NFKC
   credential  what looks like a credential, such as an API key or a token
   secret      one of the project's secret values
   sanitizer   text Volcano masks in logs
   link        a URL, or a host name with //, user info, a port, a path or
-              a query
-Never paste a secret into a note.
+              a query; or a line reference such as cart.ts:42, or a stack
+              frame
+File names such as cart.ts are fine, and so are tabs: name a line in words,
+such as "cart.ts, line 42". Never paste a secret into a note.
 
 Pass the text with --text, or pipe it on stdin.`
 
@@ -64,7 +68,7 @@ the issue; later runs don't read notes on a run.
 Add one with '` + cliruntime.CommandPath(deps, "issues notes add <issue-id> --text <text>") + `'.`,
 		Example: "  " + cliruntime.CommandPath(deps, "issues notes <issue-id>") + "\n" +
 			"  " + cliruntime.CommandPath(deps, "issues notes <issue-id> --kind issue --json"),
-		Args: func(cmd *cobra.Command, args []string) error {
+		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("pass one issue ID, from '%s'", cliruntime.CommandPath(deps, "issues list"))
 			}
@@ -228,7 +232,7 @@ func noteText(cmd *cobra.Command, opts noteWriteOptions) (string, error) {
 		return "", fmt.Errorf("failed to read the note from stdin: %w", err)
 	}
 	if len(data) > maxStdinBytes {
-		return "", fmt.Errorf("the note on stdin is over %d KiB: the most is 2,048 characters", maxStdinBytes>>10)
+		return "", fmt.Errorf("the note on stdin is over %d KiB: a note holds at most 2,048 bytes", maxStdinBytes>>10)
 	}
 	return strings.TrimRight(string(data), "\r\n"), nil
 }

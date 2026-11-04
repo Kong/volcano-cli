@@ -32,6 +32,11 @@ var ErrNotesUnavailable = errors.New("issue notes aren't available on this Volca
 // available in this environment yet.
 var ErrNotAvailable = errors.New("issues aren't available in this Volcano environment yet")
 
+// ErrWritesNotAvailable reports a note write's feature_unavailable: the
+// issues.notes capability is unavailable, so notes can be read and deleted
+// but not written.
+var ErrWritesNotAvailable = errors.New("writing issue notes isn't available in this Volcano environment yet")
+
 // ErrPersonWrites refuses writing a note with a project access token before
 // anything is sent. A note is input to LavaFlow's next run, so only a person
 // writes one.
@@ -48,9 +53,6 @@ const RunNoteNotRead = "Later LavaFlow runs don't read notes on a run."
 const (
 	DefaultLimit = 25
 	MaxLimit     = 100
-	// MaxNoteCharacters is the longest note the API takes. It also refuses a
-	// note over 2,048 bytes once normalized, which only it can tell.
-	MaxNoteCharacters = 2048
 )
 
 // Codes of the API's refusals.
@@ -59,6 +61,7 @@ const (
 	codePersonRequired     = "person_required"
 	codeNoteAuthorRequired = "note_author_required"
 	codeNoteLimitReached   = "note_limit_reached"
+	codeSize               = "size"
 )
 
 // textRules says what each of the API's text checks refused a note for. The
@@ -69,7 +72,8 @@ var textRules = map[string]string{
 	"credential": "it holds what looks like a credential, such as an API key or a token",
 	"secret":     "it holds one of the project's secret values",
 	"sanitizer":  "it holds text Volcano masks in logs",
-	"link":       "it holds a link: a URL, or a host name with //, user info, a port, a path or a query",
+	"link": "it holds a link or a line reference: a URL, a host name with //, user info, a port, a path " +
+		"or a query, or a line such as cart.ts:42 or a stack frame. Name a line in words, such as \"cart.ts, line 42\"",
 }
 
 // ListQuery picks a page of issues. Zero values leave a filter out.
@@ -291,14 +295,11 @@ func checkLimit(limit int) error {
 	return nil
 }
 
-// checkText refuses a note the API would refuse for its shape alone. The
-// API's own checks say why they refuse the rest.
+// checkText refuses an empty note, which the API refuses too. Only the API
+// can tell a note's size, which it counts once the text is normalized.
 func checkText(text string) error {
 	if strings.TrimSpace(text) == "" {
 		return errors.New("the note is empty: pass its text with --text, or on stdin")
-	}
-	if n := len([]rune(text)); n > MaxNoteCharacters {
-		return fmt.Errorf("the note is %d characters long: the most is 2,048", n)
 	}
 	return nil
 }
@@ -309,7 +310,11 @@ func checkText(text string) error {
 func refused(cfg *config.Config, outcome string, err error) error {
 	code := api.Code(err)
 	status := api.Status(err)
-	if reason, ok := textRules[code]; ok && status == http.StatusBadRequest {
+	if status == http.StatusRequestEntityTooLarge {
+		// A request this large holds a note far over the size check's limit.
+		code = codeSize
+	}
+	if reason, ok := textRules[code]; ok && (status == http.StatusBadRequest || code == codeSize) {
 		return api.WithCause(fmt.Errorf("the note wasn't saved (%s): %s. Rephrase it and send it again", code, reason), err)
 	}
 	notDone := "the note wasn't " + outcome
@@ -335,9 +340,12 @@ func refused(cfg *config.Config, outcome string, err error) error {
 		return api.WithCause(fmt.Errorf("%s: the issue or the project holds as many notes as it can; "+
 			"delete notes to write more", notDone), err)
 	case status == http.StatusForbidden && code == "":
-		return api.WithCause(fmt.Errorf("%s: the project owner's account is read-only", notDone), err)
+		return api.WithCause(fmt.Errorf("%s: a read-only account or access token can't change notes", notDone), err)
 	case status == http.StatusTooManyRequests:
 		return rateLimited(time.Now(), notDone, err)
+	}
+	if code == codeFeatureUnavailable {
+		return api.WithCause(ErrWritesNotAvailable, err)
 	}
 	return unavailable(err, ErrNotesUnavailable)
 }

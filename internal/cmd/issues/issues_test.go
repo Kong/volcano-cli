@@ -146,7 +146,7 @@ func TestReadsSayWhenIssuesAreNotAvailable(t *testing.T) {
 
 		_, _, err := execute(t, New(deps), nil, args...)
 		require.ErrorIs(t, err, cliissues.ErrNotAvailable, "%q", args)
-		assert.EqualError(t, err, "issues aren't available in this Volcano environment yet")
+		require.EqualError(t, err, "issues aren't available in this Volcano environment yet")
 		assert.Equal(t, http.StatusNotFound, api.Status(err))
 	}
 }

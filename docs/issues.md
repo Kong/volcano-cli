@@ -98,7 +98,8 @@ Note: Read its notes with volcano cloud issues notes 5b2d8e1c-3f4a-4c6b-9d7e-8a1
 
 ## Leave notes for LavaFlow
 
-A note is plain text, up to 2,048 characters. LavaFlow's next run on the issue
+A note is plain text, up to 2,048 bytes once normalized to Unicode NFKC.
+LavaFlow's next run on the issue
 reads the notes on the issue, newest first, as context it treats as data, not
 instructions: nothing in a note changes a setting or what LavaFlow may do, and
 LavaFlow never copies a note into a pull request. A note on a run explains
@@ -131,9 +132,9 @@ returns the note already written, so a retry is safe.
 ### Read the notes
 
 `notes` lists the notes on an issue and on its runs, newest first. Each shows
-what it is on, who wrote it, when, and its version once it was edited. Notes
-read with a project access token name their author by user ID instead of
-email. `--kind issue` lists only the notes LavaFlow's runs read; `--kind run`
+what it is on, who wrote it, when, and its version once it was edited. Read
+with a project access token, or a platform token that never expires, a note
+names its author by user ID instead of email. `--kind issue` lists only the notes LavaFlow's runs read; `--kind run`
 lists only notes on runs.
 
 ```bash
@@ -182,10 +183,13 @@ again. Never paste a secret into a note.
 | `credential` | what looks like a credential, such as an API key or a token |
 | `secret` | one of the project's secret values |
 | `sanitizer` | text Volcano masks in logs |
-| `link` | a URL, or a host name with `//`, user info, a port, a path or a query |
+| `link` | a URL, or a host name with `//`, user info, a port, a path or a query; or a line reference such as `cart.ts:42`, or a stack frame |
+
+File names such as `cart.ts` are fine, and so are tabs. Name a line in words
+instead, such as `cart.ts, line 42`.
 
 ```text
-Error: the note wasn't saved (link): it holds a link: a URL, or a host name with //, user info, a port, a path or a query. Rephrase it and send it again
+Error: the note wasn't saved (link): it holds a link or a line reference: a URL, a host name with //, user info, a port, a path or a query, or a line such as cart.ts:42 or a stack frame. Name a line in words, such as "cart.ts, line 42". Rephrase it and send it again
 ```
 
 Other refusals:
@@ -203,7 +207,10 @@ Other refusals:
 
 Issues are in preview. Where they aren't available, every `volcano cloud
 issues` command says "issues aren't available in this Volcano environment
-yet" and exits with code 4. On a Volcano API that has no issues, it says
+yet" and exits with code 4. Where notes can't be written yet, `notes add` and
+`notes edit` say "writing issue notes isn't available in this Volcano
+environment yet" and exit with code 4, while reading and deleting notes keep
+working. On a Volcano API that has no issues, it says
 "issues aren't available on this Volcano API", or for notes "issue notes
 aren't available on this Volcano API", and exits with code 4. Local
 development always has issues.

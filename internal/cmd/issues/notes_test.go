@@ -142,7 +142,6 @@ func TestAddRefusesANoteTheAPIWouldBeforeSending(t *testing.T) {
 		{"empty", []string{"--text", ""}, "", "the note is empty: pass its text with --text, or on stdin"},
 		{"blank", []string{"--text", " \n\t"}, "", "the note is empty: pass its text with --text, or on stdin"},
 		{"empty stdin", nil, "\n", "the note is empty: pass its text with --text, or on stdin"},
-		{"too long", []string{"--text", strings.Repeat("é", 2049)}, "", "the note is 2049 characters long: the most is 2,048"},
 		{"bad run", []string{"--text", "a note", "--run", "latest"}, "", `invalid --run "latest": use a run ID from 'volcano cloud lavaflow list'`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -156,14 +155,24 @@ func TestAddRefusesANoteTheAPIWouldBeforeSending(t *testing.T) {
 	}
 }
 
-// The longest note the API takes is 2,048 characters, not bytes: the API
-// counts bytes only once the text is normalized.
-func TestAddSendsTheLongestNote(t *testing.T) {
+// Only the API can tell a note's size: it counts bytes once the text is
+// normalized, which can shorten it.
+func TestAddLeavesTheSizeToTheAPI(t *testing.T) {
+	fake, deps := newIssuesServer(t)
+	text := strings.Repeat("ｆｕｌｌｗｉｄｔｈ", 300)
+
+	_, _, err := execute(t, New(deps), nil, "notes", "add", testIssueID, "--text", text)
+	require.NoError(t, err)
+	assert.Equal(t, text, fake.last(t).body["body"])
+}
+
+// A note on stdin past what any note can hold is refused before it is sent.
+func TestAddRefusesAHugeNoteOnStdin(t *testing.T) {
 	fake, deps := newIssuesServer(t)
 
-	_, _, err := execute(t, New(deps), nil, "notes", "add", testIssueID, "--text", strings.Repeat("é", 2048))
-	require.NoError(t, err)
-	assert.Equal(t, strings.Repeat("é", 2048), fake.last(t).body["body"])
+	_, _, err := execute(t, New(deps), strings.NewReader(strings.Repeat("x", 64<<10+1)), "notes", "add", testIssueID)
+	require.EqualError(t, err, "the note on stdin is over 64 KiB: a note holds at most 2,048 bytes")
+	assert.Empty(t, fake.sent())
 }
 
 func TestEditReplacesANotesText(t *testing.T) {
@@ -223,7 +232,7 @@ func TestWritesRefuseAProjectAccessTokenBeforeSending(t *testing.T) {
 		_, _, err := execute(t, New(deps), strings.NewReader("yes\n"), args...)
 		require.ErrorIs(t, err, cliissues.ErrPersonWrites, "%q", args)
 		require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired)
-		assert.EqualError(t, err, "writing issue notes needs a person's session: a project access token can't. "+
+		require.EqualError(t, err, "writing issue notes needs a person's session: a project access token can't. "+
 			"Sign in with 'volcano login' and run this again")
 		assert.Empty(t, fake.sent())
 	}
@@ -264,8 +273,9 @@ func TestWriteRefusalsSayWhy(t *testing.T) {
 			"Rephrase it and send it again"},
 		{400, "sanitizer", "refused", nil, "the note wasn't saved (sanitizer): it holds text Volcano masks in logs. " +
 			"Rephrase it and send it again"},
-		{400, "link", "refused", nil, "the note wasn't saved (link): it holds a link: a URL, or a host name with //, " +
-			"user info, a port, a path or a query. Rephrase it and send it again"},
+		{400, "link", "refused", nil, "the note wasn't saved (link): it holds a link or a line reference: a URL, a host " +
+			"name with //, user info, a port, a path or a query, or a line such as cart.ts:42 or a stack frame. Name a " +
+			"line in words, such as \"cart.ts, line 42\". Rephrase it and send it again"},
 		{403, "person_required", "this platform token never expires; sign in with `volcano login`, or use a token " +
 			"that expires, to write issue notes", nil, "the note wasn't saved: this platform token never expires; sign in " +
 			"with `volcano login`, or use a token that expires, to write issue notes"},
@@ -273,11 +283,15 @@ func TestWriteRefusalsSayWhy(t *testing.T) {
 			"person: signed in with 'volcano login', or with a platform token that expires"},
 		{403, "note_author_required", "only the author", nil, "the note wasn't saved: only the note's author can edit " +
 			"it, and only its author or the project's owner can delete it"},
-		{403, "", "forbidden", nil, "the note wasn't saved: the project owner's account is read-only"},
+		{403, "", "forbidden", nil, "the note wasn't saved: a read-only account or access token can't change notes"},
+		{404, "feature_unavailable", "local mode can't write issue notes", nil, "writing issue notes isn't available " +
+			"in this Volcano environment yet"},
 		{409, "note_limit_reached", "full", nil, "the note wasn't saved: the issue or the project holds as many notes " +
 			"as it can; delete notes to write more"},
 		{429, "", "slow down", map[string]string{"Retry-After": "12"}, "the note wasn't saved: the project wrote 30 " +
 			"notes or edits in the last minute. Try again in 12s"},
+		{413, "", "Request body too large", nil, "the note wasn't saved (size): it is over 2,048 bytes once " +
+			"normalized to Unicode NFKC. Rephrase it and send it again"},
 		{404, "", "issue or run not found", nil, "failed to add a note to issue " + testIssueID + ": HTTP 404: issue or run not found"},
 		{400, "", "body must hold text", nil, "failed to add a note to issue " + testIssueID + ": HTTP 400: body must hold text"},
 	} {
@@ -337,7 +351,7 @@ func TestWritesSayWhenTheAPIHasNoNotes(t *testing.T) {
 
 	_, _, err := execute(t, New(deps), nil, "notes", "add", testIssueID, "--text", "a note")
 	require.ErrorIs(t, err, cliissues.ErrNotesUnavailable)
-	assert.EqualError(t, err, "issue notes aren't available on this Volcano API")
+	require.EqualError(t, err, "issue notes aren't available on this Volcano API")
 }
 
 // Help on every write says that LavaFlow's next run reads notes, and lists

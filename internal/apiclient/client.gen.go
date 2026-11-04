@@ -8211,7 +8211,7 @@ type Issue struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// IssueNote A note a person wrote on an issue, or on one LavaFlow run of it. LavaFlow's next run on the issue reads the issue's notes, not run notes.
+// IssueNote A note a person wrote on an issue, or on one LavaFlow run of it.
 type IssueNote struct {
 	// Author The person who wrote the note. Null once their account is deleted.
 	Author *IssueNoteAuthor `json:"author"`
@@ -8223,7 +8223,7 @@ type IssueNote struct {
 	IssueId   openapi_types.UUID `json:"issue_id"`
 	ProjectId openapi_types.UUID `json:"project_id"`
 
-	// RunId The LavaFlow run the note is on, or null for a note on the issue itself. LavaFlow's runs read notes on the issue only.
+	// RunId The LavaFlow run the note is on, or null for a note on the issue itself.
 	RunId     *openapi_types.UUID `json:"run_id"`
 	UpdatedAt time.Time           `json:"updated_at"`
 
@@ -8233,7 +8233,7 @@ type IssueNote struct {
 
 // IssueNoteAuthor The person who wrote the note. Null once their account is deleted.
 type IssueNoteAuthor struct {
-	// Email The author's email. Present only when a person reads with their own sign-in or platform token; a project access token, and MCP, get the ID alone.
+	// Email The author's email. Present only when a person reads with their own sign-in or a platform token that expires; a project access token, a platform token that never expires, and MCP get the ID alone.
 	Email *string `json:"email,omitempty"`
 
 	// Id The author's user ID.
@@ -8242,20 +8242,20 @@ type IssueNoteAuthor struct {
 
 // IssueNoteCreate defines model for IssueNoteCreate.
 type IssueNoteCreate struct {
-	// Body Plain text, up to 2,048 bytes once normalized to Unicode NFKC. LavaFlow's next run on the issue reads a note on the issue, as context it treats as data, not instructions.
+	// Body Plain text, up to 2,048 bytes once normalized to Unicode NFKC. Longer text is refused with code `size`.
 	Body string `json:"body"`
 
 	// IssueId The issue to write the note on.
 	IssueId   openapi_types.UUID `json:"issue_id"`
 	ProjectId openapi_types.UUID `json:"project_id"`
 
-	// RunId Write the note on this LavaFlow run of the issue instead. Later runs don't read run notes.
+	// RunId Write the note on this LavaFlow run of the issue instead.
 	RunId *openapi_types.UUID `json:"run_id,omitempty"`
 }
 
 // IssueNoteUpdate defines model for IssueNoteUpdate.
 type IssueNoteUpdate struct {
-	// Body The note's new text, which replaces the old text for good. The next LavaFlow run on the issue reads the new text.
+	// Body The note's new text, which replaces the old text for good. The same limits apply as to a new note.
 	Body string `json:"body"`
 }
 
@@ -12503,7 +12503,7 @@ type ListIssueNotesParams struct {
 	// RunId Return notes on this LavaFlow run. A run outside `project_id`, or not on the given `issue_id`, answers like an unknown one.
 	RunId *IssueNoteRunFilter `form:"run_id,omitempty" json:"run_id,omitempty"`
 
-	// Kind `issue` returns notes on issues only, which is what LavaFlow's runs read; `run` returns notes on runs only. Omitted, both.
+	// Kind `issue` returns notes on issues only; `run` returns notes on runs only. Omitted, both.
 	Kind *ListIssueNotesParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
 
 	// Order Newest first (`created_at.desc`, the default) or oldest first.

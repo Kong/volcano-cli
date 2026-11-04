@@ -7541,11 +7541,10 @@ paths:
         Pages the project's issue notes, newest first unless `order` says
         otherwise. Filter by `issue_id` for an issue's notes and its runs'
         notes, by `run_id` for one LavaFlow run's notes, and by `kind`.
-        LavaFlow's next run on an issue reads the issue's notes (`kind=issue`).
 
         Any project credential can read notes, including a read-only project
         access token. `author.email` is present only for a person reading with
-        their own sign-in or platform token.
+        their own sign-in or a platform token that expires.
       operationId: listIssueNotes
       security:
         - UserToken: []
@@ -7589,10 +7588,8 @@ paths:
       summary: Write an issue note
       description: |
         Writes a plain-text note on an issue, or on one LavaFlow run of it with
-        `run_id`. LavaFlow's next run on the issue reads the issue's notes,
-        newest first, as context it treats as data, not instructions; nothing
-        in a note changes a setting or a guardrail. Later runs don't read run
-        notes. LavaFlow never copies a note's text into a pull request.
+        `run_id`. While the `issues.notes` capability is unavailable, as in
+        local mode, it answers `404` with code `feature_unavailable`.
 
         Only the project's owner writes notes, as a person: signed in, with
         the platform token `volcano login` stores while that sign-in lasts, or
@@ -7648,13 +7645,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Code `person_required` means a project access token, MCP, a platform token that never expires, or a sign-in that ended made the request. Without a code, the owner's account is read-only.
+          description: Code `person_required` means a project access token that can write, MCP, a platform token that never expires, or a sign-in that ended made the request. Without a code, a read-only project access token made the request, or the owner's account is read-only.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does an issue or run outside the project, or a run not on the issue. Code `feature_unavailable` means issues are not available in this environment.
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does an issue or run outside the project, or a run not on the issue. Code `feature_unavailable` means the `issues.notes` capability is unavailable.
           content:
             application/json:
               schema:
@@ -7729,9 +7726,8 @@ paths:
       summary: Edit an issue note
       description: |
         Replaces the note's text, which only its author can do, and adds 1 to
-        its `version`. The old text is not kept. LavaFlow's next run on the
-        issue reads the new text. Sending the text the note already has
-        changes nothing.
+        its `version`. The old text is not kept. Sending the text the note
+        already has changes nothing.
 
         The author edits as a person, with the credentials that write notes,
         and the text passes the same checks as a new note.
@@ -7767,13 +7763,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Code `person_required` means a project access token, MCP, a platform token that never expires, or a sign-in that ended made the request. Code `note_author_required` means the caller didn't write the note. Without a code, the owner's account is read-only.
+          description: Code `person_required` means a project access token that can write, MCP, a platform token that never expires, or a sign-in that ended made the request. Code `note_author_required` means the caller didn't write the note. Without a code, a read-only project access token made the request, or the owner's account is read-only.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Not found. A note of a project the caller can't read answers exactly like one that doesn't exist. Code `feature_unavailable` means issues are not available in this environment.
+          description: Not found. A note of a project the caller can't read answers exactly like one that doesn't exist. Code `feature_unavailable` means the `issues.notes` capability is unavailable.
           content:
             application/json:
               schema:
@@ -7801,12 +7797,11 @@ paths:
       summary: Delete an issue note
       description: |
         Deletes the note for good; its author or the project's owner can. A
-        record that the note was deleted stays, without its text. LavaFlow's
-        runs don't read a deleted note, including later attempts of a run that
-        read it.
+        record that the note was deleted stays, without its text.
 
         Deleting works even where issues are not available, so a note is
-        never stranded.
+        never stranded. Local mode deletes no notes, since it writes none: it
+        answers `404` with code `feature_unavailable`.
       operationId: deleteIssueNote
       security:
         - UserToken: []
@@ -7829,13 +7824,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Code `person_required` means a project access token, MCP, a platform token that never expires, or a sign-in that ended made the request. Code `note_author_required` means the caller is neither the note's author nor the project's owner. Without a code, the owner's account is read-only.
+          description: Code `person_required` means a project access token that can write, MCP, a platform token that never expires, or a sign-in that ended made the request. Code `note_author_required` means the caller is neither the note's author nor the project's owner. Without a code, a read-only project access token made the request.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Not found. A note of a project the caller can't read answers exactly like one that doesn't exist.
+          description: Not found. A note of a project the caller can't read answers exactly like one that doesn't exist. Code `feature_unavailable` means local mode, which deletes no notes.
           content:
             application/json:
               schema:
@@ -18074,6 +18069,8 @@ paths:
         | `sandboxes` | The Sandbox API: presets, templates, sessions, and executions |
         | `sandboxes.sessions` | Starting and resuming sessions, and one-shot executions |
         | `sandboxes.custom_templates` | Deploying a custom template; its validation waits while `sandboxes.sessions` is unavailable |
+        | `issues` | The Issues API: listing, reading, and updating grouped runtime errors |
+        | `issues.notes` | Writing and editing issue notes; reading them works either way, and deleting one works while `issues` is unavailable. Local mode writes no notes |
 
         A capability missing from the list is unavailable, and a capability under
         another, such as `sandboxes.sessions`, is unavailable whenever its parent is.
@@ -18920,7 +18917,7 @@ components:
         enum:
           - issue
           - run
-      description: '`issue` returns notes on issues only, which is what LavaFlow''s runs read; `run` returns notes on runs only. Omitted, both.'
+      description: '`issue` returns notes on issues only; `run` returns notes on runs only. Omitted, both.'
     IssueNoteOrder:
       name: order
       in: query
@@ -25750,12 +25747,12 @@ components:
           description: The author's user ID.
         email:
           type: string
-          description: The author's email. Present only when a person reads with their own sign-in or platform token; a project access token, and MCP, get the ID alone.
+          description: The author's email. Present only when a person reads with their own sign-in or a platform token that expires; a project access token, a platform token that never expires, and MCP get the ID alone.
       required:
         - id
     IssueNote:
       type: object
-      description: A note a person wrote on an issue, or on one LavaFlow run of it. LavaFlow's next run on the issue reads the issue's notes, not run notes.
+      description: A note a person wrote on an issue, or on one LavaFlow run of it.
       properties:
         id:
           type: string
@@ -25770,7 +25767,7 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: The LavaFlow run the note is on, or null for a note on the issue itself. LavaFlow's runs read notes on the issue only.
+          description: The LavaFlow run the note is on, or null for a note on the issue itself.
         author:
           $ref: '#/components/schemas/IssueNoteAuthor'
         body:
@@ -25810,13 +25807,12 @@ components:
         run_id:
           type: string
           format: uuid
-          description: Write the note on this LavaFlow run of the issue instead. Later runs don't read run notes.
+          description: Write the note on this LavaFlow run of the issue instead.
         body:
           type: string
           minLength: 1
-          maxLength: 2048
           pattern: \S
-          description: Plain text, up to 2,048 bytes once normalized to Unicode NFKC. LavaFlow's next run on the issue reads a note on the issue, as context it treats as data, not instructions.
+          description: Plain text, up to 2,048 bytes once normalized to Unicode NFKC. Longer text is refused with code `size`.
       required:
         - project_id
         - issue_id
@@ -25828,9 +25824,8 @@ components:
         body:
           type: string
           minLength: 1
-          maxLength: 2048
           pattern: \S
-          description: The note's new text, which replaces the old text for good. The next LavaFlow run on the issue reads the new text.
+          description: The note's new text, which replaces the old text for good. The same limits apply as to a new note.
       required:
         - body
     PaginatedIssueNotes:
