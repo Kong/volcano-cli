@@ -21,6 +21,8 @@ tags:
     description: Project management operations
   - name: Logs
     description: Project-scoped log search and activity APIs
+  - name: Issues
+    description: 'Preview, not generally available: runtime errors grouped into issues. Where issues are not available, every endpoint answers `404` with code `feature_unavailable`.'
   - name: LavaFlow
     description: 'Preview, not generally available: LavaFlow diagnoses a project''s issues and opens pull requests that fix them; with `autonomy: merge`, it can also merge them. LavaFlow sends this project''s logs and source code to an AI service that Volcano operates. Every endpoint names one project with `project_id`. Where LavaFlow is not available, every endpoint refuses a project that has no LavaFlow records: `404` with code `feature_unavailable` while LavaFlow is not offered to the project, and `403` with code `plan_required` when it is but the owner''s plan does not include it. A project with records keeps reading them and can still turn LavaFlow off.'
   - name: Functions
@@ -7403,6 +7405,437 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Not found. A run of a project the caller can't read, or of a project being deleted, answers exactly like one that doesn't exist, and so does a run of another project than a given `project_id`. Code `feature_unavailable` means LavaFlow is not available for the project and it has no LavaFlow records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/issues:
+    get:
+      tags:
+        - Issues
+      summary: List issues
+      description: |
+        Lists the project's issues, most recently seen first. An issue groups
+        the runtime errors one function or frontend raised with the same error
+        type and stack, or the same message when there is no stack.
+
+        Project access tokens can list issues, including read-only ones.
+      operationId: listIssues
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/IssueCursor'
+        - name: status
+          in: query
+          required: false
+          description: Return only issues in this status.
+          schema:
+            $ref: '#/components/schemas/IssueStatus'
+        - name: resource_id
+          in: query
+          required: false
+          description: Return only issues raised by this function or frontend.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedIssues'
+        '400':
+          description: A filter or the cursor is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found. Code `feature_unavailable` means issues are not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/issues/{issueId}:
+    get:
+      tags:
+        - Issues
+      summary: Get an issue
+      description: |
+        Returns one issue: the resource that raised it, how often and when it
+        was seen, and its status.
+
+        Project access tokens can read issues, including read-only ones.
+      operationId: getIssue
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IssueId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+        '404':
+          description: Issue not found. Code `feature_unavailable` means issues are not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Issues
+      summary: Update an issue
+      description: |
+        Sets an issue's status. A resolved issue that is seen again after it
+        was resolved reopens, and `regressed_at` records when. An ignored issue
+        stays ignored while it keeps being counted.
+
+        Setting the status an issue already has is safe to repeat.
+      operationId: updateIssue
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IssueId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIssueRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+        '400':
+          description: The request body is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Issue not found. Code `feature_unavailable` means issues are not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /issue-notes:
+    get:
+      tags:
+        - Issues
+      summary: List issue notes
+      description: |
+        Pages the project's issue notes, newest first unless `order` says
+        otherwise. Filter by `issue_id` for an issue's notes and its runs'
+        notes, by `run_id` for one LavaFlow run's notes, and by `kind`.
+        LavaFlow's next run on an issue reads the issue's notes (`kind=issue`).
+
+        Any project credential can read notes, including a read-only project
+        access token. `author.email` is present only for a person reading with
+        their own sign-in or platform token.
+      operationId: listIssueNotes
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdQuery'
+        - $ref: '#/components/parameters/IssueNoteIssueFilter'
+        - $ref: '#/components/parameters/IssueNoteRunFilter'
+        - $ref: '#/components/parameters/IssueNoteKind'
+        - $ref: '#/components/parameters/IssueNoteOrder'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/IssueNoteCursor'
+      responses:
+        '200':
+          description: A page of notes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedIssueNotes'
+        '400':
+          description: '`project_id` is missing or not a UUID, or a filter, the limit or the cursor is invalid.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does an `issue_id` or `run_id` outside the project, or a `run_id` not on the given `issue_id`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Issues
+      summary: Write an issue note
+      description: |
+        Writes a plain-text note on an issue, or on one LavaFlow run of it with
+        `run_id`. LavaFlow's next run on the issue reads the issue's notes,
+        newest first, as context it treats as data, not instructions; nothing
+        in a note changes a setting or a guardrail. Later runs don't read run
+        notes. LavaFlow never copies a note's text into a pull request.
+
+        Only the project's owner writes notes, as a person: signed in, with
+        the platform token `volcano login` stores while that sign-in lasts, or
+        with a platform token that expires. A project access token, MCP, and a
+        platform token that never expires get `403` with code
+        `person_required`.
+
+        The text is normalized to Unicode NFKC and checked before it is
+        stored. A refused note answers `400` with the rule as its code, and
+        nothing is stored: `characters` (a control, format, private-use or
+        other invisible character), `size` (over 2,048 bytes), `credential`
+        (a known credential format), `secret` (one of the project's secret
+        values), `sanitizer` (text Volcano masks in logs), or `link` (a URL,
+        or a host name with `//`, user info, a port, a path or a query).
+        Rephrase and send it again.
+
+        Sending the same text on the same issue or run again within 5 minutes
+        returns the note already written with `200`, so a retried request is
+        safe. An issue holds up to 200 notes, run notes included, and a project
+        up to 20,000. A project takes up to 30 note writes a minute.
+      operationId: createIssueNote
+      security:
+        - UserToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueNoteCreate'
+      responses:
+        '200':
+          description: The same text was sent on the same issue or run within 5 minutes; this is that note.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueNote'
+        '201':
+          description: Written
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueNote'
+        '400':
+          description: 'The body is invalid, or the text is blank once normalized. A code names the text check that refused the note: `characters`, `size`, `credential`, `secret`, `sanitizer` or `link`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Code `person_required` means a project access token, MCP, a platform token that never expires, or a sign-in that ended made the request. Without a code, the owner's account is read-only.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does an issue or run outside the project, or a run not on the issue. Code `feature_unavailable` means issues are not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Code `note_limit_reached` means the issue or the project holds as many notes as it can.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request body exceeds 32,768 bytes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: The project wrote 30 notes or edits in the last minute. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds to wait before writing again.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /issue-notes/{note_id}:
+    get:
+      tags:
+        - Issues
+      summary: Get an issue note
+      description: |
+        Returns one note. The note's project authorizes the read, so
+        `project_id` is optional. Any project credential can read notes,
+        including a read-only project access token.
+      operationId: getIssueNote
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/IssueNoteId'
+        - $ref: '#/components/parameters/ItemProjectIdQuery'
+      responses:
+        '200':
+          description: The note
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueNote'
+        '400':
+          description: '`project_id` is given and not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. A note of a project the caller can't read answers exactly like one that doesn't exist, and so does a note of another project than a given `project_id`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Issues
+      summary: Edit an issue note
+      description: |
+        Replaces the note's text, which only its author can do, and adds 1 to
+        its `version`. The old text is not kept. LavaFlow's next run on the
+        issue reads the new text. Sending the text the note already has
+        changes nothing.
+
+        The author edits as a person, with the credentials that write notes,
+        and the text passes the same checks as a new note.
+      operationId: updateIssueNote
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/IssueNoteId'
+        - $ref: '#/components/parameters/ItemProjectIdQuery'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueNoteUpdate'
+      responses:
+        '200':
+          description: Edited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueNote'
+        '400':
+          description: 'The body is invalid, or the text is blank once normalized. A code names the text check that refused it: `characters`, `size`, `credential`, `secret`, `sanitizer` or `link`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Code `person_required` means a project access token, MCP, a platform token that never expires, or a sign-in that ended made the request. Code `note_author_required` means the caller didn't write the note. Without a code, the owner's account is read-only.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. A note of a project the caller can't read answers exactly like one that doesn't exist. Code `feature_unavailable` means issues are not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request body exceeds 32,768 bytes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: The project wrote 30 notes or edits in the last minute. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds to wait before writing again.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Issues
+      summary: Delete an issue note
+      description: |
+        Deletes the note for good; its author or the project's owner can. A
+        record that the note was deleted stays, without its text. LavaFlow's
+        runs don't read a deleted note, including later attempts of a run that
+        read it.
+
+        Deleting works even where issues are not available, so a note is
+        never stranded.
+      operationId: deleteIssueNote
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/IssueNoteId'
+        - $ref: '#/components/parameters/ItemProjectIdQuery'
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          description: '`project_id` is given and not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Code `person_required` means a project access token, MCP, a platform token that never expires, or a sign-in that ended made the request. Code `note_author_required` means the caller is neither the note's author nor the project's owner. Without a code, the owner's account is read-only.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. A note of a project the caller can't read answers exactly like one that doesn't exist.
           content:
             application/json:
               schema:
@@ -18445,6 +18878,60 @@ components:
         type: string
         format: uuid
       description: LavaFlow run ID
+    IssueNoteId:
+      name: note_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Issue note ID
+    IssueNoteCursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+      description: |
+        Opaque cursor from a previous response's `next_cursor`. Pages forward,
+        and works only for the same `project_id`, caller, filters and order.
+    IssueNoteIssueFilter:
+      name: issue_id
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: Return notes on this issue and on its LavaFlow runs. An issue outside `project_id` answers like an unknown one.
+    IssueNoteRunFilter:
+      name: run_id
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: Return notes on this LavaFlow run. A run outside `project_id`, or not on the given `issue_id`, answers like an unknown one.
+    IssueNoteKind:
+      name: kind
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+          - issue
+          - run
+      description: '`issue` returns notes on issues only, which is what LavaFlow''s runs read; `run` returns notes on runs only. Omitted, both.'
+    IssueNoteOrder:
+      name: order
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+          - created_at.desc
+          - created_at.asc
+        default: created_at.desc
+      description: Newest first (`created_at.desc`, the default) or oldest first.
     LavaflowRunCursor:
       name: cursor
       in: query
@@ -21174,7 +21661,7 @@ components:
           type: string
         code:
           type: string
-          description: 'Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner''s plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project''s owner changes, with a platform token. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner''s plan. Match on the code, not the message text.'
+          description: 'Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner''s plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means only a person may do this: a project access token tried to change LavaFlow settings, which only the project''s owner changes, with a platform token, or the change needs the owner signed in with `volcano login`; or a project access token, MCP, or a platform token that never expires tried to write an issue note. `note_author_required` (403) means only the note''s author may edit it, and only its author or the project''s owner may delete it. `note_limit_reached` (409) means the issue or project holds as many notes as it can. An issue note''s text check refuses with `400` and the rule as its code: `characters`, `size`, `credential`, `secret`, `sanitizer` or `link`. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner''s plan. Match on the code, not the message text.'
       required:
         - error
     ImportProvider:
@@ -25133,6 +25620,235 @@ components:
         next_cursor:
           type: string
           description: Opaque cursor for the next page, present if has_more is true. It works only for the same project_id and caller.
+      required:
+        - data
+        - limit
+        - has_more
+    Issue:
+      type: object
+      description: Runtime errors from one function or frontend, grouped by error type and stack.
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        resource:
+          $ref: '#/components/schemas/ResourceReference'
+        title:
+          type: string
+          description: |
+            The error type and message, with values such as IDs, numbers, and
+            URLs replaced by placeholders like `<uuid>` and `<n>`.
+        error_type:
+          type: string
+          description: The exception class, such as `TypeError`. Omitted when the error has none.
+        culprit:
+          type: string
+          description: The innermost frame of your code in the stack, as `function (file)`. For a frontend's Next.js build output, the outermost route or page file of the build in the stack, such as `.next/server/app/checkout/route.js`, or without one, the outermost file of the build. Omitted without a stack.
+        status:
+          $ref: '#/components/schemas/IssueStatus'
+        exception:
+          type: boolean
+          description: |
+            Whether the issue holds an exception: one your code threw, or one it
+            logged with `console.error(err)` or Python's `logger.exception()`.
+            `false` for an error logged any other way, such as a structured log
+            line, a logger's error line, or a printed traceback. Once `true`, it
+            stays `true`.
+        event_count:
+          type: integer
+          format: int64
+          description: Errors counted in this issue. A retried delivery can count an error twice.
+        first_seen_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+        last_region:
+          type: string
+          description: The region that served the latest error, such as `us-east-1`.
+        sample_event_id:
+          type: string
+          description: The ID of the latest error's log event, while logs retain it.
+        sample_event_at:
+          type: string
+          format: date-time
+          description: When the latest error's log event was written.
+        resolved_at:
+          type: string
+          format: date-time
+          description: When the issue was resolved. Present only while it is resolved.
+        regressed_at:
+          type: string
+          format: date-time
+          description: When a resolved issue was last seen again and reopened.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - resource
+        - title
+        - status
+        - exception
+        - event_count
+        - first_seen_at
+        - last_seen_at
+        - created_at
+        - updated_at
+    IssueStatus:
+      type: string
+      enum:
+        - open
+        - resolved
+        - ignored
+      description: |
+        `open` until someone resolves or ignores the issue. A resolved issue
+        seen again reopens.
+    PaginatedIssues:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Issue'
+        limit:
+          type: integer
+          description: Number of items per page
+        has_more:
+          type: boolean
+          description: Whether a next page exists
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page (present if has_more is true)
+      required:
+        - data
+        - limit
+        - has_more
+    UpdateIssueRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          $ref: '#/components/schemas/IssueStatus'
+      required:
+        - status
+    IssueNoteAuthor:
+      type: object
+      nullable: true
+      description: The person who wrote the note. Null once their account is deleted.
+      properties:
+        id:
+          type: string
+          description: The author's user ID.
+        email:
+          type: string
+          description: The author's email. Present only when a person reads with their own sign-in or platform token; a project access token, and MCP, get the ID alone.
+      required:
+        - id
+    IssueNote:
+      type: object
+      description: A note a person wrote on an issue, or on one LavaFlow run of it. LavaFlow's next run on the issue reads the issue's notes, not run notes.
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        issue_id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The LavaFlow run the note is on, or null for a note on the issue itself. LavaFlow's runs read notes on the issue only.
+        author:
+          $ref: '#/components/schemas/IssueNoteAuthor'
+        body:
+          type: string
+          description: 'Plain text as stored: the text written, normalized to Unicode NFKC. Render it as plain text, keeping line breaks and linking nothing.'
+        version:
+          type: integer
+          minimum: 1
+          description: 1 when written. Each edit that changes the text adds 1.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - issue_id
+        - run_id
+        - author
+        - body
+        - version
+        - created_at
+        - updated_at
+    IssueNoteCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        issue_id:
+          type: string
+          format: uuid
+          description: The issue to write the note on.
+        run_id:
+          type: string
+          format: uuid
+          description: Write the note on this LavaFlow run of the issue instead. Later runs don't read run notes.
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          pattern: \S
+          description: Plain text, up to 2,048 bytes once normalized to Unicode NFKC. LavaFlow's next run on the issue reads a note on the issue, as context it treats as data, not instructions.
+      required:
+        - project_id
+        - issue_id
+        - body
+    IssueNoteUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          pattern: \S
+          description: The note's new text, which replaces the old text for good. The next LavaFlow run on the issue reads the new text.
+      required:
+        - body
+    PaginatedIssueNotes:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/IssueNote'
+        limit:
+          type: integer
+          description: Number of items per page
+        has_more:
+          type: boolean
+          description: Whether a next page exists
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page (present if has_more is true). It works only for the same project, caller, filters and order.
       required:
         - data
         - limit
