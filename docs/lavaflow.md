@@ -121,6 +121,7 @@ volcano cloud lavaflow status
 ```text
 LavaFlow: on
 Autonomy: open fix pull requests
+Merging: available
 Repository: acme/shop
 Custom context: not set
 System prompt: not set
@@ -135,10 +136,17 @@ status says to run `volcano git connect`. When LavaFlow isn't available for
 a project that has LavaFlow records, the status notes that it can't be turned
 on or changed, and that the owner can still turn it off.
 
+`Merging` says whether you can choose autonomy `merge` for the project.
+While it reads `not available for this project yet`,
+`settings set --autonomy merge` is refused. The line is left out when the
+project's capabilities could not be read or don't list merging.
+
 With `--json`, `repository_state` is `connected`, `not_connected`, or
 `unknown` when the connection could not be read. `available` is `true` when
 LavaFlow can be turned on and changed for the project and `false` when it
 can't; it is left out when the project's capabilities could not be read.
+`merge_available` is `true` when LavaFlow can merge its fixes for the project
+and `false` when it can't; it is left out when the `Merging` line is.
 
 ## Choose how far it goes
 
@@ -192,10 +200,10 @@ code 5. Merging applies to the
 repository the project is connected to when you turn it on: once the project
 is connected to another, autonomy reads `open_pr` until you turn merge on
 again. Merging is only for a project where
-it's available; elsewhere `--autonomy merge` says "LavaFlow merging isn't
-available for this project yet" and exits with code 1. When the owner's
-GitHub account can't push to the project's repository, it says so, adds what
-Volcano said, points to
+it's available, which `status` shows; elsewhere `--autonomy merge` says
+"LavaFlow merging isn't available for this project yet" and exits with
+code 1. When the owner's GitHub account can't push to the project's
+repository, it says so, adds what Volcano said, points to
 [connecting GitHub](/platform/projects/git-deploy#1-connect-github), and exits
 with code 5.
 

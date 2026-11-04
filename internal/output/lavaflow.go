@@ -16,6 +16,9 @@ type LavaflowStatusDetails struct {
 	// Available is whether LavaFlow takes changes for the project; nil when
 	// unknown.
 	Available *bool
+	// MergeAvailable is whether LavaFlow can merge its fixes for the project;
+	// nil when unknown.
+	MergeAvailable *bool
 	// RepositoryState is connected, not_connected or unknown.
 	RepositoryState string
 	Repository      string
@@ -32,6 +35,9 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	settings := details.Settings
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
+	if details.MergeAvailable != nil {
+		kv(w, on, "Merging", "%s", lavaflowMergeAvailability(*details.MergeAvailable))
+	}
 	switch details.RepositoryState {
 	case "connected":
 		kv(w, on, "Repository", "%s", clean(details.Repository))
@@ -256,6 +262,15 @@ func setOrNot(text string) string {
 		return "not set"
 	}
 	return fmt.Sprintf("set (%d characters)", len([]rune(text)))
+}
+
+// lavaflowMergeAvailability says whether autonomy merge can be chosen. The
+// API gives no reason when it can't.
+func lavaflowMergeAvailability(available bool) string {
+	if available {
+		return "available"
+	}
+	return "not available for this project yet"
 }
 
 func lavaflowAutonomy(autonomy apiclient.LavaflowAutonomy) string {
