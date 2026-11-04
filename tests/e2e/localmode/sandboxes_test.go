@@ -2,6 +2,9 @@ package localmode
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -36,6 +39,7 @@ func requireLocalModeRunsSandboxes(t *testing.T, binary string, env []string, di
 	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"running"`, "sandboxes", "get", session.ID, "--json")
 	run("exec", session.ID, "--", "sh", "-c", "printf retained > /workspace/value")
 	require.Equal(t, "retained", run("files", "read", session.ID, "/workspace/value"))
+	requireLocalModeUploadsSandboxDirectory(t, binary, env, dir, session.ID)
 	shell := exec.CommandContext(t.Context(), binary, "sandboxes", "shell", session.ID)
 	shell.Env = env
 	shell.Dir = dir
@@ -52,6 +56,62 @@ func requireLocalModeRunsSandboxes(t *testing.T, binary string, env []string, di
 	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"terminated"`, "sandboxes", "get", session.ID, "--json")
 	requireLocalModeSandboxUsage(t, binary, env, dir)
 	requireLocalModeCustomSandbox(t, binary, env, dir)
+}
+
+// requireLocalModeUploadsSandboxDirectory copies a directory into a running
+// session and reads it back, then checks that a conflicting upload writes
+// nothing.
+func requireLocalModeUploadsSandboxDirectory(t *testing.T, binary string, env []string, dir, session string) {
+	t.Helper()
+	run := func(args ...string) string {
+		t.Helper()
+		return runVolcanoLocalModeE2EStdout(t, binary, env, dir, append([]string{"sandboxes"}, args...)...)
+	}
+	tree := filepath.Join(t.TempDir(), "upload")
+	require.NoError(t, os.MkdirAll(filepath.Join(tree, "src", "empty"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tree, "README.md"), []byte("uploaded-readme\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(tree, "src", "run.sh"), []byte("#!/bin/sh\necho uploaded-script\n"), 0o755))
+
+	var totals struct {
+		Files int64 `json:"files"`
+		Bytes int64 `json:"bytes"`
+		Calls int   `json:"calls"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(run("files", "upload", session, tree, "--path", "uploaded", "--json")), &totals))
+	require.Equal(t, int64(2), totals.Files)
+	require.Equal(t, int64(len("uploaded-readme\n#!/bin/sh\necho uploaded-script\n")), totals.Bytes)
+	require.Equal(t, 1, totals.Calls)
+	require.Equal(t, "uploaded-readme\n", run("files", "read", session, "/workspace/uploaded/README.md"))
+	// The local workspace is mounted noexec, so the mode is read rather than
+	// the script run directly.
+	require.Equal(t, "755\n", run("exec", session, "--", "stat", "-c", "%a", "/workspace/uploaded/src/run.sh"), "keeps the executable bit")
+	require.Equal(t, "uploaded-script\n", run("exec", session, "--", "sh", "/workspace/uploaded/src/run.sh"))
+	run("exec", session, "--", "test", "-d", "/workspace/uploaded/src/empty")
+
+	// README.md is a directory where the upload has a file, so the whole
+	// archive is refused: src is not created either.
+	run("exec", session, "--", "mkdir", "-p", "/workspace/conflict/README.md")
+	output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "files", "upload", session, tree, "--path", "/workspace/conflict")
+	require.Error(t, err, output)
+	require.Contains(t, output, "the upload conflicts with the session's workspace")
+	require.Contains(t, output, "Nothing was written")
+	run("exec", session, "--", "test", "!", "-e", "/workspace/conflict/src")
+
+	// Incompressible and just over the 32 MiB one archive call takes, so the
+	// file goes on its own in five parts, after an empty archive.
+	large := filepath.Join(t.TempDir(), "large")
+	require.NoError(t, os.MkdirAll(large, 0o755))
+	blob := make([]byte, 33<<20)
+	_, err = rand.Read(blob)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(large, "blob.bin"), blob, 0o644))
+	require.NoError(t, json.Unmarshal([]byte(run("files", "upload", session, large, "--path", "large", "--json")), &totals))
+	require.Equal(t, int64(1), totals.Files)
+	require.Equal(t, int64(len(blob)), totals.Bytes)
+	require.Equal(t, 6, totals.Calls)
+	sum := sha256.Sum256(blob)
+	require.Equal(t, hex.EncodeToString(sum[:])+"  /workspace/large/blob.bin\n", run("exec", session, "--", "sha256sum", "/workspace/large/blob.bin"))
+	require.Equal(t, "600\n", run("exec", session, "--", "stat", "-c", "%a", "/workspace/large/blob.bin"), "parted files land 0600")
 }
 
 func requireLocalModeSandboxUsage(t *testing.T, binary string, env []string, dir string) {

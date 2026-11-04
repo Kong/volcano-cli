@@ -872,6 +872,114 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /sandbox-file-archives:
+    post:
+      tags:
+        - Sandboxes
+      summary: Extract a tar archive into a session's workspace
+      description: |
+        Extracts a tar archive into a directory of a session's workspace. Send `multipart/form-data`
+        with `project_id` as the first field, then `session_id` and `path`, then the archive as the file
+        part `archive`. The project is authorized before anything after it is read. The archive may be
+        gzip-compressed; Volcano detects compression from its first bytes. The request streams to the
+        session, so the archive is never held whole in memory.
+
+        Each call accepts at most 32 MiB of archive, 10,000 files and directories, and 256 MiB of
+        uncompressed archive, counting tar headers. Split larger trees into several archives and create
+        one after another. For a single file larger than 8 MiB, use `POST /sandbox-file-parts`.
+
+        The archive may contain only regular files and directories. Entry names are relative to
+        `path`, which is created when missing; an absolute name, a `..` component, a symbolic link, a
+        hard link, or a device refuses the whole archive. File and directory modes keep their
+        permission bits; setuid, setgid and sticky bits are dropped. A file replaces an existing file or
+        symbolic link at its path. Existing directories keep their modes. A symbolic link in the
+        destination is never followed.
+
+        The archive is checked and staged before the workspace changes, so a refused archive writes
+        nothing. Code `sandbox_archive_invalid` (400) means the archive or form is malformed or holds an
+        entry that is not allowed. Code `sandbox_archive_too_large` (413) means it exceeds a limit
+        above. Code `sandbox_path_conflict` (409) means the destination has a symbolic link or a file
+        where the archive needs a directory, or a directory where it has a file. Code
+        `sandbox_workspace_full` (413) means the session's disk has no room for it. Code
+        `sandbox_guest_outdated` (409) means the session started from an image that predates archive
+        writes; start a new session from a current preset, or redeploy the template. A session outside
+        `project_id`, or a project the caller cannot reach, answers 404 like an unknown session.
+      operationId: createSandboxFileArchive
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+        - ProjectAccessToken: []
+        - AuthUserAccessToken: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SandboxFileArchiveForm'
+      responses:
+        '201':
+          description: The archive was extracted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxFileArchive'
+        default:
+          description: Request refused or unavailable. Errors include an invalid form or archive (400), unauthenticated (401), forbidden (403), an unknown project or session (404), a conflicting destination or outdated session image (409), an archive over a limit or a full workspace (413), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /sandbox-file-parts:
+    post:
+      tags:
+        - Sandboxes
+      summary: Write one part of a large workspace file
+      description: |
+        Writes a file of up to 1 GiB into a session's workspace in parts of at most 8 MiB. Each part
+        names its `offset` in the file, the whole file's `size`, and the whole file's lowercase hex
+        `sha256`. Parts collect in a hidden staging file beside `path`; nothing appears at `path` until
+        the part that ends at `size` arrives. That part checks the whole file's size and SHA-256, then
+        moves the file into place in one step, so a partial file is never visible at `path`. The
+        response's `complete` says which part finished the file. Missing parent directories are created,
+        and a symbolic link among them is never followed. The finished file is readable and writable
+        only by the session user.
+
+        A part may start anywhere up to the bytes already received, so a failed part can be resent. A
+        part at offset 0 starts the file again. Code `sandbox_file_part_out_of_order` (409) means the
+        part starts past the bytes received; resend from the last part that succeeded. Code
+        `sandbox_file_part_mismatch` (409) means the finished file differs from `size` or `sha256`; its
+        parts are discarded, so start again at offset 0. Code `sandbox_path_conflict` (409) means a
+        directory is at `path`, or a file or symbolic link is where a parent directory belongs. Code
+        `sandbox_workspace_full` (413) means the session's disk has no room. Code
+        `sandbox_guest_outdated` (409) means the session started from an image that predates parted
+        writes. A staging file stays until its file completes, a part at offset 0 restarts it, or the
+        session ends. A session outside `project_id`, or a project the caller cannot reach, answers 404
+        like an unknown session.
+      operationId: createSandboxFilePart
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+        - ProjectAccessToken: []
+        - AuthUserAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SandboxFilePartRequest'
+      responses:
+        '201':
+          description: The part was written
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxFilePart'
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), an unknown project or session (404), a part out of order, a mismatched file, a conflicting destination or an outdated session image (409), a full workspace (413), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /sandbox-sessions/{sessionId}/grants/{subjectId}:
     put:
       tags:
@@ -18877,6 +18985,138 @@ components:
           format: byte
       required:
         - data
+    SandboxFileArchiveForm:
+      type: object
+      description: Send `project_id` first, then `session_id` and `path`, then the `archive` part.
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        path:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: Workspace directory to extract into, relative to `/workspace`.
+        archive:
+          type: string
+          format: binary
+          description: A tar archive, optionally gzip-compressed.
+      required:
+        - project_id
+        - session_id
+        - path
+        - archive
+    SandboxFileArchive:
+      type: object
+      additionalProperties: false
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        path:
+          type: string
+        files:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Regular files written.
+        bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Bytes of file content written.
+      required:
+        - project_id
+        - session_id
+        - path
+        - files
+        - bytes
+    SandboxFilePartRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        path:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: Workspace file to write, relative to `/workspace`.
+        offset:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Byte offset of this part's data in the file.
+        size:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1073741824
+          description: Size of the whole file in bytes, at most 1 GiB.
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: Lowercase hex SHA-256 of the whole file.
+        data:
+          type: string
+          format: byte
+          minLength: 4
+          maxLength: 11184812
+          description: This part's bytes, at most 8 MiB.
+      required:
+        - project_id
+        - session_id
+        - path
+        - offset
+        - size
+        - sha256
+        - data
+    SandboxFilePart:
+      type: object
+      additionalProperties: false
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        path:
+          type: string
+        offset:
+          type: integer
+          format: int64
+          minimum: 0
+        size:
+          type: integer
+          format: int64
+          minimum: 1
+        received:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Bytes of the file received through the end of this part.
+        complete:
+          type: boolean
+          description: True when this part finished the file and it is now at `path`.
+      required:
+        - project_id
+        - session_id
+        - path
+        - offset
+        - size
+        - received
+        - complete
     SandboxSubjectGrantRequest:
       type: object
       additionalProperties: false
