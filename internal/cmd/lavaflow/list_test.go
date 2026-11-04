@@ -110,3 +110,24 @@ func TestListMarksAFixLeftToYou(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, out, "yours to merge")
 }
+
+// Once a person merges or closes a held or stopped fix's pull request, the
+// list shows the run's own status: nothing is left for them to merge.
+func TestListStopsMarkingAFixOnceItsPullRequestCloses(t *testing.T) {
+	for _, status := range []string{"held", "stopped"} {
+		for _, state := range []string{"merged", "closed"} {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.holdFix(holdReason("label", "The pull request has the needs-human-review label."))
+				s.runs[0]["merge"].(map[string]any)["status"] = status
+				s.runs[0]["status"] = "completed"
+				s.runs[0]["pull_request"].(map[string]any)["state"] = state
+			})
+
+			out, err := executeLavaflowCommand(t, New(deps), "list")
+			require.NoError(t, err, status+"/"+state)
+			assert.NotContains(t, out, "yours to merge", status+"/"+state)
+			assert.Contains(t, out, lavaflowRunID+"  completed ", status+"/"+state)
+		}
+	}
+}

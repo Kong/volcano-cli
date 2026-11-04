@@ -228,8 +228,11 @@ the project, a waiting fix says `paused while merging is off`. `held` and
 `stopped` are final: LavaFlow doesn't touch the pull request again, and it's
 yours to review and merge on GitHub. A held fix lists each reason in Volcano's
 words, with the paths it names; a stopped fix gives its reason, such as
-`checks failed`. In `list`, their runs show `Held: yours to merge` or
-`Stopped: yours to merge` as their status.
+`checks failed`. While the pull request is open, `show` ends with a line
+saying it's yours, and in `list` the run shows `Held: yours to merge` or
+`Stopped: yours to merge` as its status. Once someone merges or closes the
+pull request, `show` keeps the `Merge:` line and its reasons, and `list`
+shows the run's own status.
 
 ```text
 Merge: held
@@ -287,9 +290,10 @@ reviewing the fix" (`reviewing`). An open pull request shows as "PR open". A
 status the CLI doesn't know prints as the API gives it.
 
 `show` prints a run's diagnosis and root cause, the evidence and log lines it
-read, its review, the fix pull request and when it opened, and the diff when
-the run has one. A pull request opened before LavaFlow recorded the time has
-no open time. A run that failed says why.
+read, its review, the fix pull request and when it opened, where its merge is
+(see [Merge fixes](#merge-fixes)), and the diff when the run has one. A pull
+request opened before LavaFlow recorded the time has no open time. A run that
+failed says why.
 
 ```bash
 volcano cloud lavaflow show 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
