@@ -241,6 +241,9 @@ type AuthCORSManifest struct {
 	AllowedOrigins   *[]string `yaml:"allowed_origins,omitempty" json:"allowed_origins,omitempty"`
 	AllowCredentials *bool     `yaml:"allow_credentials,omitempty" json:"allow_credentials,omitempty"`
 	MaxAge           *int      `yaml:"max_age,omitempty" json:"max_age,omitempty"`
+	// AllowFrontendPreviews lets the project's live frontend preview origins
+	// pass its CORS checks. A server exports it only when it is on.
+	AllowFrontendPreviews *bool `yaml:"allow_frontend_previews,omitempty" json:"allow_frontend_previews,omitempty"`
 }
 
 // AuthProvidersManifest declares sign-in providers.
