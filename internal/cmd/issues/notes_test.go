@@ -102,13 +102,20 @@ func TestAddWritesANoteOnTheIssue(t *testing.T) {
 	assert.Empty(t, errOut)
 }
 
-// Text on stdin keeps its lines; the line break a pipe ends with is dropped.
+// Text on stdin keeps its lines; the line break a pipe ends with is dropped,
+// and a CRLF file's line breaks become LF, since a carriage return is a
+// control character the API refuses.
 func TestAddReadsTheNoteFromStdin(t *testing.T) {
-	fake, deps := newIssuesServer(t)
+	for stdin, want := range map[string]string{
+		"First line.\n\nThird line.\n":       "First line.\n\nThird line.",
+		"First line.\r\n\r\nThird line.\r\n": "First line.\n\nThird line.",
+	} {
+		fake, deps := newIssuesServer(t)
 
-	_, _, err := execute(t, New(deps), strings.NewReader("First line.\n\nThird line.\n"), "notes", "add", testIssueID)
-	require.NoError(t, err)
-	assert.Equal(t, "First line.\n\nThird line.", fake.last(t).body["body"])
+		_, _, err := execute(t, New(deps), strings.NewReader(stdin), "notes", "add", testIssueID)
+		require.NoError(t, err)
+		assert.Equal(t, want, fake.last(t).body["body"], "%q", stdin)
+	}
 }
 
 func TestAddPutsANoteOnARun(t *testing.T) {

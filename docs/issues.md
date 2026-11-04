@@ -205,12 +205,14 @@ Other refusals:
 
 ## Availability
 
-Issues are in preview. Where they aren't available, every `volcano cloud
-issues` command says "issues aren't available in this Volcano environment
-yet" and exits with code 4. Where notes can't be written yet, `notes add` and
-`notes edit` say "writing issue notes isn't available in this Volcano
-environment yet" and exit with code 4, while reading and deleting notes keep
-working. On a Volcano API that has no issues, it says
-"issues aren't available on this Volcano API", or for notes "issue notes
-aren't available on this Volcano API", and exits with code 4. Local
-development always has issues.
+Issues are in preview. Where they aren't available, `issues list` and
+`issues get` say "issues aren't available in this Volcano environment yet"
+and exit with code 4. Where notes can't be written, `notes add` and `notes
+edit` say "writing issue notes isn't available in this Volcano environment
+yet" and exit with code 4. Reading and deleting existing notes keep working
+either way.
+
+On a Volcano API that has no issues, the issues commands say "issues aren't
+available on this Volcano API", and the notes commands "issue notes aren't
+available on this Volcano API". Both exit with code 4. Local development
+always has issues.

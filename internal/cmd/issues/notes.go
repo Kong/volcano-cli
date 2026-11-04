@@ -218,8 +218,9 @@ func writtenNote(opts noteWriteOptions, note *apiclient.IssueNote, done string) 
 	return nil
 }
 
-// noteText is the --text flag's value, or else what stdin holds without its
-// trailing line break. A terminal on stdin means nothing was piped.
+// noteText is the --text flag's value, or else what stdin holds with CRLF
+// line breaks as LF and without its trailing line break. A terminal on stdin
+// means nothing was piped.
 func noteText(cmd *cobra.Command, opts noteWriteOptions) (string, error) {
 	if cmd.Flags().Changed("text") {
 		return opts.text, nil
@@ -234,7 +235,7 @@ func noteText(cmd *cobra.Command, opts noteWriteOptions) (string, error) {
 	if len(data) > maxStdinBytes {
 		return "", fmt.Errorf("the note on stdin is over %d KiB: a note holds at most 2,048 bytes", maxStdinBytes>>10)
 	}
-	return strings.TrimRight(string(data), "\r\n"), nil
+	return strings.TrimRight(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n"), nil
 }
 
 type notesDeleteOptions struct {
