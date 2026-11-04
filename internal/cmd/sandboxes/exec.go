@@ -14,8 +14,8 @@ import (
 )
 
 type launchOptions struct {
-	preset, template, region, key string
-	memory, duration, timeout     int
+	preset, template, region, key, egress string
+	memory, duration, timeout             int
 }
 
 func (o *launchOptions) flags(cmd *cobra.Command) {
@@ -24,6 +24,7 @@ func (o *launchOptions) flags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.region, "region", "us-east-1", "Sandbox region")
 	cmd.Flags().StringVar(&o.key, "request-id", "", "UUID idempotency key; reuse when retrying the same request")
 	cmd.Flags().IntVar(&o.memory, "memory", 0, "Memory in MB (1024 or 2048; defaults to the preset or template)")
+	cmd.Flags().StringVar(&o.egress, "egress", "", "Outbound network for the session's lifetime: default, or deny_all for no DNS, internet, or port access")
 }
 
 func (o launchOptions) request() (apiclient.CreateSandboxSessionRequest, uuid.UUID, error) {
@@ -37,6 +38,13 @@ func (o launchOptions) request() (apiclient.CreateSandboxSessionRequest, uuid.UU
 	if o.memory != 0 {
 		memory := apiclient.CreateSandboxSessionRequestMemoryMb(o.memory)
 		result.MemoryMb = &memory
+	}
+	if o.egress != "" {
+		egress := apiclient.SandboxSessionNetworkRequestEgress(o.egress)
+		if !egress.Valid() {
+			return result, uuid.Nil, errors.New("--egress must be default or deny_all")
+		}
+		result.Network = &apiclient.SandboxSessionNetworkRequest{Egress: egress}
 	}
 	if o.preset != "" {
 		preset := o.preset
@@ -78,8 +86,8 @@ func (c *commands) execute() *cobra.Command {
 		ctx, cancel := context.WithTimeout(cmd.Context(), time.Duration(opts.timeout)*time.Second+3*time.Minute)
 		defer cancel()
 		if split == 1 {
-			if opts.preset != "" || opts.template != "" || cmd.Flags().Changed("memory") || cmd.Flags().Changed("region") {
-				return errors.New("preset, template, memory, and region only apply when creating a sandbox")
+			if opts.preset != "" || opts.template != "" || cmd.Flags().Changed("memory") || cmd.Flags().Changed("region") || cmd.Flags().Changed("egress") {
+				return errors.New("preset, template, memory, region, and egress only apply when creating a sandbox")
 			}
 			id, err := uuid.Parse(args[0])
 			if err != nil {
@@ -99,7 +107,7 @@ func (c *commands) execute() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		body := apiclient.SandboxExecutionRequest{Command: command, Region: request.Region, SandboxId: request.SandboxId, TimeoutSeconds: &opts.timeout}
+		body := apiclient.SandboxExecutionRequest{Command: command, Region: request.Region, SandboxId: request.SandboxId, TimeoutSeconds: &opts.timeout, Network: request.Network}
 		if request.Preset != nil {
 			preset := *request.Preset
 			body.Preset = &preset

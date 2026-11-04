@@ -3570,6 +3570,63 @@ func (e SandboxSessionState) Valid() bool {
 	}
 }
 
+// Defines values for SandboxSessionNetworkApplied.
+const (
+	SandboxSessionNetworkAppliedDefault SandboxSessionNetworkApplied = "default"
+	SandboxSessionNetworkAppliedDenyAll SandboxSessionNetworkApplied = "deny_all"
+	SandboxSessionNetworkAppliedUnknown SandboxSessionNetworkApplied = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SandboxSessionNetworkApplied enum.
+func (e SandboxSessionNetworkApplied) Valid() bool {
+	switch e {
+	case SandboxSessionNetworkAppliedDefault:
+		return true
+	case SandboxSessionNetworkAppliedDenyAll:
+		return true
+	case SandboxSessionNetworkAppliedUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxSessionNetworkEgress.
+const (
+	SandboxSessionNetworkEgressDefault SandboxSessionNetworkEgress = "default"
+	SandboxSessionNetworkEgressDenyAll SandboxSessionNetworkEgress = "deny_all"
+)
+
+// Valid indicates whether the value is a known member of the SandboxSessionNetworkEgress enum.
+func (e SandboxSessionNetworkEgress) Valid() bool {
+	switch e {
+	case SandboxSessionNetworkEgressDefault:
+		return true
+	case SandboxSessionNetworkEgressDenyAll:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxSessionNetworkRequestEgress.
+const (
+	SandboxSessionNetworkRequestEgressDefault SandboxSessionNetworkRequestEgress = "default"
+	SandboxSessionNetworkRequestEgressDenyAll SandboxSessionNetworkRequestEgress = "deny_all"
+)
+
+// Valid indicates whether the value is a known member of the SandboxSessionNetworkRequestEgress enum.
+func (e SandboxSessionNetworkRequestEgress) Valid() bool {
+	switch e {
+	case SandboxSessionNetworkRequestEgressDefault:
+		return true
+	case SandboxSessionNetworkRequestEgressDenyAll:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxTemplateStatus.
 const (
 	SandboxTemplateStatusDeleting    SandboxTemplateStatus = "deleting"
@@ -5854,6 +5911,9 @@ type CreateSandboxSessionRequest struct {
 
 	// MemoryMb Baseline memory in MiB. Cloud HOBBY supports 1024; SUPERAGENT supports 1024 or 2048. Omission uses the preset or template default; a template requiring more than the plan permits is rejected. Local sessions are exempt from cloud plan limits.
 	MemoryMb *CreateSandboxSessionRequestMemoryMb `json:"memory_mb,omitempty"`
+
+	// Network Outbound network policy for the session. Omitting `network` is the same as `egress` `default`.
+	Network *SandboxSessionNetworkRequest `json:"network,omitempty"`
 
 	// Preset Preset ID from the available Sandbox preset catalog.
 	Preset *string `json:"preset,omitempty"`
@@ -10768,6 +10828,9 @@ type SandboxExecutionRequest struct {
 	// MemoryMb Baseline memory in MiB. Cloud HOBBY supports 1024; SUPERAGENT supports 1024 or 2048. Omission uses the preset or template default; a template requiring more than the plan permits is rejected. Local sessions are exempt from cloud plan limits.
 	MemoryMb *SandboxExecutionRequestMemoryMb `json:"memory_mb,omitempty"`
 
+	// Network Outbound network policy for the session. Omitting `network` is the same as `egress` `default`.
+	Network *SandboxSessionNetworkRequest `json:"network,omitempty"`
+
 	// Preset Preset ID from the available Sandbox preset catalog.
 	Preset *string `json:"preset,omitempty"`
 
@@ -10848,11 +10911,12 @@ type SandboxSession struct {
 	DesiredState SandboxSessionDesiredState `json:"desired_state"`
 
 	// ExpiresAt Absolute VM expiry. Null means unlimited in local mode.
-	ExpiresAt *time.Time         `json:"expires_at"`
-	Id        openapi_types.UUID `json:"id"`
-	MemoryMb  int                `json:"memory_mb"`
-	ProjectId openapi_types.UUID `json:"project_id"`
-	Region    string             `json:"region"`
+	ExpiresAt *time.Time            `json:"expires_at"`
+	Id        openapi_types.UUID    `json:"id"`
+	MemoryMb  int                   `json:"memory_mb"`
+	Network   SandboxSessionNetwork `json:"network"`
+	ProjectId openapi_types.UUID    `json:"project_id"`
+	Region    string                `json:"region"`
 
 	// SandboxId Explicit template used to create the session. Null when created directly from a preset.
 	SandboxId *openapi_types.UUID `json:"sandbox_id"`
@@ -10865,6 +10929,30 @@ type SandboxSessionDesiredState string
 
 // SandboxSessionState defines model for SandboxSession.State.
 type SandboxSessionState string
+
+// SandboxSessionNetwork defines model for SandboxSessionNetwork.
+type SandboxSessionNetwork struct {
+	// Applied The outbound network policy Volcano last observed on the session's VM, never the request alone. It is `unknown` until the session is first observed, after a suspend or resume until it is observed again, and whenever the observation does not match the request. A session reports `state` `running` only once its network has been observed. To depend on `deny_all`, wait for `running`, then terminate the session unless `applied` is `deny_all`.
+	Applied SandboxSessionNetworkApplied `json:"applied"`
+
+	// Egress The outbound network policy the session was created with. It never changes.
+	Egress SandboxSessionNetworkEgress `json:"egress"`
+}
+
+// SandboxSessionNetworkApplied The outbound network policy Volcano last observed on the session's VM, never the request alone. It is `unknown` until the session is first observed, after a suspend or resume until it is observed again, and whenever the observation does not match the request. A session reports `state` `running` only once its network has been observed. To depend on `deny_all`, wait for `running`, then terminate the session unless `applied` is `deny_all`.
+type SandboxSessionNetworkApplied string
+
+// SandboxSessionNetworkEgress The outbound network policy the session was created with. It never changes.
+type SandboxSessionNetworkEgress string
+
+// SandboxSessionNetworkRequest Outbound network policy for the session. Omitting `network` is the same as `egress` `default`.
+type SandboxSessionNetworkRequest struct {
+	// Egress `default` gives the session the region's standard outbound internet access. `deny_all` gives it no outbound network for its whole lifetime: DNS lookups, internet and link-local addresses, and connections back out through Volcano all fail, and the session accepts no port access. Commands, files and the rest of the session API work as usual. The policy cannot be changed after creation; suspend and resume keep it. Check `network.applied` before relying on it. Where `GET /capabilities` lists `sandboxes.network_isolation` as unavailable, `deny_all` answers `400` with code `feature_unavailable`.
+	Egress SandboxSessionNetworkRequestEgress `json:"egress"`
+}
+
+// SandboxSessionNetworkRequestEgress `default` gives the session the region's standard outbound internet access. `deny_all` gives it no outbound network for its whole lifetime: DNS lookups, internet and link-local addresses, and connections back out through Volcano all fail, and the session accepts no port access. Commands, files and the rest of the session API work as usual. The policy cannot be changed after creation; suspend and resume keep it. Check `network.applied` before relying on it. Where `GET /capabilities` lists `sandboxes.network_isolation` as unavailable, `deny_all` answers `400` with code `feature_unavailable`.
+type SandboxSessionNetworkRequestEgress string
 
 // SandboxSessionPage defines model for SandboxSessionPage.
 type SandboxSessionPage struct {
@@ -14212,6 +14300,13 @@ func (t CreateSandboxSessionRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	if t.Network != nil {
+		object["network"], err = json.Marshal(t.Network)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'network': %w", err)
+		}
+	}
+
 	if t.Preset != nil {
 		object["preset"], err = json.Marshal(t.Preset)
 		if err != nil {
@@ -14256,6 +14351,13 @@ func (t *CreateSandboxSessionRequest) UnmarshalJSON(b []byte) error {
 		err = json.Unmarshal(raw, &t.MemoryMb)
 		if err != nil {
 			return fmt.Errorf("error reading 'memory_mb': %w", err)
+		}
+	}
+
+	if raw, found := object["network"]; found {
+		err = json.Unmarshal(raw, &t.Network)
+		if err != nil {
+			return fmt.Errorf("error reading 'network': %w", err)
 		}
 	}
 
@@ -15037,6 +15139,13 @@ func (t SandboxExecutionRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	if t.Network != nil {
+		object["network"], err = json.Marshal(t.Network)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'network': %w", err)
+		}
+	}
+
 	if t.Preset != nil {
 		object["preset"], err = json.Marshal(t.Preset)
 		if err != nil {
@@ -15102,6 +15211,13 @@ func (t *SandboxExecutionRequest) UnmarshalJSON(b []byte) error {
 		err = json.Unmarshal(raw, &t.MemoryMb)
 		if err != nil {
 			return fmt.Errorf("error reading 'memory_mb': %w", err)
+		}
+	}
+
+	if raw, found := object["network"]; found {
+		err = json.Unmarshal(raw, &t.Network)
+		if err != nil {
+			return fmt.Errorf("error reading 'network': %w", err)
 		}
 	}
 

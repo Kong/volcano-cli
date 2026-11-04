@@ -50,6 +50,7 @@ func requireLocalModeRunsSandboxes(t *testing.T, binary string, env []string, di
 	require.Equal(t, "retained", run("files", "read", session.ID, "/workspace/value"))
 	run("terminate", session.ID)
 	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"terminated"`, "sandboxes", "get", session.ID, "--json")
+	requireLocalModeSandboxEgress(t, binary, env, dir)
 	requireLocalModeSandboxUsage(t, binary, env, dir)
 	requireLocalModeCustomSandbox(t, binary, env, dir)
 }
