@@ -195,6 +195,23 @@ func requireTurnOnAvailable(ctx context.Context, authenticated *clisession.Proje
 	return nil
 }
 
+// requireMergeAvailable stops autonomy merge before it asks when the
+// project's capabilities say LavaFlow is available but merging isn't: the
+// save's 400 feature_unavailable. Anything else leaves the save to decide: a
+// read that fails, a list without merging, and LavaFlow itself unavailable,
+// which the save refuses with LavaFlow's own reason and exit code.
+func requireMergeAvailable(ctx context.Context, authenticated *clisession.ProjectSession) error {
+	lavaflow, merge, err := availability(ctx, authenticated)
+	if err != nil {
+		return err
+	}
+	if lavaflow != nil && *lavaflow && merge != nil && !*merge {
+		return api.WithCause(ErrMergingNotAvailable,
+			&api.Error{StatusCode: http.StatusBadRequest, Message: ErrMergingNotAvailable.Error(), Code: codeFeatureUnavailable})
+	}
+	return nil
+}
+
 // availableIn reports LavaFlow's capability entry as available. A missing
 // entry or any other status is unavailable.
 func availableIn(capabilities *apiclient.CapabilityList) bool {
@@ -239,7 +256,8 @@ func (s Service) Settings(ctx context.Context) (*apiclient.LavaflowSettings, err
 }
 
 // availability reads whether LavaFlow takes changes for the project, and
-// whether it can merge its fixes. It is detail the status adds, so a
+// whether it can merge its fixes. Both are hints: the status adds them as
+// detail, and autonomy merge leaves an unknown answer to the save. So a
 // capabilities read that fails leaves both unknown; a cancel or deadline still
 // ends the command.
 func availability(ctx context.Context, authenticated *clisession.ProjectSession) (lavaflow, merge *bool, err error) {
@@ -305,10 +323,10 @@ func (s Service) Disable(ctx context.Context) (*apiclient.LavaflowSettings, erro
 	return s.update(ctx, "turn LavaFlow off", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, false, nil)
 }
 
-// UpdateSettings changes the fields update sets and keeps the rest. It
-// doesn't check the capabilities first: the save says why when LavaFlow isn't
-// available. A non-nil confirm runs after the owner check, just before the
-// change.
+// UpdateSettings changes the fields update sets and keeps the rest. Only a
+// change to autonomy merge checks the capabilities first; otherwise the save
+// says why when LavaFlow isn't available. A non-nil confirm runs after those checks,
+// just before the change.
 func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSettingsUpdate,
 	confirm func() error,
 ) (*apiclient.LavaflowSettings, error) {
@@ -352,9 +370,10 @@ func validMergePolicy(policy *apiclient.LavaflowMergePolicyUpdate) error {
 // update refuses a project access token before sending anything. Every
 // change reads the settings first, which refuses a project without LavaFlow
 // records with the route's reason, and checks can_update before it asks or
-// sends. A change that turns LavaFlow on then checks the project's
-// capabilities, so it isn't asked for when it would be refused. A non-nil
-// confirm runs just before the change.
+// sends. A change that turns LavaFlow on, or changes autonomy to merge, then
+// checks the project's capabilities, so it isn't asked for when it would be
+// refused.
+// A non-nil confirm runs just before the change.
 func (s Service) update(ctx context.Context, verb string, update apiclient.LavaflowSettingsUpdate,
 	turnsOn bool, confirm func() error,
 ) (*apiclient.LavaflowSettings, error) {
@@ -375,6 +394,12 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	}
 	if turnsOn {
 		if err := requireTurnOnAvailable(ctx, authenticated); err != nil {
+			return nil, err
+		}
+	}
+	// The save accepts the saved autonomy again without merging available.
+	if update.Autonomy != nil && *update.Autonomy == apiclient.Merge && current.Autonomy != apiclient.Merge {
+		if err := requireMergeAvailable(ctx, authenticated); err != nil {
 			return nil, err
 		}
 	}
