@@ -58,6 +58,9 @@ type SourceInfo struct {
 	Name    string
 	Runtime apiclient.FunctionRuntimeOption
 	IsDir   bool
+	// viaTypeScript marks a source found only through TypeScript, such as
+	// hello.ts or a directory with index.ts, which the CLI used to skip.
+	viaTypeScript bool
 }
 
 // ScanSources scans volcano/functions for top-level function files and directories.
@@ -78,33 +81,37 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 		}
 		fullPath := filepath.Join(functionsDir, entry.Name())
 		if entry.IsDir() {
-			runtime, entryFile, ok := detectDirectoryRuntime(fullPath, catalog)
+			runtime, entryFile, viaTypeScript, ok := detectDirectoryRuntime(fullPath, catalog)
 			if ok {
 				functions = append(functions, SourceInfo{
-					Path:    entryFile,
-					Name:    entry.Name(),
-					Runtime: runtime,
-					IsDir:   true,
+					Path:          entryFile,
+					Name:          entry.Name(),
+					Runtime:       runtime,
+					IsDir:         true,
+					viaTypeScript: viaTypeScript,
 				})
 			}
 			continue
 		}
 
 		runtime, ok := catalog.runtimeForFile(entry.Name())
+		viaTypeScript := false
 		if !ok {
 			runtime, ok = catalog.typeScriptRuntimeForFile(entry.Name())
+			viaTypeScript = ok
 		}
 		if !ok {
 			continue
 		}
 		functions = append(functions, SourceInfo{
-			Path:    fullPath,
-			Name:    strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())),
-			Runtime: runtime,
+			Path:          fullPath,
+			Name:          strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())),
+			Runtime:       runtime,
+			viaTypeScript: viaTypeScript,
 		})
 	}
 
-	functions, err = resolveTypeScriptFiles(functions)
+	functions, err = resolveTypeScriptSources(functions)
 	if err != nil {
 		return nil, err
 	}
@@ -158,12 +165,14 @@ func normalizeTarget(target string) string {
 // detectDirectoryRuntime chooses a directory function's entry: a runtime
 // entrypoint such as index.js, main.py or main.rb, else a TypeScript index.
 // TypeScript ranks last so it never changes the runtime of a directory that
-// already deploys, such as main.py beside index.ts.
-func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (apiclient.FunctionRuntimeOption, string, bool) {
+// already deploys, such as main.py beside index.ts. viaTypeScript reports the
+// TypeScript index found it.
+func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (runtime apiclient.FunctionRuntimeOption, entryFile string, viaTypeScript, ok bool) {
 	if runtime, entryFile, ok := detectEntrypoint(dirPath, catalog); ok {
-		return runtime, entryFile, true
+		return runtime, entryFile, false, true
 	}
-	return catalog.typeScriptDirectoryEntry(dirPath)
+	runtime, entryFile, ok = catalog.typeScriptDirectoryEntry(dirPath)
+	return runtime, entryFile, ok, ok
 }
 
 // detectEntrypoint finds the first file, by name, named as a runtime's

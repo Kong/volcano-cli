@@ -80,28 +80,27 @@ func singleFileEntrypoint(info SourceInfo) string {
 	return entrypoint
 }
 
-// resolveTypeScriptFiles drops a single-file TypeScript function, such as
-// checkout.ts, when another source takes its name, such as checkout.js. That
-// source deployed before Volcano compiled TypeScript, and it still does. Two
-// TypeScript files with one name, such as checkout.ts and checkout.mts, are an
+// resolveTypeScriptSources settles which source deploys when a TypeScript
+// source shares its function name with another. A source that deployed before
+// Volcano compiled TypeScript, such as hello.js, always wins, so TypeScript
+// never changes what an existing function deploys. A directory found through
+// its TypeScript index then beats a single TypeScript file, as on the server.
+// Two TypeScript files with one name, such as hello.ts and hello.mts, are an
 // error, as they are on the server: neither is the obvious handler.
-func resolveTypeScriptFiles(sources []SourceInfo) ([]SourceInfo, error) {
-	typeScriptFile := func(source SourceInfo) bool {
-		return !source.IsDir && isTypeScriptSource(filepath.Base(source.Path))
-	}
-	taken := map[string]bool{}
+func resolveTypeScriptSources(sources []SourceInfo) ([]SourceInfo, error) {
+	best := map[string]int{}
 	for _, source := range sources {
-		if !typeScriptFile(source) {
-			taken[source.Name] = true
+		if rank, ok := best[source.Name]; !ok || typeScriptRank(source) < rank {
+			best[source.Name] = typeScriptRank(source)
 		}
 	}
 	sources = slices.DeleteFunc(sources, func(source SourceInfo) bool {
-		return typeScriptFile(source) && taken[source.Name]
+		return source.viaTypeScript && typeScriptRank(source) > best[source.Name]
 	})
 
 	files := map[string]string{}
 	for _, source := range sources {
-		if !typeScriptFile(source) {
+		if !source.viaTypeScript || source.IsDir {
 			continue
 		}
 		file := filepath.Base(source.Path)
@@ -111,6 +110,20 @@ func resolveTypeScriptFiles(sources []SourceInfo) ([]SourceInfo, error) {
 		files[source.Name] = file
 	}
 	return sources, nil
+}
+
+// typeScriptRank orders the sources that can share a function name, lowest
+// first: one the CLI found before it read TypeScript, a directory found through
+// its TypeScript index, then a single TypeScript file.
+func typeScriptRank(source SourceInfo) int {
+	switch {
+	case !source.viaTypeScript:
+		return 0
+	case source.IsDir:
+		return 1
+	default:
+		return 2
+	}
 }
 
 func isRegularFile(path string) bool {

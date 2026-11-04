@@ -68,9 +68,10 @@ JavaScript during the build, in the cloud and in local mode:
 - Imports through `paths` in a `tsconfig.json` inside the function's directory
   resolve. Packages from `package.json` load from the installed dependencies.
 - TypeScript never changes what an existing function deploys: `hello.js` or
-  `hello.py` beside `hello.ts`, or `checkout/index.js`, `index.mjs`,
-  `index.cjs`, `main.py` or `main.rb` beside `checkout/index.ts`, deploys that
-  file instead.
+  `hello.py` beside `hello.ts` or `hello/index.ts`, or `checkout/index.js`,
+  `index.mjs`, `index.cjs`, `main.py` or `main.rb` beside `checkout/index.ts`,
+  deploys that file instead. A `hello/` directory beside `hello.ts` deploys the
+  directory.
 - Two TypeScript files with one name and no JavaScript, such as `hello.ts` and
   `hello.mts`, stop the deploy until you keep one.
 - `.tsx` and declaration files such as `types.d.ts` aren't functions. A

@@ -15,6 +15,7 @@ func requireLocalModeDeploysTypeScriptFunctions(t *testing.T, binary string, env
 	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "ts-file.ts"), `
 interface Response {
   statusCode: number;
+  headers: Record<string, string>;
   body: string;
 }
 
