@@ -27,9 +27,10 @@ func requireLocalModeSandboxLimits(t *testing.T, binary string, env []string, di
 	create := captureLocalModeCommand(ctx, binary, env, dir, "sandboxes", "run", "--preset", "python3.12", "--duration", "300", "--vcpus", "1", "--disk-mib", "256", "--json")
 	if create.err != nil {
 		// Published images can predate limits; Hosting's candidate-image lane must accept them.
+		// An image that predates them refuses the field in request validation, and
+		// only that refusal passes here.
 		require.NotEqual(t, "1", os.Getenv("VOLCANO_E2E_REQUIRE_SANDBOX_LIMITS"), "candidate image must accept Sandbox limits: %s", create.stderr)
-		require.Contains(t, create.stderr, "HTTP 400")
-		require.Contains(t, create.stderr, "limits")
+		require.Contains(t, create.stderr, `HTTP 400: invalid request: property "limits" is unsupported`)
 		return
 	}
 	var created apiclient.SandboxSession
