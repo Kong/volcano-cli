@@ -202,8 +202,9 @@ is connected to another, autonomy reads `open_pr` until you turn merge on
 again. Merging is only for a project where
 it's available, which `status` shows; elsewhere `--autonomy merge` says
 "LavaFlow merging isn't available for this project yet" and exits with
-code 1. When the owner's GitHub account can't push to the project's
-repository, it says so, adds what Volcano said, points to
+code 1. When `status` shows merging isn't available while LavaFlow is, it
+says so before it warns or asks. When the owner's GitHub account can't push
+to the project's repository, it says so, adds what Volcano said, points to
 [connecting GitHub](/platform/projects/git-deploy#1-connect-github), and exits
 with code 5.
 
