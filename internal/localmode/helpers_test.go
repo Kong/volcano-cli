@@ -62,8 +62,6 @@ func runningStopRunner(t *testing.T) *fakeCommandRunner {
 			switch {
 			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
 				return []byte("true\n"), nil
-			case commandIs(command, "docker", "compose", "version", "--short"):
-				return []byte("v2.28.1\n"), nil
 			case commandIsComposeDown(command, false), commandIsComposeDown(command, true),
 				commandIs(command, "docker", "container", "ls", "--all", "--quiet", "--filter", "label=dev.volcano.sandbox.namespace=volcano"),
 				commandIs(command, "docker", "network", "ls", "--quiet", "--filter", "label=dev.volcano.sandbox.namespace=volcano"),

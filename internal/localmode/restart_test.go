@@ -124,12 +124,14 @@ func TestRestartFailsBeforeTeardownWhenCustomImageMissing(t *testing.T) {
 	assert.False(t, runner.calledWithArg("docker", "down"), "environment must not be torn down on a bad --image")
 }
 
-func TestRestartFailsBeforeTeardownWhenComposeMissing(t *testing.T) {
+func TestRestartFailsClearlyWhenComposeMissing(t *testing.T) {
 	runner := &fakeCommandRunner{
 		run: func(_ context.Context, command Command) ([]byte, error) {
 			switch {
-			case commandIs(command, "docker", "version"):
-				return nil, nil
+			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
+				return []byte("true\n"), nil
+			case commandIsComposeDown(command, false):
+				return nil, errors.New("unknown shorthand flag: 'f' in -f")
 			case commandIs(command, "docker", "compose", "version", "--short"):
 				return nil, errors.New("docker: unknown command: docker compose")
 			default:
@@ -140,9 +142,10 @@ func TestRestartFailsBeforeTeardownWhenComposeMissing(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := NewService(cliruntime.Deps{}, WithDockerRunner(runner)).Restart(context.Background(), &out)
+	err := NewService(cliruntime.Deps{}, WithDockerRunner(runner), WithTempDir(t.TempDir())).Restart(context.Background(), &out)
 
 	require.ErrorContains(t, err, "docker compose v2 not found")
-	assert.Contains(t, out.String(), "Docker Compose v2 is not available")
-	assert.False(t, runner.calledWithArg("docker", "down"), "environment must not be torn down without the Compose plugin")
+	assert.NotContains(t, err.Error(), "unknown shorthand flag")
+	assert.Contains(t, out.String(), "✗ Docker Compose v2 is not available")
+	assert.False(t, runner.calledWithArg("docker", "up"), "start must not run after stop fails")
 }

@@ -258,14 +258,9 @@ func (s Service) Stop(ctx context.Context, w io.Writer, clean bool) error {
 		}
 	}
 
-	// Every stop step runs `docker compose`; check the plugin first so a
-	// missing one names Compose instead of docker's usage error.
-	if err := s.checkCompose(ctx, w); err != nil {
-		return err
-	}
-
 	fmt.Fprintln(w, "Stopping Docker services...")
 	if err := s.composeDown(ctx, false); err != nil {
+		reportComposeUnavailable(w, err)
 		return fmt.Errorf("failed to stop Docker services: %w", err)
 	}
 
@@ -290,35 +285,29 @@ func (s Service) Stop(ctx context.Context, w io.Writer, clean bool) error {
 }
 
 // checkLocalPrerequisites verifies the Docker engine and the Docker Compose v2
-// plugin that every start step drives. `docker version` passes without the
-// plugin, and each `docker compose -f ...` call then fails with docker's usage
-// error ("unknown shorthand flag: 'f' in -f"), so the plugin is checked on its own.
+// plugin before start does any work. Other commands find a missing plugin when
+// a compose call fails (see runCompose), but start's first compose call is the
+// best-effort image pull, which prints progress and only warns on failure, so
+// start checks the plugin up front.
 func (s Service) checkLocalPrerequisites(ctx context.Context, w io.Writer) error {
 	if err := s.checkDocker(ctx); err != nil {
 		output.LocalModeDockerUnavailable(w)
 		return fmt.Errorf("docker not found: %w", err)
 	}
-	return s.checkCompose(ctx, w)
-}
-
-// checkCompose verifies the Docker Compose v2 plugin and prints the install
-// guidance when it is missing.
-func (s Service) checkCompose(ctx context.Context, w io.Writer) error {
 	if _, err := s.dockerComposeVersion(ctx); err != nil {
-		renderCheckFail(w, "Docker Compose v2 is not available", composeGuidance())
-		return fmt.Errorf("docker compose v2 not found: %w", err)
+		err = composeUnavailableError{err: err}
+		reportComposeUnavailable(w, err)
+		return err
 	}
 	return nil
 }
 
 // Restart restarts the local Volcano Docker stack while preserving data.
 func (s Service) Restart(ctx context.Context, w io.Writer) error {
-	// Check prerequisites and a custom image before tearing the environment
-	// down, so a missing Compose plugin or a bad --image leaves the running
-	// stack intact instead of stopped.
-	if err := s.checkLocalPrerequisites(ctx, w); err != nil {
-		return err
-	}
+	// Validate a custom image before tearing the environment down, so a bad
+	// --image leaves the running stack intact instead of stopped. A missing
+	// Compose plugin needs no check here: Stop's `compose down` fails first and
+	// reports it, so nothing is torn down.
 	if err := s.ensureCustomImageAvailable(ctx); err != nil {
 		return err
 	}
