@@ -52,6 +52,54 @@ func requireLocalModeRunsSandboxes(t *testing.T, binary string, env []string, di
 	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"terminated"`, "sandboxes", "get", session.ID, "--json")
 	requireLocalModeSandboxUsage(t, binary, env, dir)
 	requireLocalModeCustomSandbox(t, binary, env, dir)
+	requireLocalModeSandboxKeepsNoOutput(t, binary, env, dir)
+}
+
+// A session created to keep no output returns a command's output once; a
+// retry with the same request ID returns the exit code with empty streams,
+// and a command asking to keep output there is refused.
+func requireLocalModeSandboxKeepsNoOutput(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	run := func(args ...string) string {
+		return runVolcanoLocalModeE2EStdout(t, binary, env, dir, append([]string{"sandboxes"}, args...)...)
+	}
+	var session apiclient.SandboxSession
+	require.NoError(t, json.Unmarshal([]byte(run("run", "--preset", "python3.12", "--duration", "300", "--keep-output=false", "--json")), &session))
+	require.False(t, session.Executions.KeepOutput)
+	t.Cleanup(func() {
+		_, _ = runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "terminate", session.Id.String())
+	})
+	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"keep_output":false`, "sandboxes", "get", session.Id.String(), "--json")
+	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"running"`, "sandboxes", "get", session.Id.String(), "--json")
+	marker := "kept-nowhere-" + uuid.NewString()
+	key := uuid.NewString()
+	var first, replay apiclient.SandboxCommandResult
+	args := []string{"exec", session.Id.String(), "--request-id", key, "--json", "--", "sh", "-c", "printf " + marker + "; printf " + marker + " >&2; exit 3"}
+	output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, append([]string{"sandboxes"}, args...)...)
+	require.Error(t, err, "the command's exit code 3 is the CLI's exit code")
+	require.NoError(t, json.Unmarshal([]byte(jsonObject(output)), &first), output)
+	require.Equal(t, marker, first.Stdout)
+	require.Equal(t, marker, first.Stderr)
+	require.Equal(t, 3, first.ExitCode)
+	require.False(t, first.OutputKept)
+	output, err = runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, append([]string{"sandboxes"}, args...)...)
+	require.Error(t, err)
+	require.NoError(t, json.Unmarshal([]byte(jsonObject(output)), &replay), output)
+	require.Equal(t, apiclient.SandboxCommandResult{ExitCode: 3}, replay, "a retry returns only the exit code")
+	refused, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "exec", session.Id.String(), "--keep-output", "--", "true")
+	require.Error(t, err)
+	require.Contains(t, refused, "keeps no command output")
+	run("terminate", session.Id.String())
+}
+
+// jsonObject drops anything a command wrote around its JSON result, such as
+// the command's own stderr.
+func jsonObject(output string) string {
+	start, end := strings.Index(output, "{"), strings.LastIndex(output, "}")
+	if start < 0 || end < start {
+		return output
+	}
+	return output[start : end+1]
 }
 
 func requireLocalModeSandboxUsage(t *testing.T, binary string, env []string, dir string) {

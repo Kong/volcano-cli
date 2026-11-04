@@ -91,9 +91,26 @@ A template saves a preset and memory size. Custom image builds are not supported
 | `--timeout` | `exec` | Command deadline: 1–60 seconds for one-shot execution, 1–3600 for session execution; defaults to 60 |
 | `--duration` | `run` | Override session lifetime in seconds: cloud 30–28800; local 0 (unlimited) or positive. Omitted inherits the template |
 | `--request-id` | `exec`, `run` | UUID used to retry the same request safely |
+| `--keep-output=false` | `exec`, `shell`, `run` | Keep no command output: print it once and store none. On `run`, every command in the session keeps none |
 | `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, and `files read` return structured results |
 
 Use a new request ID for each intent. After a network failure, retry with the original ID and identical arguments. A canceled client does not prove the remote command stopped.
+
+## Keep no command output
+
+By default Volcano stores a command's result, so retrying its request ID prints the same output. When output can hold secrets, pass `--keep-output=false`. The command prints its output once and Volcano stores none of it; retrying the request ID returns only the exit code, with empty output, and never runs the command again:
+
+```bash
+volcano cloud sandboxes exec SESSION_ID --keep-output=false --request-id REQUEST_ID -- ./print-token.sh
+```
+
+Start a session with `run --keep-output=false` to apply this to every command in it. `sandboxes get` shows the setting as `executions.keep_output`. Commands in that session, including `shell`, keep no output; one that passes `--keep-output` is refused with `sandbox_session_keeps_no_output`:
+
+```bash
+volcano cloud sandboxes run --preset python3.12 --keep-output=false
+```
+
+`--json` results include `output_kept`, which is `false` for a command that kept no output.
 
 ## Output format
 

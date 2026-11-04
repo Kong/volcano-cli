@@ -53,6 +53,17 @@ func (o launchOptions) request() (apiclient.CreateSandboxSessionRequest, uuid.UU
 	return result, key, err
 }
 
+const keepOutputUsage = "Keep command output for retries; false returns it once and stores none"
+
+// keepOutput sends the flag only when set, so a session command otherwise
+// uses its session's setting.
+func keepOutput(cmd *cobra.Command, value bool) *bool {
+	if !cmd.Flags().Changed("keep-output") {
+		return nil
+	}
+	return &value
+}
+
 func requestID(value string) (uuid.UUID, error) {
 	if value == "" {
 		return uuid.NewRandom()
@@ -62,6 +73,7 @@ func requestID(value string) (uuid.UUID, error) {
 
 func (c *commands) execute() *cobra.Command {
 	var opts launchOptions
+	var keep bool
 	cmd := &cobra.Command{Use: "exec [session-id] -- <command> [args...]", Short: "Execute once, or inside an existing session", RunE: func(cmd *cobra.Command, args []string) error {
 		split := cmd.ArgsLenAtDash()
 		if split < 0 || split > 1 || split >= len(args) {
@@ -89,7 +101,7 @@ func (c *commands) execute() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			value, err := project.API.ExecSandboxSession(ctx, id, key, apiclient.SandboxCommandRequest{Command: command, TimeoutSeconds: &opts.timeout})
+			value, err := project.API.ExecSandboxSession(ctx, id, key, apiclient.SandboxCommandRequest{Command: command, TimeoutSeconds: &opts.timeout, KeepOutput: keepOutput(cmd, keep)})
 			if err != nil {
 				return err
 			}
@@ -99,7 +111,7 @@ func (c *commands) execute() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		body := apiclient.SandboxExecutionRequest{Command: command, Region: request.Region, SandboxId: request.SandboxId, TimeoutSeconds: &opts.timeout}
+		body := apiclient.SandboxExecutionRequest{Command: command, Region: request.Region, SandboxId: request.SandboxId, TimeoutSeconds: &opts.timeout, KeepOutput: keepOutput(cmd, keep)}
 		if request.Preset != nil {
 			preset := *request.Preset
 			body.Preset = &preset
@@ -112,10 +124,11 @@ func (c *commands) execute() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return c.outputCommand(cmd, apiclient.SandboxCommandResult{Stdout: value.Stdout, Stderr: value.Stderr, ExitCode: value.ExitCode, TimedOut: value.TimedOut, StdoutTruncated: value.StdoutTruncated, StderrTruncated: value.StderrTruncated}, value)
+		return c.outputCommand(cmd, apiclient.SandboxCommandResult{Stdout: value.Stdout, Stderr: value.Stderr, ExitCode: value.ExitCode, TimedOut: value.TimedOut, StdoutTruncated: value.StdoutTruncated, StderrTruncated: value.StderrTruncated, OutputKept: value.OutputKept}, value)
 	}}
 	opts.flags(cmd)
 	cmd.Flags().IntVar(&opts.timeout, "timeout", 60, "Command timeout in seconds")
+	cmd.Flags().BoolVar(&keep, "keep-output", true, keepOutputUsage+"; a session command that omits it uses the session's setting")
 	return cmd
 }
 
@@ -154,6 +167,7 @@ func (c *commands) outputCommand(cmd *cobra.Command, result apiclient.SandboxCom
 
 func (c *commands) run() *cobra.Command {
 	var opts launchOptions
+	var keep bool
 	cmd := &cobra.Command{Use: "run", Short: "Start a persistent session", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		request, key, err := opts.request()
 		if err != nil {
@@ -169,6 +183,9 @@ func (c *commands) run() *cobra.Command {
 			}
 			request.MaxDurationSeconds = &opts.duration
 		}
+		if cmd.Flags().Changed("keep-output") {
+			request.Executions = &apiclient.SandboxSessionExecutions{KeepOutput: keep}
+		}
 		project, err := c.project()
 		if err != nil {
 			return err
@@ -180,6 +197,7 @@ func (c *commands) run() *cobra.Command {
 		return c.write(cmd, value)
 	}}
 	opts.flags(cmd)
+	cmd.Flags().BoolVar(&keep, "keep-output", true, "Keep the output of the session's commands for retries; false keeps none for every command in the session")
 	cmd.Flags().IntVar(&opts.duration, "duration", 0, "Maximum session lifetime in seconds; omitted inherits the template (cloud: 30–28800; local: 0 for unlimited or positive)")
 	return cmd
 }
