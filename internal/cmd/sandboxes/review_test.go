@@ -128,3 +128,49 @@ func TestManagementOutputIsJSONWithAndWithoutFlag(t *testing.T) {
 		assert.Contains(t, decoded, "data")
 	}
 }
+
+func TestJSONOutputEscapesControlCharacters(t *testing.T) {
+	t.Parallel()
+	const controls = "a\x7fb\u0085c\u009b[31m"
+	data := []byte(controls)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/files/read") {
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"stdout": controls, "stderr": controls, "exit_code": 0})
+	}))
+	t.Cleanup(server.Close)
+	for name, args := range map[string][]string{
+		"session exec":  {"exec", "--json", testSession, "--", "true"},
+		"one-shot exec": {"exec", "--json", "--preset", "node22", "--", "true"},
+		"files read":    {"files", "read", "--json", testSession, "/workspace/file"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			cmd := New(testDeps(server))
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(&bytes.Buffer{})
+			cmd.SetArgs(args)
+			require.NoError(t, cmd.Execute())
+			for _, r := range out.String() {
+				assert.False(t, r == 0x7f || (r >= 0x80 && r <= 0x9f), "unescaped control %U", r)
+			}
+			var body struct {
+				Stdout string `json:"stdout"`
+				Stderr string `json:"stderr"`
+				Data   []byte `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(out.Bytes(), &body))
+			if args[0] == "files" {
+				assert.Equal(t, data, body.Data)
+				return
+			}
+			assert.Contains(t, out.String(), `a\u007fb\u0085c\u009b[31m`)
+			assert.Equal(t, controls, body.Stdout)
+			assert.Equal(t, controls, body.Stderr)
+		})
+	}
+}

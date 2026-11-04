@@ -435,6 +435,20 @@ func TestSyncDownloadsViaRawHostWithoutToken(t *testing.T) {
 	assert.Contains(t, got.Content, "beta")
 }
 
+func TestSourceErrorQuotesItsBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte("bad\x1b[2J gate\rway\u009b"))
+	}))
+	t.Cleanup(server.Close)
+	err := (&Syncer{doer: server.Client(), apiURL: server.URL}).getJSON(context.Background(), server.URL, &struct{}{})
+	require.ErrorIs(t, err, ErrSourceUnavailable)
+	assert.Contains(t, err.Error(), `"bad\x1b[2J gate\rway\u009b"`)
+	for _, char := range []string{"\x1b", "\r", "\u009b"} {
+		assert.NotContains(t, err.Error(), char)
+	}
+}
+
 func TestRawHostSelection(t *testing.T) {
 	// Explicit override always wins.
 	assert.Equal(t, "http://x", (&Syncer{rawURL: "http://x", apiURL: defaultAPIURL}).rawHost())

@@ -189,9 +189,9 @@ func apiOK(statusCode int, body []byte, generatedErrors ...*apiclient.Error) err
 func apiErrorFromGeneratedErrors(statusCode int, body []byte, generatedErrors ...*apiclient.Error) error {
 	for _, generatedError := range generatedErrors {
 		if generatedError != nil {
-			apiErr := &Error{StatusCode: statusCode, Message: strings.TrimSpace(generatedError.Error), fromAPI: true}
+			apiErr := &Error{StatusCode: statusCode, Message: strings.TrimSpace(printable(generatedError.Error)), fromAPI: true}
 			if generatedError.Code != nil {
-				apiErr.Code = *generatedError.Code
+				apiErr.Code = strings.TrimSpace(printable(*generatedError.Code))
 			}
 			return apiErr
 		}

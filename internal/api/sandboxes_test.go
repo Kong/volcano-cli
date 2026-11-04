@@ -68,3 +68,21 @@ func TestApiErrorStripsControlAndEscapeCharacters(t *testing.T) {
 		assert.NotContains(t, apiErr.Code, "\x1b", name)
 	}
 }
+
+// A JSON error the generated client parses is printed the same way.
+func TestParsedApiErrorStripsControlAndEscapeCharacters(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"bad\u001b[31m gate\u000dway\u009b","code":"x\u001by"}`))
+	}))
+	t.Cleanup(server.Close)
+	client, err := NewClient(server.URL, "pk-account", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+	_, err = client.ExecSandboxSession(context.Background(), uuid.New(), uuid.New(), apiclient.SandboxCommandRequest{Command: "true"})
+	require.Error(t, err)
+	assert.Equal(t, "HTTP 400: bad[31m gateway", err.Error())
+	var apiErr *Error
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, "xy", apiErr.Code)
+}
