@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/session"
 )
 
 type launchOptions struct {
@@ -64,6 +65,29 @@ func keepOutput(cmd *cobra.Command, value bool) *bool {
 	return &value
 }
 
+// outputNotKeptCapability covers commands and sessions that keep no output.
+const outputNotKeptCapability = "sandboxes.output_not_kept"
+
+var errOutputNotKeptUnavailable = errors.New("--keep-output=false is not available here: the sandboxes.output_not_kept capability is unavailable; run without it")
+
+// requireOutputNotKept reads the project's capabilities before asking to keep
+// no output, so an environment without it refuses before anything is sent.
+func requireOutputNotKept(ctx context.Context, project *session.ProjectSession, keep *bool) error {
+	if keep == nil || *keep {
+		return nil
+	}
+	capabilities, err := project.API.ListProjectCapabilities(ctx, project.ProjectID)
+	if err != nil {
+		return fmt.Errorf("failed to read the project's capabilities: %w", err)
+	}
+	for _, capability := range capabilities.Data {
+		if capability.Id == outputNotKeptCapability && capability.Status == apiclient.CapabilityStatusAvailable {
+			return nil
+		}
+	}
+	return errOutputNotKeptUnavailable
+}
+
 func requestID(value string) (uuid.UUID, error) {
 	if value == "" {
 		return uuid.NewRandom()
@@ -89,6 +113,10 @@ func (c *commands) execute() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), time.Duration(opts.timeout)*time.Second+3*time.Minute)
 		defer cancel()
+		keepValue := keepOutput(cmd, keep)
+		if err := requireOutputNotKept(ctx, project, keepValue); err != nil {
+			return err
+		}
 		if split == 1 {
 			if opts.preset != "" || opts.template != "" || cmd.Flags().Changed("memory") || cmd.Flags().Changed("region") {
 				return errors.New("preset, template, memory, and region only apply when creating a sandbox")
@@ -101,7 +129,7 @@ func (c *commands) execute() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			value, err := project.API.ExecSandboxSession(ctx, id, key, apiclient.SandboxCommandRequest{Command: command, TimeoutSeconds: &opts.timeout, KeepOutput: keepOutput(cmd, keep)})
+			value, err := project.API.ExecSandboxSession(ctx, id, key, apiclient.SandboxCommandRequest{Command: command, TimeoutSeconds: &opts.timeout, KeepOutput: keepValue})
 			if err != nil {
 				return err
 			}
@@ -111,7 +139,7 @@ func (c *commands) execute() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		body := apiclient.SandboxExecutionRequest{Command: command, Region: request.Region, SandboxId: request.SandboxId, TimeoutSeconds: &opts.timeout, KeepOutput: keepOutput(cmd, keep)}
+		body := apiclient.SandboxExecutionRequest{Command: command, Region: request.Region, SandboxId: request.SandboxId, TimeoutSeconds: &opts.timeout, KeepOutput: keepValue}
 		if request.Preset != nil {
 			preset := *request.Preset
 			body.Preset = &preset
@@ -183,11 +211,15 @@ func (c *commands) run() *cobra.Command {
 			}
 			request.MaxDurationSeconds = &opts.duration
 		}
-		if cmd.Flags().Changed("keep-output") {
-			request.Executions = &apiclient.SandboxSessionExecutions{KeepOutput: keep}
+		keepValue := keepOutput(cmd, keep)
+		if keepValue != nil {
+			request.Executions = &apiclient.SandboxSessionExecutions{KeepOutput: *keepValue}
 		}
 		project, err := c.project()
 		if err != nil {
+			return err
+		}
+		if err := requireOutputNotKept(cmd.Context(), project, keepValue); err != nil {
 			return err
 		}
 		value, err := project.API.StartSandbox(cmd.Context(), project.ProjectID, key, request)
@@ -202,8 +234,8 @@ func (c *commands) run() *cobra.Command {
 	return cmd
 }
 
-func validateTimeout(timeout int, session bool) error {
-	if session {
+func validateTimeout(timeout int, inSession bool) error {
+	if inSession {
 		if timeout < 1 || timeout > 3600 {
 			return errors.New("--timeout must be between 1 and 3600 seconds for session commands")
 		}

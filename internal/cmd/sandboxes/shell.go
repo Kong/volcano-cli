@@ -27,6 +27,10 @@ func (c *commands) shell() *cobra.Command {
 		if err != nil {
 			return err
 		}
+		keepValue := keepOutput(cmd, keep)
+		if err := requireOutputNotKept(cmd.Context(), project, keepValue); err != nil {
+			return err
+		}
 		scanner := bufio.NewScanner(cmd.InOrStdin())
 		scanner.Buffer(make([]byte, 4096), 65537)
 		var lastExit error
@@ -48,7 +52,7 @@ func (c *commands) shell() *cobra.Command {
 			if keyErr != nil {
 				return keyErr
 			}
-			result, runErr := project.API.ExecSandboxSession(cmd.Context(), id, key, apiclient.SandboxCommandRequest{Command: command, TimeoutSeconds: &timeout, KeepOutput: keepOutput(cmd, keep)})
+			result, runErr := project.API.ExecSandboxSession(cmd.Context(), id, key, apiclient.SandboxCommandRequest{Command: command, TimeoutSeconds: &timeout, KeepOutput: keepValue})
 			if runErr != nil {
 				return runErr
 			}

@@ -17641,6 +17641,7 @@ paths:
         | `sandboxes` | The Sandbox API: presets, templates, sessions, and executions |
         | `sandboxes.sessions` | Starting and resuming sessions, and one-shot executions |
         | `sandboxes.custom_templates` | Deploying a custom template; its validation waits while `sandboxes.sessions` is unavailable |
+        | `sandboxes.output_not_kept` | Commands that keep no output: `keep_output: false` on a command, and `executions.keep_output: false` on a session; commands that keep output work either way |
 
         A capability missing from the list is unavailable, and a capability under
         another, such as `sandboxes.sessions`, is unavailable whenever its parent is.
@@ -18737,7 +18738,7 @@ components:
           maxProperties: 64
         keep_output:
           type: boolean
-          description: Set false to keep no output. stdout and stderr are returned once in this response and never stored, and a retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. Omit it to use the session's `executions.keep_output`. True in a session that keeps no output is refused with 400 and code `sandbox_session_keeps_no_output`.
+          description: Set false to keep no output. stdout and stderr are returned once in this response and never stored, and a retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. Omit it to use the session's `executions.keep_output`. True in a session that keeps no output is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
       required:
         - command
     SandboxExecutionRequest:
@@ -18782,7 +18783,7 @@ components:
         keep_output:
           type: boolean
           default: true
-          description: Set false to keep no output. stdout and stderr are returned once in this response and never stored, and a retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again.
+          description: Set false to keep no output. stdout and stderr are returned once in this response and never stored, and a retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
       required:
         - region
         - command
@@ -18878,7 +18879,7 @@ components:
       properties:
         keep_output:
           type: boolean
-          description: When false, every command in the session keeps no output. stdout and stderr are returned once in the command's response and are never stored, so a retry with the same Idempotency-Key returns the exit code with empty streams. A command in such a session that sets `keep_output` to true is refused with 400 and code `sandbox_session_keeps_no_output`.
+          description: When false, every command in the session keeps no output. stdout and stderr are returned once in the command's response and are never stored, so a retry with the same Idempotency-Key returns the exit code with empty streams. A command in such a session that sets `keep_output` to true is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
       required:
         - keep_output
     SandboxFileWriteRequest:

@@ -112,6 +112,8 @@ volcano cloud sandboxes run --preset python3.12 --keep-output=false
 
 `--json` results include `output_kept`, which is `false` for a command that kept no output.
 
+Before sending `--keep-output=false`, the CLI checks the project's `sandboxes.output_not_kept` capability. Where it is unavailable, the command stops without running anything and says so.
+
 ## Output format
 
 Session, preset, template, and file-write commands always return JSON, indented by default and compact with `--json`. This JSON format is supported for scripts. `exec` and `shell` normally write guest stdout/stderr, and `files read` writes raw bytes; use `--json` for their API response instead. JSON execution results retain timeout and truncation flags without adding warnings to the JSON stream. `deployments source` writes the original tar.gz bytes to stdout and rejects `--json`; redirect its output to a file.

@@ -10732,7 +10732,7 @@ type SandboxCommandRequest struct {
 	Command     string             `json:"command"`
 	Environment *map[string]string `json:"environment,omitempty"`
 
-	// KeepOutput Set false to keep no output. stdout and stderr are returned once in this response and never stored, and a retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. Omit it to use the session's `executions.keep_output`. True in a session that keeps no output is refused with 400 and code `sandbox_session_keeps_no_output`.
+	// KeepOutput Set false to keep no output. stdout and stderr are returned once in this response and never stored, and a retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. Omit it to use the session's `executions.keep_output`. True in a session that keeps no output is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
 	KeepOutput *bool `json:"keep_output,omitempty"`
 
 	// TimeoutSeconds Command execution time from process start. Cloud defaults to 60 seconds and accepts 1–28800; local defaults to 0 (unlimited) and accepts nonnegative values. VM expiry always takes precedence. Cloud synchronous requests must return within the public connection idle limit (1000 seconds); use a session with a background process and short polling requests for longer work.
@@ -10779,7 +10779,7 @@ type SandboxExecutionRequest struct {
 	Command     string             `json:"command"`
 	Environment *map[string]string `json:"environment,omitempty"`
 
-	// KeepOutput Set false to keep no output. stdout and stderr are returned once in this response and never stored, and a retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again.
+	// KeepOutput Set false to keep no output. stdout and stderr are returned once in this response and never stored, and a retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
 	KeepOutput *bool `json:"keep_output,omitempty"`
 
 	// MaxDurationSeconds Absolute VM lifetime including startup, bounded by environment capacity policy. Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime. The VM is reclaimed early when the command finishes.
@@ -10902,7 +10902,7 @@ type SandboxSessionState string
 
 // SandboxSessionExecutions How the session's command executions are kept. Fixed when the session is created.
 type SandboxSessionExecutions struct {
-	// KeepOutput When false, every command in the session keeps no output. stdout and stderr are returned once in the command's response and are never stored, so a retry with the same Idempotency-Key returns the exit code with empty streams. A command in such a session that sets `keep_output` to true is refused with 400 and code `sandbox_session_keeps_no_output`.
+	// KeepOutput When false, every command in the session keeps no output. stdout and stderr are returned once in the command's response and are never stored, so a retry with the same Idempotency-Key returns the exit code with empty streams. A command in such a session that sets `keep_output` to true is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
 	KeepOutput bool `json:"keep_output"`
 }
 

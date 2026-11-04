@@ -12,8 +12,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// capabilitiesPath is the test project's capability list.
+const capabilitiesPath = "/projects/" + testProject + "/capabilities"
+
+func capabilitiesBody(status string) string {
+	return `{"data":[{"id":"sandboxes","status":"available"},{"id":"sandboxes.output_not_kept","status":"` + status + `"}]}`
+}
+
 // --keep-output reaches the API only when set, so a session command that
-// omits it uses the session's setting.
+// omits it uses the session's setting. Asking to keep no output reads the
+// project's capabilities first.
 func TestKeepOutputFlagIsSentOnlyWhenSet(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
@@ -32,8 +40,14 @@ func TestKeepOutputFlagIsSentOnlyWhenSet(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			requests := 0
+			requests, capabilityReads := 0, 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if r.URL.Path == capabilitiesPath {
+					capabilityReads++
+					_, _ = w.Write([]byte(capabilitiesBody("available")))
+					return
+				}
 				requests++
 				assert.Equal(t, test.path, r.URL.Path)
 				var body map[string]any
@@ -49,7 +63,6 @@ func TestKeepOutputFlagIsSentOnlyWhenSet(t *testing.T) {
 						assert.NotContains(t, body, field)
 					}
 				}
-				w.Header().Set("Content-Type", "application/json")
 				if strings.HasSuffix(r.URL.Path, "/sandbox-sessions") {
 					w.WriteHeader(http.StatusCreated)
 				}
@@ -62,6 +75,41 @@ func TestKeepOutputFlagIsSentOnlyWhenSet(t *testing.T) {
 			cmd.SetArgs(test.args)
 			require.NoError(t, cmd.Execute())
 			assert.Equal(t, 1, requests)
+			keepsNone := strings.Contains(strings.Join(test.args, " "), "--keep-output=false")
+			assert.Equal(t, keepsNone, capabilityReads == 1, "only keeping no output reads the capabilities")
+		})
+	}
+}
+
+// Where the capability is unavailable, asking to keep no output refuses before
+// anything runs.
+func TestKeepOutputFalseRefusesWhereUnavailable(t *testing.T) {
+	t.Parallel()
+	for name, args := range map[string][]string{
+		"session exec": {"exec", testSession, "--keep-output=false", "--", "true"},
+		"one-shot":     {"exec", "--preset", "python3.12", "--keep-output=false", "--", "true"},
+		"session":      {"run", "--preset", "python3.12", "--keep-output=false"},
+		"shell":        {"shell", testSession, "--keep-output=false"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != capabilitiesPath {
+					t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(capabilitiesBody("unavailable")))
+			}))
+			defer server.Close()
+			cmd := New(testDeps(server))
+			cmd.SetOut(&bytes.Buffer{})
+			cmd.SetErr(&bytes.Buffer{})
+			cmd.SetIn(strings.NewReader("true\n"))
+			cmd.SetArgs(args)
+			err := cmd.Execute()
+			require.ErrorIs(t, err, errOutputNotKeptUnavailable)
 		})
 	}
 }
