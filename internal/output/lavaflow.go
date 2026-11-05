@@ -165,6 +165,16 @@ func LavaflowRuns(w io.Writer, page LavaflowRunsPage) {
 	}
 }
 
+// LavaflowRunStarted renders a run a person started: its ID and status, and
+// the command that follows it.
+func LavaflowRunStarted(w io.Writer, runID string, status apiclient.LavaflowRunStatus, showCommand string) {
+	Success(w, "LavaFlow run started")
+	on := theme.On(w)
+	kv(w, on, "Run", "%s", clean(runID))
+	kv(w, on, "Status", "%s", lavaflowRunStatus(status))
+	fmt.Fprintf(w, "Follow it with %s\n", theme.Command(showCommand, on))
+}
+
 // LavaflowRun renders one run: what it worked on, its diagnosis, review,
 // pull request, any failure in the API's own words, and the diff.
 func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {

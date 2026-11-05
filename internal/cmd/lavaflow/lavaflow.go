@@ -38,6 +38,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newResources(deps))
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newShow(deps))
+	cmd.AddCommand(newRun(deps))
 	return cmd
 }
 
@@ -76,6 +77,19 @@ func writeJSON(w io.Writer, value any) error {
 	if err := encoder.Encode(value); err != nil {
 		return err
 	}
+	_, err := io.WriteString(w, escapeJSONControls(buf.String()))
+	return err
+}
+
+// writeAPIJSON prints a body as the API sent it, indented. Re-encoding the
+// generated type would drop every field newer than the CLI's vendored
+// contract.
+func writeAPIJSON(w io.Writer, body []byte) error {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, bytes.TrimSpace(body), "", "  "); err != nil {
+		return fmt.Errorf("the API's response isn't valid JSON: %w", err)
+	}
+	buf.WriteByte('\n')
 	_, err := io.WriteString(w, escapeJSONControls(buf.String()))
 	return err
 }

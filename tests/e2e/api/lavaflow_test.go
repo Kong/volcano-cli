@@ -14,6 +14,9 @@ const (
 	lavaflowNoPlan  = "LavaFlow needs a plan that includes it"
 )
 
+// lavaflowUnknownIssue is an issue ID no project has.
+const lavaflowUnknownIssue = "00000000-0000-4000-8000-000000000000"
+
 // lavaflowCommands is every LavaFlow command, each with --json.
 var lavaflowCommands = [][]string{
 	{"lavaflow", "status", "--json"},
@@ -25,6 +28,7 @@ var lavaflowCommands = [][]string{
 	{"lavaflow", "resources", "--json"},
 	{"lavaflow", "list", "--json"},
 	{"lavaflow", "show", "00000000-0000-4000-8000-000000000000", "--json"},
+	{"lavaflow", "run", "start", lavaflowUnknownIssue, "--json"},
 }
 
 // TestAPIE2ECloudLavaFlow runs LavaFlow's commands against a fresh project the
@@ -36,8 +40,9 @@ var lavaflowCommands = [][]string{
 // account is not on the list, or its plan doesn't include LavaFlow, so every
 // command says which and exits nonzero. Where the environment opens LavaFlow
 // to every account, the round trip runs instead: settings saved by one command
-// read back by the next, and a project access token reads but can't change
-// them.
+// read back by the next, a start on an issue the project doesn't have
+// reaches Volcano and is refused, and a project access token reads but can't
+// change them or start a run.
 func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env := setupAPIE2E(t, "cloud-lavaflow")
 	env.loginAndUse(t)
@@ -80,6 +85,11 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env.runCloudCLI(t, "lavaflow", "stats", "--days", "7").requireSuccess(t, "0 issue(s) opened and 0 fix pull request(s) opened")
 	env.runCloudCLI(t, "lavaflow", "resources").requireSuccess(t)
 	env.runCloudCLI(t, "lavaflow", "list").requireSuccess(t, "No runs")
+	unknown := env.runCloudCLI(t, "lavaflow", "run", "start", lavaflowUnknownIssue)
+	unknown.requireFailure(t, "the project has no issue "+lavaflowUnknownIssue)
+	if unknown.code != 4 {
+		t.Fatalf("run start on an unknown issue exited %d, want 4:\n%s", unknown.code, redactCredentials(unknown.output))
+	}
 	requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires(t, env)
 	requireAPIE2ELavaFlowNeedsAPerson(t, env)
 
@@ -88,7 +98,7 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 }
 
 // requireAPIE2ELavaFlowNeedsAPerson checks a project access token reads
-// LavaFlow but can't change it.
+// LavaFlow but can't change it or start a run.
 func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 	t.Helper()
 	name := "cli-e2e-lavaflow-" + apiE2ESuffix(t)
@@ -107,6 +117,8 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings", "set", "--autonomy", "merge", "--yes").
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
+	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "run", "start", lavaflowUnknownIssue).
+		requireFailure(t, "starting a LavaFlow run needs the project owner's session")
 }
 
 // requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires asks for autonomy

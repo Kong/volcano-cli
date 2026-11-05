@@ -292,9 +292,14 @@ const apiPlanRefusal = "the project owner's plan does not include LavaFlow"
 
 // A 403 without a code, for an owner's plan that couldn't be read, says so
 // from every route, reads included, rather than repeat the API's plan
-// refusal, with the exit code of a permission refused.
+// refusal, with the exit code of a permission refused. A start sends no read
+// first, and its 403 without a code covers a read-only account too, so it
+// says both; TestRunStartSaysWhatToDoAboutARefusal covers it.
 func TestAPlanThatCantBeReadSaysSo(t *testing.T) {
 	for _, args := range lavaflowCommandArgs() {
+		if args[0] == "run" {
+			continue
+		}
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
 			s.refuse = http.StatusForbidden
