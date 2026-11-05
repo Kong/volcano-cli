@@ -18,6 +18,11 @@ type worktreeCache struct {
 	staged     []string
 	stagedErr  error
 	stagedRead bool
+	// untracked lists the files and directories git neither tracks nor
+	// ignores, a directory ending in a slash.
+	untracked     []string
+	untrackedErr  error
+	untrackedRead bool
 	// repositoryClean is whether the whole repository matches the commit,
 	// nil until asked.
 	repositoryClean *bool
@@ -34,6 +39,15 @@ type Inputs struct {
 	// there, after its ignore rules and which file takes each archive path.
 	// nil names nothing, and no commit is reported.
 	Feeds func(string) bool
+	// ShadowedBy names, for a path packaging would read for the function but
+	// for another file or library taking its place, that file or the
+	// library's root, slash-separated under Dir; "" for any other path. nil
+	// names none.
+	ShadowedBy func(string) string
+	// Roots are the files and directories packaging resolved the function's
+	// files from: its own file or directory and each shared library. Each
+	// must be under Dir.
+	Roots []string
 	// Paths are other files the deploy reads, or would read if they existed,
 	// such as the manifest its declarations come from and the .gitignore
 	// packaging applies. Each must be under Dir.
@@ -43,9 +57,13 @@ type Inputs struct {
 // FunctionCommit reports the commit for a function upload, or nil unless the
 // function is clean: every committed file it is made from is in the upload
 // and, like each of Paths, has the content the commit holds; none of them is
-// staged; and the upload holds no file the commit lacks unless git ignores
-// it. A committed input the upload lacks, deleted, replaced by a symlink or a
-// directory, or behind a symlinked directory, counts as changed.
+// staged; the upload holds no file the commit lacks unless git ignores it;
+// and no file under Roots is untracked unless git ignores it, even one
+// packaging leaves out. A committed input the upload lacks, deleted, replaced
+// by a symlink or a directory, or behind a symlinked directory, counts as
+// changed, and so does one another file or library takes the place of
+// unless the commit or the upload holds a file of that replacement: a
+// checkout of the commit would upload the committed file.
 //
 // A file git ignores is build output, made from sources the CLI cannot name.
 // An upload that holds one is clean only when the whole repository is too:
@@ -77,12 +95,14 @@ func (s *Source) functionClean(ctx context.Context, in Inputs) (bool, error) {
 		return false, err
 	}
 	read := make(map[string]*File, len(in.Files))
+	uploaded := make([]string, 0, len(in.Files))
 	var uncommitted []string
 	for i := range in.Files {
 		path, ok, err := s.placed(dir, base, in.Files[i].Path)
 		if err != nil || !ok {
 			return false, err
 		}
+		uploaded = append(uploaded, path)
 		if _, committed := s.tree[path]; !committed {
 			uncommitted = append(uncommitted, path)
 			continue
@@ -104,6 +124,17 @@ func (s *Source) functionClean(ctx context.Context, in Inputs) (bool, error) {
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return false, err
 		}
+	}
+	roots := make([]string, 0, len(in.Roots))
+	for _, file := range in.Roots {
+		path, ok, err := s.placed(dir, base, file)
+		if err != nil || !ok {
+			return false, err
+		}
+		roots = append(roots, path)
+	}
+	if untracked, err := s.untrackedUnder(ctx, roots); err != nil || untracked {
+		return false, err
 	}
 	built, err := s.ignored(ctx, uncommitted)
 	if err != nil {
@@ -128,7 +159,20 @@ func (s *Source) functionClean(ctx context.Context, in Inputs) (bool, error) {
 	if err != nil || slices.ContainsFunc(staged, feeds) {
 		return false, err
 	}
-	if clean, err := s.inputsMatch(ctx, feeds, read, paths); err != nil || !clean {
+	shadowedBy := func(path string) string {
+		if in.ShadowedBy == nil || !within(dir, path) {
+			return ""
+		}
+		by := in.ShadowedBy(underDir(dir, path))
+		if by == "" || dir == "." {
+			return by
+		}
+		return dir + "/" + by
+	}
+	replaced := func(by string) bool {
+		return s.holds(by) || slices.ContainsFunc(uploaded, func(path string) bool { return within(by, path) })
+	}
+	if clean, err := s.inputsMatch(ctx, feeds, shadowedBy, replaced, read, paths); err != nil || !clean {
 		return false, err
 	}
 	if len(built) > 0 {
@@ -158,13 +202,28 @@ func (s *Source) placed(dir, base, file string) (string, bool, error) {
 
 // inputsMatch reports whether every committed input is as the commit holds
 // it: one packaging read, by the bytes it read, and one of paths, from disk.
-// Any other committed input is one the upload lacks.
+// Any other committed input is one the upload lacks, and so is a committed
+// file whose replacement, as shadowedBy names it, replaced reports missing.
 func (s *Source) inputsMatch(
-	ctx context.Context, feeds func(string) bool, read map[string]*File, paths map[string]bool,
+	ctx context.Context, feeds func(string) bool, shadowedBy func(string) string, replaced func(string) bool,
+	read map[string]*File, paths map[string]bool,
 ) (bool, error) {
 	var matches []match
+	present := map[string]bool{}
 	for path, entry := range s.tree {
 		if !feeds(path) {
+			by := shadowedBy(path)
+			if by == "" {
+				continue
+			}
+			ok, seen := present[by]
+			if !seen {
+				ok = replaced(by)
+				present[by] = ok
+			}
+			if !ok {
+				return false, nil
+			}
 			continue
 		}
 		file := read[path]
@@ -217,9 +276,8 @@ func (s *Source) readWholeRepository(ctx context.Context) (bool, error) {
 	if err != nil || len(staged) > 0 {
 		return false, err
 	}
-	out, err := run(ctx, s.git, s.root, "-c", "core.fsmonitor=false",
-		"ls-files", "-z", "--others", "--exclude-standard", "--directory", "--no-empty-directory")
-	if err != nil || out != "" {
+	untracked, err := s.untracked(ctx)
+	if err != nil || len(untracked) > 0 {
 		return false, err
 	}
 	var matches []match
@@ -296,6 +354,60 @@ func (s *Source) onDisk(path string, entry treeEntry, mode bool) (same bool, fil
 		return false, nil, err
 	}
 	return true, &recorded, nil
+}
+
+// holds reports whether the commit holds a file at or under the repository
+// path.
+func (s *Source) holds(path string) bool {
+	if _, ok := s.tree[path]; ok {
+		return true
+	}
+	for p := range s.tree {
+		if strings.HasPrefix(p, path+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// untrackedUnder reports whether git lists a file it neither tracks nor
+// ignores at or under any of the repository paths.
+func (s *Source) untrackedUnder(ctx context.Context, paths []string) (bool, error) {
+	if len(paths) == 0 {
+		return false, nil
+	}
+	untracked, err := s.untracked(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, entry := range untracked {
+		dir, isDir := strings.CutSuffix(entry, "/")
+		for _, path := range paths {
+			if within(path, entry) || isDir && within(dir, path) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+// untracked lists the files git neither tracks nor ignores across the
+// repository, a directory holding nothing else as one entry ending in a
+// slash.
+func (s *Source) untracked(ctx context.Context) ([]string, error) {
+	if s.worktree.untrackedRead {
+		return s.worktree.untracked, s.worktree.untrackedErr
+	}
+	out, err := run(ctx, s.git, s.root, "-c", "core.fsmonitor=false",
+		"ls-files", "-z", "--others", "--exclude-standard", "--directory", "--no-empty-directory")
+	var untracked []string
+	for entry := range strings.SplitSeq(out, "\x00") {
+		if entry != "" {
+			untracked = append(untracked, entry)
+		}
+	}
+	s.worktree.untracked, s.worktree.untrackedErr, s.worktree.untrackedRead = untracked, err, true
+	return untracked, err
 }
 
 // staged lists the paths whose index entry differs from the commit: staged

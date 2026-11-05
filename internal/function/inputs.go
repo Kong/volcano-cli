@@ -42,13 +42,14 @@ type inputRules struct {
 // function's directory up to baseDir looks for; or a file in a shared library
 // that matcher keeps, unless one of the same name under volcano/functions
 // replaced its library. A path is not one when the file packaging wrote at
-// its archive path comes first by those rules. sources holds, by archive
-// path, the slash-separated path under baseDir of each file packaging wrote,
-// and libs the libraries it found. It returns nil when it cannot place the
-// function under baseDir.
+// its archive path comes first by those rules. For a path it would read but
+// for that file or a replacing library, it also returns that file or the
+// library's root. sources holds, by archive path, the slash-separated path
+// under baseDir of each file packaging wrote, and libs the libraries it
+// found. It returns nil when it cannot place the function under baseDir.
 func inputPaths(
 	info SourceInfo, baseDir string, matcher *ignore.Matcher, sources map[string]string, libs []SharedLibrary,
-) func(string) bool {
+) func(string) (feeds bool, shadowedBy string) {
 	base, err := filepath.Abs(baseDir)
 	if err != nil {
 		return nil
@@ -84,24 +85,27 @@ func inputPaths(
 		}
 	}
 
-	return func(p string) bool {
-		archive, priority, ok := rules.classify(p)
+	return func(p string) (bool, string) {
+		archive, priority, ok, replacedBy := rules.classify(p)
 		if !ok {
-			return false
+			return false, replacedBy
 		}
 		winner, written := sources[archive]
 		if !written || winner == p {
-			return true
+			return true, ""
 		}
-		_, winnerPriority, ok := rules.classify(winner)
-		return !ok || winnerPriority >= priority
+		if _, winnerPriority, ok, _ := rules.classify(winner); ok && winnerPriority < priority {
+			return false, winner
+		}
+		return true, ""
 	}
 }
 
 // classify returns the archive path packaging writes the file at p to, and
 // the priority it has there, lowest first, false when packaging would not
-// read it.
-func (r inputRules) classify(p string) (archive string, priority int, ok bool) {
+// read it. For a file packaging would read but for a library under
+// volcano/functions replacing its own, replacedBy is that library's root.
+func (r inputRules) classify(p string) (archive string, priority int, ok bool, replacedBy string) {
 	consider := func(a string, pr int) {
 		if a != "" && (!ok || pr < priority) {
 			archive, priority, ok = a, pr, true
@@ -140,16 +144,27 @@ func (r inputRules) classify(p string) (archive string, priority int, ok bool) {
 		if strings.HasPrefix(root, functionsPrefix) {
 			pr = priorityFunctionsLib
 		}
+		var libArchive string
+		var kept bool
+		if p == root {
+			libArchive, kept = name, !r.matcher.ShouldIgnoreWith(name, p, false)
+		} else {
+			libArchive, kept = name+"/"+strings.TrimPrefix(p, root+"/"), keeps(r.matcher, root, "", p)
+		}
 		switch {
+		case !kept:
+			// Packaging leaves it out.
 		case pr == priorityElsewhereLib && r.functionsLibs[name]:
 			// The library of the same name under volcano/functions replaced it.
-		case p == root && !r.matcher.ShouldIgnoreWith(name, p, false):
-			consider(name, pr)
-		case p != root && keeps(r.matcher, root, "", p):
-			consider(name+"/"+strings.TrimPrefix(p, root+"/"), pr)
+			replacedBy = functionsPrefix + name
+		default:
+			consider(libArchive, pr)
 		}
 	}
-	return archive, priority, ok
+	if ok {
+		replacedBy = ""
+	}
+	return archive, priority, ok, replacedBy
 }
 
 // depth is how many directories deep a slash-separated directory under

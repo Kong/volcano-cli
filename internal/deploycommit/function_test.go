@@ -191,3 +191,48 @@ func TestFunctionCommitSendsNothingForASymlinkedPath(t *testing.T) {
 	in.Paths = []string{filepath.Join(root, "volcano", "functions", "config.yaml")}
 	assert.Nil(t, functionCommit(t, root, in))
 }
+
+// A committed file another file or library takes the place of counts as
+// uploaded only when the commit or the upload holds that replacement.
+func TestFunctionCommitCountsAReplacementOnlyFromTheCommitOrTheUpload(t *testing.T) {
+	root, head := newFunctionRepository(t)
+	clean := &api.FunctionCommit{Repository: "acme/app", SHA: head}
+	replacing := func(in Inputs, by string) Inputs {
+		in.ShadowedBy = func(p string) string {
+			if p == "src/hello.ts" {
+				return by
+			}
+			return ""
+		}
+		return in
+	}
+
+	in := functionInputs(t, root, functionPath)
+	assert.Equal(t, clean, functionCommit(t, root, replacing(in, functionPath)), "the commit holds it")
+	assert.Equal(t, clean, functionCommit(t, root, replacing(in, "volcano")), "the commit holds files under it")
+	assert.Nil(t, functionCommit(t, root, replacing(in, "volcano/functions/_x")), "nothing holds it")
+
+	writeFile(t, root, "dist/hello.js", "exports.handler = 1\n")
+	built := functionInputs(t, root, "dist/hello.js")
+	assert.Equal(t, clean, functionCommit(t, root, replacing(built, "dist")), "the upload holds it")
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "dist", "empty"), 0o755))
+	assert.Nil(t, functionCommit(t, root, replacing(built, "dist/empty")), "nothing holds it")
+}
+
+// A file git neither tracks nor ignores at or under a root counts as a
+// change, whether or not the upload holds it.
+func TestFunctionCommitSendsNothingForAnUntrackedFileUnderARoot(t *testing.T) {
+	root, head := newFunctionRepository(t)
+	clean := &api.FunctionCommit{Repository: "acme/app", SHA: head}
+	in := functionInputs(t, root, functionPath)
+	in.Roots = []string{filepath.Join(root, "volcano", "functions")}
+	writeFile(t, root, "dist/hello.js", "exports.handler = 1\n")
+	writeFile(t, root, "src/notes.md", "notes\n")
+	assert.Equal(t, clean, functionCommit(t, root, in), "untracked files elsewhere")
+
+	writeFile(t, root, "volcano/functions/new/notes.md", "notes\n")
+	assert.Nil(t, functionCommit(t, root, in))
+
+	in.Roots = []string{filepath.Join(root, "volcano", "functions", "new", "notes.md")}
+	assert.Nil(t, functionCommit(t, root, in), "a root in an untracked directory")
+}

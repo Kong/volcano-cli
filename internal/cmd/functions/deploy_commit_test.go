@@ -174,6 +174,14 @@ func TestFunctionsDeploySendsNoCommitForADirtyFunction(t *testing.T) {
 			t.Helper()
 			write(t, "volcano/functions/orders/extra.js", "exports.extra = 1;\n")
 		},
+		"untracked and left out of the upload": func(t *testing.T) {
+			t.Helper()
+			write(t, "volcano/functions/orders/debug.log", "log\n")
+		},
+		"untracked dependencies left out of the upload": func(t *testing.T) {
+			t.Helper()
+			write(t, "volcano/functions/orders/node_modules/left-pad/index.js", "module.exports = 1;\n")
+		},
 		"added with intent to add": func(t *testing.T) {
 			t.Helper()
 			write(t, "volcano/functions/orders/extra.js", "exports.extra = 1;\n")
@@ -266,6 +274,54 @@ func TestFunctionsDeployFollowsArchivePrecedence(t *testing.T) {
 	assert.Equal(t, map[string]*api.FunctionCommit{"hello": nil, "orders": clean}, commits)
 }
 
+// A library replaces a committed one of the same name only when the commit
+// or the upload holds its files: otherwise a checkout of the commit would
+// upload the committed library. A file in a library that git neither tracks
+// nor ignores counts as a change even when the upload leaves it out.
+func TestFunctionsDeploySendsNoCommitForAnUncommittedLibrary(t *testing.T) {
+	cases := map[string]struct {
+		change func(t *testing.T)
+		clean  bool
+	}{
+		"nothing changed": {change: func(*testing.T) {}, clean: true},
+		"an empty directory replacing a committed library": {change: func(t *testing.T) {
+			t.Helper()
+			require.NoError(t, os.MkdirAll(filepath.FromSlash("volcano/functions/_shared"), 0o755))
+		}},
+		"ignored files replacing a committed library": {change: func(t *testing.T) {
+			t.Helper()
+			write(t, "volcano/functions/_shared/.env", "SECRET=1\n")
+		}},
+		"an ignored file replacing a committed one": {change: func(t *testing.T) {
+			t.Helper()
+			write(t, "volcano/functions/_tools.js", "exports.tools = 2;\n")
+		}},
+		"an untracked file in a library, left out of the upload": {change: func(t *testing.T) {
+			t.Helper()
+			write(t, "volcano/functions/_lib/debug.log", "log\n")
+		}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			files := maps.Clone(shopFiles)
+			files["volcano/_shared/old.js"] = "exports.old = 1;\n"
+			files["volcano/_tools.js"] = "exports.tools = 1;\n"
+			files["volcano/functions/_lib/a.js"] = "exports.a = 1;\n"
+			files[".gitignore"] = ".env\n/volcano/functions/_tools.js\n"
+			writeShop(t, files)
+			head := deploycommittest.Repository(t, ".", "https://github.com/acme/shop.git")
+			tc.change(t)
+
+			commits := deployCommits(t, "deploy", "--all")
+			var want *api.FunctionCommit
+			if tc.clean {
+				want = &api.FunctionCommit{Repository: "acme/shop", SHA: head}
+			}
+			assert.Equal(t, map[string]*api.FunctionCommit{"hello": want, "orders": want}, commits)
+		})
+	}
+}
+
 func replaceWithSymlink(t *testing.T, path, target string) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
@@ -303,13 +359,11 @@ func TestFunctionsDeploySendsTheCommitPastChangesElsewhere(t *testing.T) {
 	clean := shop(t)
 	// Another function.
 	write(t, "volcano/functions/hello.js", `exports.handler = async () => ({ statusCode: 201 });`)
-	// A file outside volcano that nothing uploads.
+	// Files outside the function's directory that nothing uploads.
 	write(t, "README.md", "# shop\n")
-	// What packaging leaves out of every upload, and a file git ignores.
-	write(t, "volcano/functions/orders/node_modules/left-pad/index.js", "module.exports = 1;\n")
+	write(t, "volcano/functions/notes.md", "# notes\n")
+	// A file git ignores in the function's directory.
 	write(t, "volcano/functions/orders/.env", "SECRET=1\n")
-	// A file in the function's directory that is not one of its own.
-	write(t, "volcano/functions/orders/debug.log", "log\n")
 
 	commits := deployCommits(t, "deploy", "-f", "orders")
 	assert.Equal(t, map[string]*api.FunctionCommit{"orders": clean}, commits)
