@@ -24,6 +24,7 @@ type settingsSetOptions struct {
 	customContextFile string
 	systemPrompt      string
 	systemPromptFile  string
+	ungatedWorkflows  string
 	yes               bool
 	jsonOutput        bool
 	in                io.Reader
@@ -53,8 +54,16 @@ person; repeat it for each, up to %[6]d. It replaces the saved paths, and
 adds instructions to LavaFlow's own. LavaFlow saves both, but its runs don't
 use them yet. Each takes up to %[3]d characters, from the flag or a file
 (--custom-context-file, --system-prompt-file). Pass an empty value to clear
-one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength, apiclient.Merge,
-			clilavaflow.MergeDisclosure, clilavaflow.MaxHumanReviewPaths),
+one.
+
+--allow-ungated-workflows: %[8]s %[9]s
+
+%[7]s
+It prints that and asks first; --yes skips the question. false turns it off
+without asking. While LavaFlow isn't available for the project, Volcano turns
+it off only together with LavaFlow, so false turns LavaFlow off too.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength, apiclient.Merge,
+			clilavaflow.MergeDisclosure, clilavaflow.MaxHumanReviewPaths, ungatedWorkflowsDisclosure,
+			clilavaflow.UngatedWorkflowsSetting, clilavaflow.UngatedWorkflowsRules),
 		Example: "  " + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy diagnose_only") + "\n" +
 			"  " + cliruntime.CommandPath(deps, "lavaflow settings set --custom-context-file lavaflow-context.md"),
 		Args: cobra.NoArgs,
@@ -79,6 +88,8 @@ one.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength, apic
 	cmd.Flags().StringVar(&opts.customContextFile, "custom-context-file", "", "Read the custom context from a file")
 	cmd.Flags().StringVar(&opts.systemPrompt, "system-prompt", "", "Instructions added to LavaFlow's own")
 	cmd.Flags().StringVar(&opts.systemPromptFile, "system-prompt-file", "", "Read the system prompt from a file")
+	cmd.Flags().StringVar(&opts.ungatedWorkflows, "allow-ungated-workflows", "",
+		clilavaflow.UngatedWorkflowsSetting+" Pass true or false.")
 	cmd.MarkFlagsMutuallyExclusive("custom-context", "custom-context-file")
 	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
 	cmd.MarkFlagsMutuallyExclusive("human-review-path", "clear-human-review-paths")
@@ -123,21 +134,36 @@ func settingsUpdate(cmd *cobra.Command, opts settingsSetOptions) (apiclient.Lava
 			*text.setting = &value
 		}
 	}
-	if update.Autonomy == nil && update.MergePolicy == nil && update.CustomContext == nil && update.SystemPrompt == nil {
+	if flags.Changed("allow-ungated-workflows") {
+		switch opts.ungatedWorkflows {
+		case "true", "false":
+			allow := opts.ungatedWorkflows == "true"
+			update.AllowUngatedWorkflows = &allow
+		default:
+			return update, fmt.Errorf("invalid --allow-ungated-workflows %q: use true or false", opts.ungatedWorkflows)
+		}
+	}
+	if update.Autonomy == nil && update.MergePolicy == nil && update.CustomContext == nil && update.SystemPrompt == nil &&
+		update.AllowUngatedWorkflows == nil {
 		return update, errors.New("nothing to change: pass --autonomy, --human-review-path, --clear-human-review-paths, " +
-			"--custom-context, or --system-prompt")
+			"--custom-context, --system-prompt, or --allow-ungated-workflows")
 	}
 	return update, nil
 }
 
 func runSettingsSet(ctx context.Context, opts settingsSetOptions, update apiclient.LavaflowSettingsUpdate) error {
-	var ask func() error
-	if update.Autonomy != nil && *update.Autonomy == apiclient.Merge {
-		ask = func() error {
-			return confirmChange(opts.yes, opts.in, opts.errOut, clilavaflow.MergeDisclosure, "Let LavaFlow merge fixes?")
+	service := clilavaflow.NewService(opts.deps)
+	var settings *apiclient.LavaflowSettings
+	var err error
+	if turnsOffUngatedWorkflowsOnly(update) {
+		var lavaflowOff bool
+		settings, lavaflowOff, err = service.TurnOffUngatedWorkflows(ctx)
+		if err == nil && lavaflowOff {
+			_, _ = fmt.Fprintln(opts.errOut, ungatedWorkflowsOffTurnsLavaFlowOff)
 		}
+	} else {
+		settings, err = service.UpdateSettings(ctx, update, confirmation(opts, update))
 	}
-	settings, err := clilavaflow.NewService(opts.deps).UpdateSettings(ctx, update, ask)
 	if errors.Is(err, errDeclined) {
 		return nil
 	}
@@ -149,4 +175,42 @@ func runSettingsSet(ctx context.Context, opts settingsSetOptions, update apiclie
 	}
 	output.LavaflowSettingsSaved(opts.out, "LavaFlow's settings are saved", settings)
 	return nil
+}
+
+// ungatedWorkflowsOffTurnsLavaFlowOff is what settings set prints, on stderr,
+// when turning ungated workflows off turned LavaFlow off too.
+const ungatedWorkflowsOffTurnsLavaFlowOff = "LavaFlow isn't available for this project, and Volcano turns " +
+	"ungated workflows off then only together with LavaFlow, so LavaFlow is off too."
+
+// turnsOffUngatedWorkflowsOnly reports whether update changes nothing but
+// turning ungated workflows off.
+func turnsOffUngatedWorkflowsOnly(update apiclient.LavaflowSettingsUpdate) bool {
+	return update.AllowUngatedWorkflows != nil && !*update.AllowUngatedWorkflows && update.Autonomy == nil &&
+		update.MergePolicy == nil && update.CustomContext == nil && update.SystemPrompt == nil && update.Enabled == nil
+}
+
+// ungatedWorkflowsDisclosure is what settings set prints, and its help says,
+// before it allows ungated workflows. The contract's words start without a
+// subject, so the flag names it.
+const ungatedWorkflowsDisclosure = "--allow-ungated-workflows true: " + clilavaflow.UngatedWorkflowsDisclosure
+
+// confirmation asks once before a change that turns on what only a person
+// decides, autonomy merge, ungated workflows or both, after saying what each
+// does. It's nil when the update turns on neither.
+func confirmation(opts settingsSetOptions, update apiclient.LavaflowSettingsUpdate) func() error {
+	merge := update.Autonomy != nil && *update.Autonomy == apiclient.Merge
+	ungated := update.AllowUngatedWorkflows != nil && *update.AllowUngatedWorkflows
+	var disclosure, question string
+	switch {
+	case merge && ungated:
+		disclosure = clilavaflow.MergeDisclosure + "\n" + ungatedWorkflowsDisclosure
+		question = "Let LavaFlow merge fixes, and allow ungated workflows?"
+	case merge:
+		disclosure, question = clilavaflow.MergeDisclosure, "Let LavaFlow merge fixes?"
+	case ungated:
+		disclosure, question = ungatedWorkflowsDisclosure, "Allow ungated workflows?"
+	default:
+		return nil
+	}
+	return func() error { return confirmChange(opts.yes, opts.in, opts.errOut, disclosure, question) }
 }

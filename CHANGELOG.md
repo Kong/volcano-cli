@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.69.0](https://github.com/Kong/volcano-cli/compare/v0.68.0...v0.69.0) (2026-11-05)
+
+
+### Features
+
+* **lavaflow:** let the owner allow ungated workflows, after a warning ([#403](https://github.com/Kong/volcano-cli/issues/403)) ([c6c0222](https://github.com/Kong/volcano-cli/commit/c6c0222af5b6ad977eb0c3301cce72d3655ea0dd))
+
+## [0.68.0](https://github.com/Kong/volcano-cli/compare/v0.67.0...v0.68.0) (2026-11-05)
+
+
+### Features
+
+* **lavaflow:** show what happened to a run's fix ([#438](https://github.com/Kong/volcano-cli/issues/438)) ([e19cf5f](https://github.com/Kong/volcano-cli/commit/e19cf5f8ac53f4bd30237f2ff918710718af8668))
+
+
+### Bug Fixes
+
+* **lavaflow:** say merging is paused at autonomy merge, and show it in settings ([#436](https://github.com/Kong/volcano-cli/issues/436)) ([788a4cf](https://github.com/Kong/volcano-cli/commit/788a4cf906a5740a26f3271be0cdeac730f580de))
+
 ## [0.67.0](https://github.com/Kong/volcano-cli/compare/v0.66.1...v0.67.0) (2026-11-05)
 
 

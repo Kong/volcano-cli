@@ -52,7 +52,8 @@ type lavaflowServer struct {
 	// capabilityReads counts reads of the project's capabilities.
 	capabilityReads int
 	// gateOff is LavaFlow unavailable for a project with records: the reads
-	// answer, and the PUT takes only turning it off. planOff says the owner's
+	// answer, and the PUT takes only turning it off, with ungated workflows
+	// or without. planOff says the owner's
 	// plan is why, so the PUT answers plan_required instead of
 	// feature_unavailable.
 	gateOff  bool
@@ -196,7 +197,10 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.write(w, http.StatusOK, settings)
 	case r.Method == http.MethodPut && route == "/settings":
 		s.updates = append(s.updates, update)
-		if s.gateOff && !maps.Equal(update, map[string]any{"enabled": false}) {
+		// Turning it off, and allow_ungated_workflows off with it, is all the
+		// PUT takes while LavaFlow is unavailable.
+		if s.gateOff && !maps.Equal(update, map[string]any{"enabled": false}) &&
+			!maps.Equal(update, map[string]any{"enabled": false, "allow_ungated_workflows": false}) {
 			if s.planOff {
 				s.write(w, http.StatusForbidden, map[string]any{"error": "LavaFlow needs a plan that includes it", "code": "plan_required"})
 				return
@@ -339,8 +343,9 @@ func fixedRun() map[string]any {
 				"message": "TypeError: Cannot read properties of undefined (reading 'items')",
 			}},
 		},
-		"review": map[string]any{"verdict": "passed", "rounds": 2},
-		"diff":   "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
+		"review":            map[string]any{"verdict": "passed", "rounds": 2},
+		"diff":              "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
+		"ungated_workflows": []any{},
 	}
 }
 
@@ -364,7 +369,8 @@ func failedRun() map[string]any {
 		"issue_id": lavaflowIssueID,
 		"title":    nil, "pull_request": nil, "merge": nil, "pull_request_skipped": nil, "diagnosis": nil, "diff": nil, "review": nil,
 		"created_at": "2026-10-29T09:00:00Z", "finished_at": "2026-10-29T09:01:00Z",
-		"failure": map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},
+		"failure":           map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},
+		"ungated_workflows": []any{},
 	}
 }
 
@@ -398,7 +404,7 @@ func summaries(runs []map[string]any) []any {
 	items := make([]any, 0, len(runs))
 	for _, run := range runs {
 		summary := maps.Clone(run)
-		for _, detail := range []string{"diagnosis", "review", "diff", "failure"} {
+		for _, detail := range []string{"diagnosis", "review", "diff", "failure", "ungated_workflows"} {
 			delete(summary, detail)
 		}
 		items = append(items, summary)

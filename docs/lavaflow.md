@@ -55,7 +55,7 @@ the same when the owner's plan couldn't be read.
 | Turn LavaFlow on | `volcano cloud lavaflow enable [--yes] [--json]` |
 | Turn LavaFlow off | `volcano cloud lavaflow disable [--json]` |
 | Show the settings in full | `volcano cloud lavaflow settings [--json]` |
-| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--human-review-path p]... [--clear-human-review-paths] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--yes] [--json]` |
+| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--human-review-path p]... [--clear-human-review-paths] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--allow-ungated-workflows true\|false] [--yes] [--json]` |
 | Show issues and fix pull requests per day | `volcano cloud lavaflow stats [--days n] [--json]` |
 | Show what LavaFlow did for each resource | `volcano cloud lavaflow resources [--days n] [--json]` |
 | List runs | `volcano cloud lavaflow list [--status s] [--resource id] [--limit n] [--cursor c] [--json]` |
@@ -102,6 +102,7 @@ Turn LavaFlow on? Type 'y' or 'yes' to confirm: y
 LavaFlow: on
 Autonomy: open fix pull requests
 Human review paths: none
+Ungated workflows: not allowed
 Custom context: not set
 System prompt: not set
 ```
@@ -126,6 +127,7 @@ LavaFlow: on
 Autonomy: open fix pull requests
 Merging: available
 Repository: acme/shop
+Ungated workflows: not allowed
 Custom context: not set
 System prompt: not set
 Updated: 2026-10-30 12:00
@@ -135,7 +137,10 @@ While LavaFlow is off, the status says what it does and how to turn it on.
 When you use a project access token, which can read but not change the
 settings, the status says so instead.
 When it is set to open pull requests and no repository is connected, the
-status says to run `volcano git connect`. When LavaFlow isn't available for
+status says to run `volcano git connect` and then, as the owner,
+`volcano cloud lavaflow enable`: LavaFlow starts no run for a repository other
+than the one it was turned on for, so after you connect or change the
+repository, turn it on again. When LavaFlow isn't available for
 a project that has LavaFlow records, the status notes that it can't be turned
 on or changed, and that the owner can still turn it off.
 
@@ -259,6 +264,55 @@ Fix:
     - It changes a path in human_review_paths. (db/migrations/0042_orders.sql)
   The pull request is now yours to review and merge on GitHub.
 ```
+
+### Allow ungated workflows
+
+By default, LavaFlow doesn't open a fix's pull request where a workflow in
+the repository could run it, or put its text into a command, with the
+repository's secrets before a person approves it: the fix stays on its run
+instead. Only the project's owner can turn that on, signed in as a person:
+with `volcano login`, or another platform token that expires. It applies to the
+repository the project is connected to now, while their GitHub account can push
+to it:
+
+```bash
+volcano cloud lavaflow settings set --allow-ungated-workflows true
+```
+
+Workflows in the repository may then run LavaFlow's pull requests, or put
+their text into commands, with the repository's secrets before a person
+reviews them. LavaFlow writes those changes from the project's error logs,
+which its users can influence. Turn it on only if those workflows keep secrets
+away from untrusted code; gating them on a label a person adds is safer.
+
+Connecting the project to another repository, or disconnecting it, turns the
+setting off, and connecting the first repository again doesn't turn it back
+on.
+
+`settings set` prints that warning and asks before it turns the setting on.
+`--yes` skips the question but still prints the warning, on stderr, so
+`--json` output stays JSON. Without a terminal and without `--yes`, it changes
+nothing and exits with a non-zero code. When Volcano refuses it, for example
+for a platform token that never expires, or while the owner's GitHub account
+can't push to the repository, the command says why in Volcano's words and
+exits with code 5. Any of the owner's credentials turns it off, with
+`--allow-ungated-workflows false`, which asks nothing. While LavaFlow isn't
+available for the project, Volcano turns the setting off only together with
+LavaFlow, so the command turns LavaFlow off too and says so on stderr.
+`status` and `settings` show it as `Ungated workflows:`, `allowed for the
+connected repository` or `not allowed`.
+
+When a run's pull request opened past ungated workflows, `show` lists the
+first ungated workflow job on each branch or commit LavaFlow checked: its file,
+the branch or commit whose workflows run it, the job and the event that runs
+it. Other jobs on the same branch or commit may run the pull request too.
+
+```text
+Ungated workflows: the pull request opened past these, the first one on each branch or commit checked
+  - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target
+```
+
+A workflow file that couldn't be read shows as "couldn't be read".
 
 ## See what it did
 

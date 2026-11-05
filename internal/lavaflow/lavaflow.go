@@ -68,6 +68,33 @@ const MergeWarning = "Turning on merge lets LavaFlow's fixes, including those fr
 const MergeDisclosure = "At autonomy merge, LavaFlow can merge its fix pull requests. " +
 	"A fix it holds or stops is yours to review and merge on GitHub. " + MergeWarning
 
+// UngatedWorkflowsWarning is what allowing ungated workflows risks, in the
+// approved words the API's contract and the docs also use.
+const UngatedWorkflowsWarning = "Workflows in the repository may then run LavaFlow's pull requests, or put their " +
+	"text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those " +
+	"changes from the project's error logs, which its users can influence. Turn it on only if those workflows " +
+	"keep secrets away from untrusted code; gating them on a label a person adds is safer."
+
+// UngatedWorkflowsSetting is what allow_ungated_workflows decides, in the API
+// contract's words.
+const UngatedWorkflowsSetting = "Whether LavaFlow opens a fix's pull request even where a workflow could run " +
+	"it, or put its text into a command, with the repository's secrets before a person approves it."
+
+// UngatedWorkflowsRules is the setting's default and who changes it, in the
+// API contract's words.
+const UngatedWorkflowsRules = "Off by default; while off, such a fix stays on its run and no pull request opens. " +
+	"Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform " +
+	"token `volcano login` stores, or another platform token that expires. It applies to the repository their " +
+	"GitHub account can push to. Any of the owner's credentials turns it off."
+
+// UngatedWorkflowsDisclosure is what settings set prints before it allows
+// ungated workflows, in the API contract's words: what turning it on does and
+// where, what turns it off again, then the warning.
+const UngatedWorkflowsDisclosure = "Turns on opening fixes past ungated workflows, for the repository the " +
+	"project is connected to now; it applies only to that repository. Connecting the project to another " +
+	"repository, or disconnecting it, turns it off, and connecting the first one again doesn't turn it back " +
+	"on. " + UngatedWorkflowsWarning
+
 // ErrMergingNotAvailable reports feature_unavailable for autonomy merge:
 // LavaFlow doesn't merge for this project yet.
 var ErrMergingNotAvailable = errors.New("LavaFlow merging isn't available for this project yet")
@@ -322,7 +349,7 @@ const EnableDisclosure = OnDescription + "\n" + EnableNotice
 // stops the change and is returned as is.
 func (s Service) Enable(ctx context.Context, confirm func() error) (*apiclient.LavaflowSettings, error) {
 	enabled := true
-	return s.update(ctx, "turn LavaFlow on", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, true, confirm)
+	return s.update(ctx, "turn LavaFlow on", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, true, confirm, nil)
 }
 
 // Disable turns LavaFlow off for the current project, sending enabled alone
@@ -330,7 +357,19 @@ func (s Service) Enable(ctx context.Context, confirm func() error) (*apiclient.L
 // unavailable for a project that has LavaFlow records.
 func (s Service) Disable(ctx context.Context) (*apiclient.LavaflowSettings, error) {
 	enabled := false
-	return s.update(ctx, "turn LavaFlow off", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, false, nil)
+	return s.update(ctx, "turn LavaFlow off", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, false, nil, nil)
+}
+
+// TurnOffUngatedWorkflows turns allow_ungated_workflows off. While LavaFlow
+// isn't available for the project, Volcano saves that only with enabled
+// false, so it then turns LavaFlow off too and reports that it did. A
+// capabilities read that fails leaves the save to say why.
+func (s Service) TurnOffUngatedWorkflows(ctx context.Context) (*apiclient.LavaflowSettings, bool, error) {
+	off := false
+	var lavaflowOff bool
+	settings, err := s.update(ctx, "change LavaFlow's settings",
+		apiclient.LavaflowSettingsUpdate{AllowUngatedWorkflows: &off}, false, nil, &lavaflowOff)
+	return settings, lavaflowOff, err
 }
 
 // UpdateSettings changes the fields update sets and keeps the rest. Only a
@@ -352,7 +391,7 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 			return nil, fmt.Errorf("the %s is %d characters long: the most is %d", name, len([]rune(*text)), MaxTextLength)
 		}
 	}
-	return s.update(ctx, "change LavaFlow's settings", update, false, confirm)
+	return s.update(ctx, "change LavaFlow's settings", update, false, confirm, nil)
 }
 
 // The most paths a merge policy holds for a person, and the longest one.
@@ -383,9 +422,11 @@ func validMergePolicy(policy *apiclient.LavaflowMergePolicyUpdate) error {
 // sends. A change that turns LavaFlow on, or changes autonomy to merge, then
 // checks the project's capabilities, so it isn't asked for when it would be
 // refused.
-// A non-nil confirm runs just before the change.
+// A non-nil confirm runs just before the change. A non-nil lavaflowOff marks
+// an update that turns ungated workflows off: while the capabilities say
+// LavaFlow isn't available, it adds enabled false and sets *lavaflowOff.
 func (s Service) update(ctx context.Context, verb string, update apiclient.LavaflowSettingsUpdate,
-	turnsOn bool, confirm func() error,
+	turnsOn bool, confirm func() error, lavaflowOff *bool,
 ) (*apiclient.LavaflowSettings, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
@@ -405,6 +446,16 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	if turnsOn {
 		if err := requireTurnOnAvailable(ctx, authenticated); err != nil {
 			return nil, err
+		}
+	}
+	if lavaflowOff != nil {
+		available, _, err := availability(ctx, authenticated)
+		if err != nil {
+			return nil, err
+		}
+		if available != nil && !*available {
+			off := false
+			update.Enabled, *lavaflowOff = &off, true
 		}
 	}
 	// The save accepts the saved autonomy again without merging available.
