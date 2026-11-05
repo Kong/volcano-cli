@@ -665,17 +665,24 @@ func LavaflowHeldFix(w io.Writer, held *clilavaflow.HeldFix) {
 	}
 	fmt.Fprintln(w)
 	if len(held.Withheld) > 0 {
-		Warning(w, "The diff leaves out the changes to %d file(s) because they may contain a credential:", len(held.Withheld))
+		Warning(w, "The diff leaves out the changes to %d file(s) that LavaFlow withheld:", len(held.Withheld))
 		for _, path := range held.Withheld {
-			if path == "" {
-				path = "a file whose path isn't shown"
-			}
-			fmt.Fprintf(w, "%s %s\n", theme.Fail("!!", on), clean(path))
+			fmt.Fprintf(w, "%s %s\n", theme.Fail("!!", on), lavaflowWithheldName(path))
 		}
 	}
 	if held.Cut {
 		Warning(w, "The diff is cut short past 256 KiB, so it doesn't show the whole fix.")
 	}
+}
+
+// lavaflowWithheldName names a withheld file by its path. A marker without
+// one is for a file whose path may itself hold a credential, or whose stored
+// diff LavaFlow couldn't read back; either way no path is printed.
+func lavaflowWithheldName(path string) string {
+	if strings.TrimSpace(path) == "" {
+		return "a file whose path LavaFlow can't show, or couldn't read back"
+	}
+	return clean(path)
 }
 
 // lavaflowServedDiff prints a held fix's diff line by line as Volcano served

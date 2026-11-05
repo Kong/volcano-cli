@@ -465,13 +465,15 @@ since you looked, the command shows them again and asks again, up to 3
 times. Volcano queues the run and opens the pull request shortly; follow it
 with `show`.
 
-A diff that isn't fully reviewable can't be opened. When LavaFlow left out a
-file's changes because they may contain a credential, the diff has a line
+A diff that isn't fully reviewable can't be opened. When LavaFlow withheld a
+file's changes, because they may contain a credential, the file is too long
+to check, or LavaFlow couldn't read its stored diff back, the diff has a line
 starting with `# LavaFlow withheld` in their place; a diff past 256 KiB ends
 with a line starting with `[diff truncated`. The command marks each such line
-with `!!`, then warns with the number of files left out and their paths, or
+with `!!`, then warns with the number of files withheld and their paths, or
 that the diff is cut short, and exits non-zero without asking or sending
-anything.
+anything. A file whose path LavaFlow can't show, or couldn't read back, is
+named that way rather than by a path.
 
 The answer defaults to no. At a terminal it always asks, even with `--yes`.
 Without a terminal it opens nothing unless you pass `--yes`, and still prints

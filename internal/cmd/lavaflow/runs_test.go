@@ -169,6 +169,7 @@ func TestRunsOpenRefusesADiffThatIsntFullyReviewable(t *testing.T) {
 	const withheldSecret = "# LavaFlow withheld the changes to \".env.example\" because they may contain a credential"
 	const withheldUnnamed = "# LavaFlow withheld the changes to a file, whose path it does not show, because they may contain a credential"
 	const cut = "[diff truncated; the rest of the change is not shown]"
+	const unnamed = "a file whose path LavaFlow can't show, or couldn't read back"
 	for name, tc := range map[string]struct {
 		change   func(held map[string]any)
 		shown    []string
@@ -180,8 +181,8 @@ func TestRunsOpenRefusesADiffThatIsntFullyReviewable(t *testing.T) {
 				held["diff_withheld"] = []any{".env.example", ""}
 			},
 			[]string{"!! " + withheldSecret + "\n", "!! " + withheldUnnamed + "\n"},
-			"Warning: The diff leaves out the changes to 2 file(s) because they may contain a credential:\n" +
-				"!! .env.example\n!! a file whose path isn't shown\n",
+			"Warning: The diff leaves out the changes to 2 file(s) that LavaFlow withheld:\n" +
+				"!! .env.example\n!! " + unnamed + "\n",
 		},
 		"cut short": {
 			func(held map[string]any) {
@@ -194,9 +195,32 @@ func TestRunsOpenRefusesADiffThatIsntFullyReviewable(t *testing.T) {
 		"cut short by the API's word alone": {func(held map[string]any) {
 			held["diff_truncated"] = true
 		}, nil, "Warning: The diff is cut short past 256 KiB, so it doesn't show the whole fix.\n"},
+		// A run whose stored diff can't be read back is served as one marker
+		// without a path, and diff_withheld [""].
+		"stored diff not read back": {
+			func(held map[string]any) {
+				setHeldDiff(held, withheldUnnamed+"\n")
+				held["diff_withheld"] = []any{""}
+			},
+			[]string{"!! " + withheldUnnamed + "\n"},
+			"Warning: The diff leaves out the changes to 1 file(s) that LavaFlow withheld:\n" +
+				"!! " + unnamed + "\n",
+		},
+		"no path in diff_withheld alone": {
+			func(held map[string]any) { held["diff_withheld"] = []any{""} },
+			nil,
+			"Warning: The diff leaves out the changes to 1 file(s) that LavaFlow withheld:\n" +
+				"!! " + unnamed + "\n",
+		},
+		"a marker line with no path": {
+			func(held map[string]any) { setHeldDiff(held, heldDiff+"# LavaFlow withheld a file\n") },
+			[]string{"!! # LavaFlow withheld a file\n"},
+			"Warning: The diff leaves out the changes to 1 file(s) that LavaFlow withheld:\n" +
+				"!! " + unnamed + "\n",
+		},
 		"withheld by the API's word alone": {func(held map[string]any) {
 			held["diff_withheld"] = []any{"config/deploy.sh"}
-		}, nil, "Warning: The diff leaves out the changes to 1 file(s) because they may contain a credential:\n" +
+		}, nil, "Warning: The diff leaves out the changes to 1 file(s) that LavaFlow withheld:\n" +
 			"!! config/deploy.sh\n"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -212,6 +236,7 @@ func TestRunsOpenRefusesADiffThatIsntFullyReviewable(t *testing.T) {
 			assert.Contains(t, errOut, "Jobs fingerprint: "+heldJobsSHA256+"\n\n"+tc.warnings,
 				"the warning comes last, after the fingerprints")
 			assert.NotContains(t, errOut, "Open the fix's pull request?")
+			assert.NotContains(t, errOut, "!! \n", "no empty path is printed")
 			assert.Empty(t, fake.opens, "nothing is sent")
 		})
 	}
