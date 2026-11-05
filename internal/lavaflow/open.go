@@ -191,8 +191,9 @@ func heldFix(runID string, run *apiclient.LavaflowRun, show string) (*HeldFix, e
 }
 
 // servedAsHashed reports a diff whose bytes, as served, are the ones its
-// fingerprint covers. The digest is only compared: it is never shown, sent
-// or logged.
+// fingerprint covers. diff is the string decoded from the API, before display
+// escapes a control character or anything changes a line ending. The digest
+// is only compared: it is never shown, sent or logged.
 func servedAsHashed(diff, fingerprint string) bool {
 	sum := sha256.Sum256([]byte(diff))
 	return hex.EncodeToString(sum[:]) == fingerprint

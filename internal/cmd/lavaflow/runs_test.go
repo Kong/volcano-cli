@@ -21,9 +21,7 @@ const heldQuestion = "Opening the pull request lets every job above run this fix
 	"Open the fix's pull request? Type 'y' or 'yes' to confirm: "
 
 // heldReview is everything runs open shows for the held run with this diff,
-// as it prints it, and this fix fingerprint, as it reads on stderr. The two
-// fingerprints are the only digests in it: the base commit is named, not
-// shown by its SHA.
+// as it prints it, and this fix fingerprint, as it reads on stderr.
 func heldReview(diff, diffSHA256 string) string {
 	return `Run: ` + lavaflowHeldID + `
 Resource: function checkout
@@ -35,8 +33,10 @@ Diff
 ` + diff + `
 Jobs that will get the repository's secrets (2)
   - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target
-  - .github/workflows/broken.yml on the fix's base commit: couldn't be read
-Workflows read on: main, the fix's base commit
+  - .github/workflows/broken.yml on ` + heldBaseCommit + `: couldn't be read
+Workflows read at:
+  - main at 3f786850e387550fdab836ed7e6dc881de23001b
+  - commit ` + heldBaseCommit + `
 
 Fix fingerprint: ` + diffSHA256 + `
 Jobs fingerprint: ` + heldJobsSHA256 + `
@@ -101,8 +101,6 @@ func TestRunsOpenShowsTheHeldFixThenOpensItWithWhatItShowed(t *testing.T) {
 		assert.Equal(t, []map[string]any{wantOpen(heldDiffSHA256)}, s.opens)
 		assert.Equal(t, []string{lavaflowProjectID, lavaflowProjectID}, s.projects, "the read and the open name the project")
 	})
-	assert.NotContains(t, errOut, heldBaseCommit, "no commit digest is shown")
-	assert.NotContains(t, errOut, "3f786850e387550fdab836ed7e6dc881de23001b", "no commit digest is shown")
 	assertLavaFlowWording(t, errOut+out)
 }
 
@@ -536,6 +534,40 @@ func TestRunsOpenPrintsRunTextAsPlainText(t *testing.T) {
 	assert.Contains(t, errOut, "job deploy\\x1b]0;title\\x07, runs on pull_request_target")
 	for _, raw := range []string{"\x1b", "\x07"} {
 		assert.NotContains(t, errOut, raw)
+	}
+}
+
+// The fix fingerprint is checked against the diff exactly as decoded from the
+// API, before display escapes a control character or a carriage return, and
+// the open sends the served fingerprint. A fingerprint of the diff as
+// displayed, or with its line endings changed, is refused.
+func TestRunsOpenChecksTheFingerprintAgainstTheDiffAsServed(t *testing.T) {
+	const served = "--- a/functions/checkout.ts\r\n+++ b/functions/checkout.ts\r\n@@ -1,2 +1,3 @@\r\n" +
+		" export async function handleCheckout(cart) {\r\n+  log(\"\x1b[31mred\x07\")\r\n   return charge(cart)\r\n"
+	fake, deps, held := newHeldLavaflowServer(t)
+	fake.set(func(*lavaflowServer) { setHeldDiff(held, served) })
+
+	_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
+	require.NoError(t, err)
+	assert.Contains(t, errOut, "  +  log(\"\\x1b[31mred\\x07\")\\x0d\n", "display escapes what the fingerprint covers raw")
+	assert.Contains(t, errOut, "Fix fingerprint: "+sha256Hex(served)+"\n")
+	assert.Equal(t, []map[string]any{wantOpen(sha256Hex(served))}, fake.opens, "the open sends the served fingerprint")
+
+	displayed := strings.NewReplacer("\r", "\\x0d", "\x1b", "\\x1b", "\x07", "\\x07").Replace(served)
+	for name, fingerprint := range map[string]string{
+		"as displayed":         sha256Hex(displayed),
+		"with LF line endings": sha256Hex(strings.ReplaceAll(served, "\r\n", "\n")),
+	} {
+		fake, deps, held := newHeldLavaflowServer(t)
+		fake.set(func(*lavaflowServer) {
+			held["diff"], held["diff_sha256"] = served, fingerprint
+		})
+
+		_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
+		require.EqualError(t, err, "the diff Volcano sent for run "+lavaflowHeldID+" doesn't match its fix fingerprint, "+
+			"so nothing was opened. Run this again", name)
+		assertNothingShownOrAsked(t, errOut, name)
+		assert.Empty(t, fake.opens, name)
 	}
 }
 

@@ -620,10 +620,9 @@ func formatLavaflowTimePtr(t *time.Time, fallback string) string {
 // LavaflowHeldFix renders what a person reads before opening a fix LavaFlow
 // held: the run, the diff exactly as Volcano served it, every workflow job
 // that will get the repository's secrets, the two fingerprints opening sends,
-// and last, what the diff leaves out. Volcano opens the fix only while both
-// fingerprints match, so they are printed as given. No other digest is
-// shown: a job or a read on a commit names it as the fix's base commit, not
-// by its SHA.
+// the branches and commits their workflows were read at, and last, what the
+// diff leaves out. Volcano opens the fix only while both fingerprints match,
+// so they are printed as given.
 func LavaflowHeldFix(w io.Writer, held *clilavaflow.HeldFix) {
 	on := theme.On(w)
 	run := held.Run
@@ -646,21 +645,15 @@ func LavaflowHeldFix(w io.Writer, held *clilavaflow.HeldFix) {
 	if run.HeldWorkflows != nil {
 		jobs, readAt = run.HeldWorkflows.Jobs, run.HeldWorkflows.ReadAt
 	}
-	commits := map[string]bool{}
-	sources := make([]string, 0, len(readAt))
-	for _, source := range readAt {
-		if source.Source == source.CommitSha {
-			commits[source.Source] = true
-		}
-		sources = append(sources, clean(lavaflowHeldSource(source.Source, commits)))
-	}
 	fmt.Fprintf(w, "\n%s\n", theme.Title(fmt.Sprintf("Jobs that will get the repository's secrets (%d)", len(jobs)), on))
 	for _, job := range jobs {
-		job.Source = lavaflowHeldSource(job.Source, commits)
 		fmt.Fprintf(w, "  - %s\n", lavaflowAllowedWorkflow(job))
 	}
-	if len(sources) > 0 {
-		kv(w, on, "Workflows read on", "%s", strings.Join(sources, ", "))
+	if len(readAt) > 0 {
+		fmt.Fprintln(w, theme.Dim("Workflows read at:", on))
+		for _, source := range readAt {
+			fmt.Fprintf(w, "  - %s\n", lavaflowWorkflowSource(source))
+		}
 	}
 
 	fmt.Fprintln(w)
@@ -703,13 +696,13 @@ func lavaflowServedDiff(w io.Writer, on bool, diff string) {
 	}
 }
 
-// lavaflowHeldSource names a branch, or the fix's base commit for a commit
-// LavaFlow read, without its SHA.
-func lavaflowHeldSource(source string, commits map[string]bool) string {
-	if commits[source] {
-		return "the fix's base commit"
+// lavaflowWorkflowSource names a branch and the commit its workflows were
+// read at, or the commit alone when LavaFlow read a commit.
+func lavaflowWorkflowSource(source apiclient.LavaflowWorkflowSource) string {
+	if source.Source == source.CommitSha {
+		return "commit " + clean(source.CommitSha)
 	}
-	return source
+	return clean(source.Source) + " at " + clean(source.CommitSha)
 }
 
 // LavaflowOpenHint names the command that shows a held fix and opens its pull

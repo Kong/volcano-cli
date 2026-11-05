@@ -434,7 +434,9 @@ Diff
 
 Jobs that will get the repository's secrets (1)
   - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target
-Workflows read on: main, the fix's base commit
+Workflows read at:
+  - main at 3f786850e387550fdab836ed7e6dc881de23001b
+  - commit 4f1c2b3d5e6f708192a3b4c5d6e7f8091a2b3c4d
 
 Fix fingerprint: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 Jobs fingerprint: 2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae
@@ -449,15 +451,15 @@ It shows:
 - The fix's diff exactly as Volcano serves it. A control character prints as
   a visible escape, as in `show`.
 - Every workflow job that will get the repository's secrets: its file, the
-  branch whose workflows run it, or the fix's base commit, the job and the
-  event that runs it.
+  branch or commit whose workflows run it, the job and the event that runs
+  it. `Workflows read at` names the commits LavaFlow read them at.
 - Two fingerprints. The fix fingerprint is the SHA-256 of the diff exactly
   as served. The jobs fingerprint identifies the jobs and the commits their
-  workflows were read at. They're the only digests the command shows or
-  sends.
+  workflows were read at.
 
-The command checks that the diff it shows is the one the fix fingerprint
-covers, and sends exactly the two fingerprints it showed. Volcano opens the
+The command checks the fix fingerprint against the diff as Volcano sent it,
+before escaping anything for display, and refuses a diff that doesn't match.
+It sends exactly the two fingerprints it showed. Volcano opens the
 pull request only while both still match. If the diff or its jobs changed
 since you looked, the command shows them again and asks again, up to 3
 times. Volcano queues the run and opens the pull request shortly; follow it
