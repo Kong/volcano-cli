@@ -204,11 +204,45 @@ func TestShowListsTheUngatedWorkflowsAPullRequestOpenedPast(t *testing.T) {
 	assert.Contains(t, out, "Ungated workflows: the pull request opened past these, the first one on each branch or commit checked\n"+
 		"  - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target\n"+
 		"  - .github/workflows/broken.yml on 4f1c2b3: couldn't be read\n")
+	assert.NotContains(t, out, "may be dispatched by")
+	assert.NotContains(t, out, "A dispatch carries no label")
 
 	fake.set(func(s *lavaflowServer) { s.runs[0]["ungated_workflows"] = []any{} })
 	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
 	assert.NotContains(t, out, "Ungated workflows")
+}
+
+// A workflow_dispatch job lists the job the API names as one that may
+// dispatch it, under it, with the job's name only when its workflow could be
+// read. The API names none when the workflows were too large to tell which.
+// Any workflow_dispatch job adds the advice Volcano writes on the pull
+// request, word for word.
+func TestShowNamesTheJobThatMayDispatchAnUngatedWorkflow(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["ungated_workflows"] = []any{
+			map[string]any{
+				"source": "main", "path": ".github/workflows/deploy.yml", "job": "deploy", "trigger": "workflow_dispatch",
+				"dispatched_by": map[string]any{"source": "main", "path": ".github/workflows/ci.yml", "job": "test"},
+			},
+			map[string]any{
+				"source": "4f1c2b3", "path": ".github/workflows/release.yml", "job": "release", "trigger": "workflow_dispatch",
+				"dispatched_by": map[string]any{"source": "4f1c2b3", "path": ".github/workflows/broken.yml"},
+			},
+			map[string]any{"source": "fix/1", "path": ".github/workflows/publish.yml", "job": "publish", "trigger": "workflow_dispatch"},
+		}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Ungated workflows: the pull request opened past these, the first one on each branch or commit checked\n"+
+		"  - .github/workflows/deploy.yml on main: job deploy, runs on workflow_dispatch\n"+
+		"    may be dispatched by job test of .github/workflows/ci.yml on main\n"+
+		"  - .github/workflows/release.yml on 4f1c2b3: job release, runs on workflow_dispatch\n"+
+		"    may be dispatched by a job of .github/workflows/broken.yml on 4f1c2b3, which couldn't be read\n"+
+		"  - .github/workflows/publish.yml on fix/1: job publish, runs on workflow_dispatch\n"+
+		"  A dispatch carries no label: give the job that may dispatch one permissions without actions: write.\n")
 }
 
 // A held or stopped fix whose pull request a person merged or closed keeps

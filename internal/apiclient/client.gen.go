@@ -8134,6 +8134,9 @@ type ImportSourcesResponse struct {
 
 // LavaflowAllowedWorkflow A workflow job that could run a fix's pull request with the repository's secrets before a person approves it.
 type LavaflowAllowedWorkflow struct {
+	// DispatchedBy On a workflow_dispatch job, a job that a fix's pull request starts and whose token may hold actions: write, so it may dispatch the workflow. Absent on other triggers, and when the workflows were too large to tell which job.
+	DispatchedBy *LavaflowWorkflowDispatcher `json:"dispatched_by,omitempty"`
+
 	// Job The job, absent for a workflow that could not be read.
 	Job  *string `json:"job,omitempty"`
 	Path string  `json:"path"`
@@ -8437,6 +8440,16 @@ type LavaflowStats struct {
 
 	// WindowStart The first UTC day in the window.
 	WindowStart openapi_types.Date `json:"window_start"`
+}
+
+// LavaflowWorkflowDispatcher On a workflow_dispatch job, a job that a fix's pull request starts and whose token may hold actions: write, so it may dispatch the workflow. Absent on other triggers, and when the workflows were too large to tell which job.
+type LavaflowWorkflowDispatcher struct {
+	// Job The job, absent for a workflow that could not be read.
+	Job  *string `json:"job,omitempty"`
+	Path string  `json:"path"`
+
+	// Source The branch or commit whose workflows hold it.
+	Source string `json:"source"`
 }
 
 // LiveLogLevel Canonical lowercase function runtime log level.

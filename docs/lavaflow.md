@@ -311,6 +311,17 @@ Ungated workflows: the pull request opened past these, the first one on each bra
 
 A workflow file that couldn't be read shows as "couldn't be read".
 
+A label can't gate a `workflow_dispatch` job: a job whose token holds
+`actions: write` can dispatch it. Under such a job, `show` names the job that
+may dispatch it, when LavaFlow could tell which, and adds the advice LavaFlow
+writes on the pull request:
+
+```text
+  - .github/workflows/deploy.yml on main: job deploy, runs on workflow_dispatch
+    may be dispatched by job test of .github/workflows/ci.yml on main
+  A dispatch carries no label: give the job that may dispatch one permissions without actions: write.
+```
+
 ## See what it did
 
 `stats` counts the issues LavaFlow took on and the fix pull requests it opened,
