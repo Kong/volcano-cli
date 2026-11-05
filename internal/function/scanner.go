@@ -122,7 +122,8 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 }
 
 // FindTarget returns the scanned source a --file value names. A path to a
-// source's file wins over a function name, so -f volcano/functions/orders/index.js
+// source's file wins over a function name, and a path inside a function's
+// directory names that function, so -f volcano/functions/orders/index.ts
 // deploys orders even when another function is named index.
 func FindTarget(sources []SourceInfo, target, baseDir string) (SourceInfo, bool) {
 	target = strings.TrimSpace(target)
@@ -131,7 +132,7 @@ func FindTarget(sources []SourceInfo, target, baseDir string) (SourceInfo, bool)
 			return source, true
 		}
 	}
-	name := normalizeTarget(target)
+	name := targetName(target, baseDir)
 	for _, source := range sources {
 		if source.Name == name {
 			return source, true
@@ -146,15 +147,41 @@ func matchesPath(source SourceInfo, target, baseDir string) bool {
 	if err != nil {
 		return false
 	}
-	targetPath := target
-	if !filepath.IsAbs(targetPath) {
-		targetPath = filepath.Join(baseDir, targetPath)
-	}
-	targetPath, err = filepath.Abs(targetPath)
+	targetPath, err := absTargetPath(target, baseDir)
 	if err != nil {
 		return false
 	}
-	return filepath.Clean(sourcePath) == filepath.Clean(targetPath)
+	return filepath.Clean(sourcePath) == targetPath
+}
+
+// targetName is the function a --file value names when it is not a source's
+// own path. A path below a function's directory, such as
+// volcano/functions/orders/index.ts, names that directory's function; anything
+// else names the function its basename does, without its extension.
+func targetName(target, baseDir string) string {
+	targetPath, err := absTargetPath(target, baseDir)
+	if err != nil {
+		return normalizeTarget(target)
+	}
+	functionsDir, err := filepath.Abs(filepath.Join(baseDir, "volcano", "functions"))
+	if err != nil {
+		return normalizeTarget(target)
+	}
+	rel, err := filepath.Rel(functionsDir, targetPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return normalizeTarget(target)
+	}
+	if dir, _, nested := strings.Cut(filepath.ToSlash(rel), "/"); nested {
+		return dir
+	}
+	return normalizeTarget(target)
+}
+
+func absTargetPath(target, baseDir string) (string, error) {
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(baseDir, target)
+	}
+	return filepath.Abs(target)
 }
 
 // FormatSourceNames lists scanned source names for an error that has to say

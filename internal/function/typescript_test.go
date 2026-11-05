@@ -134,27 +134,37 @@ func TestFindTargetNamesTypeScriptSource(t *testing.T) {
 	}
 }
 
-// A path to a source's file names that source, even when its basename is
-// another function's name: index.ts beside orders/index.js is function index.
+// A path names the function whose file or directory it is in, even when its
+// basename is another function's name: index.ts beside orders/ is function
+// index, and orders/index.ts, shadowed by orders/index.js, is still orders.
 func TestFindTargetPrefersPathsOverNames(t *testing.T) {
 	dir := t.TempDir()
 	functionsDir := filepath.Join(dir, "volcano", "functions")
-	require.NoError(t, os.MkdirAll(filepath.Join(functionsDir, "orders"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(functionsDir, "index.ts"), []byte(""), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(functionsDir, "orders", "index.js"), []byte(""), 0o644))
+	for _, file := range []string{"index.ts", "orders/index.js", "orders/index.ts", "widgets/src/index.ts"} {
+		path := filepath.Join(functionsDir, filepath.FromSlash(file))
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.WriteFile(path, []byte(""), 0o644))
+	}
 
 	sources, err := ScanSources(dir, testRuntimeCatalog(t))
 	require.NoError(t, err)
 	require.Len(t, sources, 2)
 
-	source, found := FindTarget(sources, filepath.Join("volcano", "functions", "orders", "index.js"), dir)
-	require.True(t, found)
-	assert.Equal(t, "orders", source.Name)
-
-	source, found = FindTarget(sources, "index", dir)
-	require.True(t, found)
-	assert.Equal(t, "index", source.Name)
-
-	_, found = FindTarget(sources, "missing", dir)
-	assert.False(t, found)
+	for target, want := range map[string]string{
+		"index":  "index",
+		"orders": "orders",
+		filepath.Join("volcano", "functions", "index.ts"):           "index",
+		filepath.Join("volcano", "functions", "orders"):             "orders",
+		filepath.Join("volcano", "functions", "orders", "index.js"): "orders",
+		filepath.Join("volcano", "functions", "orders", "index.ts"): "orders",
+		filepath.Join(functionsDir, "orders", "index.ts"):           "orders",
+	} {
+		source, found := FindTarget(sources, target, dir)
+		require.True(t, found, target)
+		assert.Equal(t, want, source.Name, target)
+	}
+	for _, target := range []string{"missing", filepath.Join("volcano", "functions", "widgets", "src", "index.ts")} {
+		_, found := FindTarget(sources, target, dir)
+		assert.False(t, found, target)
+	}
 }
