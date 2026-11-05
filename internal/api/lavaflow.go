@@ -106,3 +106,25 @@ func (c *Client) GetLavaflowRun(ctx context.Context, projectID, runID uuid.UUID)
 	}
 	return run, resp.Body, nil
 }
+
+// OpenLavaflowRun opens the pull request for a fix LavaFlow held, sending
+// the run's diff and job fingerprints as the caller read them, and returns
+// the run and the body the API sent it in. Volcano opens it only while both
+// still match. Only a person may: a project access token, MCP and a platform
+// token that never expires get 403 person_required.
+func (c *Client) OpenLavaflowRun(
+	ctx context.Context, projectID, runID uuid.UUID, diffSHA256, jobsSHA256 string,
+) (*apiclient.LavaflowRun, []byte, error) {
+	resp, err := c.client.OpenLavaflowRunWithResponse(ctx, runID, apiclient.LavaflowRunOpen{
+		ProjectId: projectID, DiffSha256: diffSHA256, JobsSha256: jobsSHA256,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	run, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403,
+		resp.JSON404, resp.JSON409)
+	if err != nil {
+		return nil, nil, err
+	}
+	return run, resp.Body, nil
+}

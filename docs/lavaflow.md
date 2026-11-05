@@ -60,6 +60,7 @@ the same when the owner's plan couldn't be read.
 | Show what LavaFlow did for each resource | `volcano cloud lavaflow resources [--days n] [--json]` |
 | List runs | `volcano cloud lavaflow list [--status s] [--resource id] [--limit n] [--cursor c] [--json]` |
 | Show a run | `volcano cloud lavaflow show <run-id> [--json]` |
+| Open a fix LavaFlow held for its workflows | `volcano cloud lavaflow runs open <run-id> [--yes] [--json]` |
 
 Every command takes `--json` for the API's own fields and values.
 
@@ -311,6 +312,9 @@ Ungated workflows: the pull request opened past these, the first one on each bra
 
 A workflow file that couldn't be read shows as "couldn't be read".
 
+While ungated workflows aren't allowed, a person can still open one held fix
+after reading it. See [Open a held fix](#open-a-held-fix).
+
 ## See what it did
 
 `stats` counts the issues LavaFlow took on and the fix pull requests it opened,
@@ -399,3 +403,88 @@ Diagnosis
 
 `show --json` and `list --json` print the run as Volcano's API returned it,
 including fields newer than your CLI.
+
+## Open a held fix
+
+When a workflow in the repository could run a fix with the repository's
+secrets before a person approves it, and ungated workflows aren't allowed,
+LavaFlow holds the fix on its run. `show` says
+`No fix pull request was opened: a workflow could run the fix with the repository's secrets before a person approves it.`
+and ends with the `runs open` command for the run. `runs open` lets a person
+read that fix and open its pull request anyway:
+
+```bash
+volcano cloud lavaflow runs open 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
+```
+
+```text
+Run: 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
+Resource: function checkout
+Title: Load the cart before checkout reads it
+Issue: 5b2d8e1c-3f4a-4c6b-9d7e-8a1f2b3c4d5e
+Held: a workflow could run this fix with the repository's secrets before a person approves it
+
+Diff
+  --- a/functions/checkout.ts
+  +++ b/functions/checkout.ts
+  @@ -1,2 +1,3 @@
+   export async function handleCheckout(cart) {
+  +  if (!cart) return conflict()
+     return charge(cart)
+
+Jobs that will get the repository's secrets (1)
+  - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target
+Workflows read at:
+  - main at 3f786850e387550fdab836ed7e6dc881de23001b
+  - commit 4f1c2b3d5e6f708192a3b4c5d6e7f8091a2b3c4d
+
+Fix fingerprint: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+Jobs fingerprint: 2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae
+
+Opening the pull request lets every job above run this fix with the repository's secrets before anyone reviews it on GitHub. Volcano opens it only while the fix and its jobs still match both fingerprints.
+Open the fix's pull request? Type 'y' or 'yes' to confirm: y
+✓ LavaFlow opened the fix's pull request: #43 https://github.com/acme/shop/pull/43
+```
+
+It shows:
+
+- The fix's diff as LavaFlow's reviewers read it. A file's changes that may
+  hold a credential are left out, with a line starting with `#` in their
+  place, and a diff past 256 KiB is cut short. The command warns when either
+  happens: opening the fix opens all of it.
+- Every workflow job that will get the repository's secrets: its file, the
+  branch or commit whose workflows run it, the job and the event that runs it.
+  `Workflows read at` names the commits LavaFlow read them at.
+- Two fingerprints. The fix fingerprint identifies the commit LavaFlow pushes:
+  the commit it's cut from, its files and its whole diff. The jobs fingerprint
+  identifies the jobs and the commits they were read at.
+
+The command sends exactly those fingerprints. Volcano opens the pull request
+only while both still match. If the fix or its jobs changed since you looked,
+it says `the fix or its jobs changed since you looked; run it again` and opens
+nothing; running it again shows the run as it is now.
+
+The answer defaults to no. At a terminal it always asks, even with `--yes`.
+Without a terminal it opens nothing unless you pass `--yes`, and still prints
+what it opens. What it shows and asks goes to stderr, so `--json` prints only
+the run as Volcano's API returned it.
+
+Opening a held fix is a person's decision. Sign in with `volcano login`, or
+use another platform token that expires. A project access token is refused
+before anything is sent, with code 5. Volcano refuses other credentials that
+aren't a person's own sign-in, such as a platform token that never expires,
+with `person_required`; the command says why in Volcano's words, points at
+`volcano login`, and exits with code 5. While `VOLCANO_TOKEN` is set, its
+token is used instead of a `volcano login` sign-in.
+
+`runs open` refuses, before it shows or asks anything, a run that:
+
+- already opened its pull request, or is still running;
+- LavaFlow didn't hold for the repository's workflows, such as one held
+  because the fix may contain a credential. `show` says why;
+- was held before LavaFlow kept a fix's diff to review;
+- LavaFlow couldn't list every job for, such as one with more than 256. Gate
+  those workflows on a label a person adds instead.
+
+A run the project doesn't have says `no LavaFlow run <run-id> in this project`
+and exits with code 4.

@@ -47,5 +47,8 @@ func runShow(ctx context.Context, opts showOptions, runID string) error {
 		return writeAPIJSON(opts.out, body)
 	}
 	output.LavaflowRun(opts.out, run)
+	if clilavaflow.Openable(run) {
+		output.LavaflowOpenHint(opts.out, cliruntime.CommandPath(opts.deps, "lavaflow runs open "+run.Id.String()))
+	}
 	return nil
 }

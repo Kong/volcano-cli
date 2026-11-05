@@ -615,3 +615,98 @@ func formatLavaflowTimePtr(t *time.Time, fallback string) string {
 	}
 	return formatLavaflowTime(*t)
 }
+
+// LavaflowHeldFix renders what a person reads before opening a fix LavaFlow
+// held: the run, the fix's diff as LavaFlow's reviewers read it, every
+// workflow job that will get the repository's secrets, and the fingerprints
+// opening sends. Volcano opens the fix only while both match, so these are
+// printed as given, not read again from the run.
+func LavaflowHeldFix(w io.Writer, run *apiclient.LavaflowRun, diffSHA256, jobsSHA256 string) {
+	on := theme.On(w)
+	kv(w, on, "Run", "%s", run.Id)
+	kv(w, on, "Resource", "%s %s", lavaflowResourceType(string(run.Resource.Type)), clean(run.Resource.Name))
+	if run.Title != nil {
+		kv(w, on, "Title", "%s", clean(*run.Title))
+	}
+	kv(w, on, "Issue", "%s", run.IssueId)
+	kv(w, on, "Held", "a workflow could run this fix with the repository's secrets before a person approves it")
+
+	diff := ""
+	if run.Diff != nil {
+		diff = *run.Diff
+	}
+	if strings.TrimSpace(diff) == "" {
+		fmt.Fprintf(w, "\n%s\n%s\n", theme.Title("Diff", on), theme.Dim("  (no changes shown)", on))
+	} else {
+		block(w, on, "Diff", diff)
+	}
+	withheld, cut := lavaflowDiffNotShown(diff)
+	if withheld > 0 {
+		Warning(w, "%d file(s)' changes aren't shown above because they may contain a credential. "+
+			"Opening the fix opens them too.", withheld)
+	}
+	if cut {
+		Warning(w, "The diff above is cut short past 256 KiB. Opening the fix opens the rest too.")
+	}
+
+	var jobs []apiclient.LavaflowAllowedWorkflow
+	var readAt []apiclient.LavaflowWorkflowSource
+	if run.HeldWorkflows != nil {
+		jobs, readAt = run.HeldWorkflows.Jobs, run.HeldWorkflows.ReadAt
+	}
+	fmt.Fprintf(w, "\n%s\n", theme.Title(fmt.Sprintf("Jobs that will get the repository's secrets (%d)", len(jobs)), on))
+	for _, job := range jobs {
+		fmt.Fprintf(w, "  - %s\n", lavaflowAllowedWorkflow(job))
+	}
+	if len(readAt) > 0 {
+		fmt.Fprintln(w, theme.Dim("Workflows read at:", on))
+		for _, source := range readAt {
+			fmt.Fprintf(w, "  - %s\n", lavaflowWorkflowSource(source))
+		}
+	}
+
+	fmt.Fprintln(w)
+	kv(w, on, "Fix fingerprint", "%s", clean(diffSHA256))
+	kv(w, on, "Jobs fingerprint", "%s", clean(jobsSHA256))
+}
+
+// LavaflowOpenHint names the command that shows a held fix and opens its pull
+// request, under a run LavaFlow held for its workflows.
+func LavaflowOpenHint(w io.Writer, command string) {
+	on := theme.On(w)
+	fmt.Fprintf(w, "\n%s %s\n", theme.Dim("To read this fix and open its pull request yourself, run", on), theme.Command(command, on))
+}
+
+// LavaflowHeldFixOpened renders the run Volcano answered with after opening
+// its fix: the pull request, or where to follow it while it opens.
+func LavaflowHeldFixOpened(w io.Writer, run *apiclient.LavaflowRun, showCommand string) {
+	if pr := run.PullRequest; pr != nil {
+		Success(w, "LavaFlow opened the fix's pull request: #%d %s", pr.Number, clean(pr.Url))
+		return
+	}
+	Success(w, "LavaFlow is opening the fix's pull request. Follow it with '%s'", showCommand)
+}
+
+// lavaflowDiffNotShown counts the files the diff leaves out because they may
+// hold a credential, each a line starting with # where a diff line can't
+// start, and says whether the diff was cut short.
+func lavaflowDiffNotShown(diff string) (withheld int, cut bool) {
+	for line := range strings.SplitSeq(diff, "\n") {
+		switch {
+		case strings.HasPrefix(line, "#"):
+			withheld++
+		case strings.HasPrefix(line, "[diff truncated"):
+			cut = true
+		}
+	}
+	return withheld, cut
+}
+
+// lavaflowWorkflowSource names a branch and the commit its workflows were
+// read at, or the commit alone when LavaFlow read a commit.
+func lavaflowWorkflowSource(source apiclient.LavaflowWorkflowSource) string {
+	if source.Source == source.CommitSha {
+		return "commit " + clean(source.CommitSha)
+	}
+	return clean(source.Source) + " at " + clean(source.CommitSha)
+}

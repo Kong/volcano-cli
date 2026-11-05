@@ -25,6 +25,7 @@ var lavaflowCommands = [][]string{
 	{"lavaflow", "resources", "--json"},
 	{"lavaflow", "list", "--json"},
 	{"lavaflow", "show", "00000000-0000-4000-8000-000000000000", "--json"},
+	{"lavaflow", "runs", "open", "00000000-0000-4000-8000-000000000000", "--yes", "--json"},
 }
 
 // TestAPIE2ECloudLavaFlow runs LavaFlow's commands against a fresh project the
@@ -80,6 +81,7 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env.runCloudCLI(t, "lavaflow", "stats", "--days", "7").requireSuccess(t, "0 issue(s) opened and 0 fix pull request(s) opened")
 	env.runCloudCLI(t, "lavaflow", "resources").requireSuccess(t)
 	env.runCloudCLI(t, "lavaflow", "list").requireSuccess(t, "No runs")
+	requireAPIE2ELavaFlowRunsOpenNeedsAHeldRun(t, env)
 	requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires(t, env)
 	requireAPIE2ELavaFlowUngatedWorkflowsRefuseATokenThatNeverExpires(t, env)
 	requireAPIE2ELavaFlowNeedsAPerson(t, env)
@@ -110,6 +112,28 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings", "set", "--allow-ungated-workflows", "false").
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
+	opening := env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "runs", "open", "00000000-0000-4000-8000-000000000000", "--yes")
+	opening.requireFailure(t, "opening a fix LavaFlow held is a person's decision, and a project access token can't make it")
+	if opening.code != 5 {
+		t.Fatalf("runs open with a project access token exited %d, want 5:\n%s", opening.code, redactCredentials(opening.output))
+	}
+}
+
+// requireAPIE2ELavaFlowRunsOpenNeedsAHeldRun opens a run the project doesn't
+// have. The project has no repository and no issues, so staging can't hold a
+// fix here, or start a run that isn't held: the command reads the run first,
+// and says the project has none by that ID, with exit code 4, before it shows
+// or asks anything. Opening a held fix runs in Kong/volcano-hosting's cloud
+// E2E, which connects a repository.
+func requireAPIE2ELavaFlowRunsOpenNeedsAHeldRun(t *testing.T, env *apiE2E) {
+	t.Helper()
+	const runID = "00000000-0000-4000-8000-000000000000"
+	opening := env.runCloudCLI(t, "lavaflow", "runs", "open", runID, "--yes")
+	opening.requireFailure(t, "no LavaFlow run "+runID+" in this project")
+	opening.requireNotContains(t, "Fix fingerprint", "Open the fix's pull request?")
+	if opening.code != 4 {
+		t.Fatalf("runs open for a run the project doesn't have exited %d, want 4:\n%s", opening.code, redactCredentials(opening.output))
+	}
 }
 
 // requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires asks for autonomy

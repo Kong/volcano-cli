@@ -8189,6 +8189,18 @@ type LavaflowFailure struct {
 	Message string `json:"message"`
 }
 
+// LavaflowHeldWorkflows Every workflow job that could run a held fix's pull request with the repository's secrets before a person approves it, as LavaFlow found them when it held the fix, and the commits it read the workflows at.
+type LavaflowHeldWorkflows struct {
+	// Jobs Every such job, at most 256, sorted by source, path and job.
+	Jobs []LavaflowAllowedWorkflow `json:"jobs"`
+
+	// JobsSha256 Identifies `read_at` and `jobs` together. Treat it as opaque: it changes when a listed job, or a commit the workflows were read at, does.
+	JobsSha256 string `json:"jobs_sha256"`
+
+	// ReadAt Each branch or commit whose workflows LavaFlow read: the project's production branch, the repository's default branch, and the commit the fix is cut from.
+	ReadAt []LavaflowWorkflowSource `json:"read_at"`
+}
+
 // LavaflowHoldReason One reason LavaFlow holds the fix for a person.
 type LavaflowHoldReason struct {
 	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files or a YAML file that declares a resource. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent's instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `ungated_workflows`: the fix opened past workflows that can run it with the repository's secrets before a person approves it, as the project's owner allowed, or LavaFlow couldn't check its workflows, so LavaFlow never starts its CI or merges it. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
@@ -8307,15 +8319,21 @@ type LavaflowRun struct {
 	CreatedAt time.Time          `json:"created_at"`
 	Diagnosis *LavaflowDiagnosis `json:"diagnosis"`
 
-	// Diff The fix as a unified diff. Null for now; a run that opened a pull request links to the change in `pull_request`.
+	// Diff The fix LavaFlow saved, as the unified diff its reviewers read, cut short past 256 KiB as they read it. A file's changes that may hold a credential are left out, with a line in their place that starts with `#`. Null for a run with no saved fix, or one saved before LavaFlow kept its diff.
 	Diff *string `json:"diff"`
 
+	// DiffSha256 Identifies the commit LavaFlow pushes for the saved fix: the SHA-256, in hex, of the commit it is cut from, the files it writes and its whole diff, never cut short. Null whenever `diff` is, for the same reasons.
+	DiffSha256 *string `json:"diff_sha256"`
+
 	// Failure Why the run stopped or waits, null when nothing went wrong.
-	Failure    *LavaflowFailure   `json:"failure"`
-	FinishedAt *time.Time         `json:"finished_at"`
-	Id         openapi_types.UUID `json:"id"`
-	IssueId    openapi_types.UUID `json:"issue_id"`
-	Merge      *LavaflowMerge     `json:"merge"`
+	Failure    *LavaflowFailure `json:"failure"`
+	FinishedAt *time.Time       `json:"finished_at"`
+
+	// HeldWorkflows For a run whose `pull_request_skipped` is `ungated_workflows`, every workflow job that held its fix. Null for any other run, and for a held run whose workflows LavaFlow couldn't list, such as one with more than 256 such jobs.
+	HeldWorkflows *LavaflowHeldWorkflows `json:"held_workflows"`
+	Id            openapi_types.UUID     `json:"id"`
+	IssueId       openapi_types.UUID     `json:"issue_id"`
+	Merge         *LavaflowMerge         `json:"merge"`
 
 	// ProjectId The project the run belongs to.
 	ProjectId   openapi_types.UUID   `json:"project_id"`
@@ -8336,6 +8354,18 @@ type LavaflowRun struct {
 
 	// UngatedWorkflows The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none or when the run opened no pull request. Null when there is no record of the workflows its pull request opened past, as for pull requests opened before LavaFlow recorded them. Under the merge stage, LavaFlow holds such a fix as unchecked, with `ungated_workflows`.
 	UngatedWorkflows *[]LavaflowAllowedWorkflow `json:"ungated_workflows"`
+}
+
+// LavaflowRunOpen Opens a held fix's pull request for the digests the person read.
+type LavaflowRunOpen struct {
+	// DiffSha256 The run's `diff_sha256` as read.
+	DiffSha256 string `json:"diff_sha256"`
+
+	// JobsSha256 The run's `held_workflows.jobs_sha256` as read.
+	JobsSha256 string `json:"jobs_sha256"`
+
+	// ProjectId The run's project.
+	ProjectId openapi_types.UUID `json:"project_id"`
 }
 
 // LavaflowRunStatus Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
@@ -8437,6 +8467,15 @@ type LavaflowStats struct {
 
 	// WindowStart The first UTC day in the window.
 	WindowStart openapi_types.Date `json:"window_start"`
+}
+
+// LavaflowWorkflowSource A branch or commit whose workflows LavaFlow read, and the commit it read them at.
+type LavaflowWorkflowSource struct {
+	// CommitSha The commit LavaFlow read the workflows at.
+	CommitSha string `json:"commit_sha"`
+
+	// Source The branch, or the commit SHA for a commit.
+	Source string `json:"source"`
 }
 
 // LiveLogLevel Canonical lowercase function runtime log level.
@@ -13967,6 +14006,9 @@ type PreflightProjectImportJSONRequestBody = ProjectImportPreflightRequest
 // StartProjectImportJSONRequestBody defines body for StartProjectImport for application/json ContentType.
 type StartProjectImportJSONRequestBody = ProjectImportStartRequest
 
+// OpenLavaflowRunJSONRequestBody defines body for OpenLavaflowRun for application/json ContentType.
+type OpenLavaflowRunJSONRequestBody = LavaflowRunOpen
+
 // UpdateLavaflowSettingsJSONRequestBody defines body for UpdateLavaflowSettings for application/json ContentType.
 type UpdateLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
 
@@ -15872,6 +15914,11 @@ type ClientInterface interface {
 
 	// GetLavaflowRun request
 	GetLavaflowRun(ctx context.Context, runId LavaflowRunId, params *GetLavaflowRunParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OpenLavaflowRunWithBody request with any body
+	OpenLavaflowRunWithBody(ctx context.Context, runId LavaflowRunId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	OpenLavaflowRun(ctx context.Context, runId LavaflowRunId, body OpenLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLavaflowSettings request
 	GetLavaflowSettings(ctx context.Context, params *GetLavaflowSettingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -18199,6 +18246,30 @@ func (c *Client) ListLavaflowRuns(ctx context.Context, params *ListLavaflowRunsP
 
 func (c *Client) GetLavaflowRun(ctx context.Context, runId LavaflowRunId, params *GetLavaflowRunParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLavaflowRunRequest(c.Server, runId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OpenLavaflowRunWithBody(ctx context.Context, runId LavaflowRunId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOpenLavaflowRunRequestWithBody(c.Server, runId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OpenLavaflowRun(ctx context.Context, runId LavaflowRunId, body OpenLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOpenLavaflowRunRequest(c.Server, runId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -26077,6 +26148,53 @@ func NewGetLavaflowRunRequest(server string, runId LavaflowRunId, params *GetLav
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewOpenLavaflowRunRequest calls the generic OpenLavaflowRun builder with application/json body
+func NewOpenLavaflowRunRequest(server string, runId LavaflowRunId, body OpenLavaflowRunJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewOpenLavaflowRunRequestWithBody(server, runId, "application/json", bodyReader)
+}
+
+// NewOpenLavaflowRunRequestWithBody generates requests for OpenLavaflowRun with any type of body
+func NewOpenLavaflowRunRequestWithBody(server string, runId LavaflowRunId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "run_id", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/runs/%s/open", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -40670,6 +40788,11 @@ type ClientWithResponsesInterface interface {
 	// GetLavaflowRunWithResponse request
 	GetLavaflowRunWithResponse(ctx context.Context, runId LavaflowRunId, params *GetLavaflowRunParams, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error)
 
+	// OpenLavaflowRunWithBodyWithResponse request with any body
+	OpenLavaflowRunWithBodyWithResponse(ctx context.Context, runId LavaflowRunId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OpenLavaflowRunClientResponse, error)
+
+	OpenLavaflowRunWithResponse(ctx context.Context, runId LavaflowRunId, body OpenLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*OpenLavaflowRunClientResponse, error)
+
 	// GetLavaflowSettingsWithResponse request
 	GetLavaflowSettingsWithResponse(ctx context.Context, params *GetLavaflowSettingsParams, reqEditors ...RequestEditorFn) (*GetLavaflowSettingsClientResponse, error)
 
@@ -44233,6 +44356,41 @@ func (r GetLavaflowRunClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetLavaflowRunClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type OpenLavaflowRunClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowRun
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r OpenLavaflowRunClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OpenLavaflowRunClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r OpenLavaflowRunClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -53922,6 +54080,23 @@ func (c *ClientWithResponses) GetLavaflowRunWithResponse(ctx context.Context, ru
 	return ParseGetLavaflowRunClientResponse(rsp)
 }
 
+// OpenLavaflowRunWithBodyWithResponse request with arbitrary body returning *OpenLavaflowRunClientResponse
+func (c *ClientWithResponses) OpenLavaflowRunWithBodyWithResponse(ctx context.Context, runId LavaflowRunId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OpenLavaflowRunClientResponse, error) {
+	rsp, err := c.OpenLavaflowRunWithBody(ctx, runId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOpenLavaflowRunClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) OpenLavaflowRunWithResponse(ctx context.Context, runId LavaflowRunId, body OpenLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*OpenLavaflowRunClientResponse, error) {
+	rsp, err := c.OpenLavaflowRun(ctx, runId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOpenLavaflowRunClientResponse(rsp)
+}
+
 // GetLavaflowSettingsWithResponse request returning *GetLavaflowSettingsClientResponse
 func (c *ClientWithResponses) GetLavaflowSettingsWithResponse(ctx context.Context, params *GetLavaflowSettingsParams, reqEditors ...RequestEditorFn) (*GetLavaflowSettingsClientResponse, error) {
 	rsp, err := c.GetLavaflowSettings(ctx, params, reqEditors...)
@@ -60675,6 +60850,67 @@ func ParseGetLavaflowRunClientResponse(rsp *http.Response) (*GetLavaflowRunClien
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOpenLavaflowRunClientResponse parses an HTTP response from a OpenLavaflowRunWithResponse call
+func ParseOpenLavaflowRunClientResponse(rsp *http.Response) (*OpenLavaflowRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OpenLavaflowRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 

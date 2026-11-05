@@ -26,6 +26,7 @@ const (
 	lavaflowFailedID   = "55555555-5555-4555-8555-555555555555"
 	lavaflowResourceID = "66666666-6666-4666-8666-666666666666"
 	lavaflowIssueID    = "88888888-8888-4888-8888-888888888888"
+	lavaflowHeldID     = "99999999-9999-4999-8999-999999999999"
 	lavaflowRepo       = "acme/shop"
 	// lavaflowIssueTitle is a real issue title: Volcano groups errors by a
 	// template of their message, with values replaced by placeholders.
@@ -60,6 +61,9 @@ type lavaflowServer struct {
 	planOff  bool
 	settings map[string]any
 	updates  []map[string]any
+	// opens is the body of each request to open a held fix, without
+	// project_id.
+	opens []map[string]any
 	// projects is the project_id each LavaFlow request named.
 	projects      []string
 	stats         map[string]any
@@ -80,6 +84,9 @@ type lavaflowServer struct {
 	// with the router's bare 404, as a platform release older than LavaFlow
 	// does.
 	routesMissing bool
+	// openRouteMissing answers the open route with the router's bare 404,
+	// as a release that reads held fixes but can't open them does.
+	openRouteMissing bool
 }
 
 func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
@@ -151,8 +158,8 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Every LavaFlow route is top-level and names its project: in the query on
-	// a read, in the body on the PUT. The queries and updates recorded leave
-	// project_id out; projects keeps it.
+	// a read, in the body on the PUT and the POST. The queries, updates and
+	// opens recorded leave project_id out; projects keeps it.
 	route, found := strings.CutPrefix(r.URL.Path, "/lavaflow")
 	if !found {
 		http.NotFound(w, r)
@@ -162,12 +169,12 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	projectID := query.Get("project_id")
 	query.Del("project_id")
 	var update map[string]any
-	if r.Method == http.MethodPut {
+	if r.Method == http.MethodPut || r.Method == http.MethodPost {
 		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			s.t.Errorf("decode update: %v", err)
 		}
 		if _, inQuery := r.URL.Query()["project_id"]; inQuery {
-			s.t.Errorf("the PUT names its project in the query")
+			s.t.Errorf("the %s names its project in the query", r.Method)
 		}
 		projectID, _ = update["project_id"].(string)
 		delete(update, "project_id")
@@ -213,6 +220,13 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			page["next_cursor"] = s.nextCursor
 		}
 		s.write(w, http.StatusOK, page)
+	case r.Method == http.MethodPost && strings.HasPrefix(route, "/runs/") && strings.HasSuffix(route, "/open"):
+		s.opens = append(s.opens, update)
+		if s.openRouteMissing {
+			http.NotFound(w, r)
+			return
+		}
+		s.open(w, strings.TrimSuffix(strings.TrimPrefix(route, "/runs/"), "/open"))
 	case r.Method == http.MethodGet && strings.HasPrefix(route, "/runs/"):
 		id := strings.TrimPrefix(route, "/runs/")
 		for _, run := range s.runs {
@@ -225,6 +239,34 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// open opens a held run's fix as the API does: only for the run's own
+// fingerprints, and then the run has its pull request.
+func (s *lavaflowServer) open(w http.ResponseWriter, id string) {
+	update := s.opens[len(s.opens)-1]
+	for _, run := range s.runs {
+		if run["id"] != id {
+			continue
+		}
+		held, _ := run["held_workflows"].(map[string]any)
+		switch {
+		case run["pull_request_skipped"] != "ungated_workflows" || held == nil:
+			s.write(w, http.StatusConflict, map[string]any{"error": "the run holds no fix to open", "code": "run_not_held"})
+		case update["diff_sha256"] != run["diff_sha256"] || update["jobs_sha256"] != held["jobs_sha256"]:
+			s.write(w, http.StatusConflict, map[string]any{"error": "the fix or its jobs changed", "code": "run_changed"})
+		default:
+			opened := maps.Clone(run)
+			opened["status"], opened["pull_request_skipped"], opened["held_workflows"] = "pr_open", nil, nil
+			opened["pull_request"] = map[string]any{
+				"number": 43, "url": "https://github.com/acme/shop/pull/43", "state": "open",
+				"opened_at": "2026-11-05T10:00:00Z", "draft": false, "draft_reason": nil,
+			}
+			s.write(w, http.StatusOK, opened)
+		}
+		return
+	}
+	s.write(w, http.StatusNotFound, map[string]any{"error": "run not found"})
 }
 
 func (s *lavaflowServer) gitConnection(w http.ResponseWriter) {
@@ -348,6 +390,54 @@ func failedRun() map[string]any {
 	}
 }
 
+// The fingerprints of the held run's fix and of its jobs.
+const (
+	heldDiffSHA256 = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+	heldJobsSHA256 = "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
+)
+
+// heldDiff is the held run's fix as LavaFlow's reviewers read it.
+const heldDiff = "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n@@ -1,2 +1,3 @@\n" +
+	" export async function handleCheckout(cart) {\n+  if (!cart) return conflict()\n   return charge(cart)\n"
+
+// heldRun is a run whose fix LavaFlow held because two workflow jobs could
+// run it with the repository's secrets before a person approves it.
+func heldRun() map[string]any {
+	return map[string]any{
+		"id": lavaflowHeldID, "project_id": lavaflowProjectID, "status": "completed",
+		"title": "Load the cart before checkout reads it", "issue_id": lavaflowIssueID, "resource": checkoutResource(),
+		"created_at": "2026-11-05T09:00:00Z", "finished_at": "2026-11-05T09:04:00Z",
+		"pull_request": nil, "merge": nil, "pull_request_skipped": "ungated_workflows",
+		"diagnosis": map[string]any{
+			"summary": "Checkout reads the cart before it loads.", "root_cause": "handleCheckout dereferences cart without a guard.",
+			"evidence": []any{}, "log_lines": []any{},
+		},
+		"review": map[string]any{"verdict": "passed", "rounds": 1}, "failure": nil, "ungated_workflows": []any{},
+		"diff": heldDiff, "diff_sha256": heldDiffSHA256,
+		"held_workflows": map[string]any{
+			"read_at": []any{
+				map[string]any{"source": "main", "commit_sha": "3f786850e387550fdab836ed7e6dc881de23001b"},
+				map[string]any{"source": "4f1c2b3d5e6f708192a3b4c5d6e7f8091a2b3c4d", "commit_sha": "4f1c2b3d5e6f708192a3b4c5d6e7f8091a2b3c4d"},
+			},
+			"jobs": []any{
+				map[string]any{"source": "main", "path": ".github/workflows/preview.yml", "job": "deploy-preview", "trigger": "pull_request_target"},
+				map[string]any{"source": "main", "path": ".github/workflows/broken.yml"},
+			},
+			"jobs_sha256": heldJobsSHA256,
+		},
+	}
+}
+
+// newHeldLavaflowServer is newLavaflowServer with the held run added. held
+// is that run, for a test to change through set.
+func newHeldLavaflowServer(t *testing.T) (fake *lavaflowServer, deps cliruntime.Deps, held map[string]any) {
+	t.Helper()
+	fake, deps = newLavaflowServer(t)
+	held = heldRun()
+	fake.set(func(s *lavaflowServer) { s.runs = append(s.runs, held) })
+	return fake, deps, held
+}
+
 // holdFix makes LavaFlow hold the fixed run's fix for a person, for these
 // reasons.
 func (s *lavaflowServer) holdFix(reasons ...map[string]any) {
@@ -378,7 +468,7 @@ func summaries(runs []map[string]any) []any {
 	items := make([]any, 0, len(runs))
 	for _, run := range runs {
 		summary := maps.Clone(run)
-		for _, detail := range []string{"diagnosis", "review", "diff", "failure", "ungated_workflows"} {
+		for _, detail := range []string{"diagnosis", "review", "diff", "diff_sha256", "failure", "ungated_workflows", "held_workflows"} {
 			delete(summary, detail)
 		}
 		items = append(items, summary)

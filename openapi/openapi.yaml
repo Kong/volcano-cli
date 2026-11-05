@@ -7388,6 +7388,11 @@ paths:
         its review. The run's project authorizes the read, so `project_id` is
         optional. The text holds the project's logs and source code, so this
         endpoint takes the same access as the project's log endpoints.
+
+        A run held because the repository's workflows could run its fix with
+        the repository's secrets before a person approves it
+        (`pull_request_skipped: ungated_workflows`) lists every such job in
+        `held_workflows`, beside the fix's `diff` and `diff_sha256`.
       operationId: getLavaflowRun
       security:
         - UserToken: []
@@ -7422,6 +7427,68 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Not found. A run of a project the caller can't read, or of a project being deleted, answers exactly like one that doesn't exist, and so does a run of another project than a given `project_id`. Code `feature_unavailable` means LavaFlow is not available for the project and it has no LavaFlow records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /lavaflow/runs/{run_id}/open:
+    post:
+      tags:
+        - LavaFlow
+      summary: Open a held fix's pull request
+      description: |
+        Opens the pull request for a fix LavaFlow held because the repository's
+        workflows could run it with the repository's secrets before a person
+        approves it (`pull_request_skipped: ungated_workflows`). The request
+        repeats the run's `diff_sha256` and `held_workflows.jobs_sha256`, so
+        the pull request opens only for the fix and jobs the person read.
+
+        Only a person decides: a project access token, MCP, and a platform
+        token that never expires get `403` with code `person_required`.
+      operationId: openLavaflowRun
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/LavaflowRunId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LavaflowRunOpen'
+      responses:
+        '200':
+          description: The run, with the pull request it opened.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowRun'
+        '400':
+          description: The body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Code `person_required` means a project access token, MCP or a platform token that never expires made the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. Code `feature_unavailable` means LavaFlow is not available for the project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Code `run_not_held` means the run holds no fix to open. Code `run_changed` means its fix or its held jobs changed since the digests were read.
           content:
             application/json:
               schema:
@@ -25158,6 +25225,64 @@ components:
       required:
         - source
         - path
+    LavaflowRunOpen:
+      type: object
+      description: Opens a held fix's pull request for the digests the person read.
+      properties:
+        project_id:
+          type: string
+          format: uuid
+          description: The run's project.
+        diff_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: The run's `diff_sha256` as read.
+        jobs_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: The run's `held_workflows.jobs_sha256` as read.
+      required:
+        - project_id
+        - diff_sha256
+        - jobs_sha256
+    LavaflowHeldWorkflows:
+      type: object
+      description: Every workflow job that could run a held fix's pull request with the repository's secrets before a person approves it, as LavaFlow found them when it held the fix, and the commits it read the workflows at.
+      properties:
+        read_at:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowWorkflowSource'
+          description: 'Each branch or commit whose workflows LavaFlow read: the project''s production branch, the repository''s default branch, and the commit the fix is cut from.'
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowAllowedWorkflow'
+          description: Every such job, at most 256, sorted by source, path and job.
+        jobs_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: 'Identifies `read_at` and `jobs` together. Treat it as opaque: it changes when a listed job, or a commit the workflows were read at, does.'
+          example: 2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae
+      required:
+        - read_at
+        - jobs
+        - jobs_sha256
+    LavaflowWorkflowSource:
+      type: object
+      description: A branch or commit whose workflows LavaFlow read, and the commit it read them at.
+      properties:
+        source:
+          type: string
+          description: The branch, or the commit SHA for a commit.
+          example: main
+        commit_sha:
+          type: string
+          description: The commit LavaFlow read the workflows at.
+          example: 3f786850e387550fdab836ed7e6dc881de23001b
+      required:
+        - source
+        - commit_sha
     PaginatedLavaflowRuns:
       type: object
       properties:
@@ -25648,7 +25773,13 @@ components:
             diff:
               type: string
               nullable: true
-              description: The fix as a unified diff. Null for now; a run that opened a pull request links to the change in `pull_request`.
+              description: The fix LavaFlow saved, as the unified diff its reviewers read, cut short past 256 KiB as they read it. A file's changes that may hold a credential are left out, with a line in their place that starts with `#`. Null for a run with no saved fix, or one saved before LavaFlow kept its diff.
+            diff_sha256:
+              type: string
+              nullable: true
+              pattern: ^[0-9a-f]{64}$
+              description: 'Identifies the commit LavaFlow pushes for the saved fix: the SHA-256, in hex, of the commit it is cut from, the files it writes and its whole diff, never cut short. Null whenever `diff` is, for the same reasons.'
+              example: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
             review:
               allOf:
                 - $ref: '#/components/schemas/LavaflowReview'
@@ -25664,12 +25795,19 @@ components:
               items:
                 $ref: '#/components/schemas/LavaflowAllowedWorkflow'
               description: The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none or when the run opened no pull request. Null when there is no record of the workflows its pull request opened past, as for pull requests opened before LavaFlow recorded them. Under the merge stage, LavaFlow holds such a fix as unchecked, with `ungated_workflows`.
+            held_workflows:
+              allOf:
+                - $ref: '#/components/schemas/LavaflowHeldWorkflows'
+              nullable: true
+              description: For a run whose `pull_request_skipped` is `ungated_workflows`, every workflow job that held its fix. Null for any other run, and for a held run whose workflows LavaFlow couldn't list, such as one with more than 256 such jobs.
           required:
             - diagnosis
             - diff
+            - diff_sha256
             - review
             - failure
             - ungated_workflows
+            - held_workflows
     GitRepositoryReference:
       type: object
       description: A GitHub repository, by its stable id and its name.
