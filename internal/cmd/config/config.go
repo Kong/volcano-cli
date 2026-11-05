@@ -186,6 +186,7 @@ func apply(ctx context.Context, opts deployOptions, manifest *projectconfig.Mani
 			visibilityLevelsHint(opts.deps, manifest, err),
 			customDomainsHint(manifest, err),
 			frontendRoutesHint(opts.deps, manifest, err),
+			frontendPreviewsCORSHint(opts.deps, manifest, err),
 		}
 		hints = slices.DeleteFunc(hints, func(hint string) bool { return hint == "" })
 		if len(hints) > 0 {
@@ -332,6 +333,20 @@ func frontendRoutesHint(deps cliruntime.Deps, manifest *projectconfig.Manifest, 
 		remedy = "upgrade your local-mode server image, or remove them"
 	}
 	return "if this server predates Frontend routes, it refuses frontend_routes this way: " + remedy
+}
+
+// frontendPreviewsCORSHint explains a 400 that may come from a server that
+// predates auth.cors.allow_frontend_previews, conditional for the reason
+// visibilityLevelsHint gives.
+func frontendPreviewsCORSHint(deps cliruntime.Deps, manifest *projectconfig.Manifest, err error) string {
+	if api.Status(err) != http.StatusBadRequest || !manifest.DeclaresAllowFrontendPreviews() {
+		return ""
+	}
+	remedy := "remove it"
+	if deps.LocalMode {
+		remedy = "upgrade your local-mode server image, or remove it"
+	}
+	return "if this server predates frontend preview CORS, it refuses auth.cors.allow_frontend_previews this way: " + remedy
 }
 
 // isConfigEndpointMissing detects a 404 from a server without the config

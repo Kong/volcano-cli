@@ -241,6 +241,9 @@ type AuthCORSManifest struct {
 	AllowedOrigins   *[]string `yaml:"allowed_origins,omitempty" json:"allowed_origins,omitempty"`
 	AllowCredentials *bool     `yaml:"allow_credentials,omitempty" json:"allow_credentials,omitempty"`
 	MaxAge           *int      `yaml:"max_age,omitempty" json:"max_age,omitempty"`
+	// AllowFrontendPreviews lets the project's live frontend preview origins
+	// pass its CORS checks. A server exports it only when it is on.
+	AllowFrontendPreviews *bool `yaml:"allow_frontend_previews,omitempty" json:"allow_frontend_previews,omitempty"`
 }
 
 // AuthProvidersManifest declares sign-in providers.
@@ -481,6 +484,13 @@ func (m *Manifest) DeclaresCustomDomains() bool {
 // frontend_routes, which only a server with Frontend routes accepts.
 func (m *Manifest) DeclaresFrontendRoutes() bool {
 	return m.Frontends != nil && slices.ContainsFunc(*m.Frontends, func(f FrontendManifest) bool { return f.FrontendRoutes != nil })
+}
+
+// DeclaresAllowFrontendPreviews reports whether the manifest sets
+// auth.cors.allow_frontend_previews, which only a server with that setting
+// accepts.
+func (m *Manifest) DeclaresAllowFrontendPreviews() bool {
+	return m.Auth != nil && m.Auth.Cors != nil && m.Auth.Cors.AllowFrontendPreviews != nil
 }
 
 // StandardFunctionNames returns the functions the manifest declares without a
