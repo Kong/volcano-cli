@@ -56,3 +56,22 @@ auth:
 	require.NoError(t, json.Unmarshal(encoded, &body))
 	assert.NotContains(t, body["auth"].(map[string]any)["cors"], "allow_frontend_previews")
 }
+
+func TestManifestDeclaresAllowFrontendPreviews(t *testing.T) {
+	for name, tc := range map[string]struct {
+		manifest string
+		want     bool
+	}{
+		"no auth":  {"version: 1\n", false},
+		"no cors":  {"version: 1\nauth:\n  email: {}\n", false},
+		"omitted":  {"version: 1\nauth:\n  cors:\n    enabled: true\n", false},
+		"false":    {"version: 1\nauth:\n  cors:\n    allow_frontend_previews: false\n", true},
+		"declared": {"version: 1\nauth:\n  cors:\n    allow_frontend_previews: true\n", true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			manifest, err := Parse([]byte(tc.manifest), noEnv)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, manifest.DeclaresAllowFrontendPreviews())
+		})
+	}
+}

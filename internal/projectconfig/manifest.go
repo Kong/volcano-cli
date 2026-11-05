@@ -486,6 +486,13 @@ func (m *Manifest) DeclaresFrontendRoutes() bool {
 	return m.Frontends != nil && slices.ContainsFunc(*m.Frontends, func(f FrontendManifest) bool { return f.FrontendRoutes != nil })
 }
 
+// DeclaresAllowFrontendPreviews reports whether the manifest sets
+// auth.cors.allow_frontend_previews, which only a server with that setting
+// accepts.
+func (m *Manifest) DeclaresAllowFrontendPreviews() bool {
+	return m.Auth != nil && m.Auth.Cors != nil && m.Auth.Cors.AllowFrontendPreviews != nil
+}
+
 // StandardFunctionNames returns the functions the manifest declares without a
 // durable kind, in declaration order. The counterpart of DurableFunctionNames:
 // a durable deploy uses it to refuse a name the manifest keeps standard. A name

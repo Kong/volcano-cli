@@ -326,7 +326,7 @@ auth:
 - `false` turns it off.
 - `config pull` writes it when it is on.
 
-A server that predates the setting ignores the key. See
+A server that predates the setting refuses the key in the dry run. See
 [CORS configuration](/platform/authentication/configuration/cors#frontend-previews).
 
 ## Shared variable names
