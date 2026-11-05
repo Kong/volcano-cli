@@ -423,6 +423,49 @@ func TestDeployHintsAtAServerWithoutFrontendRoutes(t *testing.T) {
 	}
 }
 
+func TestDeployHintsAtAServerWithoutFrontendPreviewsCORS(t *testing.T) {
+	const declared = "version: 1\nauth:\n  cors:\n    enabled: true\n    allow_frontend_previews: true\n"
+	for name, tc := range map[string]struct {
+		manifest  string
+		localMode bool
+		hint      string
+	}{
+		"cloud": {
+			manifest: declared,
+			hint:     "if this server predates frontend preview CORS, it refuses auth.cors.allow_frontend_previews this way: remove it",
+		},
+		"local": {
+			manifest:  declared,
+			localMode: true,
+			hint: "if this server predates frontend preview CORS, it refuses auth.cors.allow_frontend_previews this way: " +
+				"upgrade your local-mode server image, or remove it",
+		},
+		"omitted": {manifest: "version: 1\nauth:\n  cors:\n    enabled: true\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := chdirToTemp(t)
+			setConfigCommandTestHome(t)
+			saveConfigCommandTestConfig(t)
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte(tc.manifest), 0o644))
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeConfigCommandJSON(t, w, http.StatusBadRequest, map[string]any{"error": "invalid request"})
+			}))
+			defer server.Close()
+
+			deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, LocalMode: tc.localMode}
+			_, err := executeConfigCommand(t, New(deps), "deploy")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "HTTP 400: invalid request")
+			if tc.hint == "" {
+				assert.NotContains(t, err.Error(), "allow_frontend_previews")
+				return
+			}
+			assert.Contains(t, err.Error(), "\n"+tc.hint)
+		})
+	}
+}
+
 // public: false reads as "not public" but now admits signed-in users, so every
 // deploy that reads it, the dry run included, warns. The warning goes to
 // stderr so it cannot break output a script parses.

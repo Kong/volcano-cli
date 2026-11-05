@@ -307,6 +307,28 @@ See
 [Custom domains](frontends.md#custom-domains) and the
 [configuration reference](/platform/projects/configuration).
 
+## Frontend preview CORS
+
+`auth.cors.allow_frontend_previews: true` lets the project's own live frontend
+previews call its auth and other endpoints from their origins, including with
+credentials. It applies only while CORS is enabled. Previews need no listing:
+each is allowed while it serves and refused once it is deleted or expires.
+
+```yaml
+version: 1
+auth:
+  cors:
+    enabled: true
+    allow_frontend_previews: true
+```
+
+- Omitting `allow_frontend_previews` keeps the server's value.
+- `false` turns it off.
+- `config pull` writes it when it is on.
+
+A server that predates the setting refuses the key in the dry run. See
+[CORS configuration](/platform/authentication/configuration/cors#frontend-previews).
+
 ## Shared variable names
 
 Use `shared_variables` to select the complete list of existing project variables

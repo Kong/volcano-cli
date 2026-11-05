@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.67.0](https://github.com/Kong/volcano-cli/compare/v0.66.1...v0.67.0) (2026-11-05)
+
+
+### Features
+
+* **config:** accept auth.cors.allow_frontend_previews in project manifests ([#431](https://github.com/Kong/volcano-cli/issues/431)) ([c0b66d1](https://github.com/Kong/volcano-cli/commit/c0b66d13a66de30e3c048ffcd4a0c4187009e304))
+
+## [0.66.1](https://github.com/Kong/volcano-cli/compare/v0.66.0...v0.66.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **lavaflow:** read person_required for an owner who can't push, and vendor the merged settings contract ([#423](https://github.com/Kong/volcano-cli/issues/423)) ([89c6e28](https://github.com/Kong/volcano-cli/commit/89c6e286c17d2ef13cb97bcc6aa7cc0c90e28d4f))
+
 ## [0.66.0](https://github.com/Kong/volcano-cli/compare/v0.65.1...v0.66.0) (2026-11-04)
 
 
