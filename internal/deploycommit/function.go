@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Kong/volcano-cli/internal/api"
@@ -119,10 +120,8 @@ func (s *Source) functionClean(ctx context.Context, in Inputs) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	for _, path := range staged {
-		if feeds(path) {
-			return false, nil
-		}
+	if slices.ContainsFunc(staged, feeds) {
+		return false, nil
 	}
 	if whole {
 		if dirty, err := s.hasUntracked(ctx); err != nil || dirty {
@@ -249,7 +248,7 @@ func (s *Source) onDisk(path string, entry treeEntry, info os.FileInfo) (same bo
 	if err != nil {
 		return false, nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	recorded, err := Copy(io.Discard, f, info.Size(), full, nil)
 	if err != nil {
 		return false, nil, err
