@@ -125,6 +125,9 @@ func TestRestartFailsBeforeTeardownWhenCustomImageMissing(t *testing.T) {
 }
 
 func TestRestartFailsClearlyWhenComposeMissing(t *testing.T) {
+	setLocalDevTestHome(t)
+	withTempWorkingDir(t)
+
 	runner := &fakeCommandRunner{
 		run: func(_ context.Context, command Command) ([]byte, error) {
 			switch {
@@ -142,7 +145,13 @@ func TestRestartFailsClearlyWhenComposeMissing(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := NewService(cliruntime.Deps{}, WithDockerRunner(runner), WithTempDir(t.TempDir())).Restart(context.Background(), &out)
+	service := NewService(
+		cliruntime.Deps{},
+		WithDockerRunner(runner),
+		WithEnvironment(func() []string { return []string{"PATH=/bin"} }, func(string) string { return "" }),
+		WithTempDir(t.TempDir()),
+	)
+	err := service.Restart(context.Background(), &out)
 
 	require.ErrorContains(t, err, "docker compose v2 not found")
 	assert.NotContains(t, err.Error(), "unknown shorthand flag")

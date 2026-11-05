@@ -295,9 +295,8 @@ func (s Service) checkLocalPrerequisites(ctx context.Context, w io.Writer) error
 		return fmt.Errorf("docker not found: %w", err)
 	}
 	if _, err := s.dockerComposeVersion(ctx); err != nil {
-		err = composeUnavailableError{err: err}
-		reportComposeUnavailable(w, err)
-		return err
+		printComposeUnavailable(w)
+		return composeUnavailableError{err: err}
 	}
 	return nil
 }

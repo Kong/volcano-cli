@@ -153,3 +153,29 @@ func TestStopCleanKeepsErrorWhenDockerMissing(t *testing.T) {
 	require.ErrorIs(t, err, exec.ErrNotFound)
 	assert.NotContains(t, out.String(), "Docker Compose v2 is not available")
 }
+
+func TestStopKeepsErrorWhenContextCanceled(t *testing.T) {
+	setLocalDevTestHome(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	runner := &fakeCommandRunner{
+		run: func(_ context.Context, command Command) ([]byte, error) {
+			switch {
+			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
+				return []byte("true\n"), nil
+			case commandIsComposeDown(command, false):
+				cancel()
+				return nil, context.Canceled
+			default:
+				t.Fatalf("a canceled stop must not probe the Compose plugin: %s", commandDebug(command))
+				return nil, nil
+			}
+		},
+	}
+
+	var out bytes.Buffer
+	err := NewService(cliruntime.Deps{}, WithDockerRunner(runner)).Stop(ctx, &out, false)
+
+	require.ErrorIs(t, err, context.Canceled)
+	assert.NotContains(t, out.String(), "Docker Compose v2 is not available")
+}

@@ -260,9 +260,10 @@ func (e composeUnavailableError) Error() string {
 func (e composeUnavailableError) Unwrap() error { return e.err }
 
 // runCompose runs `docker compose` against the given compose files. Every
-// compose call goes through here so a missing plugin is reported the same way
-// everywhere. The plugin probe runs only after a failure, so a working setup
-// pays nothing for it.
+// compose call goes through here so a missing plugin always comes back as
+// composeUnavailableError; callers that can hit it print the guidance with
+// reportComposeUnavailable. The plugin probe runs only after a failure, so a
+// working setup pays nothing for it.
 func (s Service) runCompose(ctx context.Context, composePaths, env []string, args ...string) error {
 	command := Command{Name: dockerCommand, Args: append(composeFileArgs(composePaths), args...), Env: env}
 	if _, err := s.runner.Run(ctx, command); err != nil {
@@ -274,8 +275,9 @@ func (s Service) runCompose(ctx context.Context, composePaths, env []string, arg
 // diagnoseComposeFailure returns composeUnavailableError when a compose call
 // failed because the plugin is missing, and the original error otherwise.
 func (s Service) diagnoseComposeFailure(ctx context.Context, err error) error {
-	// No docker binary at all is not a Compose problem.
-	if errors.Is(err, exec.ErrNotFound) {
+	// No docker binary at all is not a Compose problem, and a canceled or
+	// expired context would fail the probe too.
+	if errors.Is(err, exec.ErrNotFound) || ctx.Err() != nil {
 		return err
 	}
 	if _, probeErr := s.dockerComposeVersion(ctx); probeErr != nil {
@@ -288,8 +290,12 @@ func (s Service) diagnoseComposeFailure(ctx context.Context, err error) error {
 // missing-plugin failure.
 func reportComposeUnavailable(w io.Writer, err error) {
 	if _, ok := errors.AsType[composeUnavailableError](err); ok {
-		renderCheckFail(w, "Docker Compose v2 is not available", composeGuidance())
+		printComposeUnavailable(w)
 	}
+}
+
+func printComposeUnavailable(w io.Writer) {
+	renderCheckFail(w, "Docker Compose v2 is not available", composeGuidance())
 }
 
 func (s Service) printContainerLogs(ctx context.Context, w io.Writer, containerName string, tailLines int) {

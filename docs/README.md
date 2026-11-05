@@ -236,8 +236,9 @@ volcano deploy --with-migrations   # deploy the whole project to it
 See [deploy.md](deploy.md) for what `volcano deploy` and `volcano cloud deploy`
 read and the order they deploy in.
 
-`volcano start` needs a Docker-compatible engine with the Docker Compose v2
-plugin (the `docker compose` subcommand). Run `volcano doctor` to check both.
+`volcano start`, `stop`, and `restart` need a Docker-compatible engine with the
+Docker Compose v2 plugin (the `docker compose` subcommand). Run `volcano doctor`
+to check both.
 
 `volcano start` runs the local stack from a bundled default server image.
 Override it with `--image` or `VOLCANO_IMAGE`; an explicitly selected image must
