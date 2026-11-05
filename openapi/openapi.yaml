@@ -25641,6 +25641,11 @@ components:
         - $ref: '#/components/schemas/LavaflowRunSummary'
         - type: object
           properties:
+            source_commit:
+              allOf:
+                - $ref: '#/components/schemas/LavaflowSourceCommit'
+              nullable: true
+              description: The commit the run read the code at. Null when it read none, as for a run that diagnosed from the logs alone.
             diagnosis:
               allOf:
                 - $ref: '#/components/schemas/LavaflowDiagnosis'
@@ -25665,6 +25670,7 @@ components:
                 $ref: '#/components/schemas/LavaflowAllowedWorkflow'
               description: The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none or when the run opened no pull request. Null when there is no record of the workflows its pull request opened past, as for pull requests opened before LavaFlow recorded them. Under the merge stage, LavaFlow holds such a fix as unchecked, with `ungated_workflows`.
           required:
+            - source_commit
             - diagnosis
             - diff
             - review
@@ -28924,6 +28930,34 @@ components:
         message is handed over, then `delivered`. `expired` means the wait's
         timeout passed first, and `cancelled` that the execution stopped
         waiting.
+    LavaflowCommitOrigin:
+      type: string
+      enum:
+        - push
+        - client_reported
+        - client_reported_repository
+        - repository
+      x-enum-varnames:
+        - LavaflowCommitOriginPush
+        - LavaflowCommitOriginClientReported
+        - LavaflowCommitOriginClientReportedRepository
+        - LavaflowCommitOriginRepository
+      description: 'Where the commit a run read came from. `push`: a push to the project''s connected repository deployed it. `client_reported`: the deploy client reported it, and Volcano matched the deployed files against it. `client_reported_repository`: the deploy client reported it, and Volcano confirmed only that the connected repository''s production branch holds it, without matching the deployed files, which for a function are build output. A fix on such a commit opens only while the production branch still holds it. `repository`: a reported problem''s run read the production branch at a commit it pinned, which need not be deployed.'
+    LavaflowSourceCommit:
+      type: object
+      description: The commit a run read its source at.
+      properties:
+        sha:
+          type: string
+          description: The commit's full SHA.
+        origin:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowCommitOrigin'
+          nullable: true
+          description: Where the commit came from. Null for a run recorded before Volcano kept it.
+      required:
+        - sha
+        - origin
     DurableApprovalFunction:
       type: object
       description: |

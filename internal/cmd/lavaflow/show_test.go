@@ -404,6 +404,49 @@ func TestShowSaysARunWithoutAPullRequestHasNoFix(t *testing.T) {
 	assert.Contains(t, out, "Fix:\n  No fix pull request was opened: the run failed.\nWarning: "+lavaflowFailureMessage+"\n")
 }
 
+// The run says which commit it read the code at, and where that commit came
+// from in plain words. A run that read none, or a server that doesn't send
+// the field, prints no source; one from before Volcano kept the origin
+// prints the commit alone.
+func TestShowSaysWhichCommitTheRunRead(t *testing.T) {
+	for origin, want := range map[any]string{
+		"push":                       "Source: commit 4f1c2b3 (deployed by a push to the repository)\n",
+		"client_reported":            "Source: commit 4f1c2b3 (reported at deploy, deployed files match it)\n",
+		"client_reported_repository": "Source: commit 4f1c2b3 (reported at deploy, found on the production branch)\n",
+		"repository":                 "Source: commit 4f1c2b3 (the production branch, not necessarily deployed)\n",
+		"mirrored\x1b[2J":            "Source: commit 4f1c2b3 (mirrored\\x1b[2J)\n",
+		nil:                          "Source: commit 4f1c2b3\n",
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.runs[0]["source_commit"] = map[string]any{"sha": lavaflowSourceSHA, "origin": origin}
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, origin)
+		assert.Contains(t, out, "Issue: "+lavaflowIssueID+"\n"+want, origin)
+
+		out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+		require.NoError(t, err, origin)
+		assert.Equal(t, map[string]any{"sha": lavaflowSourceSHA, "origin": origin}, decodeJSON(t, out)["source_commit"], origin)
+	}
+
+	fake, deps := newLavaflowServer(t)
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowFailedID)
+	require.NoError(t, err)
+	assert.NotContains(t, out, "Source", "null")
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowFailedID, "--json")
+	require.NoError(t, err)
+	source, sent := decodeJSON(t, out)["source_commit"]
+	assert.True(t, sent)
+	assert.Nil(t, source)
+
+	fake.set(func(s *lavaflowServer) { delete(s.runs[0], "source_commit") })
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.NotContains(t, out, "Source", "absent")
+}
+
 // show --json and list --json print the API's body as it came: every field
 // the API documents for a run, and one newer than the CLI's contract, which
 // re-encoding the CLI's own type would drop.
