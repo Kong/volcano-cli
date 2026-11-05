@@ -44,12 +44,12 @@ where it got to, and the fix pull request it opened. Show one with
 }
 
 func runList(ctx context.Context, opts listOptions) error {
-	page, err := clilavaflow.NewService(opts.deps).ListRuns(ctx, opts.query)
+	page, body, err := clilavaflow.NewService(opts.deps).ListRuns(ctx, opts.query)
 	if err != nil {
 		return err
 	}
 	if opts.jsonOutput {
-		return writeJSON(opts.out, page)
+		return writeAPIJSON(opts.out, body)
 	}
 	next := ""
 	if page.HasMore && page.NextCursor != nil && *page.NextCursor != "" {

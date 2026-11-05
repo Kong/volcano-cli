@@ -20,8 +20,7 @@ func TestShowSaysWhatTheRunFoundAndFixed(t *testing.T) {
 		"Status: PR open",
 		"Resource: function checkout",
 		"Title: " + lavaflowIssueTitle,
-		"Pull request: #42 (open) https://github.com/acme/shop/pull/42",
-		"Review: passed after 2 round(s)",
+		"Review: passed after 2 round(s)\nFix:\n  Pull request: #42 https://github.com/acme/shop/pull/42\n  State: open\n",
 		"Diagnosis\n  Checkout reads the cart before it loads.\n",
 		"Root cause\n  handleCheckout dereferences cart without a guard.\n",
 		"Evidence\n  - The error starts with the 10:02 deploy.\n",
@@ -112,13 +111,13 @@ func TestShowSaysWhenThePullRequestOpened(t *testing.T) {
 	// The CLI prints times in the machine's zone, so the expected line is
 	// built the same way rather than pinned to one zone.
 	opened := time.Date(2026, 10, 30, 9, 3, 0, 0, time.UTC).Local().Format("2006-01-02 15:04")
-	assert.Contains(t, out, "Pull request opened: "+opened+"\n")
+	assert.Contains(t, out, "  Opened: "+opened+"\n")
 
 	fake.set(func(s *lavaflowServer) { s.runs[0]["pull_request"].(map[string]any)["opened_at"] = nil })
 	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
-	assert.Contains(t, out, "Pull request: #42 (open) https://github.com/acme/shop/pull/42")
-	assert.NotContains(t, out, "Pull request opened")
+	assert.Contains(t, out, "  Pull request: #42 https://github.com/acme/shop/pull/42\n  State: open\n")
+	assert.NotContains(t, out, "Opened:")
 }
 
 // show says where a run's merge is and, once LavaFlow holds the fix, each
@@ -135,10 +134,14 @@ func TestShowSaysWhyLavaFlowHoldsTheFix(t *testing.T) {
 
 	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
-	assert.Contains(t, out, "Merge: held\n"+
-		"  - It changes authentication configuration. (volcano/auth.yaml, volcano/env.yaml)\n"+
-		"  - person commits\n"+
-		"The pull request is now yours to review and merge on GitHub.\n")
+	assert.Contains(t, out, "Fix:\n"+
+		"  Pull request: #42 https://github.com/acme/shop/pull/42\n"+
+		"  State: open\n"+
+		"  Opened: "+time.Date(2026, 10, 30, 9, 3, 0, 0, time.UTC).Local().Format("2006-01-02 15:04")+"\n"+
+		"  Merge: held\n"+
+		"    - It changes authentication configuration. (volcano/auth.yaml, volcano/env.yaml)\n"+
+		"    - person commits\n"+
+		"  The pull request is now yours to review and merge on GitHub.\n")
 }
 
 // Each merge status reads as words, with its reason; a stopped fix is the
@@ -155,8 +158,8 @@ func TestShowSaysWhereTheMergeIs(t *testing.T) {
 		{"queued", "paused", "Merge: paused while merging is off\n"},
 		{"queued", "", "Merge: queued to merge\n"},
 		{"merged", "", "Merge: merged\n"},
-		{"stopped", "checks_failed", "Merge: stopped (checks failed)\n" + yours + "\n"},
-		{"stopped", "paused_too_long", "Merge: stopped (paused too long)\n" + yours + "\n"},
+		{"stopped", "checks_failed", "Merge: stopped (checks failed)\n  " + yours + "\n"},
+		{"stopped", "paused_too_long", "Merge: stopped (paused too long)\n  " + yours + "\n"},
 		{"new_status", "", "Merge: new_status\n"},
 	} {
 		fake, deps := newLavaflowServer(t)
@@ -202,4 +205,219 @@ func TestShowDropsTheHandOffOnceThePullRequestCloses(t *testing.T) {
 			assert.NotContains(t, out, yours, status+"/"+state)
 		}
 	}
+}
+
+// An open pull request GitHub reports as a draft shows as one, with why in
+// plain words. A merged or closed one shows its state, and one opened before
+// LavaFlow recorded drafts shows as open.
+func TestShowSaysWhyThePullRequestIsADraft(t *testing.T) {
+	for _, tc := range []struct {
+		name, state   string
+		draft, reason any
+		want          string
+	}{
+		{"open_pr", "open", true, "open_pr", "State: draft (LavaFlow doesn't merge it; review it and mark it ready)\n"},
+		{
+			"review_unresolved", "open", true, "review_unresolved",
+			"State: draft (LavaFlow's review didn't pass the fix, so LavaFlow won't merge it; decide whether to finish it)\n",
+		},
+		{"converted_to_draft", "open", true, "converted_to_draft", "State: draft (someone made it a draft after LavaFlow opened it)\n"},
+		{"unknown reason", "open", true, "new_reason", "State: draft (new reason)\n"},
+		{"no reason", "open", true, nil, "State: draft\n"},
+		{"not a draft", "open", false, nil, "State: open\n"},
+		{"not recorded", "open", nil, nil, "State: open\n"},
+		{"closed draft", "closed", true, "open_pr", "State: closed\n"},
+		{"merged", "merged", false, nil, "State: merged\n"},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			pr := s.runs[0]["pull_request"].(map[string]any)
+			pr["state"], pr["draft"], pr["draft_reason"] = tc.state, tc.draft, tc.reason
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, tc.name)
+		assert.Contains(t, out, "Fix:\n  Pull request: #42 https://github.com/acme/shop/pull/42\n  "+tc.want, tc.name)
+	}
+}
+
+// A merged fix says whether LavaFlow merged it. An API older than
+// merged_by_lavaflow leaves it out, and the fix then says only that it merged.
+func TestShowSaysWhoMergedTheFix(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		mergedBy any
+		omit     bool
+		want     string
+	}{
+		{"by LavaFlow", true, false, "  Merge: merged by LavaFlow\n"},
+		{"by someone else", false, false, "  Merge: merged by someone else\n"},
+		{"null", nil, false, "  Merge: merged\n"},
+		{"missing", nil, true, "  Merge: merged\n"},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.runs[0]["status"] = "completed"
+			s.runs[0]["pull_request"].(map[string]any)["state"] = "merged"
+			merge := map[string]any{"status": "merged", "reason": nil, "hold_reasons": []any{}}
+			if !tc.omit {
+				merge["merged_by_lavaflow"] = tc.mergedBy
+			}
+			s.runs[0]["merge"] = merge
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, tc.name)
+		assert.Contains(t, out, "  State: merged\n", tc.name)
+		assert.Contains(t, out, tc.want, tc.name)
+		assert.NotContains(t, out, "yours to review", tc.name)
+	}
+}
+
+// A completed run with no pull request says why in plain words, with what to
+// do next, for every code the API documents, and for diagnose_only once the
+// API sends it. An unknown code prints as given.
+func TestShowSaysWhyARunOpenedNoPullRequest(t *testing.T) {
+	const none = "No fix pull request was opened"
+	for code, want := range map[string]string{
+		"not_fixable": none + ": the diagnosis found no change in the code that fixes the error, " +
+			"for example because the cause is outside it. Read the diagnosis below.",
+		"low_confidence": none + ": the diagnosis isn't confident enough to propose a fix. Read the diagnosis below.",
+		"no_patch":       none + ": LavaFlow proposed no change. Read the diagnosis below.",
+		"possible_credential": none + ": the fix or its description held what looks like a credential or a project secret, " +
+			"so LavaFlow pushed nothing. Apply the fix yourself from the diagnosis below.",
+		"possible_personal_data": none + ": the fix adds an email address the repository lacks, and the repository isn't private, " +
+			"so LavaFlow pushed nothing. Apply the fix yourself.",
+		"ungated_workflows": none + ": a workflow could run the fix with the repository's secrets before a person approves it. " +
+			"Gate that workflow on a label a person adds, or have the project's owner allow ungated workflows.",
+		"pull_request_open": none + ": another LavaFlow pull request for this issue is open. Review or close it first.",
+		"source_unavailable": none + ": LavaFlow couldn't read the repository at the deployed commit. " +
+			"Check the project's repository connection and that the commit exists.",
+		"permission_missing": none + ": the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs. " +
+			"Grant the App's requested permissions, and make sure the owner can push to the repository.",
+		"repository_changed": none + ": the project no longer deploys from the repository the run read. A new run uses the current one.",
+		"publish_failed":     none + ": opening the pull request failed. A new run tries again.",
+		"diagnose_only":      "Diagnosis only: this run wasn't set to open a fix.",
+		"new_code\x1b[2J":    none + ", for a reason this version of the CLI doesn't know: new_code\\x1b[2J.",
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) { s.openNoPullRequest(code) })
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, code)
+		assert.Contains(t, out, "Fix:\n  "+want+"\n", code)
+		assert.NotContains(t, out, "Pull request:", code)
+		assert.NotContains(t, out, "\x1b", code)
+		assertLavaFlowWording(t, out)
+	}
+}
+
+// A reason that points to the diagnosis leaves the pointer out when show
+// prints no diagnosis.
+func TestShowPointsToADiagnosisOnlyWhenItPrintsOne(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.openNoPullRequest("possible_credential")
+		s.runs[0]["diagnosis"] = nil
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "so LavaFlow pushed nothing. Apply the fix yourself.\n")
+	assert.NotContains(t, out, "below")
+}
+
+// A completed run with no pull request and no reason claims none: it may
+// have stopped short for any reason, an unreadable source among them. It
+// points to the diagnosis when show prints one.
+func TestShowClaimsNoReasonTheRunDidntRecord(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.openNoPullRequest(nil) })
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Fix:\n  No fix pull request was opened. LavaFlow didn't record why. Read the diagnosis below.\n")
+	assert.NotContains(t, out, "Diagnosis only")
+	assert.Contains(t, out, "\nDiagnosis\n  Checkout reads the cart before it loads.\n")
+
+	// An API older than pull_request_skipped leaves it out.
+	fake.set(func(s *lavaflowServer) {
+		delete(s.runs[0], "pull_request_skipped")
+		s.runs[0]["diagnosis"] = nil
+	})
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Fix:\n  No fix pull request was opened. LavaFlow didn't record why.\n")
+}
+
+// A run at work, or waiting to start, has no fix yet. One that failed or was
+// cancelled says so, and a failure then says why.
+func TestShowSaysARunWithoutAPullRequestHasNoFix(t *testing.T) {
+	for status, want := range map[string]string{
+		"queued":     "No fix yet: LavaFlow is still working on this run.",
+		"diagnosing": "No fix yet: LavaFlow is still working on this run.",
+		"fixing":     "No fix yet: LavaFlow is still working on this run.",
+		"reviewing":  "No fix yet: LavaFlow is still working on this run.",
+		"cancelled":  "No fix pull request was opened: the run was cancelled.",
+		"new_stage":  "No fix pull request was opened.",
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.openNoPullRequest(nil)
+			s.runs[0]["status"] = status
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, status)
+		assert.Contains(t, out, "Fix:\n  "+want+"\n", status)
+	}
+
+	_, deps := newLavaflowServer(t)
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowFailedID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Fix:\n  No fix pull request was opened: the run failed.\nWarning: "+lavaflowFailureMessage+"\n")
+}
+
+// show --json and list --json print the API's body as it came: every field
+// the API documents for a run, and one newer than the CLI's contract, which
+// re-encoding the CLI's own type would drop.
+func TestRunJSONKeepsEveryFieldTheAPISends(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		pr := s.runs[0]["pull_request"].(map[string]any)
+		pr["state"], pr["draft"], pr["draft_reason"], pr["deployed_at"] = "merged", false, nil, "2026-10-30T09:20:00Z"
+		s.runs[0]["status"] = "completed"
+		s.runs[0]["merge"] = map[string]any{"status": "merged", "reason": nil, "hold_reasons": []any{}, "merged_by_lavaflow": true}
+		s.runs[0]["failure"] = nil
+		s.runs[0]["ungated_workflows"] = []any{}
+		s.runs[1]["pull_request_skipped"] = "source_unavailable"
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+	require.NoError(t, err)
+	fake.mu.Lock()
+	want := asJSON(t, fake.runs[0])
+	fake.mu.Unlock()
+	assert.Equal(t, want, decodeJSON(t, out))
+	assert.NotContains(t, out, "Fix:")
+
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowFailedID, "--json")
+	require.NoError(t, err)
+	assert.Equal(t, "source_unavailable", decodeJSON(t, out)["pull_request_skipped"])
+
+	out, err = executeLavaflowCommand(t, New(deps), "list", "--json")
+	require.NoError(t, err)
+	items := decodeJSON(t, out)["data"].([]any)
+	require.Len(t, items, 2)
+	first, second := items[0].(map[string]any), items[1].(map[string]any)
+	for _, field := range []string{
+		"id", "project_id", "status", "resource", "issue_id", "title", "created_at", "finished_at",
+		"pull_request", "merge", "pull_request_skipped",
+	} {
+		assert.Contains(t, first, field)
+	}
+	assert.Equal(t, "2026-10-30T09:20:00Z", first["pull_request"].(map[string]any)["deployed_at"])
+	assert.Equal(t, true, first["merge"].(map[string]any)["merged_by_lavaflow"])
+	assert.Nil(t, first["pull_request_skipped"])
+	assert.Equal(t, "source_unavailable", second["pull_request_skipped"])
 }
