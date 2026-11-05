@@ -140,6 +140,13 @@ func TestStatusSaysMergingIsPausedAtAutonomyMerge(t *testing.T) {
 	assert.Contains(t, out, "Merging: paused; waiting fixes resume when it's back, new fixes open as pull requests for review\n")
 	assert.NotContains(t, out, "not available")
 	assertLavaFlowWording(t, out)
+
+	// Off, LavaFlow opens no new fix, so merging is just not available.
+	fake.set(func(s *lavaflowServer) { s.settings["enabled"] = false })
+	out, err = executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Merging: not available for this project\n")
+	assert.NotContains(t, out, "paused")
 }
 
 // A capabilities read that fails leaves merging unknown, as it does LavaFlow's

@@ -47,10 +47,10 @@ func runSettings(ctx context.Context, opts settingsOptions) error {
 		}
 		return writeJSON(opts.out, settings)
 	}
-	settings, mergeAvailable, err := service.SettingsAndMerging(ctx)
+	settings, available, mergeAvailable, err := service.SettingsAndMerging(ctx)
 	if err != nil {
 		return err
 	}
-	output.LavaflowSettings(opts.out, settings, mergeAvailable)
+	output.LavaflowSettings(opts.out, settings, available, mergeAvailable)
 	return nil
 }

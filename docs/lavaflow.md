@@ -138,7 +138,8 @@ on or changed, and that the owner can still turn it off.
 
 `Merging` says whether LavaFlow can merge its fixes for the project; `settings`
 shows it too. While it reads `not available for this project`,
-`settings set --autonomy merge` is refused. At autonomy `merge`, it reads:
+`settings set --autonomy merge` is refused. While LavaFlow is on at autonomy
+`merge`, it reads:
 
 ```text
 Merging: paused; waiting fixes resume when it's back, new fixes open as pull requests for review
