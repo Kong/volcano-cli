@@ -217,8 +217,10 @@ func TestShowSaysWhyThePullRequestIsADraft(t *testing.T) {
 		want          string
 	}{
 		{"open_pr", "open", true, "open_pr", "State: draft (LavaFlow doesn't merge it; review it and mark it ready)\n"},
-		{"review_unresolved", "open", true, "review_unresolved",
-			"State: draft (LavaFlow's review didn't pass the fix, so LavaFlow won't merge it; decide whether to finish it)\n"},
+		{
+			"review_unresolved", "open", true, "review_unresolved",
+			"State: draft (LavaFlow's review didn't pass the fix, so LavaFlow won't merge it; decide whether to finish it)\n",
+		},
 		{"converted_to_draft", "open", true, "converted_to_draft", "State: draft (someone made it a draft after LavaFlow opened it)\n"},
 		{"unknown reason", "open", true, "new_reason", "State: draft (new reason)\n"},
 		{"no reason", "open", true, nil, "State: draft\n"},
