@@ -144,9 +144,10 @@ func (r inputRules) classify(p string) (archive string, priority int, ok bool, r
 		if strings.HasPrefix(root, functionsPrefix) {
 			pr = priorityFunctionsLib
 		}
-		libArchive, kept := name, false
+		var libArchive string
+		var kept bool
 		if p == root {
-			kept = !r.matcher.ShouldIgnoreWith(name, p, false)
+			libArchive, kept = name, !r.matcher.ShouldIgnoreWith(name, p, false)
 		} else {
 			libArchive, kept = name+"/"+strings.TrimPrefix(p, root+"/"), keeps(r.matcher, root, "", p)
 		}
