@@ -156,7 +156,7 @@ func TestRunsOpenRefusesARunThatHoldsNoFixToOpen(t *testing.T) {
 			"more than 256, so it can't be opened. Gate those workflows on a label a person adds instead"},
 		"fingerprint the CLI can't check": {func(run map[string]any) {
 			run["diff_sha256"] = strings.ToUpper(heldDiffSHA256)
-		}, "Volcano sent run " + lavaflowHeldID + "'s fingerprints in a form this CLI can't check, so nothing was opened"},
+		}, "the fingerprints Volcano sent for run " + lavaflowHeldID + " aren't in a form this CLI can check, so nothing was opened"},
 	} {
 		fake, deps, held := newHeldLavaflowServer(t)
 		fake.set(func(*lavaflowServer) { tc.change(held) })

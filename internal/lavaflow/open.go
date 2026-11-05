@@ -107,7 +107,7 @@ func heldFix(runID string, run *apiclient.LavaflowRun, show string) (*HeldFix, e
 		return nil, fmt.Errorf("LavaFlow couldn't list every workflow job that held run %s's fix, as when there are "+
 			"more than 256, so it can't be opened. Gate those workflows on a label a person adds instead", runID)
 	case !fingerprintPattern.MatchString(*run.DiffSha256) || !fingerprintPattern.MatchString(run.HeldWorkflows.JobsSha256):
-		return nil, fmt.Errorf("Volcano sent run %s's fingerprints in a form this CLI can't check, so nothing was opened", runID)
+		return nil, fmt.Errorf("the fingerprints Volcano sent for run %s aren't in a form this CLI can check, so nothing was opened", runID)
 	}
 	return &HeldFix{Run: run, DiffSHA256: *run.DiffSha256, JobsSHA256: run.HeldWorkflows.JobsSha256}, nil
 }
