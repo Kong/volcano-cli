@@ -902,7 +902,7 @@ paths:
         where the archive needs a directory, a directory where it has a file, or a directory the
         session user cannot write. Code
         `sandbox_workspace_full` (413) means the session's disk has no room for it. Code
-        `sandbox_guest_outdated` (409) means the session started from an image that predates archive
+        `sandbox_image_outdated` (409) means the session started from an image that predates archive
         writes; start a new session from a current preset, or redeploy the template. A session outside
         `project_id`, or a project the caller cannot reach, answers 404 like an unknown session.
       operationId: createSandboxFileArchive
@@ -954,7 +954,7 @@ paths:
         directory is at `path`, a file or symbolic link is where a parent directory belongs, or the
         session user cannot write the parent directory. Code
         `sandbox_workspace_full` (413) means the session's disk has no room. Code
-        `sandbox_guest_outdated` (409) means the session started from an image that predates parted
+        `sandbox_image_outdated` (409) means the session started from an image that predates parted
         writes. A staging file stays until its file completes, a part at offset 0 restarts it, or the
         session ends. A session outside `project_id`, or a project the caller cannot reach, answers 404
         like an unknown session.

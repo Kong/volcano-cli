@@ -214,7 +214,7 @@ func (u *uploader) refusal(err error, localPath string) error {
 			"is a file or symbolic link there, or a file in the upload is a directory there"
 	case api.Code(err) == "sandbox_workspace_full":
 		reason = "the session's disk has no room for the upload"
-	case api.Code(err) == "sandbox_guest_outdated":
+	case api.Code(err) == "sandbox_image_outdated":
 		reason = "this session's image predates uploads; start a new session from a current preset, or redeploy its template"
 	case api.Code(err) == "sandbox_file_part_mismatch":
 		reason = localPath + " changed while it was being uploaded; upload again"

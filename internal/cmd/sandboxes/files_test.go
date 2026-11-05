@@ -214,7 +214,7 @@ func TestFilesUploadWordsEachRefusal(t *testing.T) {
 		{http.StatusRequestEntityTooLarge, "sandbox_archive_too_large", "over its per-call limits; upgrade the CLI"},
 		{http.StatusConflict, "sandbox_path_conflict", "conflicts with the session's workspace"},
 		{http.StatusRequestEntityTooLarge, "sandbox_workspace_full", "the session's disk has no room for the upload"},
-		{http.StatusConflict, "sandbox_guest_outdated", "start a new session from a current preset, or redeploy its template"},
+		{http.StatusConflict, "sandbox_image_outdated", "start a new session from a current preset, or redeploy its template"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.code, func(t *testing.T) {
