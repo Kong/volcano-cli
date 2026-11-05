@@ -63,9 +63,9 @@ the same when the owner's plan couldn't be read.
 
 Every command takes `--json` for the API's own fields and values.
 
-Text from a run, such as its diagnosis, log lines, diff and title, prints as
-plain text. A control character in it, such as a color code or a carriage
-return in a log line, prints as a visible escape such as `\x1b`, and with
+Text from a run, such as its diagnosis, evidence and title, prints as plain
+text. A control character in it, such as a color code or a carriage return
+copied from a log, prints as a visible escape such as `\x1b`, and with
 `--json` it stays escaped inside the JSON string.
 
 LavaFlow belongs to the project's owner. For anyone else, every command says
@@ -291,9 +291,9 @@ cause" (`diagnosing`), "Running: writing the fix" (`fixing`) or "Running:
 reviewing the fix" (`reviewing`). An open pull request shows as "PR open". A
 status the CLI doesn't know prints as the API gives it.
 
-`show` prints a run's diagnosis and root cause, the evidence and log lines it
-read, its review, the fix pull request and when it opened, where its merge is
-(see [Merge fixes](#merge-fixes)), and the diff when the run has one. A pull
+`show` prints a run's diagnosis and root cause, the evidence behind it, its
+review, the fix pull request and when it opened, and where its merge is (see
+[Merge fixes](#merge-fixes)). A pull
 request opened before LavaFlow recorded the time has no open time. A run that
 failed says why.
 
