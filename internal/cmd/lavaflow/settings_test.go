@@ -24,6 +24,7 @@ func TestSettingsShowsTheTextInFull(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "settings")
 	require.NoError(t, err)
 	assert.Contains(t, out, "LavaFlow: off")
+	assert.Contains(t, out, "Ungated workflows: not allowed\n")
 	assert.Contains(t, out, "Custom context\n  Checkout runs on Fridays only.\n  Ignore the legacy cart.\n")
 	assert.Contains(t, out, "System prompt\n  (not set)\n")
 	assertLavaFlowWording(t, out)

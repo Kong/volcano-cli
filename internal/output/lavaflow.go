@@ -44,6 +44,7 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	case "not_connected":
 		kv(w, on, "Repository", "none connected")
 	}
+	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
@@ -62,10 +63,12 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 		}
 		return
 	}
+	// LavaFlow on starts no run for a repository other than the one it was
+	// turned on for, so connecting one takes turning it on again.
 	opensFixes := settings.Autonomy == apiclient.OpenPr || settings.Autonomy == apiclient.Merge
 	if details.RepositoryState == "not_connected" && opensFixes {
-		Warning(w, "Connect a repository so LavaFlow can open fix pull requests: %s",
-			theme.Command(details.GitConnectCommand, on))
+		Warning(w, "Connect a repository, then turn LavaFlow on again so it can open fix pull requests: %s, then %s",
+			theme.Command(details.GitConnectCommand, on), theme.Command(details.EnableCommand, on))
 	}
 }
 

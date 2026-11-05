@@ -27,8 +27,9 @@ func newStatus(deps cliruntime.Deps) *cobra.Command {
 		Use:   "status",
 		Short: "Show whether LavaFlow is on",
 		Long: `Show whether LavaFlow is on for the current project, how far it goes, whether
-it can merge its fixes, whether a custom context and system prompt are set,
-and which repository its fix pull requests go to.`,
+it can merge its fixes, whether it opens fixes past ungated workflows, whether
+a custom context and system prompt are set, and which repository its fix pull
+requests go to.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
