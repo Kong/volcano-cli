@@ -250,6 +250,9 @@ func TestFunctionsDeployFollowsArchivePrecedence(t *testing.T) {
 	files["volcano/_util.js"] = "exports.util = 'elsewhere';\n"
 	files["volcano/functions/_util.js"] = "exports.util = 'shared';\n"
 	files["volcano/functions/orders/_util.js"] = "exports.util = 'orders';\n"
+	// A library under volcano/functions replaces one of the same name whole.
+	files["volcano/_shared/old.js"] = "exports.old = 1;\n"
+	files["volcano/functions/_shared/new.js"] = "exports.new = 1;\n"
 	writeShop(t, files)
 	head := deploycommittest.Repository(t, ".", "https://github.com/acme/shop.git")
 	clean := &api.FunctionCommit{Repository: "acme/shop", SHA: head}

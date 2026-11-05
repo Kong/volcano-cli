@@ -30,6 +30,9 @@ type inputRules struct {
 	entrypoint        string
 	manifests         []string
 	matcher           *ignore.Matcher
+	// functionsLibs names the libraries found under volcano/functions,
+	// which replace those of the same name elsewhere under volcano whole.
+	functionsLibs map[string]bool
 }
 
 // inputPaths returns whether a slash-separated path under baseDir is a file
@@ -37,11 +40,15 @@ type inputRules struct {
 // by the rules it packaged with: the function's file, or a file in its
 // directory that matcher keeps; a dependency manifest the walk from the
 // function's directory up to baseDir looks for; or a file in a shared library
-// that matcher keeps. A path is not one when the file packaging wrote at its
-// archive path comes first by those rules. sources holds, by archive path, the
-// slash-separated path under baseDir of each file packaging wrote. It returns
-// nil when it cannot place the function under baseDir.
-func inputPaths(info SourceInfo, baseDir string, matcher *ignore.Matcher, sources map[string]string) func(string) bool {
+// that matcher keeps, unless one of the same name under volcano/functions
+// replaced its library. A path is not one when the file packaging wrote at
+// its archive path comes first by those rules. sources holds, by archive
+// path, the slash-separated path under baseDir of each file packaging wrote,
+// and libs the libraries it found. It returns nil when it cannot place the
+// function under baseDir.
+func inputPaths(
+	info SourceInfo, baseDir string, matcher *ignore.Matcher, sources map[string]string, libs []SharedLibrary,
+) func(string) bool {
 	base, err := filepath.Abs(baseDir)
 	if err != nil {
 		return nil
@@ -55,9 +62,16 @@ func inputPaths(info SourceInfo, baseDir string, matcher *ignore.Matcher, source
 		return nil
 	}
 	rules := inputRules{
-		isDir:   info.IsDir,
-		source:  filepath.ToSlash(source),
-		matcher: matcher,
+		isDir:         info.IsDir,
+		source:        filepath.ToSlash(source),
+		matcher:       matcher,
+		functionsLibs: map[string]bool{},
+	}
+	functionsDir := filepath.Join(base, "volcano", "functions")
+	for _, lib := range libs {
+		if dir, err := filepath.Abs(filepath.Dir(lib.Path)); err == nil && dir == functionsDir {
+			rules.functionsLibs[lib.Name] = true
+		}
 	}
 	rules.sourceDir = path.Dir(rules.source)
 	if !info.IsDir {
@@ -127,6 +141,8 @@ func (r inputRules) classify(p string) (archive string, priority int, ok bool) {
 			pr = priorityFunctionsLib
 		}
 		switch {
+		case pr == priorityElsewhereLib && r.functionsLibs[name]:
+			// The library of the same name under volcano/functions replaced it.
 		case p == root && !r.matcher.ShouldIgnoreWith(name, p, false):
 			consider(name, pr)
 		case p != root && keeps(r.matcher, root, "", p):

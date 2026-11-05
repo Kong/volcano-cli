@@ -154,7 +154,7 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		Inputs: deploycommit.Inputs{
 			Dir:   baseDir,
 			Files: archive.files,
-			Feeds: inputPaths(info, baseDir, matcher, archive.sources(baseDir)),
+			Feeds: inputPaths(info, baseDir, matcher, archive.sources(baseDir), sharedLibs),
 			// The matcher reads it, so it decides what the archive leaves out.
 			Paths: []string{filepath.Join(baseDir, ".gitignore")},
 		},

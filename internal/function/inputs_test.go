@@ -107,7 +107,7 @@ func TestInputPathsOfASingleFileFunction(t *testing.T) {
 		Runtime: testRuntimeOption("nodejs24.x", "nodejs", true, nil, "index.js", "handler", []string{"package.json"}),
 	}
 
-	feeds := inputPaths(info, dir, matcher, map[string]string{"index.js": "volcano/functions/hello.js"})
+	feeds := inputPaths(info, dir, matcher, map[string]string{"index.js": "volcano/functions/hello.js"}, nil)
 	require.NotNil(t, feeds)
 	assert.True(t, feeds("volcano/functions/hello.js"))
 	assert.True(t, feeds("volcano/functions/package.json"))
@@ -118,11 +118,11 @@ func TestInputPathsOfASingleFileFunction(t *testing.T) {
 	feeds = inputPaths(info, dir, matcher, map[string]string{
 		"index.js":     "volcano/functions/hello.js",
 		"package.json": "volcano/functions/package.json",
-	})
+	}, nil)
 	assert.False(t, feeds("package.json"), "volcano/functions/package.json takes its archive path")
 	assert.True(t, feeds("volcano/functions/package.json"))
 
-	assert.Nil(t, inputPaths(SourceInfo{Path: filepath.Join(t.TempDir(), "hello.js")}, dir, matcher, nil), "a function outside the project")
+	assert.Nil(t, inputPaths(SourceInfo{Path: filepath.Join(t.TempDir(), "hello.js")}, dir, matcher, nil, nil), "a function outside the project")
 }
 
 // A file that comes first at an archive path stays an input when it is gone
@@ -142,7 +142,7 @@ func TestInputPathsFollowArchivePrecedence(t *testing.T) {
 	feeds := inputPaths(info, dir, matcher, map[string]string{
 		"index.js": "volcano/functions/orders/index.js",
 		"_util.js": "volcano/functions/orders/_util.js",
-	})
+	}, nil)
 	assert.True(t, feeds("volcano/functions/orders/_util.js"))
 	assert.False(t, feeds("volcano/functions/_util.js"))
 	assert.False(t, feeds("volcano/_util.js"))
@@ -153,10 +153,38 @@ func TestInputPathsFollowArchivePrecedence(t *testing.T) {
 		"index.js":     "volcano/functions/orders/index.js",
 		"_util.js":     "volcano/_util.js",
 		"package.json": "package.json",
-	})
+	}, nil)
 	assert.True(t, feeds("volcano/_util.js"))
 	assert.True(t, feeds("volcano/functions/_util.js"))
 	assert.True(t, feeds("volcano/functions/orders/_util.js"))
 	assert.True(t, feeds("package.json"))
 	assert.True(t, feeds("volcano/functions/orders/package.json"))
+}
+
+// A library under volcano/functions replaces the one of the same name
+// elsewhere under volcano whole, and stays an input when it is gone.
+func TestInputPathsReplaceSharedLibrariesByName(t *testing.T) {
+	dir := t.TempDir()
+	matcher, err := ignore.NewProjectMatcher(dir, cloudIgnorePatterns()...)
+	require.NoError(t, err)
+	info := SourceInfo{
+		Path:    filepath.Join(dir, "volcano", "functions", "hello.js"),
+		Runtime: testRuntimeOption("nodejs24.x", "nodejs", true, nil, "index.js", "handler", nil),
+	}
+	functionsLib := SharedLibrary{Path: filepath.Join(dir, "volcano", "functions", "_shared"), Name: "_shared", IsDir: true}
+	elsewhereLib := SharedLibrary{Path: filepath.Join(dir, "volcano", "_shared"), Name: "_shared", IsDir: true}
+
+	feeds := inputPaths(info, dir, matcher, map[string]string{
+		"index.js":       "volcano/functions/hello.js",
+		"_shared/new.js": "volcano/functions/_shared/new.js",
+	}, []SharedLibrary{functionsLib})
+	assert.True(t, feeds("volcano/functions/_shared/new.js"))
+	assert.False(t, feeds("volcano/_shared/old.js"))
+
+	feeds = inputPaths(info, dir, matcher, map[string]string{
+		"index.js":       "volcano/functions/hello.js",
+		"_shared/old.js": "volcano/_shared/old.js",
+	}, []SharedLibrary{elsewhereLib})
+	assert.True(t, feeds("volcano/_shared/old.js"))
+	assert.True(t, feeds("volcano/functions/_shared/new.js"), "the library that replaces it is gone")
 }

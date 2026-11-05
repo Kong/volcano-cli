@@ -16,6 +16,7 @@ import (
 // deploy of many functions reads each once.
 type worktreeCache struct {
 	staged     []string
+	stagedErr  error
 	stagedRead bool
 	// repositoryClean is whether the whole repository matches the commit,
 	// nil until asked.
@@ -200,12 +201,12 @@ func (s *Source) wholeRepositoryClean(ctx context.Context) (bool, error) {
 	if s.worktree.repositoryClean != nil {
 		return *s.worktree.repositoryClean, nil
 	}
+	// A failure is kept too, so a deploy of many functions reads the
+	// repository once whatever the outcome.
 	clean, err := s.readWholeRepository(ctx)
-	if err != nil {
-		return false, err
-	}
+	clean = clean && err == nil
 	s.worktree.repositoryClean = &clean
-	return clean, nil
+	return clean, err
 }
 
 func (s *Source) readWholeRepository(ctx context.Context) (bool, error) {
@@ -303,10 +304,11 @@ func (s *Source) onDisk(path string, entry treeEntry, mode bool) (same bool, fil
 // on disk.
 func (s *Source) staged(ctx context.Context) ([]string, error) {
 	if s.worktree.stagedRead {
-		return s.worktree.staged, nil
+		return s.worktree.staged, s.worktree.stagedErr
 	}
 	out, err := run(ctx, s.git, s.root, "-c", "core.fsmonitor=false", "ls-files", "-s", "-z")
 	if err != nil {
+		s.worktree.stagedErr, s.worktree.stagedRead = err, true
 		return nil, err
 	}
 	var staged []string
