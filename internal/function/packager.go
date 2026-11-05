@@ -145,19 +145,38 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		return nil, fmt.Errorf("failed to close gzip archive: %w", err)
 	}
 
+	roots := []string{info.Path}
+	if info.IsDir {
+		roots[0] = filepath.Dir(info.Path)
+	}
+	for _, lib := range sharedLibs {
+		roots = append(roots, lib.Path)
+	}
+	inputs := deploycommit.Inputs{
+		Dir:   baseDir,
+		Files: archive.files,
+		Roots: roots,
+		// The matcher reads it, so it decides what the archive leaves out.
+		Paths: []string{filepath.Join(baseDir, ".gitignore")},
+	}
+	if in := inputPaths(info, baseDir, matcher, archive.sources(baseDir), sharedLibs); in != nil {
+		inputs.Feeds = func(p string) bool {
+			feeds, _ := in(p)
+			return feeds
+		}
+		inputs.ShadowedBy = func(p string) string {
+			_, by := in(p)
+			return by
+		}
+	}
+
 	return &Package{
 		Name:        info.Name,
 		Runtime:     info.Runtime.Name,
 		Handler:     info.Runtime.Deployment.Handler,
 		ArchiveData: buf.Bytes(),
 		Size:        int64(buf.Len()),
-		Inputs: deploycommit.Inputs{
-			Dir:   baseDir,
-			Files: archive.files,
-			Feeds: inputPaths(info, baseDir, matcher, archive.sources(baseDir), sharedLibs),
-			// The matcher reads it, so it decides what the archive leaves out.
-			Paths: []string{filepath.Join(baseDir, ".gitignore")},
-		},
+		Inputs:      inputs,
 	}, nil
 }
 

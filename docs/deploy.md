@@ -261,10 +261,18 @@ doesn't have unless git ignores it. Those files are:
 
 A committed file the upload lacks counts as changed, such as one that was
 deleted or replaced by a symlink or a directory, or one in a directory a
-symlink replaced. Changes anywhere else, such as to another function, don't
-count, and neither do files every upload leaves out, such as `node_modules`
-and `*.log`. `functions deploy --all` checks each function on its own, so a
-batch can send the commit for some functions and not for others.
+symlink replaced. So does a committed file that another file or a shared
+library takes the place of, unless the commit or the upload holds that
+replacement: an empty `volcano/functions/_shared/` left behind still replaces
+a committed `volcano/_shared/`, and a checkout of the commit would upload the
+committed one.
+
+In a function's directory and in each shared library, a file git neither
+tracks nor ignores counts as changed even when the upload leaves it out, such
+as a `*.log` file or a `node_modules` directory that no `.gitignore` lists.
+Changes anywhere else, such as to another function, don't count. `functions deploy --all` checks each function
+on its own, so a batch can send the commit for some functions and not for
+others.
 
 A file git ignores is build output, such as a bundle your build writes to an
 ignored `volcano/functions/`. The CLI can't tell which sources made it, so a

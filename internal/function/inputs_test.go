@@ -11,6 +11,22 @@ import (
 	"github.com/Kong/volcano-cli/internal/ignore"
 )
 
+// feeding is whether inputPaths names each path an input.
+func feeding(in func(string) (bool, string)) func(string) bool {
+	return func(p string) bool {
+		feeds, _ := in(p)
+		return feeds
+	}
+}
+
+// shadowing is what inputPaths names as taking each path's place.
+func shadowing(in func(string) (bool, string)) func(string) string {
+	return func(p string) string {
+		_, by := in(p)
+		return by
+	}
+}
+
 func writeInput(t *testing.T, dir, path, content string) {
 	t.Helper()
 	full := filepath.Join(dir, filepath.FromSlash(path))
@@ -62,6 +78,12 @@ func TestPackageSourceRecordsItsInputs(t *testing.T) {
 	}, read)
 	assert.Equal(t, dir, pkg.Inputs.Dir)
 	assert.Equal(t, []string{filepath.Join(dir, ".gitignore")}, pkg.Inputs.Paths)
+	assert.Equal(t, []string{
+		filepath.Join(dir, "volcano", "functions", "hello"),
+		filepath.Join(dir, "volcano", "functions", "_runtime"),
+		filepath.Join(dir, "volcano", "functions", "_util.js"),
+		filepath.Join(dir, "volcano", "lib", "_helpers"),
+	}, pkg.Inputs.Roots)
 
 	feeds := pkg.Inputs.Feeds
 	require.NotNil(t, feeds)
@@ -94,6 +116,14 @@ func TestPackageSourceRecordsItsInputs(t *testing.T) {
 	} {
 		assert.False(t, feeds(path), "%s: %s", path, why)
 	}
+
+	shadowedBy := pkg.Inputs.ShadowedBy
+	require.NotNil(t, shadowedBy)
+	assert.Equal(t, "volcano/functions/hello/package.json", shadowedBy("package.json"))
+	assert.Equal(t, "volcano/functions/_util.js", shadowedBy("volcano/_util.js"))
+	assert.Empty(t, shadowedBy("volcano/functions/hello/index.js"), "an input")
+	assert.Empty(t, shadowedBy("volcano/functions/hello/secret.txt"), "left out, not replaced")
+	assert.Empty(t, shadowedBy("volcano/functions/other.js"), "another function")
 }
 
 // A single-file function's own file is its input, and so is each manifest
@@ -107,19 +137,22 @@ func TestInputPathsOfASingleFileFunction(t *testing.T) {
 		Runtime: testRuntimeOption("nodejs24.x", "nodejs", true, nil, "index.js", "handler", []string{"package.json"}),
 	}
 
-	feeds := inputPaths(info, dir, matcher, map[string]string{"index.js": "volcano/functions/hello.js"}, nil)
-	require.NotNil(t, feeds)
+	in := inputPaths(info, dir, matcher, map[string]string{"index.js": "volcano/functions/hello.js"}, nil)
+	require.NotNil(t, in)
+	feeds := feeding(in)
 	assert.True(t, feeds("volcano/functions/hello.js"))
 	assert.True(t, feeds("volcano/functions/package.json"))
 	assert.True(t, feeds("package.json"))
 	assert.False(t, feeds("volcano/functions/hello.ts"))
 	assert.False(t, feeds("volcano/functions/other.js"))
 
-	feeds = inputPaths(info, dir, matcher, map[string]string{
+	in = inputPaths(info, dir, matcher, map[string]string{
 		"index.js":     "volcano/functions/hello.js",
 		"package.json": "volcano/functions/package.json",
 	}, nil)
+	feeds = feeding(in)
 	assert.False(t, feeds("package.json"), "volcano/functions/package.json takes its archive path")
+	assert.Equal(t, "volcano/functions/package.json", shadowing(in)("package.json"))
 	assert.True(t, feeds("volcano/functions/package.json"))
 
 	assert.Nil(t, inputPaths(SourceInfo{Path: filepath.Join(t.TempDir(), "hello.js")}, dir, matcher, nil, nil), "a function outside the project")
@@ -139,21 +172,24 @@ func TestInputPathsFollowArchivePrecedence(t *testing.T) {
 	}
 
 	// The function's own _util.js takes the shared library's archive path.
-	feeds := inputPaths(info, dir, matcher, map[string]string{
+	in := inputPaths(info, dir, matcher, map[string]string{
 		"index.js": "volcano/functions/orders/index.js",
 		"_util.js": "volcano/functions/orders/_util.js",
 	}, nil)
+	feeds, shadowedBy := feeding(in), shadowing(in)
 	assert.True(t, feeds("volcano/functions/orders/_util.js"))
 	assert.False(t, feeds("volcano/functions/_util.js"))
+	assert.Equal(t, "volcano/functions/orders/_util.js", shadowedBy("volcano/functions/_util.js"))
 	assert.False(t, feeds("volcano/_util.js"))
+	assert.Equal(t, "volcano/functions/orders/_util.js", shadowedBy("volcano/_util.js"))
 
 	// With volcano/functions/_util.js gone, volcano/_util.js is read in its
 	// place, and the one that comes first still counts.
-	feeds = inputPaths(info, dir, matcher, map[string]string{
+	feeds = feeding(inputPaths(info, dir, matcher, map[string]string{
 		"index.js":     "volcano/functions/orders/index.js",
 		"_util.js":     "volcano/_util.js",
 		"package.json": "package.json",
-	}, nil)
+	}, nil))
 	assert.True(t, feeds("volcano/_util.js"))
 	assert.True(t, feeds("volcano/functions/_util.js"))
 	assert.True(t, feeds("volcano/functions/orders/_util.js"))
@@ -162,7 +198,8 @@ func TestInputPathsFollowArchivePrecedence(t *testing.T) {
 }
 
 // A library under volcano/functions replaces the one of the same name
-// elsewhere under volcano whole, and stays an input when it is gone.
+// elsewhere under volcano whole, files packaging leaves out aside, and stays
+// an input when it is gone.
 func TestInputPathsReplaceSharedLibrariesByName(t *testing.T) {
 	dir := t.TempDir()
 	matcher, err := ignore.NewProjectMatcher(dir, cloudIgnorePatterns()...)
@@ -174,17 +211,21 @@ func TestInputPathsReplaceSharedLibrariesByName(t *testing.T) {
 	functionsLib := SharedLibrary{Path: filepath.Join(dir, "volcano", "functions", "_shared"), Name: "_shared", IsDir: true}
 	elsewhereLib := SharedLibrary{Path: filepath.Join(dir, "volcano", "_shared"), Name: "_shared", IsDir: true}
 
-	feeds := inputPaths(info, dir, matcher, map[string]string{
+	in := inputPaths(info, dir, matcher, map[string]string{
 		"index.js":       "volcano/functions/hello.js",
 		"_shared/new.js": "volcano/functions/_shared/new.js",
 	}, []SharedLibrary{functionsLib})
+	feeds, shadowedBy := feeding(in), shadowing(in)
 	assert.True(t, feeds("volcano/functions/_shared/new.js"))
 	assert.False(t, feeds("volcano/_shared/old.js"))
+	assert.Equal(t, "volcano/functions/_shared", shadowedBy("volcano/_shared/old.js"))
+	assert.False(t, feeds("volcano/_shared/node_modules/x.js"))
+	assert.Empty(t, shadowedBy("volcano/_shared/node_modules/x.js"), "left out, not replaced")
 
-	feeds = inputPaths(info, dir, matcher, map[string]string{
+	feeds = feeding(inputPaths(info, dir, matcher, map[string]string{
 		"index.js":       "volcano/functions/hello.js",
 		"_shared/old.js": "volcano/_shared/old.js",
-	}, []SharedLibrary{elsewhereLib})
+	}, []SharedLibrary{elsewhereLib}))
 	assert.True(t, feeds("volcano/_shared/old.js"))
 	assert.True(t, feeds("volcano/functions/_shared/new.js"), "the library that replaces it is gone")
 }
