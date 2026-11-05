@@ -107,11 +107,12 @@ func (c *Client) GetLavaflowRun(ctx context.Context, projectID, runID uuid.UUID)
 	return run, resp.Body, nil
 }
 
-// OpenLavaflowRun opens the pull request for a fix LavaFlow held, sending
+// OpenLavaflowRun queues the pull request for a fix LavaFlow held, sending
 // the run's diff and job fingerprints as the caller read them, and returns
-// the run and the body the API sent it in. Volcano opens it only while both
-// still match. Only a person may: a project access token, MCP and a platform
-// token that never expires get 403 person_required.
+// the queued run and the body the API sent it in. Volcano opens it only while
+// both still match. Only a person may: a project access token, MCP, a
+// platform token that never expires and a sign-in that ended get 403
+// person_required. A 429 or 503 keeps its Retry-After.
 func (c *Client) OpenLavaflowRun(
 	ctx context.Context, projectID, runID uuid.UUID, diffSHA256, jobsSHA256 string,
 ) (*apiclient.LavaflowRun, []byte, error) {
@@ -121,9 +122,12 @@ func (c *Client) OpenLavaflowRun(
 	if err != nil {
 		return nil, nil, err
 	}
-	run, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403,
-		resp.JSON404, resp.JSON409)
+	run, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON202, resp.JSON400, resp.JSON401, resp.JSON403,
+		resp.JSON404, resp.JSON409, resp.JSON413, resp.JSON429, resp.JSON503)
 	if err != nil {
+		if resp.HTTPResponse != nil {
+			err = withRetryAfter(err, resp.HTTPResponse.Header)
+		}
 		return nil, nil, err
 	}
 	return run, resp.Body, nil

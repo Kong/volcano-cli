@@ -28,7 +28,7 @@ show one with '` + cliruntime.CommandPath(deps, "lavaflow show <run-id>") + `'.`
 
 // openDisclosure is what opening a held fix does, said before the question.
 const openDisclosure = "Opening the pull request lets every job above run this fix with the repository's secrets " +
-	"before anyone reviews it on GitHub. Volcano opens it only while the fix and its jobs still match both fingerprints."
+	"before anyone reviews it on GitHub. Volcano opens it only while the diff and its jobs still match both fingerprints."
 
 type runsOpenOptions struct {
 	deps cliruntime.Deps
@@ -50,17 +50,22 @@ func newRunsOpen(deps cliruntime.Deps) *cobra.Command {
 repository could run it with the repository's secrets before a person
 approves it. Opening it lets those workflow jobs run it.
 
-It first shows the fix's diff as LavaFlow's reviewers read it, every workflow
-job that will get the repository's secrets, and two fingerprints: one for the
-fix and one for the jobs. Then it asks, and the answer defaults to no. Volcano
-opens the pull request only while the fix and its jobs still match both
-fingerprints; if either changed, run this again.
+It first shows the fix's diff exactly as Volcano serves it, every workflow job
+that will get the repository's secrets, and two fingerprints: one for the diff
+and one for the jobs. Then it asks, and the answer defaults to no. Volcano
+opens the pull request only while the diff and its jobs still match both
+fingerprints. If either changed, it shows them again and asks again, up to
+` + fmt.Sprint(clilavaflow.MaxOpenRounds) + ` times.
+
+A diff that leaves out a file because it may contain a credential, or that
+is cut short, isn't fully reviewable: it's shown with a warning, and LavaFlow
+can't open it.
 
 A person decides, signed in with 'volcano login' or another platform token
 that expires: a project access token is refused before anything is sent. At a
 terminal it always asks. --yes answers the question only when stdin isn't a
-terminal. What it shows and asks goes to stderr, so --json prints only the run
-as the API returned it.`,
+terminal, and then a changed fix ends the command. What it shows and asks
+goes to stderr, so --json prints only the queued run as the API returned it.`,
 		Example: "  " + cliruntime.CommandPath(deps, "lavaflow runs open 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c"),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -78,10 +83,19 @@ as the API returned it.`,
 }
 
 func runRunsOpen(ctx context.Context, opts runsOpenOptions, runID string) error {
-	run, body, err := clilavaflow.NewService(opts.deps).OpenHeldFix(ctx, runID, func(held *clilavaflow.HeldFix) error {
-		output.LavaflowHeldFix(opts.errOut, held.Run, held.DiffSHA256, held.JobsSHA256)
-		fmt.Fprintln(opts.errOut)
-		return confirmOpen(opts)
+	run, body, err := clilavaflow.NewService(opts.deps).OpenHeldFix(ctx, runID, clilavaflow.OpenPrompt{
+		Show: func(held *clilavaflow.HeldFix, round int) {
+			if round > 1 {
+				output.Warning(opts.errOut, "The fix or its jobs changed since you looked. Read them again:")
+				fmt.Fprintln(opts.errOut)
+			}
+			output.LavaflowHeldFix(opts.errOut, held)
+			fmt.Fprintln(opts.errOut)
+		},
+		Confirm: func(*clilavaflow.HeldFix) error { return confirmOpen(opts) },
+		// Only a person at a terminal reads a changed fix again; --yes
+		// answered for the fix first shown, not a changed one.
+		Reask: confirm.CanPrompt(opts.in),
 	})
 	if errors.Is(err, errDeclined) {
 		return nil
@@ -92,7 +106,7 @@ func runRunsOpen(ctx context.Context, opts runsOpenOptions, runID string) error 
 	if opts.jsonOutput {
 		return writeAPIJSON(opts.out, body)
 	}
-	output.LavaflowHeldFixOpened(opts.out, run, cliruntime.CommandPath(opts.deps, "lavaflow show "+runID))
+	output.LavaflowHeldFixQueued(opts.out, run.Id.String(), cliruntime.CommandPath(opts.deps, "lavaflow show "+run.Id.String()))
 	return nil
 }
 

@@ -8319,11 +8319,17 @@ type LavaflowRun struct {
 	CreatedAt time.Time          `json:"created_at"`
 	Diagnosis *LavaflowDiagnosis `json:"diagnosis"`
 
-	// Diff The fix LavaFlow saved, as the unified diff its reviewers read, cut short past 256 KiB as they read it. A file's changes that may hold a credential are left out, with a line in their place that starts with `#`. Null for a run with no saved fix, or one saved before LavaFlow kept its diff.
+	// Diff The fix LavaFlow saved, as the unified diff its reviewers read, cut short past 256 KiB as they read it, with a last line that starts with `[diff truncated`. When any change to a file may hold a credential, every change to that file is left out, with one line in their place that starts with `# LavaFlow withheld` and names the file. A run held with `possible_credential` leaves out every file. Null for a run with no saved fix, or one saved before LavaFlow kept its diff.
 	Diff *string `json:"diff"`
 
-	// DiffSha256 Identifies the commit LavaFlow pushes for the saved fix: the SHA-256, in hex, of the commit it is cut from, the files it writes and its whole diff, never cut short. Null whenever `diff` is, for the same reasons.
+	// DiffSha256 The SHA-256, in hex, of `diff` exactly as served, its UTF-8 bytes. Null whenever `diff` is.
 	DiffSha256 *string `json:"diff_sha256"`
+
+	// DiffTruncated `diff` was cut short, so it does not show the whole fix. False when `diff` is null.
+	DiffTruncated bool `json:"diff_truncated"`
+
+	// DiffWithheld The files whose changes `diff` leaves out, by path, as its `# LavaFlow withheld` lines name them; an empty string for a file whose path may itself hold a credential. Empty when `diff` shows every file, or is null.
+	DiffWithheld []string `json:"diff_withheld"`
 
 	// Failure Why the run stopped or waits, null when nothing went wrong.
 	Failure    *LavaflowFailure `json:"failure"`
@@ -44365,12 +44371,15 @@ func (r GetLavaflowRunClientResponse) ContentType() string {
 type OpenLavaflowRunClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *LavaflowRun
+	JSON202      *LavaflowRun
 	JSON400      *Error
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -60870,12 +60879,12 @@ func ParseOpenLavaflowRunClientResponse(rsp *http.Response) (*OpenLavaflowRunCli
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
 		var dest LavaflowRun
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON200 = &dest
+		response.JSON202 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error
@@ -60911,6 +60920,27 @@ func ParseOpenLavaflowRunClientResponse(rsp *http.Response) (*OpenLavaflowRunCli
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 

@@ -15,63 +15,108 @@ import (
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 )
 
-// heldReview is everything runs open shows for the held run before it asks,
-// as it reads on stderr.
-const heldReview = `Run: ` + lavaflowHeldID + `
+// heldQuestion is how runs open asks, after what opening does.
+const heldQuestion = "Opening the pull request lets every job above run this fix with the repository's secrets " +
+	"before anyone reviews it on GitHub. Volcano opens it only while the diff and its jobs still match both fingerprints.\n" +
+	"Open the fix's pull request? Type 'y' or 'yes' to confirm: "
+
+// heldReview is everything runs open shows for the held run with this diff,
+// as it prints it, and this fix fingerprint, as it reads on stderr. The two
+// fingerprints are the only digests in it: the base commit is named, not
+// shown by its SHA.
+func heldReview(diff, diffSHA256 string) string {
+	return `Run: ` + lavaflowHeldID + `
 Resource: function checkout
 Title: Load the cart before checkout reads it
 Issue: ` + lavaflowIssueID + `
 Held: a workflow could run this fix with the repository's secrets before a person approves it
 
 Diff
-  --- a/functions/checkout.ts
+` + diff + `
+Jobs that will get the repository's secrets (2)
+  - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target
+  - .github/workflows/broken.yml on the fix's base commit: couldn't be read
+Workflows read on: main, the fix's base commit
+
+Fix fingerprint: ` + diffSHA256 + `
+Jobs fingerprint: ` + heldJobsSHA256 + `
+`
+}
+
+// heldDiffShown is heldDiff as runs open prints it.
+const heldDiffShown = `  --- a/functions/checkout.ts
   +++ b/functions/checkout.ts
   @@ -1,2 +1,3 @@
    export async function handleCheckout(cart) {
   +  if (!cart) return conflict()
      return charge(cart)
+`
 
-Jobs that will get the repository's secrets (2)
-  - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target
-  - .github/workflows/broken.yml on main: couldn't be read
-Workflows read at:
-  - main at 3f786850e387550fdab836ed7e6dc881de23001b
-  - commit 4f1c2b3d5e6f708192a3b4c5d6e7f8091a2b3c4d
+// wantOpen is the whole body of a request to open the held fix with these
+// fingerprints.
+func wantOpen(diffSHA256 string) map[string]any {
+	return map[string]any{"project_id": lavaflowProjectID, "diff_sha256": diffSHA256, "jobs_sha256": heldJobsSHA256}
+}
 
-Fix fingerprint: ` + heldDiffSHA256 + `
-Jobs fingerprint: ` + heldJobsSHA256 + `
+// answers gives one answer per read, as a terminal does, and calls before,
+// when set, ahead of each answer it gives.
+type answers struct {
+	lines  []string
+	before func(n int)
+	n      int
+}
 
-Opening the pull request lets every job above run this fix with the repository's secrets before anyone reviews it on GitHub. Volcano opens it only while the fix and its jobs still match both fingerprints.
-Open the fix's pull request? Type 'y' or 'yes' to confirm: `
+func (a *answers) Read(p []byte) (int, error) {
+	if a.n >= len(a.lines) {
+		return 0, io.EOF
+	}
+	if a.before != nil {
+		a.before(a.n)
+	}
+	n := copy(p, a.lines[a.n])
+	a.n++
+	return n, nil
+}
 
-// runs open shows the fix, every job that will get the repository's secrets
-// and both fingerprints, asks, and opens the fix with exactly the
-// fingerprints it showed.
+func notATerminal(t *testing.T) io.Reader {
+	t.Helper()
+	stdin, err := os.Open(os.DevNull)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = stdin.Close() })
+	return stdin
+}
+
+// runs open shows the diff as served, every job that will get the
+// repository's secrets and both fingerprints, asks, and queues the fix with
+// a body of exactly the project and the two fingerprints it showed.
 func TestRunsOpenShowsTheHeldFixThenOpensItWithWhatItShowed(t *testing.T) {
 	fake, deps, _ := newHeldLavaflowServer(t)
 
 	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
 	require.NoError(t, err)
-	assert.Equal(t, heldReview, errOut)
-	assert.Equal(t, "✓ LavaFlow opened the fix's pull request: #43 https://github.com/acme/shop/pull/43\n", out)
+	assert.Equal(t, heldReview(heldDiffShown, heldDiffSHA256)+"\n"+heldQuestion, errOut)
+	assert.Equal(t, "✓ LavaFlow will open the fix's pull request shortly. Run "+lavaflowHeldID+
+		" is queued; follow it with 'volcano cloud lavaflow show "+lavaflowHeldID+"'\n", out)
 	fake.set(func(s *lavaflowServer) {
-		assert.Equal(t, []map[string]any{{"diff_sha256": heldDiffSHA256, "jobs_sha256": heldJobsSHA256}}, s.opens)
+		assert.Equal(t, []map[string]any{wantOpen(heldDiffSHA256)}, s.opens)
 		assert.Equal(t, []string{lavaflowProjectID, lavaflowProjectID}, s.projects, "the read and the open name the project")
 	})
+	assert.NotContains(t, errOut, heldBaseCommit, "no commit digest is shown")
+	assert.NotContains(t, errOut, "3f786850e387550fdab836ed7e6dc881de23001b", "no commit digest is shown")
 	assertLavaFlowWording(t, errOut+out)
 }
 
-// --json prints the run as the API answered the open, and what runs open
+// --json prints the queued run as the API answered it, and what runs open
 // shows and asks goes to stderr.
-func TestRunsOpenJSONPrintsTheRunTheAPIAnswered(t *testing.T) {
+func TestRunsOpenJSONPrintsTheQueuedRun(t *testing.T) {
 	_, deps, _ := newHeldLavaflowServer(t)
 
 	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("yes\n"), "runs", "open", lavaflowHeldID, "--json")
 	require.NoError(t, err)
-	assert.Equal(t, heldReview, errOut)
+	assert.Equal(t, heldReview(heldDiffShown, heldDiffSHA256)+"\n"+heldQuestion, errOut)
 	run := decodeJSON(t, out)
-	assert.Equal(t, "pr_open", run["status"])
-	assert.Equal(t, "https://github.com/acme/shop/pull/43", run["pull_request"].(map[string]any)["url"])
+	assert.Equal(t, "queued", run["status"])
+	assert.Equal(t, lavaflowHeldID, run["id"])
 }
 
 // The answer defaults to no: anything but y or yes opens nothing and exits
@@ -83,7 +128,7 @@ func TestRunsOpenOpensNothingWhenThePersonDeclines(t *testing.T) {
 		out, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(answer), "runs", "open", lavaflowHeldID)
 		require.NoError(t, err, "%q", answer)
 		assert.Empty(t, out, "%q", answer)
-		assert.Equal(t, heldReview+"Cancelled.\n", errOut, "%q", answer)
+		assert.Equal(t, heldReview(heldDiffShown, heldDiffSHA256)+"\n"+heldQuestion+"Cancelled.\n", errOut, "%q", answer)
 		assert.Empty(t, fake.opens, "%q", answer)
 	}
 }
@@ -91,14 +136,6 @@ func TestRunsOpenOpensNothingWhenThePersonDeclines(t *testing.T) {
 // --yes answers only when stdin isn't a terminal, and only when it is given.
 // At a terminal the question is asked anyway.
 func TestRunsOpenYesAnswersOnlyWithoutATerminal(t *testing.T) {
-	notATerminal := func(t *testing.T) io.Reader {
-		t.Helper()
-		stdin, err := os.Open(os.DevNull)
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = stdin.Close() })
-		return stdin
-	}
-
 	fake, deps, _ := newHeldLavaflowServer(t)
 	_, errOut, err := executeLavaflowCommandSplit(t, New(deps), notATerminal(t), "runs", "open", lavaflowHeldID)
 	require.EqualError(t, err, "stdin is not a terminal: nothing was opened; pass --yes to open the fix without the question")
@@ -113,10 +150,10 @@ func TestRunsOpenYesAnswersOnlyWithoutATerminal(t *testing.T) {
 	fake, deps, _ = newHeldLavaflowServer(t)
 	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), notATerminal(t), "runs", "open", lavaflowHeldID, "--yes")
 	require.NoError(t, err)
-	assert.Equal(t, strings.TrimSuffix(heldReview, "Open the fix's pull request? Type 'y' or 'yes' to confirm: "), errOut,
-		"--yes still shows the fix, its jobs and the fingerprints")
-	assert.Contains(t, out, "#43")
-	assert.Equal(t, []map[string]any{{"diff_sha256": heldDiffSHA256, "jobs_sha256": heldJobsSHA256}}, fake.opens)
+	assert.Equal(t, heldReview(heldDiffShown, heldDiffSHA256)+"\n"+strings.TrimSuffix(heldQuestion, "Open the fix's pull request? Type 'y' or 'yes' to confirm: "),
+		errOut, "--yes still shows the diff, its jobs and the fingerprints")
+	assert.Contains(t, out, "is queued")
+	assert.Equal(t, []map[string]any{wantOpen(heldDiffSHA256)}, fake.opens)
 
 	// A test's reader stands in for a terminal, as confirm.CanPrompt reads it.
 	fake, deps, _ = newHeldLavaflowServer(t)
@@ -126,8 +163,59 @@ func TestRunsOpenYesAnswersOnlyWithoutATerminal(t *testing.T) {
 	assert.Empty(t, fake.opens)
 }
 
+// A diff that leaves out a file that may hold a credential, or is cut short,
+// isn't fully reviewable, so LavaFlow can't open it. runs open shows the diff
+// with each marker highlighted, warns with the count and the paths, then
+// refuses without asking or sending anything.
+func TestRunsOpenRefusesADiffThatIsntFullyReviewable(t *testing.T) {
+	const withheldSecret = "# LavaFlow withheld the changes to \".env.example\" because they may contain a credential"
+	const withheldUnnamed = "# LavaFlow withheld the changes to a file, whose path it does not show, because they may contain a credential"
+	const cut = "[diff truncated; the rest of the change is not shown]"
+	for name, tc := range map[string]struct {
+		change   func(held map[string]any)
+		shown    []string
+		warnings string
+	}{
+		"withheld files": {func(held map[string]any) {
+			setHeldDiff(held, heldDiff+withheldSecret+"\n"+withheldUnnamed+"\n")
+			held["diff_withheld"] = []any{".env.example", ""}
+		}, []string{"!! " + withheldSecret + "\n", "!! " + withheldUnnamed + "\n"},
+			"Warning: The diff leaves out the changes to 2 file(s) because they may contain a credential:\n" +
+				"!! .env.example\n!! a file whose path isn't shown\n"},
+		"cut short": {func(held map[string]any) {
+			setHeldDiff(held, heldDiff+cut+"\n")
+			held["diff_truncated"] = true
+		}, []string{"!! " + cut + "\n"},
+			"Warning: The diff is cut short past 256 KiB, so it doesn't show the whole fix.\n"},
+		"cut short by the API's word alone": {func(held map[string]any) {
+			held["diff_truncated"] = true
+		}, nil, "Warning: The diff is cut short past 256 KiB, so it doesn't show the whole fix.\n"},
+		"withheld by the API's word alone": {func(held map[string]any) {
+			held["diff_withheld"] = []any{"config/deploy.sh"}
+		}, nil, "Warning: The diff leaves out the changes to 1 file(s) because they may contain a credential:\n" +
+			"!! config/deploy.sh\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps, held := newHeldLavaflowServer(t)
+			fake.set(func(*lavaflowServer) { tc.change(held) })
+
+			_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID, "--yes")
+			require.ErrorIs(t, err, clilavaflow.ErrNotReviewable)
+			assert.Equal(t, "LavaFlow can't open a fix whose diff isn't fully reviewable, so nothing was opened", err.Error())
+			for _, line := range tc.shown {
+				assert.Contains(t, errOut, line, "the marker is highlighted in the diff")
+			}
+			assert.Contains(t, errOut, "Jobs fingerprint: "+heldJobsSHA256+"\n\n"+tc.warnings,
+				"the warning comes last, after the fingerprints")
+			assert.NotContains(t, errOut, "Open the fix's pull request?")
+			assert.Empty(t, fake.opens, "nothing is sent")
+		})
+	}
+}
+
 // A run that holds no fix a person can open is refused before anything is
-// asked, saying why.
+// shown or asked, saying why. So is a diff whose bytes aren't the ones its
+// fingerprint covers, since what was shown wouldn't be what opens.
 func TestRunsOpenRefusesARunThatHoldsNoFixToOpen(t *testing.T) {
 	for name, tc := range map[string]struct {
 		change func(run map[string]any)
@@ -157,6 +245,10 @@ func TestRunsOpenRefusesARunThatHoldsNoFixToOpen(t *testing.T) {
 		"fingerprint the CLI can't check": {func(run map[string]any) {
 			run["diff_sha256"] = strings.ToUpper(heldDiffSHA256)
 		}, "the fingerprints Volcano sent for run " + lavaflowHeldID + " aren't in a form this CLI can check, so nothing was opened"},
+		"diff that isn't the one fingerprinted": {func(run map[string]any) {
+			run["diff"] = heldDiff + "+  audit(cart)\n"
+		}, "the diff Volcano sent for run " + lavaflowHeldID + " doesn't match its fix fingerprint, so nothing was opened. " +
+			"Run this again"},
 	} {
 		fake, deps, held := newHeldLavaflowServer(t)
 		fake.set(func(*lavaflowServer) { tc.change(held) })
@@ -168,16 +260,81 @@ func TestRunsOpenRefusesARunThatHoldsNoFixToOpen(t *testing.T) {
 	}
 }
 
-// Volcano opens the fix only for the fingerprints the person was shown. When
-// either changed, or the run no longer holds a fix, the CLI says so and keeps
-// the 409 for the exit code. A 409 code this CLI doesn't know reads as a
-// change: running it again shows the run as it is.
-func TestRunsOpenSaysWhenTheFixChangedOrIsNoLongerHeld(t *testing.T) {
+// When the diff or its jobs changed before Volcano opened the fix, runs open
+// reads the run again, shows the new diff, jobs and fingerprints, and asks
+// again; the open sends the new fingerprints.
+func TestRunsOpenShowsAChangedFixAgainAndAsksAgain(t *testing.T) {
+	const changed = heldDiff + "+  audit(cart)\n"
+	fake, deps, held := newHeldLavaflowServer(t)
+	stdin := &answers{lines: []string{"y\n", "y\n"}, before: func(n int) {
+		if n == 0 {
+			fake.set(func(*lavaflowServer) { setHeldDiff(held, changed) })
+		}
+	}}
+
+	out, errOut, err := executeLavaflowCommandSplit(t, New(deps), stdin, "runs", "open", lavaflowHeldID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "is queued")
+	assert.Equal(t, heldReview(heldDiffShown, heldDiffSHA256)+"\n"+heldQuestion+
+		"Warning: The fix or its jobs changed since you looked. Read them again:\n\n"+
+		heldReview(heldDiffShown+"  +  audit(cart)\n", sha256Hex(changed))+"\n"+heldQuestion, errOut)
+	fake.set(func(s *lavaflowServer) {
+		assert.Equal(t, []map[string]any{wantOpen(heldDiffSHA256), wantOpen(sha256Hex(changed))}, s.opens,
+			"each open sent the fingerprints shown just before it")
+	})
+}
+
+// A fix that changes every time it's shown stops after three rounds.
+func TestRunsOpenStopsAFixThatKeepsChanging(t *testing.T) {
+	fake, deps, _ := newHeldLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.refuse, s.refuseMethod = http.StatusConflict, http.MethodPost
+		s.refusal = map[string]any{"error": "the fix or its jobs changed", "code": "run_changed"}
+	})
+
+	_, errOut, err := executeLavaflowCommandSplit(t, New(deps), &answers{lines: []string{"y\n", "y\n", "y\n", "y\n"}},
+		"runs", "open", lavaflowHeldID)
+	require.ErrorIs(t, err, clilavaflow.ErrFixKeptChanging)
+	assert.Equal(t, "the fix or its jobs changed each of the 3 times you looked, so nothing was opened; run it again later", err.Error())
+	assert.Equal(t, http.StatusConflict, api.Status(err))
+	assert.Equal(t, 3, strings.Count(errOut, "Open the fix's pull request?"))
+	assert.Len(t, fake.opens, 3)
+}
+
+// --yes without a terminal answered for the fix first shown, so a change
+// ends the command rather than open a fix no one read.
+func TestRunsOpenWithYesStopsWhenTheFixChanged(t *testing.T) {
+	fake, deps, _ := newHeldLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.refuse, s.refuseMethod = http.StatusConflict, http.MethodPost
+		s.refusal = map[string]any{"error": "the fix or its jobs changed", "code": "run_changed"}
+	})
+
+	_, errOut, err := executeLavaflowCommandSplit(t, New(deps), notATerminal(t), "runs", "open", lavaflowHeldID, "--yes")
+	require.ErrorIs(t, err, clilavaflow.ErrFixChanged)
+	assert.Equal(t, "the fix or its jobs changed since you looked; run it again", err.Error())
+	assert.Equal(t, 1, strings.Count(errOut, "Fix fingerprint:"), "shown once")
+	assert.Len(t, fake.opens, 1)
+	assert.Len(t, fake.queries["/runs/"+lavaflowHeldID], 1, "the run is read once")
+}
+
+// Every other 409 says plainly why LavaFlow can't open the fix, and keeps the
+// 409 for the exit code. A code this CLI doesn't know keeps Volcano's words.
+func TestRunsOpenSaysWhyVolcanoCantOpenIt(t *testing.T) {
+	show := "'volcano cloud lavaflow show " + lavaflowHeldID + "'"
 	for code, want := range map[string]string{
-		"run_changed": "the fix or its jobs changed since you looked; run it again",
-		"run_moved":   "the fix or its jobs changed since you looked; run it again",
-		"run_not_held": "LavaFlow run " + lavaflowHeldID + " no longer holds a fix to open. " +
-			"See it with 'volcano cloud lavaflow show " + lavaflowHeldID + "'",
+		"run_not_held": "LavaFlow run " + lavaflowHeldID + " no longer holds a fix a person can open. See it with " + show,
+		"lavaflow_disabled": "LavaFlow is off for this project, so it can't open the fix. " +
+			"The project's owner turns it on with 'volcano cloud lavaflow enable'",
+		"repository_required": "the project has no connected repository, so LavaFlow can't open the fix. " +
+			"Connect one with 'volcano git connect'",
+		"repository_changed": "the project no longer deploys from the repository this fix was written for, " +
+			"so LavaFlow can't open it. A new run uses the current one",
+		"lavaflow_run_in_progress": "another LavaFlow run is in progress for this issue, so LavaFlow can't open this fix now. " +
+			"Try again once it finishes",
+		"run_attempts_exhausted": "LavaFlow has used every attempt it gets for run " + lavaflowHeldID +
+			", so it won't open the fix. See the run with " + show,
+		"run_moved": `LavaFlow didn't open the fix. Volcano said: "refused"`,
 	} {
 		fake, deps, _ := newHeldLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
@@ -185,40 +342,34 @@ func TestRunsOpenSaysWhenTheFixChangedOrIsNoLongerHeld(t *testing.T) {
 			s.refusal = map[string]any{"error": "refused", "code": code}
 		})
 
-		_, _, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
+		_, _, err := executeLavaflowCommandSplit(t, New(deps), &answers{lines: []string{"y\n", "y\n"}}, "runs", "open", lavaflowHeldID)
 		require.EqualError(t, err, want, code)
 		assert.Equal(t, http.StatusConflict, api.Status(err), code)
+		assert.Len(t, fake.opens, 1, "%s: asked once, sent once", code)
 	}
+}
 
-	// The fake API checks the fingerprints itself: a job listed after the
-	// read changes the run's jobs fingerprint, and the open is refused.
-	fake, deps, held := newHeldLavaflowServer(t)
-	_, _, err := executeLavaflowCommandSplit(t, New(deps), &changeOnRead{
-		Reader: strings.NewReader("y\n"),
-		change: func() {
-			fake.set(func(*lavaflowServer) {
-				held["held_workflows"].(map[string]any)["jobs_sha256"] = strings.Repeat("0", 64)
+// A 429 or 503 says when to try again, from Retry-After, and nothing is
+// retried for the person.
+func TestRunsOpenSaysWhenToTryAgain(t *testing.T) {
+	for _, status := range []int{http.StatusTooManyRequests, http.StatusServiceUnavailable} {
+		for retryAfter, when := range map[string]string{"30": "Try again in 30s", "": "Try again later"} {
+			fake, deps, _ := newHeldLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.refuse, s.refuseMethod = status, http.MethodPost
+				s.refusal = map[string]any{"error": "too many opens"}
+				if retryAfter != "" {
+					s.refusalHeaders = map[string]string{"Retry-After": retryAfter}
+				}
 			})
-		},
-	}, "runs", "open", lavaflowHeldID)
-	require.ErrorIs(t, err, clilavaflow.ErrFixChanged)
-	assert.Equal(t, []map[string]any{{"diff_sha256": heldDiffSHA256, "jobs_sha256": heldJobsSHA256}}, fake.opens,
-		"the open sent what was shown, not what changed")
-}
 
-// changeOnRead runs change when the person answers, as if the run changed
-// while they read it.
-type changeOnRead struct {
-	io.Reader
-	change func()
-}
-
-func (r *changeOnRead) Read(p []byte) (int, error) {
-	if r.change != nil {
-		r.change()
-		r.change = nil
+			_, _, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
+			require.EqualError(t, err, "LavaFlow didn't open the fix: Volcano can't take the request now (too many opens). "+when,
+				"%d %q", status, retryAfter)
+			assert.Equal(t, status, api.Status(err))
+			assert.Len(t, fake.opens, 1, "%d %q: not retried", status, retryAfter)
+		}
 	}
-	return r.Reader.Read(p)
 }
 
 // Volcano refuses a credential that isn't a person's own sign-in with
@@ -251,6 +402,27 @@ func TestRunsOpenPointsAPersonRequiredRefusalAtVolcanoLogin(t *testing.T) {
 			require.EqualError(t, err, tc.want)
 			assert.Equal(t, http.StatusForbidden, api.Status(err))
 		})
+	}
+}
+
+// The owner's plan and a read-only credential are refused with 403 too, each
+// said for what it is.
+func TestRunsOpenSaysWhenThePlanOrCredentialCantOpenIt(t *testing.T) {
+	for name, tc := range map[string]struct {
+		refusal map[string]any
+		want    string
+	}{
+		"plan":      {map[string]any{"error": "LavaFlow needs a plan that includes it", "code": "plan_required"}, lavaflowPlanRequired},
+		"read-only": {map[string]any{"error": "project access token is read-only"}, `LavaFlow didn't open the fix: Volcano refused this credential, as it does a read-only access token. Volcano said: "project access token is read-only"`},
+	} {
+		fake, deps, _ := newHeldLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse, s.refuseMethod, s.refusal = http.StatusForbidden, http.MethodPost, tc.refusal
+		})
+
+		_, _, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
+		require.EqualError(t, err, tc.want, name)
+		assert.Equal(t, http.StatusForbidden, api.Status(err), name)
 	}
 }
 
@@ -313,9 +485,9 @@ func TestRunsOpenSaysWhenTheRunIsUnknown(t *testing.T) {
 	require.EqualError(t, err, `invalid run ID "latest": use an ID from 'volcano cloud lavaflow list'`)
 }
 
-// Where LavaFlow isn't available, runs open says why before it shows or asks
-// anything, as every LavaFlow command does. An API that has LavaFlow's runs
-// but can't open a held fix says that.
+// Where LavaFlow isn't available, as in local mode, runs open says why
+// before it shows or asks anything, as every LavaFlow command does. An API
+// that has LavaFlow's runs but can't open a held fix says that.
 func TestRunsOpenSaysWhenItCantOpenHere(t *testing.T) {
 	fake, deps, _ := newHeldLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
@@ -328,44 +500,36 @@ func TestRunsOpenSaysWhenItCantOpenHere(t *testing.T) {
 	assertNothingShownOrAsked(t, errOut, "unavailable")
 
 	fake, deps, _ = newHeldLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.refuse, s.refuseMethod = http.StatusNotFound, http.MethodPost
+		s.refusal = map[string]any{"error": "LavaFlow is not available", "code": "feature_unavailable"}
+	})
+	_, _, err = executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
+	require.EqualError(t, err, lavaflowNotAvailable, "the open's own feature_unavailable")
+
+	fake, deps, _ = newHeldLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) { s.openRouteMissing = true })
 	_, _, err = executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
 	require.ErrorIs(t, err, clilavaflow.ErrOpenUnsupported)
 	assert.Equal(t, "this Volcano API can't open a fix LavaFlow held yet", err.Error())
 }
 
-// The diff leaves out a file's changes that may hold a credential, and is cut
-// short past 256 KiB. runs open says so before it asks, since opening opens
-// all of the fix. Text from the run prints as plain text.
-func TestRunsOpenSaysWhatTheDiffDoesntShow(t *testing.T) {
+// Text from the run prints as plain text: a control character in the diff or
+// a job prints as a visible escape.
+func TestRunsOpenPrintsRunTextAsPlainText(t *testing.T) {
 	fake, deps, held := newHeldLavaflowServer(t)
 	fake.set(func(*lavaflowServer) {
-		held["diff"] = heldDiff +
-			"# LavaFlow left out a file's changes here because they may contain a credential\n" +
-			"--- a/.env.example\n+++ b/.env.example\n@@ -0,0 +1 @@\n+MODE=\x1b[31mred\n" +
-			"[diff truncated; the rest of the change is not shown]\n"
+		setHeldDiff(held, heldDiff+"+  log(\"\x1b[31mred\")\n")
 		jobs := held["held_workflows"].(map[string]any)["jobs"].([]any)
 		jobs[0].(map[string]any)["job"] = "deploy\x1b]0;title\x07"
 	})
 
 	_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("n\n"), "runs", "open", lavaflowHeldID)
 	require.NoError(t, err)
-	assert.Contains(t, errOut, "  +MODE=\\x1b[31mred\n")
+	assert.Contains(t, errOut, "  +  log(\"\\x1b[31mred\")\n")
 	assert.Contains(t, errOut, "job deploy\\x1b]0;title\\x07, runs on pull_request_target")
-	assert.Contains(t, errOut, "Warning: 1 file(s)' changes aren't shown above because they may contain a credential. "+
-		"Opening the fix opens them too.\n")
-	assert.Contains(t, errOut, "Warning: The diff above is cut short past 256 KiB. Opening the fix opens the rest too.\n")
 	for _, raw := range []string{"\x1b", "\x07"} {
 		assert.NotContains(t, errOut, raw)
-	}
-}
-
-// assertNothingShownOrAsked checks a refused runs open showed no fix and
-// asked nothing.
-func assertNothingShownOrAsked(t *testing.T, errOut, name string) {
-	t.Helper()
-	for _, shown := range []string{"Diff\n", "Fix fingerprint:", "Open the fix's pull request?"} {
-		assert.NotContains(t, errOut, shown, name)
 	}
 }
 
@@ -385,8 +549,22 @@ func TestShowNamesRunsOpenForAHeldFix(t *testing.T) {
 		assert.NotContains(t, out, hint, id)
 	}
 
-	fake.set(func(*lavaflowServer) { held["held_workflows"] = nil })
-	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowHeldID)
-	require.NoError(t, err)
-	assert.NotContains(t, out, hint, "a held fix whose jobs LavaFlow couldn't list can't be opened")
+	for name, change := range map[string]func(){
+		"jobs not listed": func() { held["held_workflows"] = nil },
+		"withheld file":   func() { held["diff_withheld"] = []any{".env"} },
+	} {
+		fake.set(func(*lavaflowServer) { change() })
+		out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowHeldID)
+		require.NoError(t, err)
+		assert.NotContains(t, out, hint, name)
+	}
+}
+
+// assertNothingShownOrAsked checks a refused runs open showed no fix and
+// asked nothing.
+func assertNothingShownOrAsked(t *testing.T, errOut, name string) {
+	t.Helper()
+	for _, shown := range []string{"Diff\n", "Fix fingerprint:", "Open the fix's pull request?"} {
+		assert.NotContains(t, errOut, shown, name)
+	}
 }

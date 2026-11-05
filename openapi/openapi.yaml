@@ -7437,14 +7437,16 @@ paths:
         - LavaFlow
       summary: Open a held fix's pull request
       description: |
-        Opens the pull request for a fix LavaFlow held because the repository's
-        workflows could run it with the repository's secrets before a person
-        approves it (`pull_request_skipped: ungated_workflows`). The request
-        repeats the run's `diff_sha256` and `held_workflows.jobs_sha256`, so
-        the pull request opens only for the fix and jobs the person read.
+        Queues the pull request for a fix LavaFlow held because the
+        repository's workflows could run it with the repository's secrets
+        before a person approves it (`pull_request_skipped:
+        ungated_workflows`). The request repeats the run's `diff_sha256` and
+        `held_workflows.jobs_sha256`, so the pull request opens only for the
+        diff and jobs the person read.
 
-        Only a person decides: a project access token, MCP, and a platform
-        token that never expires get `403` with code `person_required`.
+        Only a person decides: a project access token, MCP, a platform token
+        that never expires and a sign-in that ended get `403` with code
+        `person_required`.
       operationId: openLavaflowRun
       security:
         - UserToken: []
@@ -7457,8 +7459,8 @@ paths:
             schema:
               $ref: '#/components/schemas/LavaflowRunOpen'
       responses:
-        '200':
-          description: The run, with the pull request it opened.
+        '202':
+          description: Queued. The run, with status `queued`, opens its pull request shortly.
           content:
             application/json:
               schema:
@@ -7476,7 +7478,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Code `person_required` means a project access token, MCP or a platform token that never expires made the request.
+          description: 'Code `person_required` means a project access token, MCP, a platform token that never expires or a sign-in that ended made the request. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code, a read-only access token made the request.'
           content:
             application/json:
               schema:
@@ -7488,7 +7490,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Code `run_not_held` means the run holds no fix to open. Code `run_changed` means its fix or its held jobs changed since the digests were read.
+          description: 'Code `run_not_held` means the run holds no fix a person can open: it was not held for `ungated_workflows`, it was opened or queued already, its diff is cut short or withholds a file, or its jobs were not listed. Code `run_changed` means its diff, its jobs or the commits they were read at changed. Codes `lavaflow_disabled`, `repository_required`, `repository_changed`, `lavaflow_run_in_progress` and `run_attempts_exhausted` say why LavaFlow cannot open it now.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request body exceeds 4,096 bytes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds until Volcano can take the request again.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Volcano cannot take the request now. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds until Volcano can take the request again.
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -25227,6 +25257,7 @@ components:
         - path
     LavaflowRunOpen:
       type: object
+      additionalProperties: false
       description: Opens a held fix's pull request for the digests the person read.
       properties:
         project_id:
@@ -25773,13 +25804,21 @@ components:
             diff:
               type: string
               nullable: true
-              description: The fix LavaFlow saved, as the unified diff its reviewers read, cut short past 256 KiB as they read it. A file's changes that may hold a credential are left out, with a line in their place that starts with `#`. Null for a run with no saved fix, or one saved before LavaFlow kept its diff.
+              description: The fix LavaFlow saved, as the unified diff its reviewers read, cut short past 256 KiB as they read it, with a last line that starts with `[diff truncated`. When any change to a file may hold a credential, every change to that file is left out, with one line in their place that starts with `# LavaFlow withheld` and names the file. A run held with `possible_credential` leaves out every file. Null for a run with no saved fix, or one saved before LavaFlow kept its diff.
             diff_sha256:
               type: string
               nullable: true
               pattern: ^[0-9a-f]{64}$
-              description: 'Identifies the commit LavaFlow pushes for the saved fix: the SHA-256, in hex, of the commit it is cut from, the files it writes and its whole diff, never cut short. Null whenever `diff` is, for the same reasons.'
+              description: The SHA-256, in hex, of `diff` exactly as served, its UTF-8 bytes. Null whenever `diff` is.
               example: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+            diff_truncated:
+              type: boolean
+              description: '`diff` was cut short, so it does not show the whole fix. False when `diff` is null.'
+            diff_withheld:
+              type: array
+              items:
+                type: string
+              description: The files whose changes `diff` leaves out, by path, as its `# LavaFlow withheld` lines name them; an empty string for a file whose path may itself hold a credential. Empty when `diff` shows every file, or is null.
             review:
               allOf:
                 - $ref: '#/components/schemas/LavaflowReview'
@@ -25804,6 +25843,8 @@ components:
             - diagnosis
             - diff
             - diff_sha256
+            - diff_truncated
+            - diff_withheld
             - review
             - failure
             - ungated_workflows

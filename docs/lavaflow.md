@@ -434,48 +434,58 @@ Diff
 
 Jobs that will get the repository's secrets (1)
   - .github/workflows/preview.yml on main: job deploy-preview, runs on pull_request_target
-Workflows read at:
-  - main at 3f786850e387550fdab836ed7e6dc881de23001b
-  - commit 4f1c2b3d5e6f708192a3b4c5d6e7f8091a2b3c4d
+Workflows read on: main, the fix's base commit
 
 Fix fingerprint: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 Jobs fingerprint: 2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae
 
-Opening the pull request lets every job above run this fix with the repository's secrets before anyone reviews it on GitHub. Volcano opens it only while the fix and its jobs still match both fingerprints.
+Opening the pull request lets every job above run this fix with the repository's secrets before anyone reviews it on GitHub. Volcano opens it only while the diff and its jobs still match both fingerprints.
 Open the fix's pull request? Type 'y' or 'yes' to confirm: y
-✓ LavaFlow opened the fix's pull request: #43 https://github.com/acme/shop/pull/43
+✓ LavaFlow will open the fix's pull request shortly. Run 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c is queued; follow it with 'volcano cloud lavaflow show 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c'
 ```
 
 It shows:
 
-- The fix's diff as LavaFlow's reviewers read it. A file's changes that may
-  hold a credential are left out, with a line starting with `#` in their
-  place, and a diff past 256 KiB is cut short. The command warns when either
-  happens: opening the fix opens all of it.
+- The fix's diff exactly as Volcano serves it. A control character prints as
+  a visible escape, as in `show`.
 - Every workflow job that will get the repository's secrets: its file, the
-  branch or commit whose workflows run it, the job and the event that runs it.
-  `Workflows read at` names the commits LavaFlow read them at.
-- Two fingerprints. The fix fingerprint identifies the commit LavaFlow pushes:
-  the commit it's cut from, its files and its whole diff. The jobs fingerprint
-  identifies the jobs and the commits they were read at.
+  branch whose workflows run it, or the fix's base commit, the job and the
+  event that runs it.
+- Two fingerprints. The fix fingerprint is the SHA-256 of the diff exactly
+  as served. The jobs fingerprint identifies the jobs and the commits their
+  workflows were read at. They're the only digests the command shows or
+  sends.
 
-The command sends exactly those fingerprints. Volcano opens the pull request
-only while both still match. If the fix or its jobs changed since you looked,
-it says `the fix or its jobs changed since you looked; run it again` and opens
-nothing; running it again shows the run as it is now.
+The command checks that the diff it shows is the one the fix fingerprint
+covers, and sends exactly the two fingerprints it showed. Volcano opens the
+pull request only while both still match. If the diff or its jobs changed
+since you looked, the command shows them again and asks again, up to 3
+times. Volcano queues the run and opens the pull request shortly; follow it
+with `show`.
+
+A diff that isn't fully reviewable can't be opened. When LavaFlow left out a
+file's changes because they may contain a credential, the diff has a line
+starting with `# LavaFlow withheld` in their place; a diff past 256 KiB ends
+with a line starting with `[diff truncated`. The command marks each such line
+with `!!`, then warns with the number of files left out and their paths, or
+that the diff is cut short, and exits non-zero without asking or sending
+anything.
 
 The answer defaults to no. At a terminal it always asks, even with `--yes`.
 Without a terminal it opens nothing unless you pass `--yes`, and still prints
-what it opens. What it shows and asks goes to stderr, so `--json` prints only
-the run as Volcano's API returned it.
+what it opens. With `--yes` and no terminal, a fix that changed ends the
+command with `the fix or its jobs changed since you looked; run it again`.
+What it shows and asks goes to stderr, so `--json` prints only the queued run
+as Volcano's API returned it.
 
 Opening a held fix is a person's decision. Sign in with `volcano login`, or
 use another platform token that expires. A project access token is refused
 before anything is sent, with code 5. Volcano refuses other credentials that
 aren't a person's own sign-in, such as a platform token that never expires,
-with `person_required`; the command says why in Volcano's words, points at
-`volcano login`, and exits with code 5. While `VOLCANO_TOKEN` is set, its
-token is used instead of a `volcano login` sign-in.
+a sign-in that ended or MCP, with `person_required`; the command says why in
+Volcano's words, points at `volcano login`, and exits with code 5. While
+`VOLCANO_TOKEN` is set, its token is used instead of a `volcano login`
+sign-in.
 
 `runs open` refuses, before it shows or asks anything, a run that:
 
@@ -485,6 +495,12 @@ token is used instead of a `volcano login` sign-in.
 - was held before LavaFlow kept a fix's diff to review;
 - LavaFlow couldn't list every job for, such as one with more than 256. Gate
   those workflows on a label a person adds instead.
+
+Volcano can also refuse to open it, and the command says why: LavaFlow is
+off, the project has no repository or deploys from another one now, another
+run for the issue is in progress, or the run has used every attempt it gets.
+When Volcano can't take the request now, the command says when to try
+again, from Volcano's answer, and doesn't retry for you.
 
 A run the project doesn't have says `no LavaFlow run <run-id> in this project`
 and exits with code 4.
