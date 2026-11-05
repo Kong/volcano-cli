@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -13,6 +14,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/deploycommit"
 	"github.com/Kong/volcano-cli/internal/ignore"
 )
 
@@ -45,19 +48,33 @@ type Package struct {
 	// sends neither field and the server keeps the function's stored scope.
 	VariableScope *string
 	Variables     *[]string
+
+	// Inputs are the project files the archive was made from, for reporting
+	// the commit they came from.
+	Inputs deploycommit.Inputs
+	// Commit is the commit the archive's source came from, nil to report none.
+	Commit *api.FunctionCommit
+}
+
+// SetCommit sets the commit the package's source came from, from source and
+// the manifest files its declaration is read from. It is nil unless the
+// function is clean; see deploycommit.Source.FunctionCommit.
+func (p *Package) SetCommit(ctx context.Context, source *deploycommit.Source, manifestPaths []string) {
+	inputs := p.Inputs
+	inputs.Paths = append(slices.Clone(inputs.Paths), manifestPaths...)
+	p.Commit = source.FunctionCommit(ctx, inputs)
 }
 
 // PackageSource packages a cloud function source bundle with manifests and shared libraries.
 func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 	buf := new(bytes.Buffer)
 	gz := gzip.NewWriter(buf)
-	tarWriter := tar.NewWriter(gz)
+	archive := &archiveWriter{tar: tar.NewWriter(gz), added: map[string]struct{}{}}
 
 	matcher, err := ignore.NewProjectMatcher(baseDir, cloudIgnorePatterns()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile project ignore rules: %w", err)
 	}
-	addedFiles := map[string]struct{}{}
 
 	if info.IsDir {
 		functionDir := filepath.Dir(info.Path)
@@ -65,7 +82,7 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read function directory: %w", err)
 		}
-		if err := addFilesToTar(tarWriter, addedFiles, "", files); err != nil {
+		if err := archive.addFiles(functionDir, "", files); err != nil {
 			return nil, err
 		}
 	} else {
@@ -77,12 +94,12 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unsafe function entrypoint %q: %w", info.Runtime.Deployment.Entrypoint, err)
 		}
-		if err := addFileToTarOnce(tarWriter, addedFiles, entrypoint, content); err != nil {
+		if err := archive.add(entrypoint, info.Path, content); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := addDependencyManifests(tarWriter, addedFiles, info.Path, baseDir, info.Runtime.Deployment.DependencyManifests); err != nil {
+	if err := addDependencyManifests(archive, info.Path, baseDir, info.Runtime.Deployment.DependencyManifests); err != nil {
 		return nil, err
 	}
 
@@ -92,7 +109,11 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 	}
 	for _, lib := range sharedLibs {
 		if lib.IsDir {
-			if err := addDirectoryToTarOnce(tarWriter, addedFiles, lib.Path, baseDir, lib.Name, matcher); err != nil {
+			files, err := readDirectoryWithMatcher(lib.Path, baseDir, matcher)
+			if err == nil {
+				err = archive.addFiles(lib.Path, lib.Name, files)
+			}
+			if err != nil {
 				return nil, fmt.Errorf("failed to add shared library %s: %w", lib.Name, err)
 			}
 			continue
@@ -111,12 +132,12 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		if !ok {
 			continue
 		}
-		if err := addFileToTarOnce(tarWriter, addedFiles, lib.Name, content); err != nil {
+		if err := archive.add(lib.Name, lib.Path, content); err != nil {
 			return nil, fmt.Errorf("failed to add shared file %s: %w", lib.Name, err)
 		}
 	}
 
-	if err := tarWriter.Close(); err != nil {
+	if err := archive.tar.Close(); err != nil {
 		_ = gz.Close()
 		return nil, fmt.Errorf("failed to close tar archive: %w", err)
 	}
@@ -130,6 +151,13 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		Handler:     info.Runtime.Deployment.Handler,
 		ArchiveData: buf.Bytes(),
 		Size:        int64(buf.Len()),
+		Inputs: deploycommit.Inputs{
+			Dir:   baseDir,
+			Files: archive.files,
+			Feeds: inputPaths(info, baseDir, matcher, archive.sources(baseDir), sharedLibs),
+			// The matcher reads it, so it decides what the archive leaves out.
+			Paths: []string{filepath.Join(baseDir, ".gitignore")},
+		},
 	}, nil
 }
 
@@ -162,37 +190,66 @@ func readOptionalRegularFile(filePath string) ([]byte, bool, error) {
 	return content, true, nil
 }
 
-func addFileToTarOnce(tarWriter *tar.Writer, added map[string]struct{}, archivePath string, content []byte) error {
+// archiveWriter writes each archive path once and records the project files
+// it writes.
+type archiveWriter struct {
+	tar   *tar.Writer
+	added map[string]struct{}
+	files []deploycommit.File
+	// archivePaths holds the archive path each of files was written at.
+	archivePaths []string
+}
+
+// add writes content, read from the project file at sourcePath, at
+// archivePath unless something is already there.
+func (w *archiveWriter) add(archivePath, sourcePath string, content []byte) error {
 	cleanPath := filepath.ToSlash(archivePath)
-	if _, ok := added[cleanPath]; ok {
+	if _, ok := w.added[cleanPath]; ok {
 		return nil
 	}
-	if err := tarWriter.WriteHeader(&tar.Header{
+	if err := w.tar.WriteHeader(&tar.Header{
 		Name: cleanPath,
 		Mode: 0o644,
 		Size: int64(len(content)),
 	}); err != nil {
 		return err
 	}
-	if _, err := tarWriter.Write(content); err != nil {
+	if _, err := w.tar.Write(content); err != nil {
 		return err
 	}
-	added[cleanPath] = struct{}{}
+	w.added[cleanPath] = struct{}{}
+	// The archive keeps no executable bit: every entry is 0644.
+	w.files = append(w.files, deploycommit.NewFile(sourcePath, content, nil))
+	w.archivePaths = append(w.archivePaths, cleanPath)
 	return nil
 }
 
-func addDirectoryToTarOnce(tarWriter *tar.Writer, added map[string]struct{}, srcPath, matchRoot, destPrefix string, matcher *ignore.Matcher) error {
-	files, err := readDirectoryWithMatcher(srcPath, matchRoot, matcher)
+// sources maps each archive path written to the slash-separated path under
+// baseDir of the file written there.
+func (w *archiveWriter) sources(baseDir string) map[string]string {
+	sources := make(map[string]string, len(w.files))
+	base, err := filepath.Abs(baseDir)
 	if err != nil {
-		return err
+		return sources
 	}
-	return addFilesToTar(tarWriter, added, destPrefix, files)
+	for i, file := range w.files {
+		abs, err := filepath.Abs(file.Path)
+		if err != nil {
+			continue
+		}
+		if rel, err := filepath.Rel(base, abs); err == nil {
+			sources[w.archivePaths[i]] = filepath.ToSlash(rel)
+		}
+	}
+	return sources
 }
 
-func addFilesToTar(tarWriter *tar.Writer, added map[string]struct{}, destPrefix string, files map[string][]byte) error {
+// addFiles writes files, read from under srcRoot by their paths relative to
+// it, under destPrefix.
+func (w *archiveWriter) addFiles(srcRoot, destPrefix string, files map[string][]byte) error {
 	paths := make([]string, 0, len(files))
-	for path := range files {
-		paths = append(paths, path)
+	for relPath := range files {
+		paths = append(paths, relPath)
 	}
 	sort.Strings(paths)
 	for _, relPath := range paths {
@@ -200,14 +257,14 @@ func addFilesToTar(tarWriter *tar.Writer, added map[string]struct{}, destPrefix 
 		if destPrefix != "" {
 			tarPath = filepath.Join(destPrefix, relPath)
 		}
-		if err := addFileToTarOnce(tarWriter, added, tarPath, files[relPath]); err != nil {
+		if err := w.add(tarPath, filepath.Join(srcRoot, relPath), files[relPath]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func addDependencyManifests(tarWriter *tar.Writer, added map[string]struct{}, funcPath, baseDir string, manifestNames []string) error {
+func addDependencyManifests(archive *archiveWriter, funcPath, baseDir string, manifestNames []string) error {
 	if len(manifestNames) == 0 {
 		return nil
 	}
@@ -242,7 +299,7 @@ func addDependencyManifests(tarWriter *tar.Writer, added map[string]struct{}, fu
 					archivePath = filepath.ToSlash(rel)
 				}
 			}
-			if err := addFileToTarOnce(tarWriter, added, archivePath, content); err != nil {
+			if err := archive.add(archivePath, sourcePath, content); err != nil {
 				return err
 			}
 		}
