@@ -28,6 +28,7 @@ var shopFiles = map[string]string{
 	"volcano/functions/hello.js":            `exports.handler = async () => ({ statusCode: 200 });`,
 	"volcano/functions/orders/index.js":     "exports.handler = async () => ({ statusCode: 200 });\n",
 	"volcano/functions/orders/package.json": `{"name":"orders","private":true}`,
+	"volcano/functions/orders/helper.js":    "exports.help = 1;\n",
 	"volcano-config.yaml":                   "version: 1\nfunctions:\n  - name: hello\n  - name: orders\n",
 	".gitignore":                            ".env\n",
 }
@@ -190,6 +191,26 @@ func TestFunctionsDeploySendsNoCommitForADirtyFunction(t *testing.T) {
 			t.Helper()
 			write(t, "volcano-config.yaml", "version: 1\nfunctions:\n  - name: orders\n")
 		},
+		"manifest replaced by a symlink to another committed file": func(t *testing.T) {
+			t.Helper()
+			write(t, "deploy/other.yaml", "version: 1\nfunctions:\n  - name: orders\n")
+			deploycommittest.Git(t, ".", "add", "deploy/other.yaml")
+			deploycommittest.Git(t, ".", "commit", "--quiet", "-m", "other")
+			replaceWithSymlink(t, "volcano-config.yaml", filepath.Join("deploy", "other.yaml"))
+		},
+		"replaced by a symlink": func(t *testing.T) {
+			t.Helper()
+			replaceWithSymlink(t, "volcano/functions/orders/helper.js", "index.js")
+		},
+		"replaced by a directory": func(t *testing.T) {
+			t.Helper()
+			require.NoError(t, os.Remove("volcano/functions/orders/helper.js"))
+			require.NoError(t, os.Mkdir("volcano/functions/orders/helper.js", 0o755))
+		},
+		".gitignore leaves a committed file out": func(t *testing.T) {
+			t.Helper()
+			write(t, ".gitignore", ".env\nhelper.js\n")
+		},
 	}
 	for name, change := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -201,6 +222,34 @@ func TestFunctionsDeploySendsNoCommitForADirtyFunction(t *testing.T) {
 			assert.Nil(t, commits["orders"])
 		})
 	}
+}
+
+// A staged change to a file the upload leaves out, or to a dependency
+// manifest another one takes the place of, leaves the function clean.
+func TestFunctionsDeploySendsTheCommitPastChangesItDoesNotUpload(t *testing.T) {
+	files := maps.Clone(shopFiles)
+	files["volcano/functions/orders/debug.log"] = "log\n"
+	writeShop(t, files)
+	head := deploycommittest.Repository(t, ".", "https://github.com/acme/shop.git")
+	write(t, "volcano/functions/orders/debug.log", "more log\n")
+	write(t, "package.json", `{"name":"shop","private":false}`)
+	deploycommittest.Git(t, ".", "add", ".")
+
+	commits := deployCommits(t, "deploy", "--all")
+	assert.Equal(t, map[string]*api.FunctionCommit{
+		// hello's upload holds the root package.json; orders' holds its own.
+		"hello":  nil,
+		"orders": {Repository: "acme/shop", SHA: head},
+	}, commits)
+}
+
+func replaceWithSymlink(t *testing.T, path, target string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("making a symlink on Windows needs a privilege")
+	}
+	require.NoError(t, os.Remove(path))
+	require.NoError(t, os.Symlink(target, path))
 }
 
 // The manifest a deploy reads its declarations from is an input even before

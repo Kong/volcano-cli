@@ -17,14 +17,9 @@ import (
 type worktreeCache struct {
 	staged     []string
 	stagedRead bool
-	untracked  *bool
-	// disk holds each committed file read from disk, by its path.
-	disk map[string]*diskFile
-}
-
-type diskFile struct {
-	same bool
-	file *File
+	// repositoryClean is whether the whole repository matches the commit,
+	// nil until asked.
+	repositoryClean *bool
 }
 
 // Inputs are the project files a function upload is made from.
@@ -34,28 +29,31 @@ type Inputs struct {
 	// Files are the files the archive holds, recorded as packaging read them.
 	Files []File
 	// Feeds reports whether a slash-separated path under Dir is a file
-	// packaging reads for the function, or would read if it were there. nil
-	// names nothing, and no commit is reported.
+	// packaging reads for the function, or would read if a regular file were
+	// there, after its ignore rules and which file takes each archive path.
+	// nil names nothing, and no commit is reported.
 	Feeds func(string) bool
-	// Paths are other files the upload reads, or would read if they existed,
-	// such as the manifest its declaration comes from.
+	// Paths are other files the deploy reads, or would read if they existed,
+	// such as the manifest its declarations come from and the .gitignore
+	// packaging applies. Each must be under Dir.
 	Paths []string
 }
 
 // FunctionCommit reports the commit for a function upload, or nil unless the
-// function is clean: none of its inputs differs from the commit, in the
-// index or on disk, and the upload holds no file the commit lacks unless git
-// ignores it. An input is a file the upload holds, or one a deleted file
-// would have been, from Feeds and Paths; a file packaging leaves out, such as
-// node_modules, is not one.
+// function is clean: every committed file it is made from is in the upload
+// and, like each of Paths, has the content the commit holds; none of them is
+// staged; and the upload holds no file the commit lacks unless git ignores
+// it. A committed input the upload lacks, deleted, replaced by a symlink or a
+// directory, or behind a symlinked directory, counts as changed.
 //
 // A file git ignores is build output, made from sources the CLI cannot name.
-// An upload that holds one is clean only when the whole repository is: no
-// tracked file differs from the commit, nothing is staged, and no file is
-// untracked unless git ignores it.
+// An upload that holds one is clean only when the whole repository is too:
+// every tracked file matches the commit, executable bit included where git
+// tracks it, nothing is staged, no file is untracked unless git ignores it,
+// and there is no submodule.
 //
-// It returns nil when s is nil, an input is outside the repository or
-// reached through a symlink, a submodule holds an input, or git cannot be
+// It returns nil when s is nil, an input is outside the repository or Dir,
+// or reached through a symlink, a submodule holds an input, or git cannot be
 // asked. Content is compared as Commit compares it, running no git filter.
 func (s *Source) FunctionCommit(ctx context.Context, in Inputs) *api.FunctionCommit {
 	if s == nil || in.Feeds == nil {
@@ -73,22 +71,35 @@ func (s *Source) functionClean(ctx context.Context, in Inputs) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	read, uncommitted, ok, err := s.readPaths(dir, in)
-	if err != nil || !ok {
+	base, err := filepath.Abs(in.Dir)
+	if err != nil {
 		return false, err
 	}
-	paths := make(map[string]bool, len(in.Paths))
-	for _, path := range in.Paths {
-		repoPath, ok := s.repoPath(path)
-		if !ok {
-			return false, nil
+	read := make(map[string]*File, len(in.Files))
+	var uncommitted []string
+	for i := range in.Files {
+		path, ok, err := s.placed(dir, base, in.Files[i].Path)
+		if err != nil || !ok {
+			return false, err
 		}
-		paths[repoPath] = true
-		if _, committed := s.tree[repoPath]; committed {
+		if _, committed := s.tree[path]; !committed {
+			uncommitted = append(uncommitted, path)
 			continue
 		}
-		if _, err := os.Lstat(path); err == nil {
-			uncommitted = append(uncommitted, repoPath)
+		read[path] = &in.Files[i]
+	}
+	paths := make(map[string]bool, len(in.Paths))
+	for _, file := range in.Paths {
+		path, ok, err := s.placed(dir, base, file)
+		if err != nil || !ok {
+			return false, err
+		}
+		paths[path] = true
+		if _, committed := s.tree[path]; committed {
+			continue
+		}
+		if _, err := os.Lstat(file); err == nil {
+			uncommitted = append(uncommitted, path)
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return false, err
 		}
@@ -100,16 +111,12 @@ func (s *Source) functionClean(ctx context.Context, in Inputs) (bool, error) {
 	if len(built) < len(uncommitted) {
 		return false, nil
 	}
-	whole := len(built) > 0
+
 	feeds := func(path string) bool {
-		if whole || read[path] != nil || paths[path] {
+		if read[path] != nil || paths[path] {
 			return true
 		}
 		return within(dir, path) && in.Feeds(underDir(dir, path))
-	}
-
-	if whole && len(s.gitlinks) > 0 {
-		return false, nil
 	}
 	for path := range s.gitlinks {
 		if feeds(path) {
@@ -117,58 +124,42 @@ func (s *Source) functionClean(ctx context.Context, in Inputs) (bool, error) {
 		}
 	}
 	staged, err := s.staged(ctx)
-	if err != nil {
+	if err != nil || slices.ContainsFunc(staged, feeds) {
 		return false, err
 	}
-	if slices.ContainsFunc(staged, feeds) {
-		return false, nil
+	if clean, err := s.inputsMatch(ctx, feeds, read, paths); err != nil || !clean {
+		return false, err
 	}
-	if whole {
-		if dirty, err := s.hasUntracked(ctx); err != nil || dirty {
-			return false, err
-		}
+	if len(built) > 0 {
+		return s.wholeRepositoryClean(ctx)
 	}
-	readOnDisk := func(path string) bool { return whole || paths[path] }
-	return s.inputsMatch(ctx, feeds, read, readOnDisk)
+	return true, nil
 }
 
-// readPaths maps each file the upload holds by its repository path, and
-// lists those the commit lacks. ok is false when one is outside the
-// repository, or is not where its path under in.Dir puts it, so a directory
-// a symlink stands in for cannot hide a deleted input.
-func (s *Source) readPaths(dir string, in Inputs) (read map[string]*File, uncommitted []string, ok bool, err error) {
-	base, err := filepath.Abs(in.Dir)
+// placed is file's repository path, false when it is outside the repository
+// or base, or is not where its path under base puts it: a directory a
+// symlink stands in for could hide a deleted input, and a symlink could
+// stand in for an input with another committed file.
+func (s *Source) placed(dir, base, file string) (string, bool, error) {
+	path, ok := s.repoPath(file)
+	if !ok || !within(dir, path) {
+		return "", false, nil
+	}
+	abs, err := filepath.Abs(file)
 	if err != nil {
-		return nil, nil, false, err
+		return "", false, err
 	}
-	read = make(map[string]*File, len(in.Files))
-	for i := range in.Files {
-		file := &in.Files[i]
-		path, ok := s.repoPath(file.Path)
-		if !ok || !within(dir, path) {
-			return nil, nil, false, nil
-		}
-		abs, err := filepath.Abs(file.Path)
-		if err != nil {
-			return nil, nil, false, err
-		}
-		if lexical, relErr := filepath.Rel(base, abs); relErr != nil || filepath.ToSlash(lexical) != underDir(dir, path) {
-			return nil, nil, false, relErr
-		}
-		if _, committed := s.tree[path]; !committed {
-			uncommitted = append(uncommitted, path)
-			continue
-		}
-		read[path] = file
+	if lexical, relErr := filepath.Rel(base, abs); relErr != nil || filepath.ToSlash(lexical) != underDir(dir, path) {
+		return "", false, relErr
 	}
-	return read, uncommitted, true, nil
+	return path, true, nil
 }
 
-// inputsMatch reports whether every committed input is on disk as the commit
-// holds it. A committed input packaging did not record counts only when it
-// is gone, or when readOnDisk names it: then it is read from disk.
+// inputsMatch reports whether every committed input is as the commit holds
+// it: one packaging read, by the bytes it read, and one of paths, from disk.
+// Any other committed input is one the upload lacks.
 func (s *Source) inputsMatch(
-	ctx context.Context, feeds func(string) bool, read map[string]*File, readOnDisk func(string) bool,
+	ctx context.Context, feeds func(string) bool, read map[string]*File, paths map[string]bool,
 ) (bool, error) {
 	var matches []match
 	for path, entry := range s.tree {
@@ -176,18 +167,13 @@ func (s *Source) inputsMatch(
 			continue
 		}
 		file := read[path]
-		if file == nil {
-			info, err := os.Lstat(filepath.Join(s.root, filepath.FromSlash(path)))
-			if errors.Is(err, os.ErrNotExist) {
-				return false, nil
-			}
-			if err != nil {
-				return false, err
-			}
-			if !readOnDisk(path) {
-				continue
-			}
-			same, onDisk, err := s.cachedOnDisk(path, entry, info)
+		switch {
+		case file != nil && entry.mode == modeSymlink:
+			return false, nil
+		case file == nil && !paths[path]:
+			return false, nil
+		case file == nil:
+			same, onDisk, err := s.onDisk(path, entry, false)
 			if err != nil || !same {
 				return false, err
 			}
@@ -195,42 +181,93 @@ func (s *Source) inputsMatch(
 				continue
 			}
 			file = onDisk
-		} else if entry.mode == modeSymlink {
+		}
+		m, same := compare(path, entry, file)
+		if !same {
 			return false, nil
 		}
-		switch entry.blob {
-		case file.raw:
-		case file.lf:
-			matches = append(matches, match{path: path, binary: file.binary})
-		case file.lfs:
-			matches = append(matches, match{path: path, lfs: true})
-		default:
-			return false, nil
+		if m != nil {
+			matches = append(matches, *m)
 		}
 	}
 	return s.attributesAllow(ctx, matches)
 }
 
-func (s *Source) cachedOnDisk(path string, entry treeEntry, info os.FileInfo) (bool, *File, error) {
-	if cached, ok := s.worktree.disk[path]; ok {
-		return cached.same, cached.file, nil
+// wholeRepositoryClean reports whether the whole repository matches the
+// commit: no submodule, nothing staged, no file untracked unless git ignores
+// it, and every tracked file on disk as the commit holds it.
+func (s *Source) wholeRepositoryClean(ctx context.Context) (bool, error) {
+	if s.worktree.repositoryClean != nil {
+		return *s.worktree.repositoryClean, nil
 	}
-	same, file, err := s.onDisk(path, entry, info)
+	clean, err := s.readWholeRepository(ctx)
 	if err != nil {
-		return false, nil, err
+		return false, err
 	}
-	if s.worktree.disk == nil {
-		s.worktree.disk = map[string]*diskFile{}
+	s.worktree.repositoryClean = &clean
+	return clean, nil
+}
+
+func (s *Source) readWholeRepository(ctx context.Context) (bool, error) {
+	if len(s.gitlinks) > 0 {
+		return false, nil
 	}
-	s.worktree.disk[path] = &diskFile{same: same, file: file}
-	return same, file, nil
+	staged, err := s.staged(ctx)
+	if err != nil || len(staged) > 0 {
+		return false, err
+	}
+	out, err := run(ctx, s.git, s.root, "-c", "core.fsmonitor=false",
+		"ls-files", "-z", "--others", "--exclude-standard", "--directory", "--no-empty-directory")
+	if err != nil || out != "" {
+		return false, err
+	}
+	var matches []match
+	for path, entry := range s.tree {
+		same, file, err := s.onDisk(path, entry, s.fileMode)
+		if err != nil || !same {
+			return false, err
+		}
+		if file == nil {
+			continue
+		}
+		m, same := compare(path, entry, file)
+		if !same {
+			return false, nil
+		}
+		if m != nil {
+			matches = append(matches, *m)
+		}
+	}
+	return s.attributesAllow(ctx, matches)
+}
+
+// compare reports whether file has the content of the commit's entry, and
+// the line-ending or Git LFS match whose attributes must allow it.
+func compare(path string, entry treeEntry, file *File) (*match, bool) {
+	switch entry.blob {
+	case file.raw:
+		return nil, true
+	case file.lf:
+		return &match{path: path, binary: file.binary}, true
+	case file.lfs:
+		return &match{path: path, lfs: true}, true
+	}
+	return nil, false
 }
 
 // onDisk reads the committed file at path from disk. same is false when it is
-// no longer the kind of file the commit holds; a symlink is compared here and
-// returns no file.
-func (s *Source) onDisk(path string, entry treeEntry, info os.FileInfo) (same bool, file *File, err error) {
+// gone or no longer the kind of file the commit holds, or, with mode set,
+// when its executable bit differs. A symlink is compared here and returns no
+// file.
+func (s *Source) onDisk(path string, entry treeEntry, mode bool) (same bool, file *File, err error) {
 	full := filepath.Join(s.root, filepath.FromSlash(path))
+	info, err := os.Lstat(full)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil, nil
+	}
+	if err != nil {
+		return false, nil, err
+	}
 	if entry.mode == modeSymlink {
 		if info.Mode()&os.ModeSymlink == 0 {
 			return false, nil, nil
@@ -242,6 +279,10 @@ func (s *Source) onDisk(path string, entry treeEntry, info os.FileInfo) (same bo
 		return blobID([]byte(filepath.ToSlash(target))) == entry.blob, nil, nil
 	}
 	if !info.Mode().IsRegular() {
+		return false, nil, nil
+	}
+	// git records a file as executable from its owner's execute bit.
+	if mode && (entry.mode == modeExecutable) != (info.Mode()&0o100 != 0) {
 		return false, nil, nil
 	}
 	f, err := os.Open(full)
@@ -320,22 +361,6 @@ func (s *Source) ignored(ctx context.Context, paths []string) (map[string]bool, 
 		}
 	}
 	return ignored, nil
-}
-
-// hasUntracked reports whether the repository has a file git neither tracks
-// nor ignores.
-func (s *Source) hasUntracked(ctx context.Context) (bool, error) {
-	if s.worktree.untracked != nil {
-		return *s.worktree.untracked, nil
-	}
-	out, err := run(ctx, s.git, s.root, "-c", "core.fsmonitor=false",
-		"ls-files", "-z", "--others", "--exclude-standard", "--directory", "--no-empty-directory")
-	if err != nil {
-		return false, err
-	}
-	untracked := out != ""
-	s.worktree.untracked = &untracked
-	return untracked, nil
 }
 
 // pathBatches splits paths into batches whose arguments stay under

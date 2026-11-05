@@ -157,3 +157,37 @@ func TestFunctionCommitRunsNoGitFilterOrMonitor(t *testing.T) {
 		functionCommit(t, root, functionInputs(t, root, "dist/hello.js")))
 	assert.NoFileExists(t, ran)
 }
+
+// The whole repository matches the commit only with the executable bits it
+// records, where git tracks them; a function's own upload keeps none.
+func TestFunctionCommitComparesTheWholeRepositorysExecutableBits(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no executable bit")
+	}
+	root, head := newFunctionRepository(t)
+	writeFile(t, root, "dist/hello.js", "exports.handler = 1\n")
+	require.NoError(t, os.Chmod(filepath.Join(root, "src", "hello.ts"), 0o755))
+	clean := &api.FunctionCommit{Repository: "acme/app", SHA: head}
+
+	assert.Nil(t, functionCommit(t, root, functionInputs(t, root, "dist/hello.js")))
+	assert.Equal(t, clean, functionCommit(t, root, functionInputs(t, root, functionPath)))
+
+	deploycommittest.Git(t, root, "config", "core.fileMode", "false")
+	assert.Equal(t, clean, functionCommit(t, root, functionInputs(t, root, "dist/hello.js")))
+}
+
+// A manifest reached through a symlink could stand in another committed
+// file for the one the deploy names.
+func TestFunctionCommitSendsNothingForASymlinkedPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("making a symlink on Windows needs a privilege")
+	}
+	root, _ := newFunctionRepository(t)
+	require.NoError(t, os.Symlink("hello.js", filepath.Join(root, "volcano", "functions", "config.yaml")))
+	deploycommittest.Git(t, root, "add", ".")
+	deploycommittest.Git(t, root, "commit", "--quiet", "-m", "link")
+
+	in := functionInputs(t, root, functionPath)
+	in.Paths = []string{filepath.Join(root, "volcano", "functions", "config.yaml")}
+	assert.Nil(t, functionCommit(t, root, in))
+}

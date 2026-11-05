@@ -151,7 +151,13 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		Handler:     info.Runtime.Deployment.Handler,
 		ArchiveData: buf.Bytes(),
 		Size:        int64(buf.Len()),
-		Inputs:      deploycommit.Inputs{Dir: baseDir, Files: archive.files, Feeds: inputPaths(info, baseDir)},
+		Inputs: deploycommit.Inputs{
+			Dir:   baseDir,
+			Files: archive.files,
+			Feeds: inputPaths(info, baseDir, matcher, archive.read(baseDir), sharedLibs),
+			// The matcher reads it, so it decides what the archive leaves out.
+			Paths: []string{filepath.Join(baseDir, ".gitignore")},
+		},
 	}, nil
 }
 
@@ -213,6 +219,25 @@ func (w *archiveWriter) add(archivePath, sourcePath string, content []byte) erro
 	// The archive keeps no executable bit: every entry is 0644.
 	w.files = append(w.files, deploycommit.NewFile(sourcePath, content, nil))
 	return nil
+}
+
+// read is the slash-separated paths under baseDir of the files written.
+func (w *archiveWriter) read(baseDir string) map[string]bool {
+	read := make(map[string]bool, len(w.files))
+	base, err := filepath.Abs(baseDir)
+	if err != nil {
+		return read
+	}
+	for _, file := range w.files {
+		abs, err := filepath.Abs(file.Path)
+		if err != nil {
+			continue
+		}
+		if rel, err := filepath.Rel(base, abs); err == nil {
+			read[filepath.ToSlash(rel)] = true
+		}
+	}
+	return read
 }
 
 // addFiles writes files, read from under srcRoot by their paths relative to
