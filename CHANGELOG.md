@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.0](https://github.com/Kong/volcano-cli/compare/v0.70.0...v0.71.0) (2026-11-05)
+
+
+### Features
+
+* **lavaflow:** show the commit a run read the code at ([#448](https://github.com/Kong/volcano-cli/issues/448)) ([f42aabc](https://github.com/Kong/volcano-cli/commit/f42aabc97e6383938824cf67b1b419c48927ed36))
+
 ## [0.70.0](https://github.com/Kong/volcano-cli/compare/v0.69.0...v0.70.0) (2026-11-05)
 
 
