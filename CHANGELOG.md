@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.69.0](https://github.com/Kong/volcano-cli/compare/v0.68.0...v0.69.0) (2026-11-05)
+
+
+### Features
+
+* **lavaflow:** let the owner allow ungated workflows, after a warning ([#403](https://github.com/Kong/volcano-cli/issues/403)) ([c6c0222](https://github.com/Kong/volcano-cli/commit/c6c0222af5b6ad977eb0c3301cce72d3655ea0dd))
+
 ## [0.68.0](https://github.com/Kong/volcano-cli/compare/v0.67.0...v0.68.0) (2026-11-05)
 
 
