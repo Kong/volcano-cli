@@ -236,22 +236,28 @@ and exit with code 1.
 volcano cloud lavaflow settings set --human-review-path 'infra/**' --human-review-path 'db/migrations/**'
 ```
 
-`show` prints `Merge:` with where the merge is: `waiting for CI`,
-`queued to merge`, `merged`, `held` or `stopped`. While merging is paused, a
+`show` prints `Merge:` in its `Fix:` block with where the merge is:
+`waiting for CI`, `queued to merge`, `merged`, `held` or `stopped`. A merged
+fix says `merged by LavaFlow`, or `merged by someone else` when a person
+merged it while LavaFlow waited. While merging is paused, a
 waiting fix says `paused while merging is off` instead. `held` and
 `stopped` are final: LavaFlow doesn't touch the pull request again, and it's
 yours to review and merge on GitHub. A held fix lists each reason in Volcano's
 words, with the paths it names; a stopped fix gives its reason, such as
-`checks failed`. While the pull request is open, `show` ends with a line
-saying it's yours, and in `list` the run shows `Held: yours to merge` or
+`checks failed`. While the pull request is open, the `Fix:` block ends with a
+line saying it's yours, and in `list` the run shows `Held: yours to merge` or
 `Stopped: yours to merge` as its status. Once someone merges or closes the
 pull request, `show` keeps the `Merge:` line and its reasons, and `list`
 shows the run's own status.
 
 ```text
-Merge: held
-  - It changes a path in human_review_paths. (db/migrations/0042_orders.sql)
-The pull request is now yours to review and merge on GitHub.
+Fix:
+  Pull request: #42 https://github.com/acme/shop/pull/42
+  State: open
+  Opened: 2026-10-30 09:03
+  Merge: held
+    - It changes a path in human_review_paths. (db/migrations/0042_orders.sql)
+  The pull request is now yours to review and merge on GitHub.
 ```
 
 ## See what it did
@@ -340,11 +346,21 @@ cause" (`diagnosing`), "Running: writing the fix" (`fixing`) or "Running:
 reviewing the fix" (`reviewing`). An open pull request shows as "PR open". A
 status the CLI doesn't know prints as the API gives it.
 
-`show` prints a run's diagnosis and root cause, the evidence behind it, its
-review, the fix pull request and when it opened, and where its merge is (see
-[Merge fixes](#merge-fixes)). A pull
-request opened before LavaFlow recorded the time has no open time. A run that
-failed says why.
+`show` prints a run's review, a `Fix:` block, and its diagnosis and root
+cause with the evidence behind them. A run that failed says why.
+
+The `Fix:` block always says what happened to the run's fix:
+
+- With a pull request: its link, its state (`open`, `draft`, `merged` or
+  `closed`), when it opened, and where its merge is (see
+  [Merge fixes](#merge-fixes)). A draft says why it's one, such as LavaFlow's
+  review not passing the fix. A pull request opened before LavaFlow recorded
+  the time has no open time.
+- With none: why LavaFlow opened none, and what to do next, such as reading
+  the diagnosis or reviewing another LavaFlow pull request that is still
+  open. A run that finished without a recorded reason says
+  `No fix pull request was opened. LavaFlow didn't record why.`
+- While the run is queued or working: `No fix yet: LavaFlow is still working on this run.`
 
 ```bash
 volcano cloud lavaflow show 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
@@ -357,10 +373,15 @@ Resource: function checkout
 Title: Load the cart before checkout reads it
 Issue: 5b2d8e1c-3f4a-4c6b-9d7e-8a1f2b3c4d5e
 Started: 2026-10-30 09:00
-Pull request: #42 (open) https://github.com/acme/shop/pull/42
-Pull request opened: 2026-10-30 09:03
 Review: passed after 2 round(s)
+Fix:
+  Pull request: #42 https://github.com/acme/shop/pull/42
+  State: open
+  Opened: 2026-10-30 09:03
 
 Diagnosis
   Checkout reads the cart before it loads.
 ```
+
+`show --json` and `list --json` print the run as Volcano's API returned it,
+including fields newer than your CLI.

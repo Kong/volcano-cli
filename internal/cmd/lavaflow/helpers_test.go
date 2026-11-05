@@ -327,7 +327,9 @@ func fixedRun() map[string]any {
 		"created_at": "2026-10-30T09:00:00Z", "finished_at": "2026-10-30T09:03:00Z",
 		"pull_request": map[string]any{
 			"number": 42, "url": "https://github.com/acme/shop/pull/42", "state": "open", "opened_at": "2026-10-30T09:03:00Z",
+			"draft": false, "draft_reason": nil,
 		},
+		"merge": nil, "pull_request_skipped": nil,
 		"diagnosis": map[string]any{
 			"summary":    "Checkout reads the cart before it loads.",
 			"root_cause": "handleCheckout dereferences cart without a guard.",
@@ -360,7 +362,7 @@ func failedRun() map[string]any {
 	return map[string]any{
 		"id": lavaflowFailedID, "project_id": lavaflowProjectID, "status": "failed", "resource": checkoutResource(),
 		"issue_id": lavaflowIssueID,
-		"title":    nil, "pull_request": nil, "diagnosis": nil, "diff": nil, "review": nil,
+		"title":    nil, "pull_request": nil, "merge": nil, "pull_request_skipped": nil, "diagnosis": nil, "diff": nil, "review": nil,
 		"created_at": "2026-10-29T09:00:00Z", "finished_at": "2026-10-29T09:01:00Z",
 		"failure": map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},
 	}
@@ -374,6 +376,15 @@ func (s *lavaflowServer) holdFix(reasons ...map[string]any) {
 		items = append(items, reason)
 	}
 	s.runs[0]["merge"] = map[string]any{"status": "held", "reason": nil, "hold_reasons": items}
+}
+
+// openNoPullRequest makes the fixed run end with no pull request, for the
+// reason the API gives in pull_request_skipped; nil gives none.
+func (s *lavaflowServer) openNoPullRequest(reason any) {
+	s.runs[0]["status"] = "completed"
+	s.runs[0]["pull_request"] = nil
+	s.runs[0]["merge"] = nil
+	s.runs[0]["pull_request_skipped"] = reason
 }
 
 // holdReason is a reason LavaFlow holds a fix, in the API's words.

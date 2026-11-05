@@ -1992,6 +1992,27 @@ func (e LavaflowAutonomy) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowDraftReason.
+const (
+	LavaflowDraftReasonConvertedToDraft LavaflowDraftReason = "converted_to_draft"
+	LavaflowDraftReasonOpenPr           LavaflowDraftReason = "open_pr"
+	LavaflowDraftReasonReviewUnresolved LavaflowDraftReason = "review_unresolved"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowDraftReason enum.
+func (e LavaflowDraftReason) Valid() bool {
+	switch e {
+	case LavaflowDraftReasonConvertedToDraft:
+		return true
+	case LavaflowDraftReasonOpenPr:
+		return true
+	case LavaflowDraftReasonReviewUnresolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowMergeStatus.
 const (
 	LavaflowMergeStatusHeld             LavaflowMergeStatus = "held"
@@ -2115,6 +2136,51 @@ func (e LavaflowRunStatus) Valid() bool {
 	case LavaflowRunStatusQueued:
 		return true
 	case LavaflowRunStatusReviewing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkipReason.
+const (
+	LavaflowSkipReasonLowConfidence        LavaflowSkipReason = "low_confidence"
+	LavaflowSkipReasonNoPatch              LavaflowSkipReason = "no_patch"
+	LavaflowSkipReasonNotFixable           LavaflowSkipReason = "not_fixable"
+	LavaflowSkipReasonPermissionMissing    LavaflowSkipReason = "permission_missing"
+	LavaflowSkipReasonPossibleCredential   LavaflowSkipReason = "possible_credential"
+	LavaflowSkipReasonPossiblePersonalData LavaflowSkipReason = "possible_personal_data"
+	LavaflowSkipReasonPublishFailed        LavaflowSkipReason = "publish_failed"
+	LavaflowSkipReasonPullRequestOpen      LavaflowSkipReason = "pull_request_open"
+	LavaflowSkipReasonRepositoryChanged    LavaflowSkipReason = "repository_changed"
+	LavaflowSkipReasonSourceUnavailable    LavaflowSkipReason = "source_unavailable"
+	LavaflowSkipReasonUngatedWorkflows     LavaflowSkipReason = "ungated_workflows"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkipReason enum.
+func (e LavaflowSkipReason) Valid() bool {
+	switch e {
+	case LavaflowSkipReasonLowConfidence:
+		return true
+	case LavaflowSkipReasonNoPatch:
+		return true
+	case LavaflowSkipReasonNotFixable:
+		return true
+	case LavaflowSkipReasonPermissionMissing:
+		return true
+	case LavaflowSkipReasonPossibleCredential:
+		return true
+	case LavaflowSkipReasonPossiblePersonalData:
+		return true
+	case LavaflowSkipReasonPublishFailed:
+		return true
+	case LavaflowSkipReasonPullRequestOpen:
+		return true
+	case LavaflowSkipReasonRepositoryChanged:
+		return true
+	case LavaflowSkipReasonSourceUnavailable:
+		return true
+	case LavaflowSkipReasonUngatedWorkflows:
 		return true
 	default:
 		return false
@@ -8103,11 +8169,16 @@ type LavaflowDayCounts struct {
 
 // LavaflowDiagnosis defines model for LavaflowDiagnosis.
 type LavaflowDiagnosis struct {
-	Evidence  []string          `json:"evidence"`
+	Evidence []string `json:"evidence"`
+
+	// LogLines Empty for now. `evidence` cites the log lines the diagnosis relies on.
 	LogLines  []LavaflowLogLine `json:"log_lines"`
 	RootCause string            `json:"root_cause"`
 	Summary   string            `json:"summary"`
 }
+
+// LavaflowDraftReason Why a run's pull request is a draft. `open_pr`: LavaFlow doesn't merge the fix, because the project's autonomy is `open_pr`, merging was unavailable when it opened, or it was already a draft when the run took it on; it waits for a person to review it and mark it ready. `review_unresolved`: LavaFlow's review didn't pass the fix, so LavaFlow never merges it; a person decides whether to finish it. `converted_to_draft`: LavaFlow opened it ready for review, and someone made it a draft since.
+type LavaflowDraftReason string
 
 // LavaflowFailure defines model for LavaflowFailure.
 type LavaflowFailure struct {
@@ -8120,7 +8191,7 @@ type LavaflowFailure struct {
 
 // LavaflowHoldReason One reason LavaFlow holds the fix for a person.
 type LavaflowHoldReason struct {
-	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files or a YAML file that declares a resource. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent's instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `ungated_workflows`: the fix opened past workflows that can run it with the repository's secrets before a person approves it, as the project's owner allowed, so LavaFlow never starts its CI or merges it. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
+	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files or a YAML file that declares a resource. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent's instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `ungated_workflows`: the fix opened past workflows that can run it with the repository's secrets before a person approves it, as the project's owner allowed, or LavaFlow couldn't check its workflows, so LavaFlow never starts its CI or merges it. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
 	Code string `json:"code"`
 
 	// Paths The changed paths that matched, for a path code.
@@ -8141,7 +8212,10 @@ type LavaflowLogLine struct {
 type LavaflowMerge struct {
 	// HoldReasons Why LavaFlow holds the fix. Empty unless `status` is `held`.
 	HoldReasons []LavaflowHoldReason `json:"hold_reasons"`
-	Reason      *LavaflowMergeReason `json:"reason"`
+
+	// MergedByLavaflow Whether LavaFlow made the merge: `true` when it merged the fix's commit itself or through the merge queue, `false` when someone else merged the pull request while LavaFlow waited. `null` unless `status` is `merged`.
+	MergedByLavaflow *bool                `json:"merged_by_lavaflow"`
+	Reason           *LavaflowMergeReason `json:"reason"`
 
 	// Status `waiting_for_checks`: LavaFlow waits for the checks on the fix's commit. `queued`: the fix is in the repository's merge queue. `merged`: the pull request merged. `held`: something in `hold_reasons` needs a person. LavaFlow commented on the pull request once and never merges, pushes to, rebases or dequeues it again; review it and merge it yourself if you want it. `stopped`: LavaFlow left the pull request open for you, for `reason`.
 	Status LavaflowMergeStatus `json:"status"`
@@ -8158,7 +8232,7 @@ type LavaflowMergePolicyUpdate struct {
 	HumanReviewPaths *[]string `json:"human_review_paths,omitempty"`
 }
 
-// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `branch_behind`: the base branch requires the fix to be up to date with it, and LavaFlow doesn't update fix branches. `removed_from_queue`: the fix isn't in the merge queue, and LavaFlow can't tell why, for example because its checks failed there or someone removed it. `reads_failed`: LavaFlow failed to read the pull request for about an hour while the fix may have been queued, so it took the fix out of the merge queue, when it could still reach it, and stopped. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `request_rejected`: GitHub refused LavaFlow's request to start the checks on the fix. `ci_start_commit_mismatch`: GitHub reports a different commit from the one LavaFlow made to start the checks. `queue_carries_ci_skip`: the repository's merge queue could carry the fix commit's instruction to skip checks into the base branch. `merge_carries_ci_skip`: the repository allows no squash merge, so merging would carry that instruction into the base branch. Each of these four hands the fix to you for good. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused; a waiting fix keeps its status and resumes. `paused_too_long`: merging stayed paused for more than 7 days. `cancelled`: the project is being deleted, so LavaFlow stopped waiting on the merge. New reasons may appear.
+// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `branch_behind`: the base branch requires the fix to be up to date with it, and LavaFlow doesn't update fix branches. `removed_from_queue`: the fix isn't in the merge queue, and LavaFlow can't tell why, for example because its checks failed there or someone removed it. `reads_failed`: LavaFlow failed to read the pull request for about an hour while the fix may have been queued, so it took the fix out of the merge queue, when it could still reach it, and stopped. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `request_rejected`: GitHub refused LavaFlow's request to start the checks on the fix. `ci_start_commit_mismatch`: GitHub reports a different commit from the one LavaFlow made to start the checks. `queue_carries_ci_skip`: the repository's merge queue could carry the fix commit's instruction to skip checks into the base branch. `merge_carries_ci_skip`: the repository allows no squash merge, so merging would carry that instruction into the base branch. Each of these four hands the fix to you for good. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused, and the merge waits. LavaFlow takes a queued fix out of the merge queue, so it shows `waiting_for_checks`, and queues it again when merging resumes. `paused_too_long`: merging stayed paused for more than 7 days. `cancelled`: the project is being deleted, so LavaFlow stopped waiting on the merge. New reasons may appear.
 type LavaflowMergeReason = string
 
 // LavaflowMergeStatus `waiting_for_checks`: LavaFlow waits for the checks on the fix's commit. `queued`: the fix is in the repository's merge queue. `merged`: the pull request merged. `held`: something in `hold_reasons` needs a person. LavaFlow commented on the pull request once and never merges, pushes to, rebases or dequeues it again; review it and merge it yourself if you want it. `stopped`: LavaFlow left the pull request open for you, for `reason`.
@@ -8166,7 +8240,12 @@ type LavaflowMergeStatus string
 
 // LavaflowPullRequest defines model for LavaflowPullRequest.
 type LavaflowPullRequest struct {
-	Number int64 `json:"number"`
+	// Draft Whether the pull request is a draft, as GitHub last reported it to LavaFlow. Null for one opened before LavaFlow recorded it.
+	Draft *bool `json:"draft"`
+
+	// DraftReason Why the pull request is a draft, null unless `draft` is true.
+	DraftReason *LavaflowDraftReason `json:"draft_reason"`
+	Number      int64                `json:"number"`
 
 	// OpenedAt When the run opened the pull request, null for one opened before LavaFlow recorded the time.
 	OpenedAt *time.Time               `json:"opened_at"`
@@ -8242,6 +8321,9 @@ type LavaflowRun struct {
 	ProjectId   openapi_types.UUID   `json:"project_id"`
 	PullRequest *LavaflowPullRequest `json:"pull_request"`
 
+	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
+	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
+
 	// Resource The function, durable function or frontend an issue came from.
 	Resource LavaflowResourceReference `json:"resource"`
 	Review   *LavaflowReview           `json:"review"`
@@ -8252,8 +8334,8 @@ type LavaflowRun struct {
 	// Title The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
 	Title *string `json:"title"`
 
-	// UngatedWorkflows The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none.
-	UngatedWorkflows []LavaflowAllowedWorkflow `json:"ungated_workflows"`
+	// UngatedWorkflows The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none or when the run opened no pull request. Null when there is no record of the workflows its pull request opened past, as for pull requests opened before LavaFlow recorded them. Under the merge stage, LavaFlow holds such a fix as unchecked, with `ungated_workflows`.
+	UngatedWorkflows *[]LavaflowAllowedWorkflow `json:"ungated_workflows"`
 }
 
 // LavaflowRunCreate The project, and the issue to start a run on.
@@ -8279,6 +8361,9 @@ type LavaflowRunSummary struct {
 	// ProjectId The project the run belongs to.
 	ProjectId   openapi_types.UUID   `json:"project_id"`
 	PullRequest *LavaflowPullRequest `json:"pull_request"`
+
+	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
+	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
 
 	// Resource The function, durable function or frontend an issue came from.
 	Resource LavaflowResourceReference `json:"resource"`
@@ -8340,6 +8425,9 @@ type LavaflowSettingsUpdate struct {
 	ProjectId    openapi_types.UUID `json:"project_id"`
 	SystemPrompt *string            `json:"system_prompt,omitempty"`
 }
+
+// LavaflowSkipReason Why a run that may open a pull request opened none, with what you can do next. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit; check the project's repository connection and that the commit exists. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. New reasons may appear.
+type LavaflowSkipReason string
 
 // LavaflowStats defines model for LavaflowStats.
 type LavaflowStats struct {

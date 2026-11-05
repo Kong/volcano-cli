@@ -112,7 +112,7 @@ func (s Service) startRefused(ctx context.Context, authenticated *clisession.Pro
 // have it points to the list instead.
 func (s Service) runInProgress(ctx context.Context, authenticated *clisession.ProjectSession, issueID uuid.UUID, cause error) error {
 	limit := MaxRunsLimit
-	page, err := authenticated.API.ListLavaflowRuns(ctx, authenticated.ProjectID, apiclient.ListLavaflowRunsParams{Limit: &limit})
+	page, _, err := authenticated.API.ListLavaflowRuns(ctx, authenticated.ProjectID, apiclient.ListLavaflowRunsParams{Limit: &limit})
 	if err == nil {
 		for _, run := range page.Data {
 			if run.IssueId == issueID && inProgress(run.Status) {

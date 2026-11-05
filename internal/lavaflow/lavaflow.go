@@ -538,16 +538,17 @@ func checkDays(days int) error {
 	return nil
 }
 
-// ListRuns returns one page of the current project's runs, newest first.
-func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.PaginatedLavaflowRuns, error) {
+// ListRuns returns one page of the current project's runs, newest first, and
+// the body the API sent it in, for --json.
+func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.PaginatedLavaflowRuns, []byte, error) {
 	if query.Limit < 1 || query.Limit > MaxRunsLimit {
-		return nil, fmt.Errorf("--limit must be between 1 and %d", MaxRunsLimit)
+		return nil, nil, fmt.Errorf("--limit must be between 1 and %d", MaxRunsLimit)
 	}
 	params := apiclient.ListLavaflowRunsParams{Limit: &query.Limit}
 	if query.Status != "" {
 		status := apiclient.LavaflowRunStatus(query.Status)
 		if !status.Valid() {
-			return nil, fmt.Errorf("invalid --status %q: use one of %s", query.Status, runStatuses())
+			return nil, nil, fmt.Errorf("invalid --status %q: use one of %s", query.Status, runStatuses())
 		}
 		params.Status = &status
 	}
@@ -557,20 +558,20 @@ func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.Pagi
 	if query.ResourceID != "" {
 		resourceID, err := uuid.Parse(query.ResourceID)
 		if err != nil {
-			return nil, fmt.Errorf("invalid --resource %q: use a resource ID from '%s'",
+			return nil, nil, fmt.Errorf("invalid --resource %q: use a resource ID from '%s'",
 				query.ResourceID, cliruntime.CommandPath(s.deps, "lavaflow resources --json"))
 		}
 		params.ResourceId = &resourceID
 	}
 	authenticated, err := s.project()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	page, err := authenticated.API.ListLavaflowRuns(ctx, authenticated.ProjectID, params)
+	page, body, err := authenticated.API.ListLavaflowRuns(ctx, authenticated.ProjectID, params)
 	if err != nil {
-		return nil, unavailable(fmt.Errorf("failed to list LavaFlow runs: %w", err))
+		return nil, nil, unavailable(fmt.Errorf("failed to list LavaFlow runs: %w", err))
 	}
-	return page, nil
+	return page, body, nil
 }
 
 func runStatuses() string {
@@ -587,21 +588,21 @@ func runStatuses() string {
 }
 
 // GetRun returns one of the current project's runs with its diagnosis, diff
-// and review.
-func (s Service) GetRun(ctx context.Context, runID string) (*apiclient.LavaflowRun, error) {
+// and review, and the body the API sent it in, for --json.
+func (s Service) GetRun(ctx context.Context, runID string) (*apiclient.LavaflowRun, []byte, error) {
 	id, err := uuid.Parse(runID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid run ID %q: use an ID from '%s'", runID, cliruntime.CommandPath(s.deps, "lavaflow list"))
+		return nil, nil, fmt.Errorf("invalid run ID %q: use an ID from '%s'", runID, cliruntime.CommandPath(s.deps, "lavaflow list"))
 	}
 	authenticated, err := s.project()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	run, err := authenticated.API.GetLavaflowRun(ctx, authenticated.ProjectID, id)
+	run, body, err := authenticated.API.GetLavaflowRun(ctx, authenticated.ProjectID, id)
 	if err != nil {
-		return nil, unavailable(fmt.Errorf("failed to get LavaFlow run %s: %w", runID, err))
+		return nil, nil, unavailable(fmt.Errorf("failed to get LavaFlow run %s: %w", runID, err))
 	}
-	return run, nil
+	return run, body, nil
 }
 
 // unavailable replaces a refusal that says LavaFlow is not on with the error
