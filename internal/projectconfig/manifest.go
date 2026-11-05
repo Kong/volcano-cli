@@ -904,6 +904,9 @@ type FunctionDeployManifest struct {
 	// Name is how messages refer to the manifest: the path the caller passed,
 	// or volcano-config.yaml when the default lookup found it.
 	Name string
+	// Paths are the files the manifest is read from, or would be if they
+	// existed: the path the caller passed, or both default locations.
+	Paths []string
 }
 
 // ReadFunctionDeployManifest reads both of a deploy's manifest inputs in one
@@ -916,9 +919,11 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 		StandardNames: map[string]bool{},
 		Visibility:    map[string]string{},
 		Name:          "volcano-config.yaml",
+		Paths:         []string{nestedManifestPath, rootManifestPath},
 	}
 	if trimmed := strings.TrimSpace(fileArg); trimmed != "" {
 		read.Name = trimmed
+		read.Paths = []string{trimmed}
 	}
 	path, err := ResolveManifestPath(fileArg)
 	if errors.Is(err, ErrManifestNotFound) {
