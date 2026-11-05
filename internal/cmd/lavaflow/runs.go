@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -55,7 +56,7 @@ that will get the repository's secrets, and two fingerprints: one for the diff
 and one for the jobs. Then it asks, and the answer defaults to no. Volcano
 opens the pull request only while the diff and its jobs still match both
 fingerprints. If either changed, it shows them again and asks again, up to
-` + fmt.Sprint(clilavaflow.MaxOpenRounds) + ` times.
+` + strconv.Itoa(clilavaflow.MaxOpenRounds) + ` times.
 
 A diff that leaves out a file because it may contain a credential, or that
 is cut short, isn't fully reviewable: it's shown with a warning, and LavaFlow

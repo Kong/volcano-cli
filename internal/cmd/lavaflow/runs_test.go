@@ -176,17 +176,23 @@ func TestRunsOpenRefusesADiffThatIsntFullyReviewable(t *testing.T) {
 		shown    []string
 		warnings string
 	}{
-		"withheld files": {func(held map[string]any) {
-			setHeldDiff(held, heldDiff+withheldSecret+"\n"+withheldUnnamed+"\n")
-			held["diff_withheld"] = []any{".env.example", ""}
-		}, []string{"!! " + withheldSecret + "\n", "!! " + withheldUnnamed + "\n"},
+		"withheld files": {
+			func(held map[string]any) {
+				setHeldDiff(held, heldDiff+withheldSecret+"\n"+withheldUnnamed+"\n")
+				held["diff_withheld"] = []any{".env.example", ""}
+			},
+			[]string{"!! " + withheldSecret + "\n", "!! " + withheldUnnamed + "\n"},
 			"Warning: The diff leaves out the changes to 2 file(s) because they may contain a credential:\n" +
-				"!! .env.example\n!! a file whose path isn't shown\n"},
-		"cut short": {func(held map[string]any) {
-			setHeldDiff(held, heldDiff+cut+"\n")
-			held["diff_truncated"] = true
-		}, []string{"!! " + cut + "\n"},
-			"Warning: The diff is cut short past 256 KiB, so it doesn't show the whole fix.\n"},
+				"!! .env.example\n!! a file whose path isn't shown\n",
+		},
+		"cut short": {
+			func(held map[string]any) {
+				setHeldDiff(held, heldDiff+cut+"\n")
+				held["diff_truncated"] = true
+			},
+			[]string{"!! " + cut + "\n"},
+			"Warning: The diff is cut short past 256 KiB, so it doesn't show the whole fix.\n",
+		},
 		"cut short by the API's word alone": {func(held map[string]any) {
 			held["diff_truncated"] = true
 		}, nil, "Warning: The diff is cut short past 256 KiB, so it doesn't show the whole fix.\n"},
