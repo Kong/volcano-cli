@@ -212,7 +212,7 @@ func (u *uploader) refusal(err error, localPath string) error {
 	case api.Code(err) == "sandbox_path_conflict":
 		reason = "the upload conflicts with the session's workspace: --path or a directory in the upload " +
 			"is a file or symbolic link there, or a file in the upload is a directory there"
-	case api.Code(err) == "sandbox_workspace_full":
+	case api.Code(err) == "sandbox_disk_full":
 		reason = "the session's disk has no room for the upload"
 	case api.Code(err) == "sandbox_image_outdated":
 		reason = "this session's image predates uploads; start a new session from a current preset, or redeploy its template"

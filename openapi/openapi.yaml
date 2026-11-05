@@ -901,7 +901,7 @@ paths:
         above. Code `sandbox_path_conflict` (409) means the destination has a symbolic link or a file
         where the archive needs a directory, a directory where it has a file, or a directory the
         session user cannot write. Code
-        `sandbox_workspace_full` (413) means the session's disk has no room for it. Code
+        `sandbox_disk_full` (409) means the session's disk has no room for it; free space and retry. Code
         `sandbox_image_outdated` (409) means the session started from an image that predates archive
         writes; start a new session from a current preset, or redeploy the template. A session outside
         `project_id`, or a project the caller cannot reach, answers 404 like an unknown session.
@@ -925,7 +925,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SandboxFileArchive'
         default:
-          description: Request refused or unavailable. Errors include an invalid form or archive (400), unauthenticated (401), forbidden (403), an unknown project or session (404), a conflicting destination or outdated session image (409), an archive over a limit or a full workspace (413), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment.
+          description: Request refused or unavailable. Errors include an invalid form or archive (400), unauthenticated (401), forbidden (403), an unknown project or session (404), a conflicting destination, an outdated session image or a full disk (409), an archive over a limit (413), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment.
           content:
             application/json:
               schema:
@@ -953,7 +953,7 @@ paths:
         parts are discarded, so start again at offset 0. Code `sandbox_path_conflict` (409) means a
         directory is at `path`, a file or symbolic link is where a parent directory belongs, or the
         session user cannot write the parent directory. Code
-        `sandbox_workspace_full` (413) means the session's disk has no room. Code
+        `sandbox_disk_full` (409) means the session's disk has no room; free space and retry. Code
         `sandbox_image_outdated` (409) means the session started from an image that predates parted
         writes. A staging file stays until its file completes, a part at offset 0 restarts it, or the
         session ends. A session outside `project_id`, or a project the caller cannot reach, answers 404
@@ -978,7 +978,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SandboxFilePart'
         default:
-          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), an unknown project or session (404), a part out of order, a mismatched file, a conflicting destination or an outdated session image (409), a full workspace (413), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment.
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), an unknown project or session (404), a part out of order, a mismatched file, a conflicting destination, an outdated session image or a full disk (409), a request body over its limit (413), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment.
           content:
             application/json:
               schema:
