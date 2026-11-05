@@ -793,7 +793,7 @@ func validateFunctionVisibility(function FunctionManifest) error {
 // ErrManifestNotFound reports that no volcano-config.yaml exists at any of the
 // locations the CLI looks in. Callers that treat an absent manifest as "nothing
 // declared" match it with errors.Is; every other resolution failure (an
-// explicit path that does not exist, or two competing manifests) is a real
+// explicit path that does not exist, or an inaccessible selected path) is a real
 // error that must not be read as absence.
 var ErrManifestNotFound = errors.New("no volcano-config.yaml file found.\ncreate volcano/volcano-config.yaml or ./volcano-config.yaml, or use --file to specify a path")
 
@@ -826,7 +826,7 @@ func ResolveManifestPath(fileArg string) (string, error) {
 }
 
 // DefaultPullPath returns where `config pull` writes when no --file is given:
-// an existing manifest location if one is found, else volcano/volcano-config.yaml
+// the existing root manifest first, then the nested one, else volcano/volcano-config.yaml
 // when the volcano directory exists, else ./volcano-config.yaml.
 func DefaultPullPath() string {
 	for _, candidate := range []string{rootManifestPath, nestedManifestPath} {
@@ -892,7 +892,7 @@ type FunctionDeployManifest struct {
 	// Deprecations are the manifest's DeprecationWarnings.
 	Deprecations []string
 	// Name is how messages refer to the manifest: the path the caller passed,
-	// or volcano-config.yaml when the default lookup found it.
+	// or the selected relative path when default lookup found it.
 	Name string
 }
 
@@ -917,6 +917,7 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 	if err != nil {
 		return FunctionDeployManifest{}, err
 	}
+	read.Name = path
 	manifest, _, err := Load(path)
 	if err != nil {
 		return FunctionDeployManifest{}, fmt.Errorf("failed to read function variable scope from %s: %w\nfix the manifest (or export the environment variables it references) and deploy again", read.Name, err)

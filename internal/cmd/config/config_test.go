@@ -544,7 +544,7 @@ func TestDeployExplicitFile(t *testing.T) {
 
 	out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "-f", filepath.Join("config", "custom.yaml"))
 	require.NoError(t, err)
-	assert.Contains(t, out, "Configuration deployed from custom.yaml")
+	assert.Contains(t, out, "Configuration deployed from "+filepath.Join("config", "custom.yaml"))
 	assert.Contains(t, out, "realtime: 1 unchanged")
 }
 
@@ -1105,4 +1105,57 @@ auth:
 	gotJSON, err := json.Marshal(uploaded)
 	require.NoError(t, err)
 	assert.JSONEq(t, string(wantJSON), string(gotJSON))
+}
+
+func TestPullProtectsDanglingRootSymlink(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+	require.NoError(t, os.Mkdir("volcano", 0o750))
+	nested := filepath.Join("volcano", "volcano-config.yaml")
+	require.NoError(t, os.WriteFile(nested, []byte("version: 1\n"), 0o600))
+	require.NoError(t, os.Symlink("missing.yaml", "volcano-config.yaml"))
+	server := newPullTestServer(t)
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+	_, err := executeConfigCommand(t, New(deps), "pull")
+	require.ErrorContains(t, err, "refusing to overwrite existing file volcano-config.yaml")
+	link, err := os.Readlink("volcano-config.yaml")
+	require.NoError(t, err)
+	assert.Equal(t, "missing.yaml", link)
+	_, err = executeConfigCommand(t, New(deps), "pull", "--force")
+	require.NoError(t, err)
+	requirePulledYAMLVerbatim(t, filepath.Join(dir, "volcano-config.yaml"))
+	assert.NoFileExists(t, "missing.yaml")
+	data, err := os.ReadFile(nested)
+	require.NoError(t, err)
+	assert.Equal(t, "version: 1\n", string(data))
+}
+
+func TestDeployReportsSelectedManifestPath(t *testing.T) {
+	for _, rootExists := range []bool{false, true} {
+		name := "nested only"
+		if rootExists {
+			name = "both files"
+		}
+		t.Run(name, func(t *testing.T) {
+			chdirToTemp(t)
+			setConfigCommandTestHome(t)
+			saveConfigCommandTestConfig(t)
+			require.NoError(t, os.Mkdir("volcano", 0o750))
+			selected := filepath.Join("volcano", "volcano-config.yaml")
+			require.NoError(t, os.WriteFile(selected, []byte("version: 1\n"), 0o600))
+			if rootExists {
+				selected = "volcano-config.yaml"
+				require.NoError(t, os.WriteFile(selected, []byte("version: 1\n"), 0o600))
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeConfigCommandJSON(t, w, http.StatusOK, applyResultResponse())
+			}))
+			defer server.Close()
+			out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy")
+			require.NoError(t, err)
+			assert.Contains(t, out, "Configuration deployed from "+selected)
+		})
+	}
 }
