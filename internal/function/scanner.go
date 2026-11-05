@@ -122,8 +122,8 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 }
 
 // FindTarget returns the scanned source a --file value names. A path to a
-// source's file wins over a function name, and a path inside a function's
-// directory names that function, so -f volcano/functions/orders/index.ts
+// source's file wins over a function name, and a path inside a directory
+// function names only that function, so -f volcano/functions/orders/index.ts
 // deploys orders even when another function is named index.
 func FindTarget(sources []SourceInfo, target, baseDir string) (SourceInfo, bool) {
 	target = strings.TrimSpace(target)
@@ -132,7 +132,15 @@ func FindTarget(sources []SourceInfo, target, baseDir string) (SourceInfo, bool)
 			return source, true
 		}
 	}
-	name := targetName(target, baseDir)
+	if dir, nested := targetDirectory(target, baseDir); nested {
+		for _, source := range sources {
+			if source.IsDir && source.Name == dir {
+				return source, true
+			}
+		}
+		return SourceInfo{}, false
+	}
+	name := normalizeTarget(target)
 	for _, source := range sources {
 		if source.Name == name {
 			return source, true
@@ -154,27 +162,25 @@ func matchesPath(source SourceInfo, target, baseDir string) bool {
 	return filepath.Clean(sourcePath) == targetPath
 }
 
-// targetName is the function a --file value names when it is not a source's
-// own path. A path below a function's directory, such as
-// volcano/functions/orders/index.ts, names that directory's function; anything
-// else names the function its basename does, without its extension.
-func targetName(target, baseDir string) string {
+// targetDirectory reports the directory under volcano/functions that a --file
+// path sits below, such as orders for volcano/functions/orders/index.ts. Such a
+// path names only a directory function; anything else names the function its
+// basename does, without its extension.
+func targetDirectory(target, baseDir string) (string, bool) {
 	targetPath, err := absTargetPath(target, baseDir)
 	if err != nil {
-		return normalizeTarget(target)
+		return "", false
 	}
 	functionsDir, err := filepath.Abs(filepath.Join(baseDir, "volcano", "functions"))
 	if err != nil {
-		return normalizeTarget(target)
+		return "", false
 	}
 	rel, err := filepath.Rel(functionsDir, targetPath)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return normalizeTarget(target)
+		return "", false
 	}
-	if dir, _, nested := strings.Cut(filepath.ToSlash(rel), "/"); nested {
-		return dir
-	}
-	return normalizeTarget(target)
+	dir, _, nested := strings.Cut(filepath.ToSlash(rel), "/")
+	return dir, nested
 }
 
 func absTargetPath(target, baseDir string) (string, error) {

@@ -136,11 +136,12 @@ func TestFindTargetNamesTypeScriptSource(t *testing.T) {
 
 // A path names the function whose file or directory it is in, even when its
 // basename is another function's name: index.ts beside orders/ is function
-// index, and orders/index.ts, shadowed by orders/index.js, is still orders.
+// index, and orders/index.ts, shadowed by orders/index.js, is still orders. A
+// path below widgets/, which is no function, never names widgets.js.
 func TestFindTargetPrefersPathsOverNames(t *testing.T) {
 	dir := t.TempDir()
 	functionsDir := filepath.Join(dir, "volcano", "functions")
-	for _, file := range []string{"index.ts", "orders/index.js", "orders/index.ts", "widgets/src/index.ts"} {
+	for _, file := range []string{"index.ts", "orders/index.js", "orders/index.ts", "widgets.js", "widgets/src/index.ts"} {
 		path := filepath.Join(functionsDir, filepath.FromSlash(file))
 		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 		require.NoError(t, os.WriteFile(path, []byte(""), 0o644))
@@ -148,7 +149,7 @@ func TestFindTargetPrefersPathsOverNames(t *testing.T) {
 
 	sources, err := ScanSources(dir, testRuntimeCatalog(t))
 	require.NoError(t, err)
-	require.Len(t, sources, 2)
+	require.Len(t, sources, 3)
 
 	for target, want := range map[string]string{
 		"index":  "index",
