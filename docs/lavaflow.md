@@ -368,12 +368,13 @@ The `Source:` line gives the commit's short SHA and where it came from:
 
 | Shown | Meaning |
 | --- | --- |
-| `deployed by a push to the repository` | A push to the project's connected repository deployed it. |
-| `reported at deploy, deployed files match it` | The deploy reported it, and Volcano matched the deployed files against it. |
-| `reported at deploy, found on the production branch` | The deploy reported it, and Volcano confirmed only that the production branch holds it. A function upload is build output, so its files aren't matched. A fix on such a commit opens only while the production branch still holds it. |
-| `the production branch, not necessarily deployed` | A reported problem's run read the production branch at a commit it pinned. |
+| `deployed from a push` | A push to the project's connected repository deployed it. |
+| `reported by the deploy; deployed files match` | The deploy reported it, and Volcano matched the deployed files against it. |
+| `reported by the deploy; found on the production branch` | The deploy reported it, and Volcano confirmed only that the production branch holds it. A function upload is build output, so its files aren't matched. A fix on such a commit opens only while the production branch still holds it. |
+| `production branch; may not be deployed` | A reported problem's run read the production branch at a commit it pinned. |
 
-A run recorded before Volcano kept the origin shows the commit alone. A run
+A run recorded before Volcano kept the origin, or with an origin your CLI
+doesn't know, shows the commit alone. A run
 that read no code, such as one that diagnosed from logs alone, has no
 `Source:` line.
 
@@ -400,7 +401,7 @@ Status: PR open
 Resource: function checkout
 Title: Load the cart before checkout reads it
 Issue: 5b2d8e1c-3f4a-4c6b-9d7e-8a1f2b3c4d5e
-Source: commit 4f1c2b3 (deployed by a push to the repository)
+Source: commit 4f1c2b3 (deployed from a push)
 Started: 2026-10-30 09:00
 Review: passed after 2 round(s)
 Fix:

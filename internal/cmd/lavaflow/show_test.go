@@ -406,15 +406,15 @@ func TestShowSaysARunWithoutAPullRequestHasNoFix(t *testing.T) {
 
 // The run says which commit it read the code at, and where that commit came
 // from in plain words. A run that read none, or a server that doesn't send
-// the field, prints no source; one from before Volcano kept the origin
-// prints the commit alone.
+// the field, prints no source; one from before Volcano kept the origin, or
+// with an origin the CLI doesn't know, prints the commit alone.
 func TestShowSaysWhichCommitTheRunRead(t *testing.T) {
 	for origin, want := range map[any]string{
-		"push":                       "Source: commit 4f1c2b3 (deployed by a push to the repository)\n",
-		"client_reported":            "Source: commit 4f1c2b3 (reported at deploy, deployed files match it)\n",
-		"client_reported_repository": "Source: commit 4f1c2b3 (reported at deploy, found on the production branch)\n",
-		"repository":                 "Source: commit 4f1c2b3 (the production branch, not necessarily deployed)\n",
-		"mirrored\x1b[2J":            "Source: commit 4f1c2b3 (mirrored\\x1b[2J)\n",
+		"push":                       "Source: commit 4f1c2b3 (deployed from a push)\n",
+		"client_reported":            "Source: commit 4f1c2b3 (reported by the deploy; deployed files match)\n",
+		"client_reported_repository": "Source: commit 4f1c2b3 (reported by the deploy; found on the production branch)\n",
+		"repository":                 "Source: commit 4f1c2b3 (production branch; may not be deployed)\n",
+		"mirrored\x1b[2J":            "Source: commit 4f1c2b3\n",
 		nil:                          "Source: commit 4f1c2b3\n",
 	} {
 		fake, deps := newLavaflowServer(t)

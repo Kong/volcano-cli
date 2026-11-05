@@ -258,23 +258,26 @@ func lavaflowSourceCommit(commit *apiclient.LavaflowSourceCommit) string {
 	if commit.Origin == nil {
 		return text
 	}
-	return text + " (" + lavaflowCommitOrigin(*commit.Origin) + ")"
+	if origin := lavaflowCommitOrigin(*commit.Origin); origin != "" {
+		text += " (" + origin + ")"
+	}
+	return text
 }
 
-// lavaflowCommitOrigin says where a run's commit came from. An origin the CLI
-// doesn't know prints as the API gives it.
+// lavaflowCommitOrigin says where a run's commit came from, in the words the
+// dashboard uses too, or "" for an origin the CLI doesn't know.
 func lavaflowCommitOrigin(origin apiclient.LavaflowCommitOrigin) string {
 	switch origin {
 	case apiclient.LavaflowCommitOriginPush:
-		return "deployed by a push to the repository"
+		return "deployed from a push"
 	case apiclient.LavaflowCommitOriginClientReported:
-		return "reported at deploy, deployed files match it"
+		return "reported by the deploy; deployed files match"
 	case apiclient.LavaflowCommitOriginClientReportedRepository:
-		return "reported at deploy, found on the production branch"
+		return "reported by the deploy; found on the production branch"
 	case apiclient.LavaflowCommitOriginRepository:
-		return "the production branch, not necessarily deployed"
+		return "production branch; may not be deployed"
 	}
-	return clean(strings.ReplaceAll(string(origin), "_", " "))
+	return ""
 }
 
 func block(w io.Writer, on bool, title, text string) {
