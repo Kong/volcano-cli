@@ -175,8 +175,9 @@ func LavaflowRuns(w io.Writer, page LavaflowRunsPage) {
 	}
 }
 
-// LavaflowRun renders one run: what it worked on, its review, what happened
-// to its fix, any failure in the API's own words, its diagnosis and the diff.
+// LavaflowRun renders one run: what it worked on, the commit it read, its
+// review, what happened to its fix, any failure in the API's own words, its
+// diagnosis and the diff.
 func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	on := theme.On(w)
 	kv(w, on, "Run", "%s", run.Id)
@@ -186,6 +187,9 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 		kv(w, on, "Title", "%s", clean(*run.Title))
 	}
 	kv(w, on, "Issue", "%s", run.IssueId)
+	if source := lavaflowSourceCommit(run.SourceCommit); source != "" {
+		kv(w, on, "Source", "%s", source)
+	}
 	kv(w, on, "Started", "%s", formatLavaflowTime(run.CreatedAt))
 	if run.FinishedAt != nil {
 		kv(w, on, "Finished", "%s", formatLavaflowTime(*run.FinishedAt))
@@ -238,6 +242,42 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	if run.Diff != nil && *run.Diff != "" {
 		block(w, on, "Diff", *run.Diff)
 	}
+}
+
+// lavaflowSourceCommit is the commit a run read the code at, short, with
+// where it came from, or "" when the run read none.
+func lavaflowSourceCommit(commit *apiclient.LavaflowSourceCommit) string {
+	if commit == nil || commit.Sha == "" {
+		return ""
+	}
+	sha := commit.Sha
+	if len(sha) > 7 {
+		sha = sha[:7]
+	}
+	text := "commit " + clean(sha)
+	if commit.Origin == nil {
+		return text
+	}
+	if origin := lavaflowCommitOrigin(*commit.Origin); origin != "" {
+		text += " (" + origin + ")"
+	}
+	return text
+}
+
+// lavaflowCommitOrigin says where a run's commit came from, in the words the
+// dashboard uses too, or "" for an origin the CLI doesn't know.
+func lavaflowCommitOrigin(origin apiclient.LavaflowCommitOrigin) string {
+	switch origin {
+	case apiclient.LavaflowCommitOriginPush:
+		return "deployed from a push"
+	case apiclient.LavaflowCommitOriginClientReported:
+		return "reported by the deploy; deployed files match"
+	case apiclient.LavaflowCommitOriginClientReportedRepository:
+		return "reported by the deploy; found on the production branch"
+	case apiclient.LavaflowCommitOriginRepository:
+		return "production branch; may not be deployed"
+	}
+	return ""
 }
 
 func block(w io.Writer, on bool, title, text string) {

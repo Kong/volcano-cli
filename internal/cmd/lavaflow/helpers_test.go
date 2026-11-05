@@ -27,6 +27,7 @@ const (
 	lavaflowResourceID = "66666666-6666-4666-8666-666666666666"
 	lavaflowIssueID    = "88888888-8888-4888-8888-888888888888"
 	lavaflowRepo       = "acme/shop"
+	lavaflowSourceSHA  = "4f1c2b3a9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a"
 	// lavaflowIssueTitle is a real issue title: Volcano groups errors by a
 	// template of their message, with values replaced by placeholders.
 	lavaflowIssueTitle = "TypeError: Cannot read properties of undefined (reading <str>)"
@@ -333,6 +334,7 @@ func fixedRun() map[string]any {
 		"review":            map[string]any{"verdict": "passed", "rounds": 2},
 		"diff":              "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
 		"ungated_workflows": []any{},
+		"source_commit":     map[string]any{"sha": lavaflowSourceSHA, "origin": "push"},
 	}
 }
 
@@ -345,6 +347,7 @@ func failedRun() map[string]any {
 		"created_at": "2026-10-29T09:00:00Z", "finished_at": "2026-10-29T09:01:00Z",
 		"failure":           map[string]any{"code": "source_unavailable", "message": lavaflowFailureMessage},
 		"ungated_workflows": []any{},
+		"source_commit":     nil,
 	}
 }
 
@@ -378,7 +381,7 @@ func summaries(runs []map[string]any) []any {
 	items := make([]any, 0, len(runs))
 	for _, run := range runs {
 		summary := maps.Clone(run)
-		for _, detail := range []string{"diagnosis", "review", "diff", "failure", "ungated_workflows"} {
+		for _, detail := range []string{"diagnosis", "review", "diff", "failure", "ungated_workflows", "source_commit"} {
 			delete(summary, detail)
 		}
 		items = append(items, summary)
