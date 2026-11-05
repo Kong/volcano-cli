@@ -154,7 +154,7 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		Inputs: deploycommit.Inputs{
 			Dir:   baseDir,
 			Files: archive.files,
-			Feeds: inputPaths(info, baseDir, matcher, archive.read(baseDir), sharedLibs),
+			Feeds: inputPaths(info, baseDir, matcher, archive.sources(baseDir)),
 			// The matcher reads it, so it decides what the archive leaves out.
 			Paths: []string{filepath.Join(baseDir, ".gitignore")},
 		},
@@ -196,6 +196,8 @@ type archiveWriter struct {
 	tar   *tar.Writer
 	added map[string]struct{}
 	files []deploycommit.File
+	// archivePaths holds the archive path each of files was written at.
+	archivePaths []string
 }
 
 // add writes content, read from the project file at sourcePath, at
@@ -218,26 +220,28 @@ func (w *archiveWriter) add(archivePath, sourcePath string, content []byte) erro
 	w.added[cleanPath] = struct{}{}
 	// The archive keeps no executable bit: every entry is 0644.
 	w.files = append(w.files, deploycommit.NewFile(sourcePath, content, nil))
+	w.archivePaths = append(w.archivePaths, cleanPath)
 	return nil
 }
 
-// read is the slash-separated paths under baseDir of the files written.
-func (w *archiveWriter) read(baseDir string) map[string]bool {
-	read := make(map[string]bool, len(w.files))
+// sources maps each archive path written to the slash-separated path under
+// baseDir of the file written there.
+func (w *archiveWriter) sources(baseDir string) map[string]string {
+	sources := make(map[string]string, len(w.files))
 	base, err := filepath.Abs(baseDir)
 	if err != nil {
-		return read
+		return sources
 	}
-	for _, file := range w.files {
+	for i, file := range w.files {
 		abs, err := filepath.Abs(file.Path)
 		if err != nil {
 			continue
 		}
 		if rel, err := filepath.Rel(base, abs); err == nil {
-			read[filepath.ToSlash(rel)] = true
+			sources[w.archivePaths[i]] = filepath.ToSlash(rel)
 		}
 	}
-	return read
+	return sources
 }
 
 // addFiles writes files, read from under srcRoot by their paths relative to

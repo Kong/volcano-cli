@@ -107,7 +107,7 @@ func TestInputPathsOfASingleFileFunction(t *testing.T) {
 		Runtime: testRuntimeOption("nodejs24.x", "nodejs", true, nil, "index.js", "handler", []string{"package.json"}),
 	}
 
-	feeds := inputPaths(info, dir, matcher, map[string]bool{"volcano/functions/hello.js": true}, nil)
+	feeds := inputPaths(info, dir, matcher, map[string]string{"index.js": "volcano/functions/hello.js"})
 	require.NotNil(t, feeds)
 	assert.True(t, feeds("volcano/functions/hello.js"))
 	assert.True(t, feeds("volcano/functions/package.json"))
@@ -115,8 +115,48 @@ func TestInputPathsOfASingleFileFunction(t *testing.T) {
 	assert.False(t, feeds("volcano/functions/hello.ts"))
 	assert.False(t, feeds("volcano/functions/other.js"))
 
-	feeds = inputPaths(info, dir, matcher, map[string]bool{"volcano/functions/package.json": true}, nil)
+	feeds = inputPaths(info, dir, matcher, map[string]string{
+		"index.js":     "volcano/functions/hello.js",
+		"package.json": "volcano/functions/package.json",
+	})
 	assert.False(t, feeds("package.json"), "volcano/functions/package.json takes its archive path")
+	assert.True(t, feeds("volcano/functions/package.json"))
 
-	assert.Nil(t, inputPaths(SourceInfo{Path: filepath.Join(t.TempDir(), "hello.js")}, dir, matcher, nil, nil), "a function outside the project")
+	assert.Nil(t, inputPaths(SourceInfo{Path: filepath.Join(t.TempDir(), "hello.js")}, dir, matcher, nil), "a function outside the project")
+}
+
+// A file that comes first at an archive path stays an input when it is gone
+// and a later one takes its place, and one that comes later is not an input
+// while the first is there.
+func TestInputPathsFollowArchivePrecedence(t *testing.T) {
+	dir := t.TempDir()
+	matcher, err := ignore.NewProjectMatcher(dir, cloudIgnorePatterns()...)
+	require.NoError(t, err)
+	info := SourceInfo{
+		Path:    filepath.Join(dir, "volcano", "functions", "orders", "index.js"),
+		Runtime: testRuntimeOption("nodejs24.x", "nodejs", true, nil, "index.js", "handler", []string{"package.json"}),
+		IsDir:   true,
+	}
+
+	// The function's own _util.js takes the shared library's archive path.
+	feeds := inputPaths(info, dir, matcher, map[string]string{
+		"index.js": "volcano/functions/orders/index.js",
+		"_util.js": "volcano/functions/orders/_util.js",
+	})
+	assert.True(t, feeds("volcano/functions/orders/_util.js"))
+	assert.False(t, feeds("volcano/functions/_util.js"))
+	assert.False(t, feeds("volcano/_util.js"))
+
+	// With volcano/functions/_util.js gone, volcano/_util.js is read in its
+	// place, and the one that comes first still counts.
+	feeds = inputPaths(info, dir, matcher, map[string]string{
+		"index.js":     "volcano/functions/orders/index.js",
+		"_util.js":     "volcano/_util.js",
+		"package.json": "package.json",
+	})
+	assert.True(t, feeds("volcano/_util.js"))
+	assert.True(t, feeds("volcano/functions/_util.js"))
+	assert.True(t, feeds("volcano/functions/orders/_util.js"))
+	assert.True(t, feeds("package.json"))
+	assert.True(t, feeds("volcano/functions/orders/package.json"))
 }

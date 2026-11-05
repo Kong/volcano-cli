@@ -243,6 +243,26 @@ func TestFunctionsDeploySendsTheCommitPastChangesItDoesNotUpload(t *testing.T) {
 	}, commits)
 }
 
+// Of the files that could take an archive path, only the one packaging puts
+// there counts, and the one that comes first counts even when it is gone.
+func TestFunctionsDeployFollowsArchivePrecedence(t *testing.T) {
+	files := maps.Clone(shopFiles)
+	files["volcano/_util.js"] = "exports.util = 'elsewhere';\n"
+	files["volcano/functions/_util.js"] = "exports.util = 'shared';\n"
+	files["volcano/functions/orders/_util.js"] = "exports.util = 'orders';\n"
+	writeShop(t, files)
+	head := deploycommittest.Repository(t, ".", "https://github.com/acme/shop.git")
+	clean := &api.FunctionCommit{Repository: "acme/shop", SHA: head}
+
+	commits := deployCommits(t, "deploy", "--all")
+	assert.Equal(t, map[string]*api.FunctionCommit{"hello": clean, "orders": clean}, commits)
+
+	// hello's _util.js now comes from volcano/_util.js; orders keeps its own.
+	require.NoError(t, os.Remove("volcano/functions/_util.js"))
+	commits = deployCommits(t, "deploy", "--all")
+	assert.Equal(t, map[string]*api.FunctionCommit{"hello": nil, "orders": clean}, commits)
+}
+
 func replaceWithSymlink(t *testing.T, path, target string) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
