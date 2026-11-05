@@ -44,6 +44,7 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	case "not_connected":
 		kv(w, on, "Repository", "none connected")
 	}
+	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
@@ -62,9 +63,16 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 		}
 		return
 	}
+	// LavaFlow on starts no run for a repository other than the one it was
+	// turned on for, so connecting one takes turning it on again.
 	opensFixes := settings.Autonomy == apiclient.OpenPr || settings.Autonomy == apiclient.Merge
-	if details.RepositoryState == "not_connected" && opensFixes {
-		Warning(w, "Connect a repository so LavaFlow can open fix pull requests: %s",
+	switch {
+	case details.RepositoryState != "not_connected" || !opensFixes:
+	case settings.CanUpdate:
+		Warning(w, "Connect a repository, then turn LavaFlow on again so it can open fix pull requests: %s, then %s",
+			theme.Command(details.GitConnectCommand, on), theme.Command(details.EnableCommand, on))
+	default:
+		Warning(w, "Connect a repository, then have the project's owner turn LavaFlow on again so it can open fix pull requests: %s",
 			theme.Command(details.GitConnectCommand, on))
 	}
 }
@@ -81,6 +89,7 @@ func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings, availab
 		kv(w, on, "Merging", "%s", lavaflowMergeAvailability(*mergeAvailable, settings, available))
 	}
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
+	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
 	block(w, on, "System prompt", settings.SystemPrompt)
@@ -93,6 +102,7 @@ func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.Lava
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
+	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 }
@@ -183,6 +193,15 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	if run.Review != nil {
 		kv(w, on, "Review", "%s after %d round(s)", clean(strings.ReplaceAll(string(run.Review.Verdict), "_", " ")), run.Review.Rounds)
 	}
+	// The API lists only the first ungated job on each branch or commit it
+	// checked, so a count would understate the jobs that could run the change.
+	// Null, no record of them, prints nothing, as none does.
+	if workflows := run.UngatedWorkflows; workflows != nil && len(*workflows) > 0 {
+		kv(w, on, "Ungated workflows", "the pull request opened past these, the first one on each branch or commit checked")
+		for _, workflow := range *workflows {
+			fmt.Fprintf(w, "  - %s\n", lavaflowAllowedWorkflow(workflow))
+		}
+	}
 	lavaflowFix(w, on, run)
 	if run.Failure != nil && run.Failure.Message != "" {
 		// The API words each failure code itself, so it is printed as given.
@@ -252,6 +271,35 @@ func clean(text string) string {
 		}
 	}
 	return b.String()
+}
+
+// lavaflowUngatedWorkflows says whether LavaFlow opens fixes past ungated
+// workflows. Allowing them applies only to the repository connected when a
+// person allowed them: connecting another repository, or disconnecting it,
+// turns them off.
+func lavaflowUngatedWorkflows(allowed bool) string {
+	if allowed {
+		return "allowed for the connected repository"
+	}
+	return "not allowed"
+}
+
+// lavaflowAllowedWorkflow names an ungated workflow job a pull request opened
+// past: its file, the branch or commit whose workflows run it, and the job
+// and the event that runs it, which are absent for a file that couldn't be
+// read.
+func lavaflowAllowedWorkflow(workflow apiclient.LavaflowAllowedWorkflow) string {
+	line := clean(workflow.Path) + " on " + clean(workflow.Source)
+	switch {
+	case workflow.Job != nil && workflow.Trigger != nil:
+		return line + ": job " + clean(*workflow.Job) + ", runs on " + clean(*workflow.Trigger)
+	case workflow.Job != nil:
+		return line + ": job " + clean(*workflow.Job)
+	case workflow.Trigger != nil:
+		return line + ": runs on " + clean(*workflow.Trigger)
+	default:
+		return line + ": couldn't be read"
+	}
 }
 
 func setOrNot(text string) string {
