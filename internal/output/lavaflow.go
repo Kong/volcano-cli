@@ -665,9 +665,14 @@ func LavaflowHeldFix(w io.Writer, held *clilavaflow.HeldFix) {
 	}
 	fmt.Fprintln(w)
 	if len(held.Withheld) > 0 {
-		Warning(w, "The diff leaves out the changes to %d file(s) that LavaFlow withheld:", len(held.Withheld))
+		if len(held.Withheld) == 1 {
+			Warning(w, "1 file withheld: it may contain credentials or is too large to show. You can't review it here.")
+		} else {
+			Warning(w, "%d files withheld: they may contain credentials or are too large to show. "+
+				"You can't review them here.", len(held.Withheld))
+		}
 		for _, path := range held.Withheld {
-			fmt.Fprintf(w, "%s %s\n", theme.Fail("!!", on), lavaflowWithheldName(path))
+			fmt.Fprintf(w, "%s %s\n", theme.Fail("!!", on), lavaflowWithheldNote(path))
 		}
 	}
 	if held.Cut {
@@ -675,14 +680,15 @@ func LavaflowHeldFix(w io.Writer, held *clilavaflow.HeldFix) {
 	}
 }
 
-// lavaflowWithheldName names a withheld file by its path. A marker without
-// one is for a file whose path may itself hold a credential, or whose stored
-// diff LavaFlow couldn't read back; either way no path is printed.
-func lavaflowWithheldName(path string) string {
+// lavaflowWithheldNote says why a withheld file isn't shown, in the words the
+// web uses. A marker without a path is for a file whose path may itself hold
+// a credential, or whose stored diff LavaFlow couldn't read back; either way
+// no path is printed.
+func lavaflowWithheldNote(path string) string {
 	if strings.TrimSpace(path) == "" {
 		return "a file whose path LavaFlow can't show, or couldn't read back"
 	}
-	return clean(path)
+	return clean(path) + " withheld: it may contain credentials or is too large to show."
 }
 
 // lavaflowServedDiff prints a held fix's diff line by line as Volcano served

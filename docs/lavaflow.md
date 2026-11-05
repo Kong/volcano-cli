@@ -472,8 +472,14 @@ starting with `# LavaFlow withheld` in their place; a diff past 256 KiB ends
 with a line starting with `[diff truncated`. The command marks each such line
 with `!!`, then warns with the number of files withheld and their paths, or
 that the diff is cut short, and exits non-zero without asking or sending
-anything. A file whose path LavaFlow can't show, or couldn't read back, is
-named that way rather than by a path.
+anything:
+
+```text
+Warning: 2 files withheld: they may contain credentials or are too large to show. You can't review them here.
+!! config/prod.env withheld: it may contain credentials or is too large to show.
+!! a file whose path LavaFlow can't show, or couldn't read back
+Error: LavaFlow can't open a fix whose diff isn't fully reviewable, so nothing was opened
+```
 
 The answer defaults to no. At a terminal it always asks, even with `--yes`.
 Without a terminal it opens nothing unless you pass `--yes`, and still prints

@@ -170,6 +170,9 @@ func TestRunsOpenRefusesADiffThatIsntFullyReviewable(t *testing.T) {
 	const withheldUnnamed = "# LavaFlow withheld the changes to a file, whose path it does not show, because they may contain a credential"
 	const cut = "[diff truncated; the rest of the change is not shown]"
 	const unnamed = "a file whose path LavaFlow can't show, or couldn't read back"
+	const one = "Warning: 1 file withheld: it may contain credentials or is too large to show. You can't review it here.\n"
+	const two = "Warning: 2 files withheld: they may contain credentials or are too large to show. You can't review them here.\n"
+	const note = " withheld: it may contain credentials or is too large to show.\n"
 	for name, tc := range map[string]struct {
 		change   func(held map[string]any)
 		shown    []string
@@ -181,8 +184,7 @@ func TestRunsOpenRefusesADiffThatIsntFullyReviewable(t *testing.T) {
 				held["diff_withheld"] = []any{".env.example", ""}
 			},
 			[]string{"!! " + withheldSecret + "\n", "!! " + withheldUnnamed + "\n"},
-			"Warning: The diff leaves out the changes to 2 file(s) that LavaFlow withheld:\n" +
-				"!! .env.example\n!! " + unnamed + "\n",
+			two + "!! .env.example" + note + "!! " + unnamed + "\n",
 		},
 		"cut short": {
 			func(held map[string]any) {
@@ -203,25 +205,29 @@ func TestRunsOpenRefusesADiffThatIsntFullyReviewable(t *testing.T) {
 				held["diff_withheld"] = []any{""}
 			},
 			[]string{"!! " + withheldUnnamed + "\n"},
-			"Warning: The diff leaves out the changes to 1 file(s) that LavaFlow withheld:\n" +
-				"!! " + unnamed + "\n",
+			one + "!! " + unnamed + "\n",
 		},
 		"no path in diff_withheld alone": {
 			func(held map[string]any) { held["diff_withheld"] = []any{""} },
 			nil,
-			"Warning: The diff leaves out the changes to 1 file(s) that LavaFlow withheld:\n" +
-				"!! " + unnamed + "\n",
+			one + "!! " + unnamed + "\n",
 		},
 		"a marker line with no path": {
 			func(held map[string]any) { setHeldDiff(held, heldDiff+"# LavaFlow withheld a file\n") },
 			[]string{"!! # LavaFlow withheld a file\n"},
-			"Warning: The diff leaves out the changes to 1 file(s) that LavaFlow withheld:\n" +
-				"!! " + unnamed + "\n",
+			one + "!! " + unnamed + "\n",
 		},
 		"withheld by the API's word alone": {func(held map[string]any) {
 			held["diff_withheld"] = []any{"config/deploy.sh"}
-		}, nil, "Warning: The diff leaves out the changes to 1 file(s) that LavaFlow withheld:\n" +
-			"!! config/deploy.sh\n"},
+		}, nil, one + "!! config/deploy.sh" + note},
+		"the API lists more than the diff marks": {
+			func(held map[string]any) {
+				setHeldDiff(held, heldDiff+withheldSecret+"\n")
+				held["diff_withheld"] = []any{".env.example", "fixtures/large.json"}
+			},
+			[]string{"!! " + withheldSecret + "\n"},
+			two + "!! .env.example" + note + "!! fixtures/large.json" + note,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			fake, deps, held := newHeldLavaflowServer(t)

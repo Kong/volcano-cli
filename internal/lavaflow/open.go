@@ -180,8 +180,10 @@ func heldFix(runID string, run *apiclient.LavaflowRun, show string) (*HeldFix, e
 		return nil, fmt.Errorf("the diff Volcano sent for run %s doesn't match its fix fingerprint, so nothing was opened. "+
 			"Run this again", runID)
 	}
+	// The markers in the served diff name the withheld files; diff_withheld
+	// counts when it lists more, as the web counts them.
 	withheld, cut := DiffNotShown(*run.Diff)
-	if len(withheld) == 0 && len(run.DiffWithheld) > 0 {
+	if len(run.DiffWithheld) > len(withheld) {
 		withheld = run.DiffWithheld
 	}
 	return &HeldFix{
