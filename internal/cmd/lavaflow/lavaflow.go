@@ -80,6 +80,19 @@ func writeJSON(w io.Writer, value any) error {
 	return err
 }
 
+// writeAPIJSON prints a body as the API sent it, indented. Re-encoding the
+// generated type would drop every field newer than the CLI's vendored
+// contract.
+func writeAPIJSON(w io.Writer, body []byte) error {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, bytes.TrimSpace(body), "", "  "); err != nil {
+		return fmt.Errorf("the API's response isn't valid JSON: %w", err)
+	}
+	buf.WriteByte('\n')
+	_, err := io.WriteString(w, escapeJSONControls(buf.String()))
+	return err
+}
+
 // escapeJSONControls writes DEL and the C1 controls, which encoding/json
 // passes through, as \u escapes, like the C0 controls it already escapes.
 // They can only appear inside a JSON string, where the escape means the same.

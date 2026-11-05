@@ -143,7 +143,7 @@ func TestStatusSaysWhetherLavaFlowCanMerge(t *testing.T) {
 		case true:
 			assert.Contains(t, out, "Merging: available\n", "%q", capability)
 		case false:
-			assert.Contains(t, out, "Merging: not available for this project yet\n", "%q", capability)
+			assert.Contains(t, out, "Merging: not available for this project\n", "%q", capability)
 		default:
 			assert.NotContains(t, out, "Merging:", "%q", capability)
 		}
@@ -155,6 +155,29 @@ func TestStatusSaysWhetherLavaFlowCanMerge(t *testing.T) {
 		assert.Equal(t, want != nil, listed, "%q", capability)
 		assert.Equal(t, want, got, "%q", capability)
 	}
+}
+
+// At autonomy merge, merging off means it was on and is paused, so the status
+// says what happens to waiting and new fixes rather than that it isn't
+// available.
+func TestStatusSaysMergingIsPausedAtAutonomyMerge(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["enabled"], s.settings["autonomy"], s.mergeCapability = true, "merge", "unavailable"
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Merging: paused; waiting fixes resume when it's back, new fixes open as pull requests for review\n")
+	assert.NotContains(t, out, "not available")
+	assertLavaFlowWording(t, out)
+
+	// Off, LavaFlow opens no new fix, so merging is just not available.
+	fake.set(func(s *lavaflowServer) { s.settings["enabled"] = false })
+	out, err = executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Merging: not available for this project\n")
+	assert.NotContains(t, out, "paused")
 }
 
 // A capabilities read that fails leaves merging unknown, as it does LavaFlow's
