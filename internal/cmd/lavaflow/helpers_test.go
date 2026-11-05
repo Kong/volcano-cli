@@ -49,6 +49,8 @@ type lavaflowServer struct {
 	mergeCapability string
 	// capabilitiesFailure answers the capabilities read with that status.
 	capabilitiesFailure int
+	// capabilityReads counts reads of the project's capabilities.
+	capabilityReads int
 	// gateOff is LavaFlow unavailable for a project with records: the reads
 	// answer, and the PUT takes only turning it off. planOff says the owner's
 	// plan is why, so the PUT answers plan_required instead of
@@ -125,6 +127,7 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == project+"/capabilities" {
+		s.capabilityReads++
 		if s.capabilitiesFailure != 0 {
 			s.write(w, s.capabilitiesFailure, map[string]any{"error": "capabilities unavailable"})
 			return

@@ -95,15 +95,59 @@ func TestSettingsSetTakesTheLongestText(t *testing.T) {
 	assert.Equal(t, longest, fake.lastUpdate(t)["custom_context"])
 }
 
-// settings reads the settings alone: not the capabilities or the repository
-// connection status shows.
+// settings --json reads the settings alone: not the capabilities its Merging
+// line reads, or the repository connection status shows.
 func TestSettingsReadsOnlyTheSettings(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 
 	_, err := executeLavaflowCommand(t, New(deps), "settings", "--json")
 	require.NoError(t, err)
 	assert.Zero(t, fake.repoReads)
+	assert.Zero(t, fake.capabilityReads)
 	assert.Len(t, fake.queries["/settings"], 1)
+}
+
+// settings says whether LavaFlow can merge, as status does: paused while
+// LavaFlow is on and available at autonomy merge, not available otherwise,
+// since LavaFlow off or unavailable opens no new fix, and nothing when the
+// capabilities don't list merging. --json stays the settings alone.
+func TestSettingsSaysWhetherLavaFlowCanMerge(t *testing.T) {
+	paused := "Merging: paused; waiting fixes resume when it's back, new fixes open as pull requests for review\n"
+	notAvailable := "Merging: not available for this project\n"
+	for _, tc := range []struct {
+		name       string
+		enabled    bool
+		autonomy   string
+		lavaflow   string
+		capability string
+		want       string
+	}{
+		{"available", true, "open_pr", "available", "available", "Merging: available\n"},
+		{"open_pr", true, "open_pr", "available", "unavailable", notAvailable},
+		{"merge", true, "merge", "available", "unavailable", paused},
+		{"merge, LavaFlow off", false, "merge", "available", "unavailable", notAvailable},
+		{"merge, LavaFlow unavailable", true, "merge", "unavailable", "unavailable", notAvailable},
+		{"not listed", true, "merge", "available", "", ""},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.settings["enabled"], s.settings["autonomy"] = tc.enabled, tc.autonomy
+			s.capability, s.mergeCapability = tc.lavaflow, tc.capability
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "settings")
+		require.NoError(t, err, tc.name)
+		if tc.want == "" {
+			assert.NotContains(t, out, "Merging:", tc.name)
+		} else {
+			assert.Contains(t, out, tc.want, tc.name)
+		}
+		assertLavaFlowWording(t, out)
+
+		out, err = executeLavaflowCommand(t, New(deps), "settings", "--json")
+		require.NoError(t, err, tc.name)
+		assert.NotContains(t, decodeJSON(t, out), "merge_available", tc.name)
+	}
 }
 
 // The examples run the command in the tree it's in, so copying one works.

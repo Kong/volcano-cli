@@ -136,9 +136,18 @@ status says to run `volcano git connect`. When LavaFlow isn't available for
 a project that has LavaFlow records, the status notes that it can't be turned
 on or changed, and that the owner can still turn it off.
 
-`Merging` says whether you can choose autonomy `merge` for the project.
-While it reads `not available for this project yet`,
-`settings set --autonomy merge` is refused. The line is left out when the
+`Merging` says whether LavaFlow can merge its fixes for the project; `settings`
+shows it too. While it reads `not available for this project`,
+`settings set --autonomy merge` is refused. When merging isn't available while
+LavaFlow is on and available at autonomy `merge`, merging is paused, and it
+reads:
+
+```text
+Merging: paused; waiting fixes resume when it's back, new fixes open as pull requests for review
+```
+
+A fix already waiting merges once merging is back, and a new fix opens its
+pull request for you to review. The line is left out when the
 project's capabilities could not be read or don't list merging.
 
 With `--json`, `repository_state` is `connected`, `not_connected`, or
@@ -225,8 +234,8 @@ volcano cloud lavaflow settings set --human-review-path 'infra/**' --human-revie
 ```
 
 `show` prints `Merge:` with where the merge is: `waiting for CI`,
-`queued to merge`, `merged`, `held` or `stopped`. While merging is paused for
-the project, a waiting fix says `paused while merging is off`. `held` and
+`queued to merge`, `merged`, `held` or `stopped`. While merging is paused, a
+waiting fix says `paused while merging is off` instead. `held` and
 `stopped` are final: LavaFlow doesn't touch the pull request again, and it's
 yours to review and merge on GitHub. A held fix lists each reason in Volcano's
 words, with the paths it names; a stopped fix gives its reason, such as

@@ -36,7 +36,7 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
 	if details.MergeAvailable != nil {
-		kv(w, on, "Merging", "%s", lavaflowMergeAvailability(*details.MergeAvailable))
+		kv(w, on, "Merging", "%s", lavaflowMergeAvailability(*details.MergeAvailable, settings, details.Available))
 	}
 	switch details.RepositoryState {
 	case "connected":
@@ -70,11 +70,16 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 }
 
 // LavaflowSettings renders every setting, with the custom context and system
-// prompt in full.
-func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings) {
+// prompt in full. available and mergeAvailable are whether LavaFlow takes
+// changes and can merge its fixes for the project; a nil mergeAvailable
+// leaves the Merging line out.
+func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings, available, mergeAvailable *bool) {
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
+	if mergeAvailable != nil {
+		kv(w, on, "Merging", "%s", lavaflowMergeAvailability(*mergeAvailable, settings, available))
+	}
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
@@ -264,13 +269,20 @@ func setOrNot(text string) string {
 	return fmt.Sprintf("set (%d characters)", len([]rune(text)))
 }
 
-// lavaflowMergeAvailability says whether autonomy merge can be chosen. The
-// API gives no reason when it can't.
-func lavaflowMergeAvailability(available bool) string {
-	if available {
+// lavaflowMergeAvailability says whether LavaFlow can merge its fixes. The
+// API gives no reason when it can't. While LavaFlow is on and available at
+// autonomy merge, merging was on and is paused: a waiting fix merges once
+// merging is back, and a new one opens for review. LavaFlow off or
+// unavailable opens no new fix, so merging is just not available.
+func lavaflowMergeAvailability(mergeAvailable bool, settings *apiclient.LavaflowSettings, available *bool) string {
+	switch {
+	case mergeAvailable:
 		return "available"
+	case settings.Enabled && settings.Autonomy == apiclient.Merge && available != nil && *available:
+		return "paused; waiting fixes resume when it's back, new fixes open as pull requests for review"
+	default:
+		return "not available for this project"
 	}
-	return "not available for this project yet"
 }
 
 func lavaflowAutonomy(autonomy apiclient.LavaflowAutonomy) string {
@@ -305,7 +317,13 @@ func lavaflowHumanReviewPaths(w io.Writer, on bool, policy apiclient.LavaflowMer
 // as the API gives it.
 func lavaflowMergeLines(w io.Writer, on bool, merge *apiclient.LavaflowMerge, pr *apiclient.LavaflowPullRequest) {
 	status := lavaflowMergeStatus(merge.Status)
-	if merge.Reason != nil && *merge.Reason != "" {
+	switch {
+	case merge.Reason == nil || *merge.Reason == "":
+	case *merge.Reason == "paused":
+		// A paused merge keeps the status it had, which no longer says what
+		// it waits for: its checks may have finished since.
+		status = lavaflowMergeReason(*merge.Reason)
+	default:
 		status += " (" + lavaflowMergeReason(*merge.Reason) + ")"
 	}
 	kv(w, on, "Merge", "%s", status)

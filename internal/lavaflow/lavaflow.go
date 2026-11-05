@@ -245,6 +245,26 @@ func (s Service) Settings(ctx context.Context) (*apiclient.LavaflowSettings, err
 	return settings, nil
 }
 
+// SettingsAndMerging returns the current project's LavaFlow settings, whether
+// LavaFlow takes changes for it, and whether it can merge its fixes. Either
+// is nil when the capabilities could not be read, and merging is nil when
+// they don't list it.
+func (s Service) SettingsAndMerging(ctx context.Context) (settings *apiclient.LavaflowSettings, available, merge *bool, err error) {
+	authenticated, err := s.project()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	settings, err = authenticated.API.GetLavaflowSettings(ctx, authenticated.ProjectID)
+	if err != nil {
+		return nil, nil, nil, unavailable(fmt.Errorf("failed to get LavaFlow settings: %w", err))
+	}
+	available, merge, err = availability(ctx, authenticated)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return settings, available, merge, nil
+}
+
 // availability reads whether LavaFlow takes changes for the project, and
 // whether it can merge its fixes. Both are hints: the status adds them as
 // detail, and autonomy merge leaves an unknown answer to the save. So a
