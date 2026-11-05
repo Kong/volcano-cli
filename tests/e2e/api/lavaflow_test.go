@@ -40,9 +40,9 @@ var lavaflowCommands = [][]string{
 // account is not on the list, or its plan doesn't include LavaFlow, so every
 // command says which and exits nonzero. Where the environment opens LavaFlow
 // to every account, the round trip runs instead: settings saved by one command
-// read back by the next, a start on an issue the project doesn't have
-// reaches Volcano and is refused, and a project access token reads but can't
-// change them or start a run.
+// read back by the next, a start reaches Volcano and is refused for the
+// lane's token, and a project access token reads but can't change them or
+// start a run.
 func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env := setupAPIE2E(t, "cloud-lavaflow")
 	env.loginAndUse(t)
@@ -85,16 +85,27 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env.runCloudCLI(t, "lavaflow", "stats", "--days", "7").requireSuccess(t, "0 issue(s) opened and 0 fix pull request(s) opened")
 	env.runCloudCLI(t, "lavaflow", "resources").requireSuccess(t)
 	env.runCloudCLI(t, "lavaflow", "list").requireSuccess(t, "No runs")
-	unknown := env.runCloudCLI(t, "lavaflow", "run", "start", lavaflowUnknownIssue)
-	unknown.requireFailure(t, "the project has no issue "+lavaflowUnknownIssue)
-	if unknown.code != 4 {
-		t.Fatalf("run start on an unknown issue exited %d, want 4:\n%s", unknown.code, redactCredentials(unknown.output))
-	}
+	requireAPIE2ELavaFlowStartNeedsALiveSignIn(t, env)
 	requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires(t, env)
 	requireAPIE2ELavaFlowNeedsAPerson(t, env)
 
 	env.runCloudCLI(t, "lavaflow", "disable").requireSuccess(t, "LavaFlow is off")
 	env.runCloudCLI(t, "lavaflow", "status").requireSuccess(t, "LavaFlow: off")
+}
+
+// requireAPIE2ELavaFlowStartNeedsALiveSignIn starts a run as the owner. The
+// lane's owner token comes from the management API, which mints tokens that
+// never expire, so Volcano refuses the start with person_required before it
+// looks up the issue (exit 5). A start with a token from `volcano login` is
+// covered by QA's staging gate, not here.
+func requireAPIE2ELavaFlowStartNeedsALiveSignIn(t *testing.T, env *apiE2E) {
+	t.Helper()
+	started := env.runCloudCLI(t, "lavaflow", "run", "start", lavaflowUnknownIssue)
+	started.requireFailure(t, "starting a LavaFlow run needs the project owner's live sign-in",
+		"use a platform token that expires")
+	if started.code != 5 {
+		t.Fatalf("run start exited %d, want 5:\n%s", started.code, redactCredentials(started.output))
+	}
 }
 
 // requireAPIE2ELavaFlowNeedsAPerson checks a project access token reads

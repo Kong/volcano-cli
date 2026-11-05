@@ -39,11 +39,11 @@ LavaFlow was turned on. The run follows the project's LavaFlow settings and
 starts queued. Follow it with
 '` + cliruntime.CommandPath(deps, "lavaflow show <run-id>") + `'.
 
-Only the project's owner can start a run, from their own session while
-LavaFlow is on: a project access token is refused. An issue has one run in
-progress at a time, and starts count toward LavaFlow's run limits: 5 runs per
-issue and 200 per project in any 24 hours. --json prints the run as the API
-returned it.`,
+Only the project's owner can start a run, while LavaFlow is on, from a live
+sign-in: 'volcano login', or a platform token that expires. A project access
+token is refused. An issue has one run in progress at a time, and starts
+count toward LavaFlow's run limits: 5 runs per issue and 200 per project in
+any 24 hours. --json prints the run as the API returned it.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.deps = deps

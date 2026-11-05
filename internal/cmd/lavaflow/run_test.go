@@ -72,10 +72,10 @@ func TestRunStartSaysWhatToDoAboutARefusal(t *testing.T) {
 		message, code string
 		want          string
 	}{
-		"person required": {
-			http.StatusForbidden, "project access tokens cannot start LavaFlow runs", "person_required",
-			"starting a LavaFlow run needs the project owner's session: a project access token can't. " +
-				"Sign in with 'volcano login' and run this again",
+		"token that never expires": {
+			http.StatusForbidden, "this token never expires; sign in with `volcano login` to start a run", "person_required",
+			"starting a LavaFlow run needs the project owner's live sign-in. " +
+				"Run 'volcano login', or use a platform token that expires",
 		},
 		"read-only account": {
 			http.StatusForbidden, "the account is read-only", "",
@@ -127,6 +127,23 @@ func TestRunStartSaysWhatToDoAboutARefusal(t *testing.T) {
 			assertLavaFlowWording(t, err.Error())
 		})
 	}
+}
+
+// A token in VOLCANO_TOKEN is used instead of a 'volcano login' sign-in, so
+// a start refused for a token that never expires says to unset or replace it.
+func TestRunStartWithATokenThatNeverExpiresNeedsALiveSignIn(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	t.Setenv("VOLCANO_TOKEN", "vol_never_expires")
+	fake.set(func(s *lavaflowServer) {
+		s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPost
+		s.refusal = map[string]any{"error": "this token never expires", "code": "person_required"}
+	})
+
+	_, err := executeLavaflowCommand(t, New(deps), "run", "start", lavaflowIssueID)
+	require.ErrorIs(t, err, clilavaflow.ErrStartNeedsLiveSignIn)
+	assert.Equal(t, "starting a LavaFlow run needs the project owner's live sign-in. "+
+		"Unset VOLCANO_TOKEN and run 'volcano login', or set it to a platform token that expires", err.Error())
+	assert.Equal(t, http.StatusForbidden, api.Status(err), "the exit code reports a permission refused")
 }
 
 // An issue with a run in progress names that run when the newest runs have

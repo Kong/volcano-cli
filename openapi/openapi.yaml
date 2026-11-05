@@ -7390,11 +7390,13 @@ paths:
         one LavaFlow starts on its own does, and answers `202` while it is
         `queued`; read it with `GET /lavaflow/runs/{run_id}`.
 
-        Only the project's owner can start a run, with a platform token,
-        while their account is active. A full-scope project access token, or
-        a request made through MCP, gets `403` with code `person_required`;
-        a read-only project access token is refused as read-only first,
-        without a code, and so is the owner of a read-only account.
+        Only the project's owner can start a run, as a person, while their
+        account is active: with a platform token that expires, or `volcano
+        login`. A platform token that never expires, a `volcano login` token
+        whose sign-in ended, a full-scope project access token, and a request
+        made through MCP get `403` with code `person_required`; a read-only
+        project access token is refused as read-only first, without a code,
+        and so is the owner of a read-only account.
 
         Every start counts toward the run limits: 5 runs per issue and 200 per
         project in any 24 hours. An issue has one run in progress at a time,
@@ -7429,7 +7431,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: 'Code `person_required` means a full-scope project access token or MCP made the request. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only or inactive, or the owner''s plan could not be read; retry later.'
+          description: 'Code `person_required` means the request didn''t come from the owner''s live person credential: a platform token that never expires, a `volcano login` token whose sign-in ended, a full-scope project access token, or MCP made it. Start a run with a platform token that expires, or `volcano login`. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only or inactive, or the owner''s plan could not be read; retry later.'
           content:
             application/json:
               schema:

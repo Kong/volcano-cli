@@ -21,6 +21,11 @@ import (
 // pull request, so the API takes it from the owner's own session only.
 var ErrPersonStarts = errors.New("starting a LavaFlow run needs the project owner's session: a project access token can't")
 
+// ErrStartNeedsLiveSignIn reports the start's person_required for a token
+// the CLI sent as a person's: a platform token that never expires, or one
+// whose sign-in ended. The CLI refuses a project access token before it asks.
+var ErrStartNeedsLiveSignIn = errors.New("starting a LavaFlow run needs the project owner's live sign-in")
+
 // ErrStartUnavailable reports an API that serves LavaFlow but can't start a
 // run: a platform release older than starting one.
 var ErrStartUnavailable = errors.New("this Volcano API can't start LavaFlow runs yet")
@@ -72,7 +77,7 @@ func (s Service) StartRun(ctx context.Context, issueID string) (*apiclient.Lavaf
 func (s Service) startRefused(ctx context.Context, authenticated *clisession.ProjectSession, issueID uuid.UUID, err error) error {
 	switch api.Code(err) {
 	case codePersonRequired:
-		return personStarts(authenticated.Config, err)
+		return liveSignIn(authenticated.Config, err)
 	case codeIssueNotFound:
 		return api.WithCause(fmt.Errorf("the project has no issue %s", issueID), err)
 	case codeLavaflowDisabled:
@@ -145,6 +150,17 @@ func runLimitReached(now time.Time, err error) error {
 		}
 	}
 	return api.WithCause(fmt.Errorf("%s. Try again later", refusal), err)
+}
+
+// liveSignIn says how the owner signs in so a start counts as theirs. A token
+// in VOLCANO_TOKEN wins over a 'volcano login' sign-in, so that case says to
+// unset it or replace it.
+func liveSignIn(cfg *config.Config, cause error) error {
+	how := "Run 'volcano login', or use a platform token that expires"
+	if cfg.TokenFromEnv() {
+		how = "Unset " + config.TokenEnv + " and run 'volcano login', or set it to a platform token that expires"
+	}
+	return api.WithCause(fmt.Errorf("%w. %s", ErrStartNeedsLiveSignIn, how), cause)
 }
 
 // personStarts says how the owner starts a run instead. cause is the

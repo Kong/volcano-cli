@@ -303,8 +303,9 @@ Follow it with volcano cloud lavaflow show 0d6e9b1a-2f4c-4e8d-9a7b-3c5d1e2f4a6b
 
 `--json` prints the run as the API returned it.
 
-Only the project's owner can start a run, from their own session, while
-LavaFlow is on. When the run doesn't start, the command says what to do:
+Only the project's owner can start a run, from a live sign-in, while LavaFlow
+is on: a sign-in from `volcano login`, or a platform token that expires. When
+the run doesn't start, the command says what to do:
 
 | When | The command says | Exit code |
 |---|---|---|
@@ -314,6 +315,7 @@ LavaFlow is on. When the run doesn't start, the command says what to do:
 | The issue has a run in progress | The run's ID and the `show` command for it, or `list` when it isn't among the newest 100 runs | 1 |
 | The issue started 5 runs, or the project 200, in the last 24 hours | When to try again | 1 |
 | The project has no such issue | The project has no issue with that ID | 4 |
+| The token never expires, or its sign-in ended | Run `volcano login`, or use a platform token that expires | 5 |
 | The owner's account is read-only or inactive, or their plan couldn't be read | All three, and what Volcano said | 5 |
 
 ## Follow the runs
