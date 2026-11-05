@@ -7197,11 +7197,11 @@ paths:
                 $ref: '#/components/schemas/Error'
         '429':
           description: |
-            The save turns on `autonomy: merge`, turns `enabled` on under
-            `merge`, or changes `merge_policy`, `custom_context` or
-            `system_prompt` under `merge`, and the project, or its owner across
-            their projects, used up the hour's checks of the owner's GitHub
-            push access.
+            The save turns on `allow_ungated_workflows` or `autonomy: merge`,
+            turns `enabled` on under `merge`, or changes `merge_policy`,
+            `custom_context` or `system_prompt` under `merge`, and the project,
+            or its owner across their projects, used up the hour's checks of
+            the owner's GitHub push access.
             Nothing was saved. Try again after `Retry-After`.
           headers:
             Retry-After:
@@ -7214,10 +7214,10 @@ paths:
                 $ref: '#/components/schemas/Error'
         '503':
           description: |
-            The save turns on `autonomy: merge`, turns `enabled` on under
-            `merge`, or changes `merge_policy`, `custom_context` or
-            `system_prompt` under `merge`, and the owner's GitHub push access
-            could not be checked now.
+            The save turns on `allow_ungated_workflows` or `autonomy: merge`,
+            turns `enabled` on under `merge`, or changes `merge_policy`,
+            `custom_context` or `system_prompt` under `merge`, and the owner's
+            GitHub push access could not be checked now.
             Nothing was saved. Try again after `Retry-After`.
           headers:
             Retry-After:
@@ -25230,7 +25230,7 @@ components:
       properties:
         code:
           type: string
-          description: 'Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can''t tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml` or Terraform files. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent''s instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don''t vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix''s branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn''t check, such as required signatures. `ungated_workflows`: the fix opened past workflows that can run it with the repository''s secrets before a person approves it, as the project''s owner allowed, so LavaFlow never starts its CI or merges it. Other codes name a concern LavaFlow''s reviewers raised. New codes may appear.'
+          description: 'Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can''t tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files or a YAML file that declares a resource. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent''s instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don''t vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix''s branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn''t check, such as required signatures. `ungated_workflows`: the fix opened past workflows that can run it with the repository''s secrets before a person approves it, as the project''s owner allowed, so LavaFlow never starts its CI or merges it. Other codes name a concern LavaFlow''s reviewers raised. New codes may appear.'
         question:
           type: string
           description: What a person decides before merging the fix, written to show as given.
