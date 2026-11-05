@@ -267,12 +267,13 @@ replacement: an empty `volcano/functions/_shared/` left behind still replaces
 a committed `volcano/_shared/`, and a checkout of the commit would upload the
 committed one.
 
-In a function's directory and in each shared library, a file git neither
-tracks nor ignores counts as changed even when the upload leaves it out, such
-as a `*.log` file or a `node_modules` directory that no `.gitignore` lists.
-Changes anywhere else, such as to another function, don't count. `functions deploy --all` checks each function
-on its own, so a batch can send the commit for some functions and not for
-others.
+In a directory function's directory and in each shared library, a file git
+neither tracks nor ignores counts as changed even when the upload leaves it
+out, such as a `*.log` file or a `node_modules` directory that no
+`.gitignore` lists. Changes anywhere else don't count, such as to another
+function or to a file beside a single-file function that its upload doesn't
+read. `functions deploy --all` checks each function on its own, so a batch
+can send the commit for some functions and not for others.
 
 A file git ignores is build output, such as a bundle your build writes to an
 ignored `volcano/functions/`. The CLI can't tell which sources made it, so a

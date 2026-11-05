@@ -374,9 +374,8 @@ The `Source:` line gives the commit's short SHA and where it came from:
 | `production branch; may not be deployed` | A reported problem's run read the production branch at a commit it pinned. |
 
 A run recorded before Volcano kept the origin, or with an origin your CLI
-doesn't know, shows the commit alone. A run
-that read no code, such as one that diagnosed from logs alone, has no
-`Source:` line.
+doesn't know, shows the commit alone. A run that read no code, such as one
+that diagnosed from logs alone, has no `Source:` line.
 
 The `Fix:` block always says what happened to the run's fix:
 
