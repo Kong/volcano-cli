@@ -94,6 +94,7 @@ volcano cloud lavaflow enable
 ```text
 LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, and opens fix pull requests in your connected repository.
 LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
+Turning LavaFlow on from off also starts runs for up to 5 open issues that hold an exception and were seen at least twice, most recently in the past 7 days.
 Turn LavaFlow on? Type 'y' or 'yes' to confirm: y
 ✓ LavaFlow is on
 LavaFlow: on
@@ -104,11 +105,20 @@ Custom context: not set
 System prompt: not set
 ```
 
-`enable` says what LavaFlow does and where it sends the project's data, then
-asks before it turns LavaFlow on. `--yes` skips the question, not those
-sentences, which go to stderr so `--json` output stays JSON. Without `--yes`, `enable` needs a
-terminal to answer: in a script or CI job it exits non-zero and changes
-nothing.
+`enable` says what LavaFlow does, where it sends the project's data and
+which past issues it starts on, then asks before it turns LavaFlow on. `--yes`
+skips the question, not those sentences, which go to stderr so `--json`
+output stays JSON. Without `--yes`, `enable` needs a terminal to answer: in a
+script or CI job it exits non-zero and changes nothing.
+
+Turning LavaFlow on from off starts runs for up to 5 open issues that hold an
+exception and were seen at least twice, most recently in the past 7 days. The
+most recently seen go first, and an issue LavaFlow already ran is left out.
+These runs start like the ones LavaFlow starts on its own, one at a time per
+project. Running `enable` while LavaFlow is on starts none. Only the owner
+signed in as a person starts them, with `volcano login` or a platform token
+that expires; a platform token that never expires turns LavaFlow on without
+them. See [LavaFlow](/platform/guides/lavaflow) for details.
 
 `disable` turns it off. No new run starts; past runs and their pull requests
 stay readable.

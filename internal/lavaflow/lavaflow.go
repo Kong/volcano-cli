@@ -339,9 +339,17 @@ func repository(ctx context.Context, authenticated *clisession.ProjectSession) (
 // EnableNotice says where LavaFlow sends the project's data.
 const EnableNotice = "LavaFlow sends this project's logs and source code to an AI service that Volcano operates."
 
+// EnableRecentIssues says which past issues turning LavaFlow on starts runs
+// for, in the platform docs' terms: open, exception true, event_count of at
+// least 2, last seen in the past 7 days. Only a save that turns it on from off
+// starts them.
+const EnableRecentIssues = "Turning LavaFlow on from off also starts runs for up to 5 open issues that hold " +
+	"an exception and were seen at least twice, most recently in the past 7 days."
+
 // EnableDisclosure is what enable says before it turns LavaFlow on, whether
-// or not it then asks: the approved AI disclosure, then where the data goes.
-const EnableDisclosure = OnDescription + "\n" + EnableNotice
+// or not it then asks: the approved AI disclosure, where the data goes, then
+// the past issues it starts on.
+const EnableDisclosure = OnDescription + "\n" + EnableNotice + "\n" + EnableRecentIssues
 
 // Enable turns LavaFlow on for the current project, sending enabled alone so
 // the other settings keep their values. confirm runs once the checks that
