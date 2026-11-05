@@ -57,7 +57,7 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	t.Cleanup(func() { env.runCloudCLI(t, "lavaflow", "disable").requireSuccess(t, "LavaFlow is off") })
 
 	env.runCloudCLI(t, "lavaflow", "status").requireSuccess(t, "LavaFlow: off", "Repository: none connected",
-		"Turn it on with volcano cloud lavaflow enable")
+		"Ungated workflows: not allowed", "Turn it on with volcano cloud lavaflow enable")
 	env.runCloudCLI(t, "lavaflow", "enable", "--yes").requireSuccess(t,
 		"LavaFlow sends this project's logs and source code to an AI service that Volcano operates.", "LavaFlow is on")
 	env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only",
