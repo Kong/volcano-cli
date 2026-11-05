@@ -84,7 +84,8 @@ the project owner's plan; try again later" and exits with code 5. A change
 that `enable`, `disable` or `settings set` sends can also be refused for a
 read-only access token or account; the API doesn't tell those apart from a
 plan it couldn't read, so the command names all three, adds what Volcano
-said, and exits with code 5.
+said, and exits with code 5. `run start` does the same for a read-only or
+inactive account and a plan it couldn't read (see [Start a run](#start-a-run)).
 
 ## Turn it on
 

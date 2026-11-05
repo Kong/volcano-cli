@@ -7441,7 +7441,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: The run did not start. Code `lavaflow_disabled` means LavaFlow is off for the project; turn it on with `PATCH /lavaflow/settings`. Code `repository_required` means LavaFlow was turned on for a repository the project no longer links, and `repository_changed` that the project links another repository than LavaFlow was turned on for; turn LavaFlow on again. Code `lavaflow_run_in_progress` means the issue has a run in progress.
+          description: The run did not start. Code `lavaflow_disabled` means LavaFlow is off for the project; turn it on. Code `repository_required` means LavaFlow was turned on for a repository the project no longer links, and `repository_changed` that the project links another repository than LavaFlow was turned on for; turn LavaFlow on again. Code `lavaflow_run_in_progress` means the issue has a run in progress.
           content:
             application/json:
               schema:
