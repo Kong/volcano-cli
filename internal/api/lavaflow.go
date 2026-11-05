@@ -44,7 +44,7 @@ func (c *Client) UpdateLavaflowSettings(
 		return nil, err
 	}
 	settings, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403,
-		resp.JSON404, resp.JSON413, resp.JSON429, resp.JSON503)
+		resp.JSON404, resp.JSON409, resp.JSON413, resp.JSON429, resp.JSON503)
 	if err != nil && resp.HTTPResponse != nil {
 		// A 429 or 503 for autonomy merge says when Volcano can check the
 		// owner's push access again.

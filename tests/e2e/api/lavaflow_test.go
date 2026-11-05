@@ -161,7 +161,8 @@ func requireAPIE2ELavaFlowUngatedWorkflowsRefuseATokenThatNeverExpires(t *testin
 // exits 5.
 func requireRefusedForATokenThatNeverExpires(t *testing.T, refused cliResult, warning string) {
 	t.Helper()
-	refused.requireFailure(t, warning, "LavaFlow's settings weren't changed: ", "never expires", "`volcano login`")
+	refused.requireFailure(t, warning,
+		"LavaFlow's settings weren't changed: this token never expires; sign in with `volcano login` to turn this on")
 	if refused.code != 5 {
 		t.Fatalf("the refused change exited %d, want 5:\n%s", refused.code, redactCredentials(refused.output))
 	}

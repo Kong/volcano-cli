@@ -25136,6 +25136,28 @@ components:
         - type
         - id
         - name
+    LavaflowAllowedWorkflow:
+      type: object
+      description: A workflow job that could run a fix's pull request with the repository's secrets before a person approves it.
+      properties:
+        source:
+          type: string
+          description: The branch or commit whose workflows run it.
+          example: main
+        path:
+          type: string
+          example: .github/workflows/preview.yml
+        job:
+          type: string
+          description: The job, absent for a workflow that could not be read.
+          example: deploy-preview
+        trigger:
+          type: string
+          description: The event that runs it, absent for a workflow that could not be read.
+          example: pull_request_target
+      required:
+        - source
+        - path
     PaginatedLavaflowRuns:
       type: object
       properties:
@@ -25586,28 +25608,6 @@ components:
             - review
             - failure
             - ungated_workflows
-    LavaflowAllowedWorkflow:
-      type: object
-      description: A workflow job that could run a fix's pull request with the repository's secrets before a person approves it.
-      properties:
-        source:
-          type: string
-          description: The branch or commit whose workflows run it.
-          example: main
-        path:
-          type: string
-          example: .github/workflows/preview.yml
-        job:
-          type: string
-          description: The job, absent for a workflow that could not be read.
-          example: deploy-preview
-        trigger:
-          type: string
-          description: The event that runs it, absent for a workflow that could not be read.
-          example: pull_request_target
-      required:
-        - source
-        - path
     GitRepositoryReference:
       type: object
       description: A GitHub repository, by its stable id and its name.

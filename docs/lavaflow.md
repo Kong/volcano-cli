@@ -192,12 +192,17 @@ still prints it, on stderr, so `--json` output stays JSON. Without a terminal
 and without `--yes`, it changes nothing and exits with a non-zero code.
 
 Only the project's owner can turn merging on, signed in with `volcano login`
-while that sign-in lasts, or with a platform token that has an expiry. Volcano
-refuses a platform token that never expires, or a sign-in that ended, and the
-command says why in Volcano's words and exits with code 5. While
-`VOLCANO_TOKEN` is set, its token is used instead of a `volcano login`
-sign-in. A project access token is refused before anything is sent, also with
-code 5. Merging applies to the
+while that sign-in lasts, or with a platform token that has an expiry. Under
+`merge`, the same goes for `enable` and for changing the human review paths,
+`--custom-context` or `--system-prompt`. The owner's GitHub account must also
+be able to push to the project's repository. Volcano refuses these changes
+with `person_required` for a platform token that never expires, a sign-in that
+ended, an owner whose GitHub account can't push to the repository, or a
+project with no repository. The command says why in Volcano's words and exits with code 5.
+[Checking that the owner can push](/platform/projects/git-deploy#check-that-the-owner-can-push)
+says why the owner can't. While `VOLCANO_TOKEN` is set, its token is used
+instead of a `volcano login` sign-in. A project access token is refused before
+anything is sent, also with code 5. Merging applies to the
 repository the project is connected to when you turn it on: once the project
 is connected to another, autonomy reads `open_pr` until you turn merge on
 again. Merging is only for a project where
@@ -205,10 +210,7 @@ it's available, which `status` shows; elsewhere `--autonomy merge` says
 "LavaFlow merging isn't available for this project yet" and exits with
 code 1. When `status` shows merging isn't available while LavaFlow is, it
 says so before it warns or asks. A project already at `merge` can still save
-`--autonomy merge` again. When the owner's GitHub account can't push to the
-project's repository, it says so, adds what Volcano said, points to
-[connecting GitHub](/platform/projects/git-deploy#1-connect-github), and exits
-with code 5.
+`--autonomy merge` again.
 
 `--human-review-path` names a path whose changes always hold a fix for a
 person, such as `db/migrations/**`. Repeat it for each path, up to 50, each 1
