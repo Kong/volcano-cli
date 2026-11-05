@@ -134,10 +134,10 @@ While LavaFlow is off, the status says what it does and how to turn it on.
 When you use a project access token, which can read but not change the
 settings, the status says so instead.
 When it is set to open pull requests and no repository is connected, the
-status says to run `volcano git connect` and then, as the owner, `volcano cloud
-lavaflow enable`: LavaFlow starts no run for a repository other than the one it
-was turned on for, so after you connect or change the repository, turn it on
-again. When LavaFlow isn't available for
+status says to run `volcano git connect` and then, as the owner,
+`volcano cloud lavaflow enable`: LavaFlow starts no run for a repository other
+than the one it was turned on for, so after you connect or change the
+repository, turn it on again. When LavaFlow isn't available for
 a project that has LavaFlow records, the status notes that it can't be turned
 on or changed, and that the owner can still turn it off.
 
