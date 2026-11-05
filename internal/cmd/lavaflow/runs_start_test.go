@@ -12,12 +12,12 @@ import (
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 )
 
-// run start names the issue and the project in the body, and says which run
+// runs start names the issue and the project in the body, and says which run
 // started and how to follow it.
 func TestRunStartSaysWhichRunStarted(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 
-	out, err := executeLavaflowCommand(t, New(deps), "run", "start", lavaflowIssueID)
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "start", lavaflowIssueID)
 	require.NoError(t, err)
 	assert.Contains(t, out, "LavaFlow run started")
 	assert.Contains(t, out, "Run: "+startedRunID+"\n")
@@ -35,7 +35,7 @@ func TestRunStartSaysWhichRunStarted(t *testing.T) {
 func TestRunStartJSONIsTheAPIsBody(t *testing.T) {
 	_, deps := newLavaflowServer(t)
 
-	out, err := executeLavaflowCommand(t, New(deps), "run", "start", lavaflowIssueID, "--json")
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "start", lavaflowIssueID, "--json")
 	require.NoError(t, err)
 	assert.Equal(t, asJSON(t, startedRun(lavaflowIssueID)), decodeJSON(t, out))
 }
@@ -44,7 +44,7 @@ func TestRunStartJSONIsTheAPIsBody(t *testing.T) {
 func TestRunStartRefusesAnInvalidIssueID(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 
-	_, err := executeLavaflowCommand(t, New(deps), "run", "start", "not-an-id")
+	_, err := executeLavaflowCommand(t, New(deps), "runs", "start", "not-an-id")
 	require.Error(t, err)
 	assert.Equal(t, `invalid issue ID "not-an-id": use the ID of one of the project's issues`, err.Error())
 	fake.set(func(s *lavaflowServer) { assert.Empty(t, s.started) })
@@ -56,7 +56,7 @@ func TestRunStartWithAProjectTokenNeedsTheOwnersSession(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"secret")
 
-	_, err := executeLavaflowCommand(t, New(deps), "run", "start", lavaflowIssueID)
+	_, err := executeLavaflowCommand(t, New(deps), "runs", "start", lavaflowIssueID)
 	require.ErrorIs(t, err, clilavaflow.ErrPersonStarts)
 	require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired, "the exit code reports a permission refused")
 	assert.Equal(t, "starting a LavaFlow run needs the project owner's session: a project access token can't. "+
@@ -120,7 +120,7 @@ func TestRunStartSaysWhatToDoAboutARefusal(t *testing.T) {
 				}
 			})
 
-			_, err := executeLavaflowCommand(t, New(deps), "run", "start", lavaflowIssueID)
+			_, err := executeLavaflowCommand(t, New(deps), "runs", "start", lavaflowIssueID)
 			require.Error(t, err)
 			assert.Equal(t, tc.want, err.Error())
 			assert.Equal(t, tc.status, api.Status(err))
@@ -139,7 +139,7 @@ func TestRunStartWithATokenThatNeverExpiresNeedsALiveSignIn(t *testing.T) {
 		s.refusal = map[string]any{"error": "this token never expires", "code": "person_required"}
 	})
 
-	_, err := executeLavaflowCommand(t, New(deps), "run", "start", lavaflowIssueID)
+	_, err := executeLavaflowCommand(t, New(deps), "runs", "start", lavaflowIssueID)
 	require.ErrorIs(t, err, clilavaflow.ErrStartNeedsLiveSignIn)
 	assert.Equal(t, "starting a LavaFlow run needs the project owner's live sign-in. "+
 		"Unset VOLCANO_TOKEN and run 'volcano login', or set it to a platform token that expires", err.Error())
@@ -175,7 +175,7 @@ func TestRunStartNamesTheRunInProgress(t *testing.T) {
 				s.runs[0]["status"], s.runs[0]["issue_id"] = tc.status, tc.issue
 			})
 
-			_, err := executeLavaflowCommand(t, New(deps), "run", "start", lavaflowIssueID)
+			_, err := executeLavaflowCommand(t, New(deps), "runs", "start", lavaflowIssueID)
 			require.Error(t, err)
 			assert.Equal(t, tc.want, err.Error())
 			assert.Equal(t, http.StatusConflict, api.Status(err))
@@ -209,7 +209,7 @@ func TestRunStartSaysWhenARunLimitHasRoom(t *testing.T) {
 			}
 		})
 
-		_, err := executeLavaflowCommand(t, New(deps), "run", "start", lavaflowIssueID)
+		_, err := executeLavaflowCommand(t, New(deps), "runs", "start", lavaflowIssueID)
 		require.Error(t, err, tc.code)
 		assert.Equal(t, tc.want, err.Error(), tc.code)
 		assert.Equal(t, http.StatusTooManyRequests, api.Status(err), tc.code)
@@ -222,7 +222,7 @@ func TestRunStartSaysWhenTheAPICantStartRuns(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) { s.startMissing = true })
 
-	_, err := executeLavaflowCommand(t, New(deps), "run", "start", lavaflowIssueID)
+	_, err := executeLavaflowCommand(t, New(deps), "runs", "start", lavaflowIssueID)
 	require.ErrorIs(t, err, clilavaflow.ErrStartUnavailable)
 	assert.Equal(t, "this Volcano API can't start LavaFlow runs yet", err.Error())
 	assert.Equal(t, http.StatusMethodNotAllowed, api.Status(err))

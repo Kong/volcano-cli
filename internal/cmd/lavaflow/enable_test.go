@@ -297,7 +297,7 @@ const apiPlanRefusal = "the project owner's plan does not include LavaFlow"
 // says both; TestRunStartSaysWhatToDoAboutARefusal covers it.
 func TestAPlanThatCantBeReadSaysSo(t *testing.T) {
 	for _, args := range lavaflowCommandArgs() {
-		if args[0] == "run" {
+		if args[0] == "runs" {
 			continue
 		}
 		fake, deps := newLavaflowServer(t)

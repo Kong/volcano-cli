@@ -60,7 +60,7 @@ the same when the owner's plan couldn't be read.
 | Show what LavaFlow did for each resource | `volcano cloud lavaflow resources [--days n] [--json]` |
 | List runs | `volcano cloud lavaflow list [--status s] [--resource id] [--limit n] [--cursor c] [--json]` |
 | Show a run | `volcano cloud lavaflow show <run-id> [--json]` |
-| Start a run on an issue | `volcano cloud lavaflow run start <issue-id> [--json]` |
+| Start a run on an issue | `volcano cloud lavaflow runs start <issue-id> [--json]` |
 
 Every command takes `--json` for the API's own fields and values.
 
@@ -74,7 +74,7 @@ LavaFlow belongs to the project's owner. For anyone else, every command says
 code 4. A project access token can run the read commands for its own
 project, but only the owner's own session can turn LavaFlow on or off,
 change its settings and start runs: `enable`, `disable`, `settings set` and
-`run start` refuse a project access token before they ask or send anything,
+`runs start` refuse a project access token before they ask or send anything,
 with code 5. Sign in with
 `volcano login` instead, and if `VOLCANO_TOKEN` holds a project access token,
 unset it first.
@@ -84,7 +84,7 @@ the project owner's plan; try again later" and exits with code 5. A change
 that `enable`, `disable` or `settings set` sends can also be refused for a
 read-only access token or account; the API doesn't tell those apart from a
 plan it couldn't read, so the command names all three, adds what Volcano
-said, and exits with code 5. `run start` does the same for a read-only or
+said, and exits with code 5. `runs start` does the same for a read-only or
 inactive account and a plan it couldn't read (see [Start a run](#start-a-run)).
 
 ## Turn it on
@@ -297,7 +297,7 @@ run, or an ID from the [issues](/platform/guides/issues) API. The run follows
 the project's settings and starts `queued`.
 
 ```bash
-volcano cloud lavaflow run start 5b2d8e1c-3f4a-4c6b-9d7e-8a1f2b3c4d5e
+volcano cloud lavaflow runs start 5b2d8e1c-3f4a-4c6b-9d7e-8a1f2b3c4d5e
 ```
 
 ```text

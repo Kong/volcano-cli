@@ -11,24 +11,14 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-func newRun(deps cliruntime.Deps) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "run",
-		Short: "Start LavaFlow runs",
-		Args:  cobra.NoArgs,
-	}
-	cmd.AddCommand(newRunStart(deps))
-	return cmd
-}
-
-type runStartOptions struct {
+type runsStartOptions struct {
 	deps       cliruntime.Deps
 	jsonOutput bool
 	out        io.Writer
 }
 
-func newRunStart(deps cliruntime.Deps) *cobra.Command {
-	opts := runStartOptions{}
+func newRunsStart(deps cliruntime.Deps) *cobra.Command {
+	opts := runsStartOptions{}
 	cmd := &cobra.Command{
 		Use:   "start <issue-id>",
 		Short: "Start a LavaFlow run on an issue",
@@ -48,14 +38,14 @@ any 24 hours. --json prints the run as the API returned it.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.deps = deps
 			opts.out = cmd.OutOrStdout()
-			return runRunStart(cmd.Context(), opts, args[0])
+			return runRunsStart(cmd.Context(), opts, args[0])
 		},
 	}
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON")
 	return cmd
 }
 
-func runRunStart(ctx context.Context, opts runStartOptions, issueID string) error {
+func runRunsStart(ctx context.Context, opts runsStartOptions, issueID string) error {
 	run, body, err := clilavaflow.NewService(opts.deps).StartRun(ctx, issueID)
 	if err != nil {
 		return err

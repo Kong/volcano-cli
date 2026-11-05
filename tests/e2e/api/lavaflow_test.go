@@ -28,7 +28,7 @@ var lavaflowCommands = [][]string{
 	{"lavaflow", "resources", "--json"},
 	{"lavaflow", "list", "--json"},
 	{"lavaflow", "show", "00000000-0000-4000-8000-000000000000", "--json"},
-	{"lavaflow", "run", "start", lavaflowUnknownIssue, "--json"},
+	{"lavaflow", "runs", "start", lavaflowUnknownIssue, "--json"},
 }
 
 // TestAPIE2ECloudLavaFlow runs LavaFlow's commands against a fresh project the
@@ -100,11 +100,11 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 // covered by QA's staging gate, not here.
 func requireAPIE2ELavaFlowStartNeedsALiveSignIn(t *testing.T, env *apiE2E) {
 	t.Helper()
-	started := env.runCloudCLI(t, "lavaflow", "run", "start", lavaflowUnknownIssue)
+	started := env.runCloudCLI(t, "lavaflow", "runs", "start", lavaflowUnknownIssue)
 	started.requireFailure(t, "starting a LavaFlow run needs the project owner's live sign-in",
 		"use a platform token that expires")
 	if started.code != 5 {
-		t.Fatalf("run start exited %d, want 5:\n%s", started.code, redactCredentials(started.output))
+		t.Fatalf("runs start exited %d, want 5:\n%s", started.code, redactCredentials(started.output))
 	}
 }
 
@@ -128,7 +128,7 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings", "set", "--autonomy", "merge", "--yes").
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
-	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "run", "start", lavaflowUnknownIssue).
+	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "runs", "start", lavaflowUnknownIssue).
 		requireFailure(t, "starting a LavaFlow run needs the project owner's session")
 }
 
