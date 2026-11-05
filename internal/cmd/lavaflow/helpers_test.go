@@ -105,7 +105,7 @@ func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
 func defaultLavaflowSettings() map[string]any {
 	return map[string]any{
 		"project_id": lavaflowProjectID, "enabled": false, "autonomy": "open_pr", "custom_context": "", "system_prompt": "",
-		"updated_at": nil, "updated_by": nil, "can_update": true, "merge_policy": map[string]any{"human_review_paths": []any{}},
+		"updated_at": nil, "updated_by": nil, "can_update": true, "allow_ungated_workflows": false, "merge_policy": map[string]any{"human_review_paths": []any{}},
 	}
 }
 
