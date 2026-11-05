@@ -85,7 +85,7 @@ its status is `provisioning`.
 | `-d, --database` | Database to migrate. Local mode defaults to `app`. In the cloud, the default is the database the manifests' `databases:` sections declare, if they declare exactly one. |
 | `--env-file` | Env file to deploy. Default: `volcano/volcano.env` or `./volcano.env`. |
 | `--no-env-file` | Deploy no env file, even when `volcano/volcano.env` exists. Use it when a manifest's `variables` section holds the project's variables. |
-| `-c, --config` | Manifest to apply. Repeat it to apply several, in order. Passing any `-c` replaces the default `volcano/volcano-config.yaml` or `./volcano-config.yaml`. |
+| `-c, --config` | Manifest to apply. Repeat it to apply several, in order. Passing any `-c` replaces default lookup: `./volcano-config.yaml` first, then `volcano/volcano-config.yaml` only when the root file is absent. |
 | `--no-frontends` | Skip frontends. Useful while `npm run dev` is your edit loop, or when only function code changed. |
 | `--no-wait` | Return without waiting for deployments to finish. |
 

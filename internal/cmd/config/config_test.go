@@ -1155,7 +1155,7 @@ func TestDeployReportsSelectedManifestPath(t *testing.T) {
 			defer server.Close()
 			out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy")
 			require.NoError(t, err)
-			assert.Contains(t, out, "Configuration deployed from "+selected)
+			assert.Contains(t, out, "Configuration deployed from "+filepath.ToSlash(selected))
 		})
 	}
 }
