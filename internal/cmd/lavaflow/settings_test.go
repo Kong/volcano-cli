@@ -106,6 +106,36 @@ func TestSettingsReadsOnlyTheSettings(t *testing.T) {
 	assert.Len(t, fake.queries["/settings"], 1)
 }
 
+// settings says whether LavaFlow can merge, as status does: paused at
+// autonomy merge, not available otherwise, and nothing when the capabilities
+// don't list merging. --json stays the settings alone.
+func TestSettingsSaysWhetherLavaFlowCanMerge(t *testing.T) {
+	for _, tc := range []struct {
+		autonomy, capability, want string
+	}{
+		{"open_pr", "available", "Merging: available\n"},
+		{"open_pr", "unavailable", "Merging: not available for this project\n"},
+		{"merge", "unavailable", "Merging: paused; waiting fixes resume when it's back, new fixes open as pull requests for review\n"},
+		{"merge", "", ""},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) { s.settings["autonomy"], s.mergeCapability = tc.autonomy, tc.capability })
+
+		out, err := executeLavaflowCommand(t, New(deps), "settings")
+		require.NoError(t, err, tc)
+		if tc.want == "" {
+			assert.NotContains(t, out, "Merging:", tc)
+		} else {
+			assert.Contains(t, out, tc.want, tc)
+		}
+		assertLavaFlowWording(t, out)
+
+		out, err = executeLavaflowCommand(t, New(deps), "settings", "--json")
+		require.NoError(t, err, tc)
+		assert.NotContains(t, decodeJSON(t, out), "merge_available", tc)
+	}
+}
+
 // The examples run the command in the tree it's in, so copying one works.
 func TestSettingsSetExamplesRunTheCloudCommand(t *testing.T) {
 	_, deps := newLavaflowServer(t)

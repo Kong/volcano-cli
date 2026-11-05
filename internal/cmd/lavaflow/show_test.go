@@ -150,7 +150,9 @@ func TestShowSaysWhereTheMergeIs(t *testing.T) {
 		status, reason, want string
 	}{
 		{"waiting_for_checks", "", "Merge: waiting for CI\n"},
-		{"waiting_for_checks", "paused", "Merge: waiting for CI (paused while merging is off)\n"},
+		// A paused merge keeps its status, whose checks may have finished.
+		{"waiting_for_checks", "paused", "Merge: paused while merging is off\n"},
+		{"queued", "paused", "Merge: paused while merging is off\n"},
 		{"queued", "", "Merge: queued to merge\n"},
 		{"merged", "", "Merge: merged\n"},
 		{"stopped", "checks_failed", "Merge: stopped (checks failed)\n" + yours + "\n"},
