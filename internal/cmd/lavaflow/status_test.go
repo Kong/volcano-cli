@@ -63,6 +63,21 @@ func TestStatusOnWithoutARepositoryAsksForOne(t *testing.T) {
 	}
 }
 
+// A caller who can't change LavaFlow is told the owner turns it on again, not
+// to run enable.
+func TestStatusWithoutARepositoryLeavesTurningItOnToTheOwner(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["enabled"], s.settings["can_update"], s.repoConnected = true, false, false
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Connect a repository, then have the project's owner turn LavaFlow on again so it can open "+
+		"fix pull requests: volcano git connect")
+	assert.NotContains(t, out, "lavaflow enable")
+}
+
 // Diagnosing needs no repository, and a connection that can't be read is
 // left out rather than reported missing.
 func TestStatusAsksForARepositoryOnlyWhenItOpensPullRequests(t *testing.T) {

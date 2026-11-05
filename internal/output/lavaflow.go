@@ -66,9 +66,14 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	// LavaFlow on starts no run for a repository other than the one it was
 	// turned on for, so connecting one takes turning it on again.
 	opensFixes := settings.Autonomy == apiclient.OpenPr || settings.Autonomy == apiclient.Merge
-	if details.RepositoryState == "not_connected" && opensFixes {
+	switch {
+	case details.RepositoryState != "not_connected" || !opensFixes:
+	case settings.CanUpdate:
 		Warning(w, "Connect a repository, then turn LavaFlow on again so it can open fix pull requests: %s, then %s",
 			theme.Command(details.GitConnectCommand, on), theme.Command(details.EnableCommand, on))
+	default:
+		Warning(w, "Connect a repository, then have the project's owner turn LavaFlow on again so it can open fix pull requests: %s",
+			theme.Command(details.GitConnectCommand, on))
 	}
 }
 
