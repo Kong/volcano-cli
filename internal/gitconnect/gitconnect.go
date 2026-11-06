@@ -496,9 +496,9 @@ func (s Service) DeploySettings(ctx context.Context) (*apiclient.ProjectGitDeplo
 func (s Service) SetFrontend(ctx context.Context, name, appRoot string) (*apiclient.ProjectGitDeploySettings, error) {
 	return s.changeDeploySettings(ctx, "failed to set the frontend",
 		func(settings *apiclient.UpdateProjectGitDeploySettingsRequest) {
-			settings.FrontendName, settings.FrontendAppRoot = nil, nil
+			// An explicit empty name retires the selection even after Git handover.
+			settings.FrontendName, settings.FrontendAppRoot = &name, nil
 			if name != "" {
-				settings.FrontendName = &name
 				if appRoot != "" {
 					settings.FrontendAppRoot = &appRoot
 				}

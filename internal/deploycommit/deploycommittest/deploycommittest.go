@@ -18,6 +18,16 @@ import (
 // installed.
 func Repository(t *testing.T, root, remote string) string {
 	t.Helper()
+	Init(t, root, remote)
+	Git(t, root, "add", ".")
+	Git(t, root, "commit", "--quiet", "-m", "initial")
+	return Git(t, root, "rev-parse", "HEAD")
+}
+
+// Init makes root a git repository whose origin is remote, with no commit
+// yet, as Repository does.
+func Init(t *testing.T, root, remote string) {
+	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not installed")
 	}
@@ -34,9 +44,6 @@ func Repository(t *testing.T, root, remote string) string {
 	}
 	Git(t, root, "init", "--quiet")
 	Git(t, root, "remote", "add", "origin", remote)
-	Git(t, root, "add", ".")
-	Git(t, root, "commit", "--quiet", "-m", "initial")
-	return Git(t, root, "rev-parse", "HEAD")
 }
 
 // Git runs git in root and returns its trimmed output.

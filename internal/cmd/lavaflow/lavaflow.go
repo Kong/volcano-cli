@@ -20,8 +20,8 @@ const groupShort = "Diagnose and fix the project's runtime errors"
 var groupLong = clilavaflow.OnDescription + ` It covers every function, frontend
 and durable function in the project, and turning it on is the whole setup.
 
-Turning it on or off and changing its settings is a person's decision: a
-project access token can read LavaFlow but not change it.`
+A project access token can read LavaFlow, but only the owner's own session
+can turn it on or off, change its settings and start runs.`
 
 // New returns the lavaflow command.
 func New(deps cliruntime.Deps) *cobra.Command {
@@ -38,6 +38,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newResources(deps))
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newShow(deps))
+	cmd.AddCommand(newRuns(deps))
 	return cmd
 }
 

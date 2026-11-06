@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.73.0](https://github.com/Kong/volcano-cli/compare/v0.72.2...v0.73.0) (2026-11-06)
+
+
+### Features
+
+* **deployments:** show the commit a deployment reported ([#456](https://github.com/Kong/volcano-cli/issues/456)) ([1d5cd0c](https://github.com/Kong/volcano-cli/commit/1d5cd0c7b24c7c072f9bfd5d24291021caffce6f))
+
+## [0.72.2](https://github.com/Kong/volcano-cli/compare/v0.72.1...v0.72.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **config:** align manifest priority and explicit frontend clearing ([#445](https://github.com/Kong/volcano-cli/issues/445)) ([a1e58a3](https://github.com/Kong/volcano-cli/commit/a1e58a3f16e9028e79992ba5b0983073a82931a2))
+
+## [0.72.1](https://github.com/Kong/volcano-cli/compare/v0.72.0...v0.72.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **lavaflow:** say a project token can't start a run ([#451](https://github.com/Kong/volcano-cli/issues/451)) ([53bb804](https://github.com/Kong/volcano-cli/commit/53bb804a60df5535695c9ed40db88d6d518e5729))
+
+## [0.72.0](https://github.com/Kong/volcano-cli/compare/v0.71.0...v0.72.0) (2026-11-06)
+
+
+### Features
+
+* **lavaflow:** start a LavaFlow run for an issue ([#439](https://github.com/Kong/volcano-cli/issues/439)) ([8ed7377](https://github.com/Kong/volcano-cli/commit/8ed7377cd09aa45edf800e3710aa7239a3b02b81))
+
+## [0.71.0](https://github.com/Kong/volcano-cli/compare/v0.70.0...v0.71.0) (2026-11-05)
+
+
+### Features
+
+* **lavaflow:** show the commit a run read the code at ([#448](https://github.com/Kong/volcano-cli/issues/448)) ([f42aabc](https://github.com/Kong/volcano-cli/commit/f42aabc97e6383938824cf67b1b419c48927ed36))
+
+## [0.70.0](https://github.com/Kong/volcano-cli/compare/v0.69.0...v0.70.0) (2026-11-05)
+
+
+### Features
+
+* **deploy:** report the source commit for clean function deploys ([#443](https://github.com/Kong/volcano-cli/issues/443)) ([9bdaa2a](https://github.com/Kong/volcano-cli/commit/9bdaa2a07cbf606c6ed518c9a35c87bbf7047d81))
+
 ## [0.69.0](https://github.com/Kong/volcano-cli/compare/v0.68.0...v0.69.0) (2026-11-05)
 
 

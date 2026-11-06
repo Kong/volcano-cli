@@ -152,6 +152,16 @@ Key semantics:
   `variable_scope`, leaves the function's existing declaration untouched. See
   "Function variable scope" below.
 
+Without `--file`, the CLI uses `./volcano-config.yaml` first and falls back to
+`volcano/volcano-config.yaml` only when the outer file is absent. When both
+exist, only the outer file applies; they are not merged. An invalid selected
+file fails without falling back. `config pull` also updates the outer file
+when both exist and requires `--force` to replace an existing file or symbolic
+link, including a link whose target is missing. Use `--file` to select a different
+location explicitly. Deployment output names the selected configuration path.
+`volcano init` leaves both existing configuration files intact and uses the same
+root-file priority.
+
 ## Function visibility
 
 `functions[].visibility` decides who can invoke a function:

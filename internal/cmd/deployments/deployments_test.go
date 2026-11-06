@@ -269,6 +269,55 @@ func TestGetNamesTheBuildLogsCommandForEachType(t *testing.T) {
 	}
 }
 
+func TestGetShowsTheReportedCommit(t *testing.T) {
+	const sha = "4f1c2b7d9e0a8b3c6d5e4f3a2b1c0d9e8f7a6b5c"
+	for _, tc := range []struct {
+		name   string
+		commit map[string]any
+		want   string
+	}{
+		{
+			name:   "function checked at the repository level",
+			commit: map[string]any{"repository": "acme/app", "sha": sha, "dirty": false, "verified": false, "verification": "repository"},
+			want:   "Commit: acme/app@4f1c2b7 (verification: repository)\n",
+		},
+		{
+			name:   "frontend whose files matched",
+			commit: map[string]any{"repository": "acme/web", "sha": sha, "dirty": false, "verified": true, "verification": "files"},
+			want:   "Commit: acme/web@4f1c2b7 (verification: files)\n",
+		},
+		{
+			name:   "dirty upload",
+			commit: map[string]any{"repository": "acme/app", "sha": sha, "dirty": true, "verified": false, "verification": "none"},
+			want:   "Commit: acme/app@4f1c2b7 (verification: none, dirty)\n",
+		},
+		{
+			name:   "control characters from the server",
+			commit: map[string]any{"repository": "acme/\x1b[31mapp", "sha": sha, "dirty": false, "verified": false, "verification": "none"},
+			want:   "Commit: acme/\\x1b[31mapp@4f1c2b7 (verification: none)\n",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			api := newDeploymentsAPI(t, 1)
+			api.deployments[0]["commit"] = tc.commit
+
+			out, _, err := run(t, api.serve(), "get", api.deployments[0]["id"].(string))
+			require.NoError(t, err)
+			assert.Contains(t, out, "Trigger: cli\n"+tc.want)
+		})
+	}
+}
+
+// A deployment whose client reported no commit, as every local-mode deploy,
+// prints no Commit line.
+func TestGetLeavesOutAnUnreportedCommit(t *testing.T) {
+	api := newDeploymentsAPI(t, 1)
+
+	out, _, err := run(t, api.serve(), "get", api.deployments[0]["id"].(string))
+	require.NoError(t, err)
+	assert.NotContains(t, out, "Commit:")
+}
+
 func TestGetRefusesAnUnknownOrMalformedID(t *testing.T) {
 	api := newDeploymentsAPI(t, 3)
 

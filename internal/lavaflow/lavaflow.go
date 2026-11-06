@@ -50,12 +50,11 @@ var ErrPlanRequired = errors.New("LavaFlow needs a plan that includes it, and th
 var ErrPlanUnreadable = errors.New("LavaFlow couldn't read the project owner's plan; try again later")
 
 // ErrChangeRefused reports the settings change's 403 without a code. It
-// stands for three refusals the API doesn't tell apart: a read-only project
-// access token, an owner whose account is read-only, and an owner's plan that
-// couldn't be read. The CLI refuses a project access token and checks
+// stands for two refusals the API doesn't tell apart: an owner whose account
+// is read-only, and an owner's plan that couldn't be read. The CLI checks
 // can_update first, but an account can turn read-only after that check, such
 // as while enable waits for its answer.
-var ErrChangeRefused = errors.New("LavaFlow's settings weren't changed: a read-only access token or account " +
+var ErrChangeRefused = errors.New("LavaFlow's settings weren't changed: a read-only account " +
 	"can't change them, and otherwise the project owner's plan couldn't be read; try again later")
 
 // MergeWarning is what turning on merging risks, in the approved words the
@@ -539,16 +538,21 @@ func refused(cfg *config.Config, err error) error {
 	return unavailable(err)
 }
 
-// personDecides says how a person changes the settings instead. A token from
-// the environment outlasts a sign-in, so that case names the variable to
-// unset first. cause is the refusal, the API's or the CLI's own, which keeps
-// the exit code of a permission refused.
+// personDecides says how a person changes the settings instead. cause is the
+// refusal, the API's or the CLI's own, which keeps the exit code of a
+// permission refused.
 func personDecides(cfg *config.Config, cause error) error {
-	how := "Sign in with 'volcano login' and run this again"
+	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonDecides, signInAgain(cfg)), cause)
+}
+
+// signInAgain says how a person signs in and runs the command again. A token
+// from the environment outlasts a sign-in, so that case names the variable to
+// unset first.
+func signInAgain(cfg *config.Config) string {
 	if cfg.TokenFromEnv() {
-		how = "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
+		return "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
 	}
-	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonDecides, how), cause)
+	return "Sign in with 'volcano login' and run this again"
 }
 
 // Stats returns the issues LavaFlow took on and the fix pull requests it
