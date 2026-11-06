@@ -7378,6 +7378,93 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - LavaFlow
+      summary: Start a LavaFlow run
+      description: |
+        Starts a run on one of the project's issues. LavaFlow starts runs on
+        its own only for issues with `exception: true`, and only while it is
+        on. Start one here for any other issue, or for one recorded before
+        LavaFlow was turned on. The run follows the project's settings, as
+        one LavaFlow starts on its own does, and answers `202` while it is
+        `queued`; read it with `GET /lavaflow/runs/{run_id}`.
+
+        Only the project's owner can start a run, as a person, while their
+        account is active: with a platform token that expires, or `volcano
+        login`. A platform token that never expires, a `volcano login` token
+        whose sign-in ended, a full-scope project access token, and a request
+        made through MCP get `403` with code `person_required`; a read-only
+        project access token is refused as read-only first, without a code,
+        and so is the owner of a read-only account.
+
+        Every start counts toward the run limits: 5 runs per issue and 200 per
+        project in any 24 hours. An issue has one run in progress at a time,
+        so sending the request again while the first run is in progress
+        answers `409` with code `lavaflow_run_in_progress`.
+      operationId: createLavaflowRun
+      security:
+        - UserToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LavaflowRunCreate'
+      responses:
+        '202':
+          description: The run, queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowRun'
+        '400':
+          description: 'The body is invalid: `project_id` or `issue_id` missing or not a UUID, or an unknown field.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 'Code `person_required` means the request didn''t come from the owner''s live person credential: a platform token that never expires, a `volcano login` token whose sign-in ended, a full-scope project access token, or MCP made it. Start a run with a platform token that expires, or `volcano login`. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only or inactive, or the owner''s plan could not be read; retry later.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `issue_not_found` means the project has no issue `issue_id`; an issue of another project answers the same. Code `feature_unavailable` means LavaFlow is not available for this project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The run did not start. Code `lavaflow_disabled` means LavaFlow is off for the project; turn it on. Code `repository_required` means LavaFlow was turned on for a repository the project no longer links, and `repository_changed` that the project links another repository than LavaFlow was turned on for; turn LavaFlow on again. Code `lavaflow_run_in_progress` means the issue has a run in progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request body exceeds 4,096 bytes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: A run limit is reached. Code `issue_run_limit_reached` means the issue started 5 runs in the last 24 hours, and `project_run_limit_reached` that the project started 200. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds until the limit has room for the run.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /lavaflow/runs/{run_id}:
     get:
       tags:
@@ -25099,6 +25186,22 @@ components:
       required:
         - name
       additionalProperties: false
+    LavaflowRunCreate:
+      type: object
+      additionalProperties: false
+      description: The project, and the issue to start a run on.
+      properties:
+        project_id:
+          type: string
+          format: uuid
+          description: The project the issue belongs to.
+        issue_id:
+          type: string
+          format: uuid
+          description: The issue to start a run on.
+      required:
+        - project_id
+        - issue_id
     LavaflowDayCounts:
       type: object
       properties:

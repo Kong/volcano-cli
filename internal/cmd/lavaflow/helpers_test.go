@@ -81,6 +81,11 @@ type lavaflowServer struct {
 	// with the router's bare 404, as a platform release older than LavaFlow
 	// does.
 	routesMissing bool
+	// startMissing answers a start with the router's bare 405, as a platform
+	// release that lists runs but can't start one does.
+	startMissing bool
+	// started is the issue_id each start named.
+	started []string
 }
 
 func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
@@ -162,13 +167,17 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	projectID := query.Get("project_id")
 	query.Del("project_id")
+	if r.Method == http.MethodPost && route == "/runs" && s.startMissing {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	var update map[string]any
-	if r.Method == http.MethodPut {
+	if r.Method == http.MethodPut || r.Method == http.MethodPost {
 		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
-			s.t.Errorf("decode update: %v", err)
+			s.t.Errorf("decode body: %v", err)
 		}
 		if _, inQuery := r.URL.Query()["project_id"]; inQuery {
-			s.t.Errorf("the PUT names its project in the query")
+			s.t.Errorf("the %s names its project in the query", r.Method)
 		}
 		projectID, _ = update["project_id"].(string)
 		delete(update, "project_id")
@@ -204,6 +213,10 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		maps.Copy(s.settings, update)
 		s.settings["updated_at"], s.settings["updated_by"] = "2026-10-30T12:00:00Z", "11111111-1111-4111-8111-111111111111"
 		s.write(w, http.StatusOK, s.settings)
+	case r.Method == http.MethodPost && route == "/runs":
+		issueID, _ := update["issue_id"].(string)
+		s.started = append(s.started, issueID)
+		s.write(w, http.StatusAccepted, startedRun(issueID))
 	case r.Method == http.MethodGet && route == "/stats":
 		s.write(w, http.StatusOK, s.stats)
 	case r.Method == http.MethodGet && route == "/resources":
@@ -335,6 +348,19 @@ func fixedRun() map[string]any {
 		"diff":              "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
 		"ungated_workflows": []any{},
 		"source_commit":     map[string]any{"sha": lavaflowSourceSHA, "origin": "push"},
+	}
+}
+
+// startedRunID is the run a start queues.
+const startedRunID = "99999999-9999-4999-8999-999999999999"
+
+// startedRun is a run a person just started on issueID: queued, with nothing
+// found yet.
+func startedRun(issueID string) map[string]any {
+	return map[string]any{
+		"id": startedRunID, "project_id": lavaflowProjectID, "status": "queued", "issue_id": issueID,
+		"resource": checkoutResource(), "title": nil, "pull_request": nil, "merge": nil, "pull_request_skipped": nil,
+		"diagnosis": nil, "diff": nil, "review": nil, "created_at": "2026-11-05T10:00:00Z", "finished_at": nil,
 	}
 }
 

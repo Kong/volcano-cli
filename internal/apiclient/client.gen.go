@@ -8368,6 +8368,15 @@ type LavaflowRun struct {
 	UngatedWorkflows *[]LavaflowAllowedWorkflow `json:"ungated_workflows"`
 }
 
+// LavaflowRunCreate The project, and the issue to start a run on.
+type LavaflowRunCreate struct {
+	// IssueId The issue to start a run on.
+	IssueId openapi_types.UUID `json:"issue_id"`
+
+	// ProjectId The project the issue belongs to.
+	ProjectId openapi_types.UUID `json:"project_id"`
+}
+
 // LavaflowRunStatus Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 type LavaflowRunStatus string
 
@@ -14006,6 +14015,9 @@ type PreflightProjectImportJSONRequestBody = ProjectImportPreflightRequest
 // StartProjectImportJSONRequestBody defines body for StartProjectImport for application/json ContentType.
 type StartProjectImportJSONRequestBody = ProjectImportStartRequest
 
+// CreateLavaflowRunJSONRequestBody defines body for CreateLavaflowRun for application/json ContentType.
+type CreateLavaflowRunJSONRequestBody = LavaflowRunCreate
+
 // UpdateLavaflowSettingsJSONRequestBody defines body for UpdateLavaflowSettings for application/json ContentType.
 type UpdateLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
 
@@ -15908,6 +15920,11 @@ type ClientInterface interface {
 
 	// ListLavaflowRuns request
 	ListLavaflowRuns(ctx context.Context, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLavaflowRunWithBody request with any body
+	CreateLavaflowRunWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateLavaflowRun(ctx context.Context, body CreateLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLavaflowRun request
 	GetLavaflowRun(ctx context.Context, runId LavaflowRunId, params *GetLavaflowRunParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -18226,6 +18243,30 @@ func (c *Client) ListLavaflowResources(ctx context.Context, params *ListLavaflow
 
 func (c *Client) ListLavaflowRuns(ctx context.Context, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListLavaflowRunsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLavaflowRunWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLavaflowRunRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLavaflowRun(ctx context.Context, body CreateLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLavaflowRunRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -26055,6 +26096,46 @@ func NewListLavaflowRunsRequest(server string, params *ListLavaflowRunsParams) (
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateLavaflowRunRequest calls the generic CreateLavaflowRun builder with application/json body
+func NewCreateLavaflowRunRequest(server string, body CreateLavaflowRunJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateLavaflowRunRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateLavaflowRunRequestWithBody generates requests for CreateLavaflowRun with any type of body
+func NewCreateLavaflowRunRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/runs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -40706,6 +40787,11 @@ type ClientWithResponsesInterface interface {
 	// ListLavaflowRunsWithResponse request
 	ListLavaflowRunsWithResponse(ctx context.Context, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*ListLavaflowRunsClientResponse, error)
 
+	// CreateLavaflowRunWithBodyWithResponse request with any body
+	CreateLavaflowRunWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowRunClientResponse, error)
+
+	CreateLavaflowRunWithResponse(ctx context.Context, body CreateLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLavaflowRunClientResponse, error)
+
 	// GetLavaflowRunWithResponse request
 	GetLavaflowRunWithResponse(ctx context.Context, runId LavaflowRunId, params *GetLavaflowRunParams, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error)
 
@@ -44238,6 +44324,43 @@ func (r ListLavaflowRunsClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListLavaflowRunsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateLavaflowRunClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *LavaflowRun
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLavaflowRunClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLavaflowRunClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateLavaflowRunClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -53952,6 +54075,23 @@ func (c *ClientWithResponses) ListLavaflowRunsWithResponse(ctx context.Context, 
 	return ParseListLavaflowRunsClientResponse(rsp)
 }
 
+// CreateLavaflowRunWithBodyWithResponse request with arbitrary body returning *CreateLavaflowRunClientResponse
+func (c *ClientWithResponses) CreateLavaflowRunWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowRunClientResponse, error) {
+	rsp, err := c.CreateLavaflowRunWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLavaflowRunClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateLavaflowRunWithResponse(ctx context.Context, body CreateLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLavaflowRunClientResponse, error) {
+	rsp, err := c.CreateLavaflowRun(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLavaflowRunClientResponse(rsp)
+}
+
 // GetLavaflowRunWithResponse request returning *GetLavaflowRunClientResponse
 func (c *ClientWithResponses) GetLavaflowRunWithResponse(ctx context.Context, runId LavaflowRunId, params *GetLavaflowRunParams, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error) {
 	rsp, err := c.GetLavaflowRun(ctx, runId, params, reqEditors...)
@@ -60660,6 +60800,81 @@ func ParseListLavaflowRunsClientResponse(rsp *http.Response) (*ListLavaflowRunsC
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateLavaflowRunClientResponse parses an HTTP response from a CreateLavaflowRunWithResponse call
+func ParseCreateLavaflowRunClientResponse(rsp *http.Response) (*CreateLavaflowRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLavaflowRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest LavaflowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 
