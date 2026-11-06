@@ -10,12 +10,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 type launchOptions struct {
 	preset, template, region, key string
 	memory, duration, timeout     int
+	vcpus, diskMiB                int
 }
 
 func (o *launchOptions) flags(cmd *cobra.Command) {
@@ -169,19 +171,59 @@ func (c *commands) run() *cobra.Command {
 			}
 			request.MaxDurationSeconds = &opts.duration
 		}
+		if request.Limits, err = opts.limits(cmd); err != nil {
+			return err
+		}
 		project, err := c.project()
 		if err != nil {
 			return err
 		}
 		value, err := project.API.StartSandbox(cmd.Context(), project.ProjectID, key, request)
 		if err != nil {
-			return err
+			return limitsError(err)
 		}
 		return c.write(cmd, value)
 	}}
 	opts.flags(cmd)
 	cmd.Flags().IntVar(&opts.duration, "duration", 0, "Maximum session lifetime in seconds; omitted inherits the template (cloud: 30–28800; local: 0 for unlimited or positive)")
+	cmd.Flags().IntVar(&opts.vcpus, "vcpus", 0, "Cap the session's CPU at 1–4 vCPUs (a 1024 MB session provides 2, a 2048 MB session 4)")
+	cmd.Flags().IntVar(&opts.diskMiB, "disk-mib", 0, "Cap the space the session can write at 64–6144 MiB")
 	return cmd
+}
+
+// limits returns nil when neither cap is set, so the request matches one made
+// before the flags existed.
+func (o launchOptions) limits(cmd *cobra.Command) (*apiclient.SandboxSessionLimits, error) {
+	var result *apiclient.SandboxSessionLimits
+	if cmd.Flags().Changed("vcpus") {
+		if o.vcpus < 1 || o.vcpus > 4 {
+			return nil, errors.New("--vcpus must be between 1 and 4")
+		}
+		result = &apiclient.SandboxSessionLimits{Vcpus: &o.vcpus}
+	}
+	if cmd.Flags().Changed("disk-mib") {
+		if o.diskMiB < 64 || o.diskMiB > 6144 {
+			return nil, errors.New("--disk-mib must be between 64 and 6144")
+		}
+		if result == nil {
+			result = &apiclient.SandboxSessionLimits{}
+		}
+		result.DiskMib = &o.diskMiB
+	}
+	return result, nil
+}
+
+// limitsError says what to change when the API refuses a session's caps. The
+// API error stays first, so the exit code and message still reflect it.
+func limitsError(err error) error {
+	switch api.Code(err) {
+	case "sandbox_limits_exceed_session":
+		return fmt.Errorf("%w\nLower --vcpus or raise --memory: a 1024 MB session provides 2 vCPUs and a 2048 MB session 4", err)
+	case "sandbox_limits_unsupported":
+		return fmt.Errorf("%w\nThe selected image predates session limits. Redeploy the template or recreate the named Sandbox, or retry once the preset is updated", err)
+	default:
+		return err
+	}
 }
 
 func validateTimeout(timeout int, session bool) error {

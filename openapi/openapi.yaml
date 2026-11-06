@@ -600,7 +600,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SandboxSession'
         default:
-          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment. Code `sandbox_plan_limit_exceeded` (403) means the requested resources exceed the plan. Code `sandbox_allowance_exhausted` (429) means the remaining allowance or credits cannot admit the operation.
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment. Code `sandbox_plan_limit_exceeded` (403) means the requested resources exceed the plan. Code `sandbox_allowance_exhausted` (429) means the remaining allowance or credits cannot admit the operation. Code `sandbox_limits_unsupported` (400) means the selected image predates `limits`; redeploy the template or recreate the named Sandbox, or retry once the preset is updated. Code `sandbox_limits_exceed_session` (400) means `limits.vcpus` is more than the session has; raise `memory_mb` or lower `limits.vcpus`.
           content:
             application/json:
               schema:
@@ -18770,6 +18770,8 @@ components:
           format: date-time
           nullable: true
           description: Absolute VM expiry. Null means unlimited in local mode.
+        limits:
+          $ref: '#/components/schemas/SandboxSessionAppliedLimits'
       required:
         - id
         - project_id
@@ -18805,6 +18807,8 @@ components:
           minimum: 0
           maximum: 2147483647
           description: Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime.
+        limits:
+          $ref: '#/components/schemas/SandboxSessionLimits'
       required:
         - region
       oneOf:
@@ -18818,6 +18822,65 @@ components:
           not:
             required:
               - preset
+    SandboxSessionLimits:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: |
+        Caps the session's code runs under, enforced inside the session. Each
+        cap is an upper bound; the session's own size still bounds both.
+      properties:
+        vcpus:
+          type: integer
+          minimum: 1
+          maximum: 4
+          description: |
+            CPU time the session's commands and template service may use
+            together, in vCPUs. A 1024 MiB session has 2 vCPUs and a 2048 MiB
+            session has 4; asking for more answers 400 with code
+            `sandbox_limits_exceed_session`.
+        disk_mib:
+          type: integer
+          minimum: 64
+          maximum: 6144
+          description: |
+            Space the session can write beyond its image's contents, in MiB.
+            It covers every path commands and the template service can write,
+            including `/workspace` and `/tmp`. A write past it fails with
+            `ENOSPC`. `/dev/shm` is memory, capped separately at 64 MiB.
+    SandboxSessionAppliedLimits:
+      type: object
+      additionalProperties: false
+      description: |
+        The caps the session enforces, as the session reports them. Present only
+        when the session was created with `limits`. The session stays
+        `starting` until `applied` is known.
+      properties:
+        vcpus:
+          type: integer
+          description: Enforced vCPU cap. Never higher than requested; lower when the session has fewer vCPUs.
+        disk_mib:
+          type: integer
+          description: Enforced disk cap in MiB. Never higher than requested; lower when the session's disk has less free space.
+        applied:
+          $ref: '#/components/schemas/SandboxLimitsApplied'
+      required:
+        - applied
+    SandboxLimitsApplied:
+      type: string
+      description: |
+        `enforced` when every requested cap is enforced, `not_enforced` when the
+        session could not enforce them, and `unknown` until the session reports.
+        Terminate a session that reports anything but `enforced` if you rely on
+        the caps.
+      enum:
+        - enforced
+        - not_enforced
+        - unknown
+      x-enum-varnames:
+        - SandboxLimitsEnforced
+        - SandboxLimitsNotEnforced
+        - SandboxLimitsUnknown
     SandboxCommandRequest:
       type: object
       additionalProperties: false

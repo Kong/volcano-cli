@@ -3585,6 +3585,27 @@ func (e SandboxExecutionRequestMemoryMb) Valid() bool {
 	}
 }
 
+// Defines values for SandboxLimitsApplied.
+const (
+	SandboxLimitsEnforced    SandboxLimitsApplied = "enforced"
+	SandboxLimitsNotEnforced SandboxLimitsApplied = "not_enforced"
+	SandboxLimitsUnknown     SandboxLimitsApplied = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SandboxLimitsApplied enum.
+func (e SandboxLimitsApplied) Valid() bool {
+	switch e {
+	case SandboxLimitsEnforced:
+		return true
+	case SandboxLimitsNotEnforced:
+		return true
+	case SandboxLimitsUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxPresetMemoryMb.
 const (
 	SandboxPresetMemoryMbN1024 SandboxPresetMemoryMb = 1024
@@ -5939,6 +5960,10 @@ type CreateProjectRequestTemplateId string
 
 // CreateSandboxSessionRequest defines model for CreateSandboxSessionRequest.
 type CreateSandboxSessionRequest struct {
+	// Limits Caps the session's code runs under, enforced inside the session. Each
+	// cap is an upper bound; the session's own size still bounds both.
+	Limits *SandboxSessionLimits `json:"limits,omitempty"`
+
 	// MaxDurationSeconds Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime.
 	MaxDurationSeconds *int `json:"max_duration_seconds,omitempty"`
 
@@ -10976,6 +11001,12 @@ type SandboxFileWriteRequest struct {
 	Path string `json:"path"`
 }
 
+// SandboxLimitsApplied `enforced` when every requested cap is enforced, `not_enforced` when the
+// session could not enforce them, and `unknown` until the session reports.
+// Terminate a session that reports anything but `enforced` if you rely on
+// the caps.
+type SandboxLimitsApplied string
+
 // SandboxPagination defines model for SandboxPagination.
 type SandboxPagination struct {
 	HasMore    bool    `json:"has_more"`
@@ -11008,9 +11039,14 @@ type SandboxSession struct {
 	// ExpiresAt Absolute VM expiry. Null means unlimited in local mode.
 	ExpiresAt *time.Time         `json:"expires_at"`
 	Id        openapi_types.UUID `json:"id"`
-	MemoryMb  int                `json:"memory_mb"`
-	ProjectId openapi_types.UUID `json:"project_id"`
-	Region    string             `json:"region"`
+
+	// Limits The caps the session enforces, as the session reports them. Present only
+	// when the session was created with `limits`. The session stays
+	// `starting` until `applied` is known.
+	Limits    *SandboxSessionAppliedLimits `json:"limits,omitempty"`
+	MemoryMb  int                          `json:"memory_mb"`
+	ProjectId openapi_types.UUID           `json:"project_id"`
+	Region    string                       `json:"region"`
 
 	// SandboxId Explicit template used to create the session. Null when created directly from a preset.
 	SandboxId *openapi_types.UUID `json:"sandbox_id"`
@@ -11023,6 +11059,39 @@ type SandboxSessionDesiredState string
 
 // SandboxSessionState defines model for SandboxSession.State.
 type SandboxSessionState string
+
+// SandboxSessionAppliedLimits The caps the session enforces, as the session reports them. Present only
+// when the session was created with `limits`. The session stays
+// `starting` until `applied` is known.
+type SandboxSessionAppliedLimits struct {
+	// Applied `enforced` when every requested cap is enforced, `not_enforced` when the
+	// session could not enforce them, and `unknown` until the session reports.
+	// Terminate a session that reports anything but `enforced` if you rely on
+	// the caps.
+	Applied SandboxLimitsApplied `json:"applied"`
+
+	// DiskMib Enforced disk cap in MiB. Never higher than requested; lower when the session's disk has less free space.
+	DiskMib *int `json:"disk_mib,omitempty"`
+
+	// Vcpus Enforced vCPU cap. Never higher than requested; lower when the session has fewer vCPUs.
+	Vcpus *int `json:"vcpus,omitempty"`
+}
+
+// SandboxSessionLimits Caps the session's code runs under, enforced inside the session. Each
+// cap is an upper bound; the session's own size still bounds both.
+type SandboxSessionLimits struct {
+	// DiskMib Space the session can write beyond its image's contents, in MiB.
+	// It covers every path commands and the template service can write,
+	// including `/workspace` and `/tmp`. A write past it fails with
+	// `ENOSPC`. `/dev/shm` is memory, capped separately at 64 MiB.
+	DiskMib *int `json:"disk_mib,omitempty"`
+
+	// Vcpus CPU time the session's commands and template service may use
+	// together, in vCPUs. A 1024 MiB session has 2 vCPUs and a 2048 MiB
+	// session has 4; asking for more answers 400 with code
+	// `sandbox_limits_exceed_session`.
+	Vcpus *int `json:"vcpus,omitempty"`
+}
 
 // SandboxSessionPage defines model for SandboxSessionPage.
 type SandboxSessionPage struct {
@@ -14359,6 +14428,13 @@ func (t CreateSandboxSessionRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	if t.Limits != nil {
+		object["limits"], err = json.Marshal(t.Limits)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'limits': %w", err)
+		}
+	}
+
 	if t.MaxDurationSeconds != nil {
 		object["max_duration_seconds"], err = json.Marshal(t.MaxDurationSeconds)
 		if err != nil {
@@ -14404,6 +14480,13 @@ func (t *CreateSandboxSessionRequest) UnmarshalJSON(b []byte) error {
 	err = json.Unmarshal(b, &object)
 	if err != nil {
 		return err
+	}
+
+	if raw, found := object["limits"]; found {
+		err = json.Unmarshal(raw, &t.Limits)
+		if err != nil {
+			return fmt.Errorf("error reading 'limits': %w", err)
+		}
 	}
 
 	if raw, found := object["max_duration_seconds"]; found {
