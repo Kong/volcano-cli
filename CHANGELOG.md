@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.72.0](https://github.com/Kong/volcano-cli/compare/v0.71.0...v0.72.0) (2026-11-06)
+
+
+### Features
+
+* **lavaflow:** start a LavaFlow run for an issue ([#439](https://github.com/Kong/volcano-cli/issues/439)) ([8ed7377](https://github.com/Kong/volcano-cli/commit/8ed7377cd09aa45edf800e3710aa7239a3b02b81))
+
 ## [0.71.0](https://github.com/Kong/volcano-cli/compare/v0.70.0...v0.71.0) (2026-11-05)
 
 
