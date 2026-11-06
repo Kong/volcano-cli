@@ -165,9 +165,9 @@ func TestDockerComposeTemplateLeavesServerOwnedLocalSecretsUnset(t *testing.T) {
 func TestDockerComposeTemplateExposesLocalFrontendProxy(t *testing.T) {
 	template := string(dockerComposeTemplate)
 
-	assert.Contains(t, template, `FRONTENDS_HTTP_PORT: "8080"`)
-	assert.Contains(t, template, `FRONTEND_INVOCATION_DNS: "*.frontends.localhost"`)
-	assert.Contains(t, template, `"8080:8080"`)
+	assert.Equal(t, "8080", composeTemplateEnvValue(t, template, "FRONTENDS_HTTP_PORT"))
+	assert.Equal(t, "*.frontends.localhost", composeTemplateEnvValue(t, template, "FRONTEND_INVOCATION_DNS"))
+	assert.Regexp(t, `(?m)^\s*- ['"]8080:8080['"]\s*$`, template)
 }
 
 func TestDockerComposePersistencePreservesFunctionSource(t *testing.T) {
@@ -212,11 +212,13 @@ func TestDockerComposeTemplateUsesDurationStringsForTimingVars(t *testing.T) {
 	}
 }
 
-// composeTemplateEnvValue extracts the (optionally quoted) value assigned to key
-// in the raw compose template, e.g. `REDIS_TIMEOUT: "60s"` -> "60s".
+// composeTemplateEnvValue extracts the (optionally single- or double-quoted)
+// value assigned to key in the raw compose template, e.g. `REDIS_TIMEOUT: '60s'`
+// -> "60s". The generator copies the Hosting source verbatim, so the quote style
+// follows that repository's formatter.
 func composeTemplateEnvValue(t *testing.T, template, key string) string {
 	t.Helper()
-	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:\s*"?([^"\n]+)"?\s*$`)
+	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:\s*['"]?([^'"\n]+)['"]?\s*$`)
 	match := re.FindStringSubmatch(template)
 	require.Len(t, match, 2, "compose template missing env var %s", key)
 	return strings.TrimSpace(match[1])
@@ -244,7 +246,7 @@ func TestDockerComposeTemplateHasNoProductionIdentifiers(t *testing.T) {
 
 	// AWS credentials must be the inert "local" placeholder, never a real key.
 	for _, key := range []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"} {
-		re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:\s*"?([^"\n]+?)"?\s*$`)
+		re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:\s*['"]?([^'"\n]+?)['"]?\s*$`)
 		for _, match := range re.FindAllStringSubmatch(template, -1) {
 			assert.Equalf(t, "local", strings.TrimSpace(match[1]), "%s must be the inert local placeholder", key)
 		}
