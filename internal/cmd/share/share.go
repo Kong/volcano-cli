@@ -22,6 +22,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/confirm"
 	"github.com/Kong/volcano-cli/internal/output"
+	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/sharing"
 	"github.com/Kong/volcano-cli/internal/theme"
@@ -86,8 +87,8 @@ Volcano Cloud yet first gets a cloud project, linked as 'volcano connect .'
 links it. That deploy sends no env file, because volcano/volcano.env holds the
 local server's values: variables the project declares start empty. Pass
 --env-file to deploy your own values to your cloud project; the share still
-carries only their names. --no-deploy shares what the cloud project already
-runs, without deploying. A project that deploys from its Git repository is
+carries only their names. --no-deploy deploys nothing and creates no cloud
+project: it shares what the linked or selected cloud project already runs. A project that deploys from its Git repository is
 never deployed directly: the command shares what it runs. Outside a project
 directory, the command shares the selected cloud project as it runs.
 
@@ -182,7 +183,7 @@ func run(ctx context.Context, opts options) error {
 	}
 
 	service := sharing.NewService(opts.deps)
-	share, err := prepareShare(ctx, opts, service)
+	share, created, err := prepareShare(ctx, opts, service)
 	if err != nil {
 		return err
 	}
@@ -197,41 +198,60 @@ func run(ctx context.Context, opts options) error {
 	if err != nil {
 		return err
 	}
-	// The share goes on only once the release it serves is the new one, so a
-	// failed publish never switches an old release back on.
-	if share.Status != apiclient.ShareStatusActive {
-		share, err = service.SetStatus(ctx, share.Id, apiclient.ShareUpdateRequestStatusActive)
-		if err != nil {
-			return fmt.Errorf("%w\n\nThe new release is published, but sharing is still off. Run the command again to switch it on", err)
-		}
-	} else if refreshed, err := service.Get(ctx, share.Id); err == nil {
-		share = refreshed
+	share, err = finishShare(ctx, opts, service, share, created)
+	if err != nil {
+		return err
 	}
 	return printShared(opts, share, release)
 }
 
 // prepareShare returns the share to publish to: the one --link names, else
-// the project's newest switched-on share, else its newest, else a new one. It
-// applies --description and --allow-reshare.
-func prepareShare(ctx context.Context, opts options, service sharing.Service) (*apiclient.Share, error) {
+// the project's newest switched-on share, else its newest, else a new one,
+// created with --description and --allow-reshare. created reports a new share.
+func prepareShare(ctx context.Context, opts options, service sharing.Service) (*apiclient.Share, bool, error) {
 	share, err := pickShare(ctx, service, opts.linkID)
-	if err != nil {
-		return nil, err
+	if err != nil || share != nil {
+		return share, false, err
 	}
-	if share == nil {
-		return service.Create(ctx, apiclient.ShareCreateRequest{
-			SuggestedName: sharing.Optional(opts.name),
-			Description:   opts.description,
-			AllowReshare:  opts.allowReshare,
-		})
+	share, err = service.Create(ctx, apiclient.ShareCreateRequest{
+		SuggestedName: sharing.Optional(opts.name),
+		Description:   opts.description,
+		AllowReshare:  opts.allowReshare,
+	})
+	return share, err == nil, err
+}
+
+// finishShare switches the share on and applies --description and
+// --allow-reshare to a share that existed, once the release is published. A
+// declined or failed publish therefore changes nothing on the live share, and
+// a failed publish never switches an old release back on.
+func finishShare(
+	ctx context.Context, opts options, service sharing.Service, share *apiclient.Share, created bool,
+) (*apiclient.Share, error) {
+	update := apiclient.ShareUpdateRequest{}
+	if !created {
+		update.Description, update.AllowReshare = opts.description, opts.allowReshare
 	}
-	if opts.description == nil && opts.allowReshare == nil {
+	switchOn := share.Status != apiclient.ShareStatusActive
+	if switchOn {
+		status := apiclient.ShareUpdateRequestStatusActive
+		update.Status = &status
+	}
+	if update.Status == nil && update.Description == nil && update.AllowReshare == nil {
+		if refreshed, err := service.Get(ctx, share.Id); err == nil {
+			return refreshed, nil
+		}
 		return share, nil
 	}
-	return service.Update(ctx, share.Id, apiclient.ShareUpdateRequest{
-		Description:  opts.description,
-		AllowReshare: opts.allowReshare,
-	})
+	updated, err := service.Update(ctx, share.Id, update)
+	if err == nil {
+		return updated, nil
+	}
+	if switchOn {
+		return nil, fmt.Errorf("%w\n\nThe new release is published, but sharing is still off. Run the command again to switch it on", err)
+	}
+	return nil, fmt.Errorf("%w\n\nThe new release is published and shared, but its description and re-sharing setting "+
+		"did not change. Run the command again to change them", err)
 }
 
 // publish shows what sharing publishes, has the owner confirm it and the
@@ -369,7 +389,7 @@ func printShared(opts options, share *apiclient.Share, release *apiclient.ShareR
 // cloud deploy deploys it. Whatever a failed step leaves stays, and running the
 // command again picks up from the linked project.
 func putDirectoryOnCloud(ctx context.Context, opts options, dir directory, ask bool) error {
-	if !dir.project() || (dir.link != nil && opts.noDeploy) {
+	if !dir.project() || opts.noDeploy {
 		return nil
 	}
 	on := theme.On(opts.out)
@@ -488,8 +508,10 @@ func workingDirectory() directory {
 // source, which refuses direct deploys. A failed read reports false, and the
 // deploy then says what refused it.
 func deploysFromGit(ctx context.Context, opts options) bool {
-	fromGit, err := sharing.NewService(opts.deps).DeploysFromGit(ctx)
-	return err == nil && fromGit
+	// cloud deploy refuses a code deploy in every mode but platform, including
+	// a project partway through moving to its Git repository.
+	mode, err := cliproject.NewService(opts.deps).SourceMode(ctx)
+	return err == nil && mode != apiclient.ProjectSourceExportStateModePlatform
 }
 
 // pickShare returns the share --link names, else the project's newest

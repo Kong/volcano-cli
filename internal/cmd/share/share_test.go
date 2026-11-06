@@ -228,6 +228,20 @@ func TestShareNoDeploySharesWhatTheProjectRuns(t *testing.T) {
 	assert.Equal(t, 1, fake.publishes)
 }
 
+// --no-deploy in a directory not on Volcano Cloud yet creates no project and
+// deploys nothing: it shares the selected cloud project as it runs.
+func TestShareNoDeployInAnUnlinkedDirectoryCreatesNothing(t *testing.T) {
+	setTestHome(t)
+	fake, server := newFakeAPI(t)
+	record := &steps{}
+	opts, _ := testOptions(t, server, "", directory{path: "/work/shop"}, false, record)
+	opts.yes, opts.noDeploy = true, true
+
+	require.NoError(t, run(t.Context(), opts))
+	assert.Zero(t, record.connected+record.deployed)
+	assert.Equal(t, 1, fake.publishes)
+}
+
 // A project whose Git repository is its source refuses direct deploys, so share
 // says so and shares what the project runs.
 func TestShareNeverDeploysAProjectThatDeploysFromGit(t *testing.T) {
@@ -348,6 +362,39 @@ func TestShareSetsDescriptionAndResharingOnAnExistingLink(t *testing.T) {
 
 	require.NoError(t, run(t.Context(), opts))
 	assert.Equal(t, []map[string]any{{"description": description, "allow_reshare": true}}, fake.bodies["PATCH "+sharePath])
+}
+
+// --description and --allow-reshare change an existing share only once the
+// release is published, so declining leaves the live share as it was.
+func TestShareDeclinedLeavesTheDescriptionAndResharingAlone(t *testing.T) {
+	setTestHome(t)
+	interactive(t)
+	fake, server := newFakeAPI(t)
+	fake.links = []map[string]any{linkPayload("active")}
+	opts, _ := testOptions(t, server, "y\nn\n", directory{}, false, &steps{})
+	description := "Notes that sync"
+	opts.description, opts.allowReshare = &description, new(true)
+
+	require.NoError(t, run(t.Context(), opts))
+	assert.Zero(t, fake.publishes)
+	assert.NotContains(t, fake.calls, "PATCH "+sharePath)
+}
+
+func TestShareChangesDescriptionOnlyAfterPublishing(t *testing.T) {
+	setTestHome(t)
+	fake, server := newFakeAPI(t)
+	fake.links = []map[string]any{linkPayload("disabled")}
+	opts, _ := testOptions(t, server, "", directory{}, false, &steps{})
+	opts.yes = true
+	description := "Notes that sync"
+	opts.description = &description
+
+	require.NoError(t, run(t.Context(), opts))
+	publishAt, patchAt := indexOf(fake.calls, "POST "+releasesPath), indexOf(fake.calls, "PATCH "+sharePath)
+	require.GreaterOrEqual(t, publishAt, 0)
+	assert.Greater(t, patchAt, publishAt)
+	assert.Equal(t, []map[string]any{{"description": description, "status": "active"}}, fake.bodies["PATCH "+sharePath],
+		"one update switches the share on and sets the description")
 }
 
 func TestShareExplainsACopyThatMayNotBeShared(t *testing.T) {

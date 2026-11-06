@@ -118,20 +118,6 @@ func (s Service) SetStatus(
 	return s.Update(ctx, shareID, apiclient.ShareUpdateRequest{Status: &status})
 }
 
-// DeploysFromGit reports whether the current project's Git repository is its
-// source, so a direct deploy to it is refused.
-func (s Service) DeploysFromGit(ctx context.Context) (bool, error) {
-	authenticated, err := s.sessions.CurrentProject()
-	if err != nil {
-		return false, err
-	}
-	state, err := authenticated.API.GetProjectSourceExport(ctx, authenticated.ProjectID)
-	if err != nil {
-		return false, err
-	}
-	return state.HandedOverAt != nil, nil
-}
-
 // Draft returns what publishing to the share would release now. Each draft is
 // a full build that counts against the account's hourly release build budget.
 func (s Service) Draft(ctx context.Context, shareID string) (*apiclient.ShareReleaseDraft, error) {

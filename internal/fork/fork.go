@@ -98,8 +98,8 @@ func Run(ctx context.Context, opts Options) error {
 		shareID:  shareID,
 		given:    given,
 		ask:      ask,
-		// One key for the whole run: a retry of the same confirmation then
-		// answers with the project the first attempt created.
+		// One key per confirmation: a retry of the same request then answers
+		// with the project the first attempt created.
 		idempotencyKey: uuid.NewString(),
 	}
 	project, preview, err := creation.confirmAndCreate(ctx, preview)
@@ -301,6 +301,8 @@ func (c creation) confirmAndCreate(
 			return nil, nil, errors.New("the shared project has a new release since the preview, so nothing was created " +
 				"and the new release was not deployed. Review the release above and run the command again")
 		}
+		// Confirming the new release is a new request, so it gets its own key.
+		c.idempotencyKey = uuid.NewString()
 	}
 }
 

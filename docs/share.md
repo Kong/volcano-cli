@@ -59,7 +59,8 @@ still carries only their names.
 If a step fails, the command stops and says what exists. Run `volcano share`
 again: it reuses the linked cloud project.
 
-`--no-deploy` shares what the cloud project already runs, without deploying.
+`--no-deploy` deploys nothing and creates no cloud project: it shares what the
+linked or selected cloud project already runs.
 A project that deploys from its Git repository is never deployed directly:
 `volcano share` shares what it runs, and you push to the production branch to
 share newer code. Outside a project directory, `volcano share` shares the
@@ -72,7 +73,7 @@ selected cloud project as it runs.
 | `--no-allow-reshare` | Stop copies from being shared again, including copies already shared. |
 | `--name` | The project name offered to people who fork it, for a new share. |
 | `--env-file` | Env file to deploy to your cloud project with the directory. |
-| `--no-deploy` | Share what the cloud project runs now. |
+| `--no-deploy` | Share what the linked or selected cloud project runs now, without deploying or creating one. |
 | `--link` | The share to use, by its link or id, when a project has several. Defaults to the newest share that is on. |
 | `--yes` | Confirm without asking, including the service key functions. |
 | `--json` | Print the share, the release, the link and the snippets as JSON. |

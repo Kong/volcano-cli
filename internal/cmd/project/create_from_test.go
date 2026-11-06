@@ -343,7 +343,8 @@ func TestCreateFromReleaseChangedShowsWhatChangedAndAsksAgainAtATerminal(t *test
 	require.Len(t, fake.createBodies, 2)
 	assert.Equal(t, createBody(releaseTwo, map[string]any{"OPENAI_API_KEY": "sk-test"}), fake.createBodies[1],
 		"the second create confirms the new release")
-	assert.Equal(t, fake.createKeys[0], fake.createKeys[1], "one run sends one idempotency key")
+	assert.NotEmpty(t, fake.createKeys[1])
+	assert.NotEqual(t, fake.createKeys[0], fake.createKeys[1], "confirming the new release is a new request, with its own key")
 }
 
 func TestCreateFromReleaseChangedStopsWhenTheRunAlreadyDecided(t *testing.T) {
