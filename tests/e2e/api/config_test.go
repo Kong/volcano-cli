@@ -93,7 +93,7 @@ functions:
 
 	deploy := env.runCloudCLIWithEnv(t, secretEnv, "config", "deploy")
 	deploy.requireSuccess(t,
-		"Configuration deployed from volcano-config.yaml",
+		"Configuration deployed from volcano/volcano-config.yaml",
 		"variables:",
 		"buckets:",
 		"buckets.policies:",
@@ -135,7 +135,7 @@ functions:
 	}
 
 	redeploy := env.runCloudCLI(t, "config", "deploy")
-	redeploy.requireSuccess(t, "Configuration deployed from volcano-config.yaml", "Summary: 0 created, 0 updated, 0 deleted")
+	redeploy.requireSuccess(t, "Configuration deployed from volcano/volcano-config.yaml", "Summary: 0 created, 0 updated, 0 deleted")
 	redeploy.requireNotContains(t, "Warning:", "Error:")
 
 	requireAPIE2EConfigFunctionVisibility(t, env, manifestPath)
