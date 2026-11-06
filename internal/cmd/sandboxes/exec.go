@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/session"
 )
 
 type launchOptions struct {
@@ -53,6 +54,41 @@ func (o launchOptions) request() (apiclient.CreateSandboxSessionRequest, uuid.UU
 	return result, key, err
 }
 
+const keepOutputUsage = "Keep command output for retries; false returns it once and stores none"
+
+// keepOutput sends the flag only when set, so a session command otherwise
+// uses its session's setting.
+func keepOutput(cmd *cobra.Command, value bool) *bool {
+	if !cmd.Flags().Changed("keep-output") {
+		return nil
+	}
+	return &value
+}
+
+// outputNotKeptCapability covers commands and sessions that keep no output.
+const outputNotKeptCapability = "sandboxes.output_not_kept"
+
+var errOutputNotKeptUnavailable = errors.New("--keep-output=false is not available here: the sandboxes.output_not_kept capability is unavailable; run without it")
+
+// requireOutputNotKept reads the environment's capabilities before asking to
+// keep no output, so an environment without it refuses before anything is
+// sent. The capability is environment-wide, and the list needs no token.
+func requireOutputNotKept(ctx context.Context, project *session.ProjectSession, keep *bool) error {
+	if keep == nil || *keep {
+		return nil
+	}
+	capabilities, err := project.API.ListCapabilities(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to read capabilities: %w", err)
+	}
+	for _, capability := range capabilities.Data {
+		if capability.Id == outputNotKeptCapability && capability.Status == apiclient.CapabilityStatusAvailable {
+			return nil
+		}
+	}
+	return errOutputNotKeptUnavailable
+}
+
 func requestID(value string) (uuid.UUID, error) {
 	if value == "" {
 		return uuid.NewRandom()
@@ -62,6 +98,7 @@ func requestID(value string) (uuid.UUID, error) {
 
 func (c *commands) execute() *cobra.Command {
 	var opts launchOptions
+	var keep bool
 	cmd := &cobra.Command{Use: "exec [session-id] -- <command> [args...]", Short: "Execute once, or inside an existing session", RunE: func(cmd *cobra.Command, args []string) error {
 		split := cmd.ArgsLenAtDash()
 		if split < 0 || split > 1 || split >= len(args) {
@@ -77,6 +114,10 @@ func (c *commands) execute() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), time.Duration(opts.timeout)*time.Second+3*time.Minute)
 		defer cancel()
+		keepValue := keepOutput(cmd, keep)
+		if err := requireOutputNotKept(ctx, project, keepValue); err != nil {
+			return err
+		}
 		if split == 1 {
 			if opts.preset != "" || opts.template != "" || cmd.Flags().Changed("memory") || cmd.Flags().Changed("region") {
 				return errors.New("preset, template, memory, and region only apply when creating a sandbox")
@@ -89,7 +130,7 @@ func (c *commands) execute() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			value, err := project.API.ExecSandboxSession(ctx, id, key, apiclient.SandboxCommandRequest{Command: command, TimeoutSeconds: &opts.timeout})
+			value, err := project.API.ExecSandboxSession(ctx, id, key, apiclient.SandboxCommandRequest{Command: command, TimeoutSeconds: &opts.timeout, KeepOutput: keepValue})
 			if err != nil {
 				return err
 			}
@@ -99,7 +140,7 @@ func (c *commands) execute() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		body := apiclient.SandboxExecutionRequest{Command: command, Region: request.Region, SandboxId: request.SandboxId, TimeoutSeconds: &opts.timeout}
+		body := apiclient.SandboxExecutionRequest{Command: command, Region: request.Region, SandboxId: request.SandboxId, TimeoutSeconds: &opts.timeout, KeepOutput: keepValue}
 		if request.Preset != nil {
 			preset := *request.Preset
 			body.Preset = &preset
@@ -112,10 +153,11 @@ func (c *commands) execute() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return c.outputCommand(cmd, apiclient.SandboxCommandResult{Stdout: value.Stdout, Stderr: value.Stderr, ExitCode: value.ExitCode, TimedOut: value.TimedOut, StdoutTruncated: value.StdoutTruncated, StderrTruncated: value.StderrTruncated}, value)
+		return c.outputCommand(cmd, apiclient.SandboxCommandResult{Stdout: value.Stdout, Stderr: value.Stderr, ExitCode: value.ExitCode, TimedOut: value.TimedOut, StdoutTruncated: value.StdoutTruncated, StderrTruncated: value.StderrTruncated, OutputKept: value.OutputKept}, value)
 	}}
 	opts.flags(cmd)
 	cmd.Flags().IntVar(&opts.timeout, "timeout", 60, "Command timeout in seconds")
+	cmd.Flags().BoolVar(&keep, "keep-output", true, keepOutputUsage+"; a session command that omits it uses the session's setting")
 	return cmd
 }
 
@@ -154,6 +196,7 @@ func (c *commands) outputCommand(cmd *cobra.Command, result apiclient.SandboxCom
 
 func (c *commands) run() *cobra.Command {
 	var opts launchOptions
+	var keep bool
 	cmd := &cobra.Command{Use: "run", Short: "Start a persistent session", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		request, key, err := opts.request()
 		if err != nil {
@@ -169,8 +212,15 @@ func (c *commands) run() *cobra.Command {
 			}
 			request.MaxDurationSeconds = &opts.duration
 		}
+		keepValue := keepOutput(cmd, keep)
+		if keepValue != nil {
+			request.Executions = &apiclient.SandboxSessionExecutions{KeepOutput: *keepValue}
+		}
 		project, err := c.project()
 		if err != nil {
+			return err
+		}
+		if err := requireOutputNotKept(cmd.Context(), project, keepValue); err != nil {
 			return err
 		}
 		value, err := project.API.StartSandbox(cmd.Context(), project.ProjectID, key, request)
@@ -180,12 +230,13 @@ func (c *commands) run() *cobra.Command {
 		return c.write(cmd, value)
 	}}
 	opts.flags(cmd)
+	cmd.Flags().BoolVar(&keep, "keep-output", true, "Keep the output of the session's commands for retries; false keeps none for every command in the session")
 	cmd.Flags().IntVar(&opts.duration, "duration", 0, "Maximum session lifetime in seconds; omitted inherits the template (cloud: 30–28800; local: 0 for unlimited or positive)")
 	return cmd
 }
 
-func validateTimeout(timeout int, session bool) error {
-	if session {
+func validateTimeout(timeout int, inSession bool) error {
+	if inSession {
 		if timeout < 1 || timeout > 3600 {
 			return errors.New("--timeout must be between 1 and 3600 seconds for session commands")
 		}

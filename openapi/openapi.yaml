@@ -17747,6 +17747,7 @@ paths:
         | `sandboxes` | The Sandbox API: presets, templates, sessions, and executions |
         | `sandboxes.sessions` | Starting and resuming sessions, and one-shot executions |
         | `sandboxes.custom_templates` | Deploying a custom template; its validation waits while `sandboxes.sessions` is unavailable |
+        | `sandboxes.output_not_kept` | Commands that keep no output: `keep_output: false` on a command, and `executions.keep_output: false` on a session; commands that keep output work either way |
 
         A capability missing from the list is unavailable, and a capability under
         another, such as `sandboxes.sessions`, is unavailable whenever its parent is.
@@ -18770,6 +18771,8 @@ components:
           format: date-time
           nullable: true
           description: Absolute VM expiry. Null means unlimited in local mode.
+        executions:
+          $ref: '#/components/schemas/SandboxSessionExecutions'
       required:
         - id
         - project_id
@@ -18780,6 +18783,7 @@ components:
         - memory_mb
         - created_at
         - expires_at
+        - executions
     CreateSandboxSessionRequest:
       type: object
       additionalProperties: false
@@ -18799,12 +18803,14 @@ components:
         region:
           type: string
           pattern: ^(aws-)?[a-z]{2}(-[a-z]+)+-[0-9]+$
-          description: Region such as `us-east-1`. Region IDs issued by earlier versions of the API are still accepted.
+          description: Region such as `us-east-1`, from the preset catalog. Region IDs issued by earlier versions of the API are still accepted. A temporarily unavailable region answers 400 with code `sandbox_region_unavailable`.
         max_duration_seconds:
           type: integer
           minimum: 0
           maximum: 2147483647
           description: Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime.
+        executions:
+          $ref: '#/components/schemas/SandboxSessionExecutions'
       required:
         - region
       oneOf:
@@ -18836,6 +18842,9 @@ components:
           additionalProperties:
             type: string
           maxProperties: 64
+        keep_output:
+          type: boolean
+          description: Set false to keep no output. stdout and stderr are returned once in this response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. Omit it to use the session's `executions.keep_output`. True in a session that keeps no output is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
       required:
         - command
     SandboxExecutionRequest:
@@ -18857,7 +18866,7 @@ components:
         region:
           type: string
           pattern: ^(aws-)?[a-z]{2}(-[a-z]+)+-[0-9]+$
-          description: Region such as `us-east-1`. Region IDs issued by earlier versions of the API are still accepted.
+          description: Region such as `us-east-1`, from the preset catalog. Region IDs issued by earlier versions of the API are still accepted. A temporarily unavailable region answers 400 with code `sandbox_region_unavailable`.
         max_duration_seconds:
           type: integer
           minimum: 0
@@ -18877,6 +18886,10 @@ components:
           additionalProperties:
             type: string
           maxProperties: 64
+        keep_output:
+          type: boolean
+          default: true
+          description: Set false to keep no output. stdout and stderr are returned once in this response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
       required:
         - region
         - command
@@ -18897,16 +18910,23 @@ components:
       properties:
         stdout:
           type: string
+          description: The first 1 MiB (1,048,576 bytes) the command wrote to stdout. Empty in a replay of a command that kept no output.
         stderr:
           type: string
+          description: The first 1 MiB (1,048,576 bytes) the command wrote to stderr. Empty in a replay of a command that kept no output.
         exit_code:
           type: integer
         stdout_truncated:
           type: boolean
+          description: True when the command wrote more than 1 MiB to stdout. False in a replay of a command that kept no output.
         stderr_truncated:
           type: boolean
+          description: True when the command wrote more than 1 MiB to stderr. False in a replay of a command that kept no output.
         timed_out:
           type: boolean
+        output_kept:
+          type: boolean
+          description: False when the command kept no output. Its streams appear only in the response to the request that ran it, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns them empty.
       required:
         - stdout
         - stderr
@@ -18914,22 +18934,30 @@ components:
         - stdout_truncated
         - stderr_truncated
         - timed_out
+        - output_kept
     SandboxExecutionResult:
       type: object
       additionalProperties: false
       properties:
         stdout:
           type: string
+          description: The first 1 MiB (1,048,576 bytes) the command wrote to stdout. Empty in a replay of a command that kept no output.
         stderr:
           type: string
+          description: The first 1 MiB (1,048,576 bytes) the command wrote to stderr. Empty in a replay of a command that kept no output.
         exit_code:
           type: integer
         stdout_truncated:
           type: boolean
+          description: True when the command wrote more than 1 MiB to stdout. False in a replay of a command that kept no output.
         stderr_truncated:
           type: boolean
+          description: True when the command wrote more than 1 MiB to stderr. False in a replay of a command that kept no output.
         timed_out:
           type: boolean
+        output_kept:
+          type: boolean
+          description: False when the command kept no output. Its streams appear only in the response to the request that ran it, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns them empty.
         session_id:
           type: string
           format: uuid
@@ -18946,9 +18974,20 @@ components:
         - stdout_truncated
         - stderr_truncated
         - timed_out
+        - output_kept
         - session_id
         - region
         - duration_ms
+    SandboxSessionExecutions:
+      type: object
+      additionalProperties: false
+      description: How the session's command executions are kept. Fixed when the session is created.
+      properties:
+        keep_output:
+          type: boolean
+          description: When false, every command in the session keeps no output. stdout and stderr are returned once in the command's response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with empty streams. A command in such a session that sets `keep_output` to true is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
+      required:
+        - keep_output
     SandboxFileWriteRequest:
       type: object
       additionalProperties: false

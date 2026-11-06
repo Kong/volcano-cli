@@ -380,7 +380,7 @@ func (s *Syncer) getJSON(ctx context.Context, rawURL string, out any) error {
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("%w: GET %s -> HTTP %d: %s", ErrSourceUnavailable, rawURL, resp.StatusCode, strings.TrimSpace(string(body)))
+		return fmt.Errorf("%w: GET %s -> HTTP %d: %q", ErrSourceUnavailable, rawURL, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return fmt.Errorf("%w: decode %s: %w", ErrSourceUnavailable, rawURL, err)

@@ -14,6 +14,7 @@ import (
 
 func (c *commands) shell() *cobra.Command {
 	var timeout int
+	var keep bool
 	cmd := &cobra.Command{Use: "shell <session-id>", Short: "Run commands from stdin in an existing session", Long: "Run one shell command per line in an existing session. Files and background processes persist; shell variables and working-directory changes do not. Type exit or send EOF to detach without terminating the session. This command does not provide a PTY.", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if err := validateTimeout(timeout, true); err != nil {
 			return err
@@ -24,6 +25,10 @@ func (c *commands) shell() *cobra.Command {
 		}
 		project, err := c.project()
 		if err != nil {
+			return err
+		}
+		keepValue := keepOutput(cmd, keep)
+		if err := requireOutputNotKept(cmd.Context(), project, keepValue); err != nil {
 			return err
 		}
 		scanner := bufio.NewScanner(cmd.InOrStdin())
@@ -47,7 +52,7 @@ func (c *commands) shell() *cobra.Command {
 			if keyErr != nil {
 				return keyErr
 			}
-			result, runErr := project.API.ExecSandboxSession(cmd.Context(), id, key, apiclient.SandboxCommandRequest{Command: command, TimeoutSeconds: &timeout})
+			result, runErr := project.API.ExecSandboxSession(cmd.Context(), id, key, apiclient.SandboxCommandRequest{Command: command, TimeoutSeconds: &timeout, KeepOutput: keepValue})
 			if runErr != nil {
 				return runErr
 			}
@@ -63,5 +68,6 @@ func (c *commands) shell() *cobra.Command {
 		return lastExit
 	}}
 	cmd.Flags().IntVar(&timeout, "timeout", 60, "Deadline for each command in seconds")
+	cmd.Flags().BoolVar(&keep, "keep-output", true, keepOutputUsage+"; omitted uses the session's setting")
 	return cmd
 }

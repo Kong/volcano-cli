@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 )
@@ -187,9 +189,9 @@ func apiOK(statusCode int, body []byte, generatedErrors ...*apiclient.Error) err
 func apiErrorFromGeneratedErrors(statusCode int, body []byte, generatedErrors ...*apiclient.Error) error {
 	for _, generatedError := range generatedErrors {
 		if generatedError != nil {
-			apiErr := &Error{StatusCode: statusCode, Message: strings.TrimSpace(generatedError.Error), fromAPI: true}
+			apiErr := &Error{StatusCode: statusCode, Message: strings.TrimSpace(printable(generatedError.Error)), fromAPI: true}
 			if generatedError.Code != nil {
-				apiErr.Code = *generatedError.Code
+				apiErr.Code = strings.TrimSpace(printable(*generatedError.Code))
 			}
 			return apiErr
 		}
@@ -219,7 +221,7 @@ func apiError(statusCode int, body []byte) error {
 		if message != "" {
 			var code string
 			_ = json.Unmarshal(payload.Code, &code)
-			return &Error{StatusCode: statusCode, Message: strings.TrimSpace(message), Code: strings.TrimSpace(code), fromAPI: true}
+			return &Error{StatusCode: statusCode, Message: strings.TrimSpace(printable(message)), Code: strings.TrimSpace(printable(code)), fromAPI: true}
 		}
 	}
 	message := cleanBody(body)
@@ -242,9 +244,24 @@ const maxBodyMessageLen = 500
 // check (none is threaded through here); upgrade to sniffing the response's
 // Content-Type header if a real plain-text body starting with '<' shows up.
 func cleanBody(body []byte) string {
-	message := strings.TrimSpace(string(body))
+	message := strings.TrimSpace(printable(string(body)))
 	if message == "" || len(message) > maxBodyMessageLen || strings.HasPrefix(message, "<") {
 		return ""
 	}
 	return message
+}
+
+// printable drops control and format characters other than newline and tab,
+// so a body printed as an error cannot move the cursor, rewrite the line or
+// send escape sequences to the terminal.
+func printable(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' {
+			return r
+		}
+		if r == utf8.RuneError || unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			return -1
+		}
+		return r
+	}, s)
 }

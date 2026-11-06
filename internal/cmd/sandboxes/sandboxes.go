@@ -2,10 +2,13 @@
 package sandboxes
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -66,11 +69,31 @@ func (c *commands) project() (*session.ProjectSession, error) {
 }
 
 func (c *commands) write(cmd *cobra.Command, value any) error {
-	encoder := json.NewEncoder(cmd.OutOrStdout())
+	var encoded bytes.Buffer
+	encoder := json.NewEncoder(&encoded)
 	if !c.json {
 		encoder.SetIndent("", "  ")
 	}
-	return encoder.Encode(value)
+	if err := encoder.Encode(value); err != nil {
+		return err
+	}
+	_, err := io.WriteString(cmd.OutOrStdout(), escapeControls(encoded.String()))
+	return err
+}
+
+// escapeControls writes DEL and the C1 controls, which encoding/json passes
+// through, as \u escapes. They can only appear inside a JSON string, where the
+// escape means the same.
+func escapeControls(encoded string) string {
+	var b strings.Builder
+	for _, r := range encoded {
+		if r == 0x7f || (r >= 0x80 && r <= 0x9f) {
+			fmt.Fprintf(&b, "\\u%04x", r)
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 func (c *commands) presets() *cobra.Command {

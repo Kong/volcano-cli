@@ -69,7 +69,7 @@ func (c *Client) ExecSandbox(ctx context.Context, project, key uuid.UUID, body a
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(response.StatusCode(), response.Body, response.JSON200, response.JSONDefault)
+	return execResult(response.StatusCode(), response.Body, response.JSON200, response.JSONDefault)
 }
 
 // SandboxSession calls the Sandbox GetSandboxSession operation.
@@ -114,7 +114,16 @@ func (c *Client) ExecSandboxSession(ctx context.Context, id, key uuid.UUID, body
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(response.StatusCode(), response.Body, response.JSON200, response.JSONDefault)
+	return execResult(response.StatusCode(), response.Body, response.JSON200, response.JSONDefault)
+}
+
+// execResult never prints a success body it cannot read: that body is the
+// command's output, which can hold what the caller chose not to keep.
+func execResult[T any](statusCode int, body []byte, result *T, generatedErrors ...*apiclient.Error) (*T, error) {
+	if result == nil && statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices {
+		return nil, apiErrorWithMessage(statusCode, "the command ran, but its result could not be read")
+	}
+	return apiResult(statusCode, body, result, generatedErrors...)
 }
 
 // ReadSandboxFile calls the Sandbox ReadSandboxSessionFile operation.

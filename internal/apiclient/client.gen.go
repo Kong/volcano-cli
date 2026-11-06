@@ -5939,6 +5939,9 @@ type CreateProjectRequestTemplateId string
 
 // CreateSandboxSessionRequest defines model for CreateSandboxSessionRequest.
 type CreateSandboxSessionRequest struct {
+	// Executions How the session's command executions are kept. Fixed when the session is created.
+	Executions *SandboxSessionExecutions `json:"executions,omitempty"`
+
 	// MaxDurationSeconds Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime.
 	MaxDurationSeconds *int `json:"max_duration_seconds,omitempty"`
 
@@ -5948,7 +5951,7 @@ type CreateSandboxSessionRequest struct {
 	// Preset Preset ID from the available Sandbox preset catalog.
 	Preset *string `json:"preset,omitempty"`
 
-	// Region Region such as `us-east-1`. Region IDs issued by earlier versions of the API are still accepted.
+	// Region Region such as `us-east-1`, from the preset catalog. Region IDs issued by earlier versions of the API are still accepted. A temporarily unavailable region answers 400 with code `sandbox_region_unavailable`.
 	Region    string              `json:"region"`
 	SandboxId *openapi_types.UUID `json:"sandbox_id,omitempty"`
 	union     json.RawMessage
@@ -10887,18 +10890,32 @@ type SandboxCommandRequest struct {
 	Command     string             `json:"command"`
 	Environment *map[string]string `json:"environment,omitempty"`
 
+	// KeepOutput Set false to keep no output. stdout and stderr are returned once in this response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. Omit it to use the session's `executions.keep_output`. True in a session that keeps no output is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
+	KeepOutput *bool `json:"keep_output,omitempty"`
+
 	// TimeoutSeconds Command execution time from process start. Cloud defaults to 60 seconds and accepts 1–28800; local defaults to 0 (unlimited) and accepts nonnegative values. VM expiry always takes precedence. Cloud synchronous requests must return within the public connection idle limit (1000 seconds); use a session with a background process and short polling requests for longer work.
 	TimeoutSeconds *int `json:"timeout_seconds,omitempty"`
 }
 
 // SandboxCommandResult defines model for SandboxCommandResult.
 type SandboxCommandResult struct {
-	ExitCode        int    `json:"exit_code"`
-	Stderr          string `json:"stderr"`
-	StderrTruncated bool   `json:"stderr_truncated"`
-	Stdout          string `json:"stdout"`
-	StdoutTruncated bool   `json:"stdout_truncated"`
-	TimedOut        bool   `json:"timed_out"`
+	ExitCode int `json:"exit_code"`
+
+	// OutputKept False when the command kept no output. Its streams appear only in the response to the request that ran it, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns them empty.
+	OutputKept bool `json:"output_kept"`
+
+	// Stderr The first 1 MiB (1,048,576 bytes) the command wrote to stderr. Empty in a replay of a command that kept no output.
+	Stderr string `json:"stderr"`
+
+	// StderrTruncated True when the command wrote more than 1 MiB to stderr. False in a replay of a command that kept no output.
+	StderrTruncated bool `json:"stderr_truncated"`
+
+	// Stdout The first 1 MiB (1,048,576 bytes) the command wrote to stdout. Empty in a replay of a command that kept no output.
+	Stdout string `json:"stdout"`
+
+	// StdoutTruncated True when the command wrote more than 1 MiB to stdout. False in a replay of a command that kept no output.
+	StdoutTruncated bool `json:"stdout_truncated"`
+	TimedOut        bool `json:"timed_out"`
 }
 
 // SandboxDeployment defines model for SandboxDeployment.
@@ -10920,6 +10937,9 @@ type SandboxExecutionRequest struct {
 	Command     string             `json:"command"`
 	Environment *map[string]string `json:"environment,omitempty"`
 
+	// KeepOutput Set false to keep no output. stdout and stderr are returned once in this response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
+	KeepOutput *bool `json:"keep_output,omitempty"`
+
 	// MaxDurationSeconds Absolute VM lifetime including startup, bounded by environment capacity policy. Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime. The VM is reclaimed early when the command finishes.
 	MaxDurationSeconds *int `json:"max_duration_seconds,omitempty"`
 
@@ -10929,7 +10949,7 @@ type SandboxExecutionRequest struct {
 	// Preset Preset ID from the available Sandbox preset catalog.
 	Preset *string `json:"preset,omitempty"`
 
-	// Region Region such as `us-east-1`. Region IDs issued by earlier versions of the API are still accepted.
+	// Region Region such as `us-east-1`, from the preset catalog. Region IDs issued by earlier versions of the API are still accepted. A temporarily unavailable region answers 400 with code `sandbox_region_unavailable`.
 	Region    string              `json:"region"`
 	SandboxId *openapi_types.UUID `json:"sandbox_id,omitempty"`
 
@@ -10949,15 +10969,26 @@ type SandboxExecutionRequest1 = interface{}
 
 // SandboxExecutionResult defines model for SandboxExecutionResult.
 type SandboxExecutionResult struct {
-	DurationMs      int64              `json:"duration_ms"`
-	ExitCode        int                `json:"exit_code"`
-	Region          string             `json:"region"`
-	SessionId       openapi_types.UUID `json:"session_id"`
-	Stderr          string             `json:"stderr"`
-	StderrTruncated bool               `json:"stderr_truncated"`
-	Stdout          string             `json:"stdout"`
-	StdoutTruncated bool               `json:"stdout_truncated"`
-	TimedOut        bool               `json:"timed_out"`
+	DurationMs int64 `json:"duration_ms"`
+	ExitCode   int   `json:"exit_code"`
+
+	// OutputKept False when the command kept no output. Its streams appear only in the response to the request that ran it, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns them empty.
+	OutputKept bool               `json:"output_kept"`
+	Region     string             `json:"region"`
+	SessionId  openapi_types.UUID `json:"session_id"`
+
+	// Stderr The first 1 MiB (1,048,576 bytes) the command wrote to stderr. Empty in a replay of a command that kept no output.
+	Stderr string `json:"stderr"`
+
+	// StderrTruncated True when the command wrote more than 1 MiB to stderr. False in a replay of a command that kept no output.
+	StderrTruncated bool `json:"stderr_truncated"`
+
+	// Stdout The first 1 MiB (1,048,576 bytes) the command wrote to stdout. Empty in a replay of a command that kept no output.
+	Stdout string `json:"stdout"`
+
+	// StdoutTruncated True when the command wrote more than 1 MiB to stdout. False in a replay of a command that kept no output.
+	StdoutTruncated bool `json:"stdout_truncated"`
+	TimedOut        bool `json:"timed_out"`
 }
 
 // SandboxFileReadRequest defines model for SandboxFileReadRequest.
@@ -11005,6 +11036,9 @@ type SandboxSession struct {
 	CreatedAt    time.Time                  `json:"created_at"`
 	DesiredState SandboxSessionDesiredState `json:"desired_state"`
 
+	// Executions How the session's command executions are kept. Fixed when the session is created.
+	Executions SandboxSessionExecutions `json:"executions"`
+
 	// ExpiresAt Absolute VM expiry. Null means unlimited in local mode.
 	ExpiresAt *time.Time         `json:"expires_at"`
 	Id        openapi_types.UUID `json:"id"`
@@ -11023,6 +11057,12 @@ type SandboxSessionDesiredState string
 
 // SandboxSessionState defines model for SandboxSession.State.
 type SandboxSessionState string
+
+// SandboxSessionExecutions How the session's command executions are kept. Fixed when the session is created.
+type SandboxSessionExecutions struct {
+	// KeepOutput When false, every command in the session keeps no output. stdout and stderr are returned once in the command's response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with empty streams. A command in such a session that sets `keep_output` to true is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
+	KeepOutput bool `json:"keep_output"`
+}
 
 // SandboxSessionPage defines model for SandboxSessionPage.
 type SandboxSessionPage struct {
@@ -14359,6 +14399,13 @@ func (t CreateSandboxSessionRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	if t.Executions != nil {
+		object["executions"], err = json.Marshal(t.Executions)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'executions': %w", err)
+		}
+	}
+
 	if t.MaxDurationSeconds != nil {
 		object["max_duration_seconds"], err = json.Marshal(t.MaxDurationSeconds)
 		if err != nil {
@@ -14404,6 +14451,13 @@ func (t *CreateSandboxSessionRequest) UnmarshalJSON(b []byte) error {
 	err = json.Unmarshal(b, &object)
 	if err != nil {
 		return err
+	}
+
+	if raw, found := object["executions"]; found {
+		err = json.Unmarshal(raw, &t.Executions)
+		if err != nil {
+			return fmt.Errorf("error reading 'executions': %w", err)
+		}
 	}
 
 	if raw, found := object["max_duration_seconds"]; found {
@@ -15184,6 +15238,13 @@ func (t SandboxExecutionRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	if t.KeepOutput != nil {
+		object["keep_output"], err = json.Marshal(t.KeepOutput)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'keep_output': %w", err)
+		}
+	}
+
 	if t.MaxDurationSeconds != nil {
 		object["max_duration_seconds"], err = json.Marshal(t.MaxDurationSeconds)
 		if err != nil {
@@ -15249,6 +15310,13 @@ func (t *SandboxExecutionRequest) UnmarshalJSON(b []byte) error {
 		err = json.Unmarshal(raw, &t.Environment)
 		if err != nil {
 			return fmt.Errorf("error reading 'environment': %w", err)
+		}
+	}
+
+	if raw, found := object["keep_output"]; found {
+		err = json.Unmarshal(raw, &t.KeepOutput)
+		if err != nil {
+			return fmt.Errorf("error reading 'keep_output': %w", err)
 		}
 	}
 
