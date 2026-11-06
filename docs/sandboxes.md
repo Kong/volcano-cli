@@ -65,6 +65,26 @@ volcano cloud sandboxes files write SESSION_ID /workspace/input.bin < input.bin
 volcano cloud sandboxes files read SESSION_ID /workspace/output.bin > output.bin
 ```
 
+## Turn off outbound network
+
+Create a session with no outbound network for its whole lifetime:
+
+```bash
+volcano cloud sandboxes run --preset python3.12 --egress deny_all
+volcano cloud sandboxes exec --preset python3.12 --egress deny_all -- python -c 'print(42)'
+```
+
+DNS lookups, internet and link-local addresses fail inside the session, while
+loopback, commands, files, suspend, and resume work. The session accepts no
+port access. The policy cannot change after creation, so `exec SESSION_ID`
+rejects `--egress`.
+
+`get` reads the policy back as `network.egress` and what Volcano observed on the
+session as `network.applied`. If you depend on `deny_all`, wait until `state` is
+`running`, then terminate the session unless `network.applied` is `deny_all`.
+Local Sandboxes apply the same policy. In a cloud environment that has not
+released it, `--egress deny_all` fails with `feature_unavailable`.
+
 ## Save a template
 
 ```bash
@@ -90,6 +110,7 @@ A template saves a preset and memory size. Custom image builds are not supported
 | `--region` | `exec`, `run` | Select a region; defaults to `us-east-1` |
 | `--timeout` | `exec` | Command deadline: 1–60 seconds for one-shot execution, 1–3600 for session execution; defaults to 60 |
 | `--duration` | `run` | Override session lifetime in seconds: cloud 30–28800; local 0 (unlimited) or positive. Omitted inherits the template |
+| `--egress` | `exec`, `run` | `deny_all` creates the Sandbox with no outbound network; `default` keeps the region's internet access. Omitted means `default` |
 | `--request-id` | `exec`, `run` | UUID used to retry the same request safely |
 | `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, and `files read` return structured results |
 

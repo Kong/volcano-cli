@@ -970,7 +970,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SandboxAccess'
         default:
-          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment.
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment. Code `sandbox_network_isolated` (400) means the session was created with `network.egress` `deny_all`, which accepts no port access.
           content:
             application/json:
               schema:
@@ -18770,6 +18770,8 @@ components:
           format: date-time
           nullable: true
           description: Absolute VM expiry. Null means unlimited in local mode.
+        network:
+          $ref: '#/components/schemas/SandboxSessionNetwork'
       required:
         - id
         - project_id
@@ -18780,6 +18782,43 @@ components:
         - memory_mb
         - created_at
         - expires_at
+        - network
+    SandboxSessionNetwork:
+      type: object
+      additionalProperties: false
+      properties:
+        egress:
+          type: string
+          enum:
+            - default
+            - deny_all
+          description: The outbound network policy the session was created with. It never changes.
+        applied:
+          type: string
+          enum:
+            - default
+            - deny_all
+            - unknown
+          description: The outbound network policy Volcano last observed on the session's VM, never the request alone. It is `unknown` until the session is first observed, from a suspend or resume request until it is observed again, briefly while Volcano rolls out an update, and whenever the observation does not match the request. A session first reports `state` `running` only once its network has been observed. To depend on `deny_all`, wait for `running`, then terminate the session unless `applied` is `deny_all`. Act on a later `unknown` only while `desired_state` is `running`.
+      required:
+        - egress
+        - applied
+    SandboxSessionNetworkRequest:
+      type: object
+      additionalProperties: false
+      description: Outbound network policy for the session. Omitting `network` is the same as `egress` `default`.
+      properties:
+        egress:
+          type: string
+          enum:
+            - default
+            - deny_all
+          x-enum-varnames:
+            - SandboxSessionNetworkRequestEgressDefault
+            - SandboxSessionNetworkRequestEgressDenyAll
+          description: '`default` gives the session the region''s standard outbound internet access. `deny_all` gives it no outbound network for its whole lifetime: DNS lookups, internet and link-local addresses, and connections back out through Volcano all fail, and the session accepts no port access. Commands, files and the rest of the session API work as usual. The policy cannot be changed after creation; suspend and resume keep it. Check `network.applied` before relying on it. Where `GET /capabilities` lists `sandboxes.network_isolation` as unavailable, `deny_all` answers `400` with code `feature_unavailable`.'
+      required:
+        - egress
     CreateSandboxSessionRequest:
       type: object
       additionalProperties: false
@@ -18805,6 +18844,8 @@ components:
           minimum: 0
           maximum: 2147483647
           description: Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime.
+        network:
+          $ref: '#/components/schemas/SandboxSessionNetworkRequest'
       required:
         - region
       oneOf:
@@ -18877,6 +18918,8 @@ components:
           additionalProperties:
             type: string
           maxProperties: 64
+        network:
+          $ref: '#/components/schemas/SandboxSessionNetworkRequest'
       required:
         - region
         - command
