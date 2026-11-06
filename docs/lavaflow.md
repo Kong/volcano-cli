@@ -408,6 +408,11 @@ status the CLI doesn't know prints as the API gives it.
 and its diagnosis and root cause with the evidence behind them. A run that
 failed says why.
 
+A run with a fix has a `Checks:` line. LavaFlow doesn't run your repository's
+checks, such as its tests, before the pull request opens, and the fix's commit
+skips CI, so the line reads `The repository's tests didn't run.` with Volcano's
+reason. Push a commit to the pull request's branch to run them.
+
 The `Source:` line gives the commit's short SHA and where it came from:
 
 | Shown | Meaning |
@@ -447,6 +452,7 @@ Issue: 5b2d8e1c-3f4a-4c6b-9d7e-8a1f2b3c4d5e
 Source: commit 4f1c2b3 (deployed from a push)
 Started: 2026-10-30 09:00
 Review: passed after 2 round(s)
+Checks: The repository's tests didn't run. LavaFlow did not run the repository's checks on this fix. Its commit skips CI; push a commit to the pull request's branch to run them.
 Fix:
   Pull request: #42 https://github.com/acme/shop/pull/42
   State: open

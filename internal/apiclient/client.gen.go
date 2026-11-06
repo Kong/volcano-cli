@@ -8283,6 +8283,18 @@ type LavaflowPullRequest struct {
 // LavaflowPullRequestState defines model for LavaflowPullRequest.State.
 type LavaflowPullRequestState string
 
+// LavaflowRepositoryChecks Whether LavaFlow ran the repository's own checks, such as its tests, on a fix before its pull request opened.
+type LavaflowRepositoryChecks struct {
+	// Message Text to show for the status and reason.
+	Message string `json:"message"`
+
+	// Reason Stable code for why the checks did not run. `sandbox_unavailable`: LavaFlow cannot run a repository's checks before the pull request opens yet.
+	Reason string `json:"reason"`
+
+	// Status `not_run`: LavaFlow did not run the repository's checks on the fix, for the reason `reason` names. Treat a status you don't know as `not_run`.
+	Status string `json:"status"`
+}
+
 // LavaflowResource defines model for LavaflowResource.
 type LavaflowResource struct {
 	Anomaly LavaflowAnomaly `json:"anomaly"`
@@ -8350,6 +8362,9 @@ type LavaflowRun struct {
 
 	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
 	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
+
+	// RepositoryChecks Whether LavaFlow ran the repository's own checks on the fix before its pull request opened. Null for a run with no fix.
+	RepositoryChecks *LavaflowRepositoryChecks `json:"repository_checks"`
 
 	// Resource The function, durable function or frontend an issue came from.
 	Resource LavaflowResourceReference `json:"resource"`

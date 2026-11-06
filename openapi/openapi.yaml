@@ -25739,6 +25739,23 @@ components:
       required:
         - code
         - message
+    LavaflowRepositoryChecks:
+      type: object
+      description: Whether LavaFlow ran the repository's own checks, such as its tests, on a fix before its pull request opened.
+      properties:
+        status:
+          type: string
+          description: '`not_run`: LavaFlow did not run the repository''s checks on the fix, for the reason `reason` names. Treat a status you don''t know as `not_run`.'
+        reason:
+          type: string
+          description: 'Stable code for why the checks did not run. `sandbox_unavailable`: LavaFlow cannot run a repository''s checks before the pull request opens yet.'
+        message:
+          type: string
+          description: Text to show for the status and reason.
+      required:
+        - status
+        - reason
+        - message
     LavaflowRun:
       allOf:
         - $ref: '#/components/schemas/LavaflowRunSummary'
@@ -25761,6 +25778,11 @@ components:
               allOf:
                 - $ref: '#/components/schemas/LavaflowReview'
               nullable: true
+            repository_checks:
+              allOf:
+                - $ref: '#/components/schemas/LavaflowRepositoryChecks'
+              nullable: true
+              description: Whether LavaFlow ran the repository's own checks on the fix before its pull request opened. Null for a run with no fix.
             failure:
               allOf:
                 - $ref: '#/components/schemas/LavaflowFailure'
@@ -25777,6 +25799,7 @@ components:
             - diagnosis
             - diff
             - review
+            - repository_checks
             - failure
             - ungated_workflows
     GitRepositoryReference:

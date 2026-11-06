@@ -207,6 +207,9 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	if run.Review != nil {
 		kv(w, on, "Review", "%s after %d round(s)", clean(strings.ReplaceAll(string(run.Review.Verdict), "_", " ")), run.Review.Rounds)
 	}
+	if checks := run.RepositoryChecks; checks != nil {
+		kv(w, on, "Checks", "%s", lavaflowRepositoryChecks(checks))
+	}
 	// The API lists only the first ungated job on each branch or commit it
 	// checked, so a count would understate the jobs that could run the change.
 	// Null, no record of them, prints nothing, as none does.
@@ -252,6 +255,17 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	if run.Diff != nil && *run.Diff != "" {
 		block(w, on, "Diff", *run.Diff)
 	}
+}
+
+// lavaflowRepositoryChecks says the repository's own checks didn't run on the
+// fix, then why in the API's words. The API has no status for checks that ran
+// yet, and asks clients to read a status they don't know as not_run.
+func lavaflowRepositoryChecks(checks *apiclient.LavaflowRepositoryChecks) string {
+	text := "The repository's tests didn't run."
+	if message := strings.TrimSpace(checks.Message); message != "" {
+		text += " " + clean(message)
+	}
+	return text
 }
 
 // lavaflowSourceCommit is the commit a run read the code at, short, with

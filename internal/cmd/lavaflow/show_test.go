@@ -20,7 +20,9 @@ func TestShowSaysWhatTheRunFoundAndFixed(t *testing.T) {
 		"Status: PR open",
 		"Resource: function checkout",
 		"Title: " + lavaflowIssueTitle,
-		"Review: passed after 2 round(s)\nFix:\n  Pull request: #42 https://github.com/acme/shop/pull/42\n  State: open\n",
+		"Review: passed after 2 round(s)\n" +
+			"Checks: The repository's tests didn't run. " + lavaflowChecksMessage + "\n" +
+			"Fix:\n  Pull request: #42 https://github.com/acme/shop/pull/42\n  State: open\n",
 		"Diagnosis\n  Checkout reads the cart before it loads.\n",
 		"Root cause\n  handleCheckout dereferences cart without a guard.\n",
 		"Evidence\n  - The error starts with the 10:02 deploy.\n",
@@ -489,4 +491,87 @@ func TestRunJSONKeepsEveryFieldTheAPISends(t *testing.T) {
 	assert.Equal(t, true, first["merge"].(map[string]any)["merged_by_lavaflow"])
 	assert.Nil(t, first["pull_request_skipped"])
 	assert.Equal(t, "source_unavailable", second["pull_request_skipped"])
+}
+
+// show says when the repository's own checks didn't run on the fix, with why
+// in the API's words. A run with no fix has none, and prints no line. The API
+// asks clients to read a status or reason they don't know as not_run.
+func TestShowSaysTheRepositorysTestsDidntRun(t *testing.T) {
+	for name, checks := range map[string]any{
+		"not run":        checksNotRun(),
+		"unknown status": map[string]any{"status": "queued", "reason": "sandbox_unavailable", "message": lavaflowChecksMessage},
+		"unknown reason": map[string]any{"status": "not_run", "reason": "runner_busy", "message": lavaflowChecksMessage},
+		"newer fields":   map[string]any{"status": "not_run", "reason": "sandbox_unavailable", "message": lavaflowChecksMessage, "ran_at": nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) { s.runs[0]["repository_checks"] = checks })
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Review: passed after 2 round(s)\nChecks: The repository's tests didn't run. "+lavaflowChecksMessage+"\nFix:\n")
+			assert.NotContains(t, out, "not_run")
+			assert.NotContains(t, out, "sandbox_unavailable")
+		})
+	}
+
+	t.Run("no message", func(t *testing.T) {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.runs[0]["repository_checks"] = map[string]any{"status": "not_run", "reason": "sandbox_unavailable", "message": " "}
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err)
+		assert.Contains(t, out, "Checks: The repository's tests didn't run.\nFix:\n")
+	})
+
+	t.Run("control characters", func(t *testing.T) {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.runs[0]["repository_checks"] = map[string]any{"status": "not_run", "reason": "sandbox_unavailable", "message": "push\x1b[2J\rnow"}
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err)
+		assert.Contains(t, out, `Checks: The repository's tests didn't run. push\x1b[2J\x0dnow`)
+		assert.NotContains(t, out, "\x1b")
+	})
+
+	for name, checks := range map[string]any{"null": nil, "absent": "absent"} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				if checks == "absent" {
+					delete(s.runs[0], "repository_checks")
+					return
+				}
+				s.runs[0]["repository_checks"] = checks
+			})
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.NotContains(t, out, "Checks:")
+			assert.Contains(t, out, "Review: passed after 2 round(s)\nFix:\n")
+		})
+	}
+}
+
+// --json keeps repository_checks as the API sent it, fields newer than the
+// CLI's contract included.
+func TestShowJSONKeepsTheRepositoryChecks(t *testing.T) {
+	checks := map[string]any{"status": "queued", "reason": "runner_busy", "message": lavaflowChecksMessage, "ran_at": "2026-11-06T10:00:00Z"}
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.runs[0]["repository_checks"] = checks })
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+	require.NoError(t, err)
+	assert.Equal(t, asJSON(t, checks), decodeJSON(t, out)["repository_checks"])
+
+	fake.set(func(s *lavaflowServer) { s.runs[0]["repository_checks"] = nil })
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+	require.NoError(t, err)
+	got := decodeJSON(t, out)
+	assert.Contains(t, got, "repository_checks")
+	assert.Nil(t, got["repository_checks"])
 }
