@@ -182,7 +182,7 @@ func (c *commands) run() *cobra.Command {
 		if err != nil {
 			return limitsError(err)
 		}
-		return c.write(cmd, value)
+		return c.writeSession(cmd, value)
 	}}
 	opts.flags(cmd)
 	cmd.Flags().IntVar(&opts.duration, "duration", 0, "Maximum session lifetime in seconds; omitted inherits the template (cloud: 30–28800; local: 0 for unlimited or positive)")

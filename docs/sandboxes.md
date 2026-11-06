@@ -94,8 +94,9 @@ A session created with caps reports them under `limits`:
 These are the caps the session enforces: never higher than requested, and lower
 when the session has less. The session stays `starting` until it reports
 whether the caps hold, so wait for `running` before you rely on them. `applied`
-is then `enforced` when every cap is enforced. If you rely on the caps,
-terminate a session that reports `not_enforced`.
+is then `enforced` when every cap is enforced. A session that reports
+`not_enforced` runs without its caps: `sandboxes run` and `sandboxes get` print
+it, then exit non-zero. Terminate it if you rely on the caps.
 
 Local sessions accept the same flags. A local session provides at most 2 vCPUs,
 and its `/workspace` and `/tmp` together hold at most 640 MiB beyond the

@@ -122,8 +122,20 @@ func (c *commands) get() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return c.write(cmd, value)
+		return c.writeSession(cmd, value)
 	}}
+}
+
+// writeSession prints a session, then fails when its requested limits read
+// not_enforced: the session runs without them, and a script must not miss it.
+func (c *commands) writeSession(cmd *cobra.Command, value *apiclient.SandboxSession) error {
+	if err := c.write(cmd, value); err != nil {
+		return err
+	}
+	if value != nil && value.Limits != nil && value.Limits.Applied == apiclient.SandboxLimitsNotEnforced {
+		return errors.New("the session could not enforce its requested limits and runs without them; terminate it if you rely on them")
+	}
+	return nil
 }
 
 func (c *commands) control(action string) *cobra.Command {
