@@ -681,16 +681,16 @@ func TestResolveManifestPath_DefaultsToRootFile(t *testing.T) {
 	})
 }
 
-func TestResolveManifestPath_ErrorsWhenBothExist(t *testing.T) {
+func TestResolveManifestPath_RootWinsWhenBothExist(t *testing.T) {
 	withTempWorkingDir(t, func(_ string) {
 		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\n"), 0o644))
 		require.NoError(t, os.MkdirAll("volcano", 0o755))
 		require.NoError(t, os.WriteFile(filepath.Join("volcano", "volcano-config.yaml"), []byte("version: 1\n"), 0o644))
 
-		_, err := ResolveManifestPath("")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "found multiple volcano-config.yaml files")
-		assert.Contains(t, err.Error(), "keep only one volcano-config.yaml file")
+		got, err := ResolveManifestPath("")
+		require.NoError(t, err)
+		assert.Equal(t, "volcano-config.yaml", got)
+		assert.Equal(t, "volcano-config.yaml", DefaultPullPath())
 	})
 }
 
@@ -809,4 +809,39 @@ notifications:
 	_, err = Parse([]byte("version: 1\nnotifications:\n  webhook:\n    url: https://example.com/hook\n    secret: whsec_x\n"), noEnv)
 	require.Error(t, err, "the signing secret cannot be declared")
 	assert.Contains(t, err.Error(), "secret")
+}
+
+func TestResolveManifestPathIgnoresUnselectedNestedPath(t *testing.T) {
+	withTempWorkingDir(t, func(_ string) {
+		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\n"), 0o600))
+		require.NoError(t, os.WriteFile("volcano", []byte("not a directory"), 0o600))
+		got, err := ResolveManifestPath("")
+		require.NoError(t, err)
+		assert.Equal(t, "volcano-config.yaml", got)
+	})
+}
+
+func TestResolveManifestPathInvalidRootDoesNotFallBack(t *testing.T) {
+	withTempWorkingDir(t, func(_ string) {
+		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: ["), 0o600))
+		require.NoError(t, os.MkdirAll("volcano", 0o750))
+		require.NoError(t, os.WriteFile("volcano/volcano-config.yaml", []byte("version: 1\n"), 0o600))
+		got, err := ResolveManifestPath("")
+		require.NoError(t, err)
+		_, _, err = Load(got)
+		require.Error(t, err)
+	})
+}
+
+func TestResolveManifestPathDanglingRootDoesNotFallBack(t *testing.T) {
+	withTempWorkingDir(t, func(_ string) {
+		require.NoError(t, os.Symlink("missing.yaml", "volcano-config.yaml"))
+		require.NoError(t, os.MkdirAll("volcano", 0o750))
+		require.NoError(t, os.WriteFile("volcano/volcano-config.yaml", []byte("version: 1\n"), 0o600))
+		got, err := ResolveManifestPath("")
+		require.NoError(t, err)
+		assert.Equal(t, "volcano-config.yaml", got)
+		_, _, err = Load(got)
+		require.Error(t, err)
+	})
 }

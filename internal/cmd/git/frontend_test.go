@@ -70,6 +70,7 @@ func TestFrontendNoneDeploysNoFrontend(t *testing.T) {
 	assert.Equal(t, map[string]any{
 		"auto_deploy_enabled": true,
 		"deploy_functions":    true,
+		"frontend_name":       "",
 	}, api.sentSettingsBody())
 	assert.Contains(t, out, "Frontend cleared, so a push deploys no frontend")
 	assert.Contains(t, out, "A frontend already deployed stays up; pushes no longer redeploy it.")

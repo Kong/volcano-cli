@@ -301,7 +301,10 @@ This works with a project access token, so a CI job or an agent can set it.
 Nothing is redeployed. While auto-deploy is on, the next push to the
 production branch deploys the frontend. The command says what a push deploys
 from now on, which is nothing while auto-deploy is off. `--none` stops
-pushes from redeploying a frontend, but a frontend already deployed stays up.
+pushes from redeploying the frontend selected with `volcano git frontend`,
+including after `volcano git export`. A frontend already deployed stays up,
+and the repository remains the project's source of truth. Frontends in `.volcano/source-layout.json` are
+independent: remove their mappings to stop deploying them.
 
 The project needs a connected repository first, so on a project with nothing
 connected the command says so and exits non-zero. The same goes for
