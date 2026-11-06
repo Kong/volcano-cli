@@ -85,6 +85,15 @@ func GitStatus(w io.Writer, binding GitBinding) {
 			frontend = "none"
 		}
 		kv(w, on, "Frontend", "%s", frontend)
+		// Left out by an API that predates applying volcano-config.yaml on
+		// push, rather than reported as none.
+		if sections := settings.ManifestSections; sections != nil {
+			applied := "none"
+			if len(sections) > 0 {
+				applied = manifestSectionList(sections)
+			}
+			kv(w, on, "Manifest sections", "%s", applied)
+		}
 	}
 	gitDeploySettings(w, binding)
 	if source := binding.Source; source != nil &&

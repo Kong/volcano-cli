@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -191,6 +192,24 @@ type gitAPI struct {
 	deployFunctions bool
 	frontend        string
 	frontendRoot    string
+	// manifestSections are the volcano-config.yaml sections a push applies.
+	manifestSections []string
+	// sectionsUnsupported models an API older than manifest sections: the
+	// settings leave them out and the route to set them does not exist.
+	sectionsUnsupported bool
+	// sectionsStatus, sectionsMessage and sectionsCode make the
+	// manifest-sections route refuse.
+	sectionsStatus  int
+	sectionsMessage string
+	sectionsCode    string
+
+	// runs are the project's Git deployment runs, newest first, as the API
+	// sends them.
+	runs []map[string]any
+	// runsNextCursor marks the listed page as having another after it.
+	runsNextCursor string
+	// runsUnsupported models an API older than Git deployment runs.
+	runsUnsupported bool
 	// providerStatus overrides the response on the routes that reach the git
 	// provider. The project's own binding routes are excluded on purpose: they
 	// only read the database, so the real server cannot answer 503 there.
@@ -238,7 +257,11 @@ type gitAPI struct {
 	// settingsBody is what the deploy-settings write was sent.
 	settingsBody map[string]any
 	// branchBody is what the production-branch route was sent.
-	branchBody      map[string]any
+	branchBody map[string]any
+	// sectionsBody is what the manifest-sections route was sent.
+	sectionsBody map[string]any
+	// runsQuery is the query the last runs list was sent.
+	runsQuery       url.Values
 	deleted         bool
 	connectionReads int
 	// accountReads counts the calls to the caller's own GitHub routes, which
@@ -314,6 +337,13 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 		a.serveDeploySettings(w)
 	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-deploy-settings"):
 		a.serveUpdateDeploySettings(w, r)
+	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-deploy-settings/manifest-sections") &&
+		!a.sectionsUnsupported:
+		a.serveManifestSections(w, r)
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git-deployment-runs") && !a.runsUnsupported:
+		a.serveRuns(w, r)
+	case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/git-deployment-runs/") && !a.runsUnsupported:
+		a.serveRun(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -578,7 +608,104 @@ func (a *gitAPI) deploySettings() map[string]any {
 	if a.frontendRoot != "" {
 		settings["frontend_app_root"] = a.frontendRoot
 	}
+	if !a.sectionsUnsupported {
+		sections := a.manifestSections
+		if sections == nil {
+			sections = []string{}
+		}
+		settings["manifest_sections"] = sections
+	}
 	return settings
+}
+
+// serveManifestSections replaces the sections a push applies, as the platform
+// does, and refuses where a test says.
+func (a *gitAPI) serveManifestSections(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.sectionsBody))
+
+	if a.sectionsStatus != 0 {
+		refusal := map[string]any{"error": a.sectionsMessage}
+		if a.sectionsCode != "" {
+			refusal["code"] = a.sectionsCode
+		}
+		writeGitJSON(a.t, w, a.sectionsStatus, refusal)
+		return
+	}
+	sections, ok := a.sectionsBody["sections"].([]any)
+	require.True(a.t, ok, "sections must be sent as a list, even an empty one")
+	a.manifestSections = []string{}
+	for _, section := range sections {
+		name, _ := section.(string)
+		if name != "frontends" {
+			writeGitJSON(a.t, w, http.StatusBadRequest, map[string]any{"error": "unknown manifest section: " + name})
+			return
+		}
+		a.manifestSections = append(a.manifestSections, name)
+	}
+	writeGitJSON(a.t, w, http.StatusOK, a.deploySettings())
+}
+
+func (a *gitAPI) sentSectionsBody() map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.sectionsBody
+}
+
+// serveRuns lists the runs, filtered by status and branch as the platform
+// does.
+func (a *gitAPI) serveRuns(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.runsQuery = r.URL.Query()
+
+	data := make([]map[string]any, 0, len(a.runs))
+	for _, run := range a.runs {
+		if status := a.runsQuery.Get("status"); status != "" && run["status"] != status {
+			continue
+		}
+		if branch := a.runsQuery.Get("branch"); branch != "" && run["branch"] != branch {
+			continue
+		}
+		data = append(data, run)
+	}
+	page := map[string]any{"data": data, "limit": 20, "has_more": a.runsNextCursor != ""}
+	if a.runsNextCursor != "" {
+		page["next_cursor"] = a.runsNextCursor
+	}
+	writeGitJSON(a.t, w, http.StatusOK, page)
+}
+
+func (a *gitAPI) serveRun(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
+	for _, run := range a.runs {
+		if run["id"] == id {
+			writeGitJSON(a.t, w, http.StatusOK, run)
+			return
+		}
+	}
+	writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "deployment run not found"})
+}
+
+func (a *gitAPI) sentRunsQuery() url.Values {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.runsQuery
+}
+
+// gitRun is a run as the platform sends it, with no error and no config
+// result.
+func gitRun(id, status string) map[string]any {
+	return map[string]any{
+		"id":               id,
+		"status":           status,
+		"branch":           "main",
+		"commit_sha":       "6f2b1c9a4e8d3f7b0a5c2e9d1f4b8a6c3e7d0b25",
+		"apply_migrations": false,
+		"migration_runs":   []any{},
+		"created_at":       "2026-11-04T10:00:00Z",
+	}
 }
 
 func (a *gitAPI) serveSourceState(w http.ResponseWriter) {

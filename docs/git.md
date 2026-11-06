@@ -35,6 +35,11 @@ into an empty repository; Volcano pushes that first commit itself.
   reported after a successful connect and listed by `volcano git status`. When
   a push deploys nothing, or no frontend, the report ends with the command that
   changes that.
+- `manifest-sections set` chooses which `volcano-config.yaml` sections a push
+  applies. Only a person can choose, so it needs `volcano login`; a project
+  access token can read the choice but not change it.
+- Each push records a Git deployment run, which `runs list` and `runs get`
+  read with any token, including a read-only project access token.
 
 ## CLI operations
 
@@ -48,6 +53,10 @@ into an empty repository; Volcano pushes that first commit itself.
 | Turn deploying on push on or off | `volcano git auto-deploy on\|off` |
 | Choose whether functions deploy | `volcano git functions on\|off` |
 | Choose the frontend a push deploys | `volcano git frontend <name> [--root <path>]` |
+| Show the `volcano-config.yaml` sections a push applies | `volcano git manifest-sections` |
+| Choose the sections a push applies | `volcano git manifest-sections set <section>... \| --none` |
+| List what each push deployed | `volcano git runs list` |
+| Show one push's run | `volcano git runs get <run-id>` |
 | Export the project's source to an empty repository | `volcano git export [--branch <branch>]` |
 | Cancel an incomplete export | `volcano git export cancel` |
 | Disconnect | `volcano git disconnect` |
@@ -307,6 +316,84 @@ The project needs a connected repository first, so on a project with nothing
 connected the command says so and exits non-zero. The same goes for
 `production-branch`, `auto-deploy` and `functions`.
 
+## Applying volcano-config.yaml on push
+
+A push deploys code. It can also apply sections of the project's
+`volcano-config.yaml`, once its deploys succeed, when a person chooses them.
+None applies until then. The section a push can apply today is `frontends`:
+
+```bash
+volcano git manifest-sections                    # what a push applies
+volcano git manifest-sections set frontends
+volcano git manifest-sections set --none         # apply none
+```
+
+```text
+✓ A push now applies frontends from volcano-config.yaml
+Project: storefront (4f0c2a9e-1b7d-4c3e-9a5f-2d8b6e1c7a40)
+Repository: acme/storefront
+Production branch: main (follows the default branch)
+Manifest sections: frontends
+Note: Nothing was applied.
+
+A push to main applies these once its deploys succeed. It only adds: deletes, replacements and wider exposure are left for volcano cloud config deploy.
+```
+
+`set` replaces the whole choice. Choosing a section lets anyone who can push to
+the production branch change it, so the command asks first, naming the
+repository and branch. `--yes` skips the prompt. Removing a section is not
+asked about.
+
+Inside a chosen section a push only adds: it never deletes, replaces, or widens
+exposure. Those changes are left for `volcano cloud config deploy`. A push that
+sets a secret, or leaves a `${...}` unresolved, in a chosen section fails: it
+deploys nothing and applies none of its config.
+
+Choosing is a person's decision. Sign in with `volcano login`; a project access
+token is refused before anything is sent, with exit code 5. When `VOLCANO_TOKEN`
+holds the token, unset it first, since it is used instead of a sign-in. Reading
+the choice works with a project access token.
+
+The sections can be chosen before a repository is connected. The command says
+no push applies them until one is, and that a push applies nothing while
+auto-deploy is off. `volcano git status` lists the sections with the other
+deploy settings. `--json` prints the project's Git deploy settings, with the
+sections in `manifest_sections`.
+
+## Reading what each push deployed
+
+Each push to the production branch records a Git deployment run: whether the
+push deployed and, when it failed or was skipped, why. Read them to find out why
+a push did not deploy:
+
+```bash
+volcano git runs list
+volcano git runs list --status failed --branch main
+volcano git runs get 6f1c2b9a-4e8d-4f7b-8a5c-2e9d1f4b8a6c
+```
+
+```text
+ID                                    Status      Branch                Commit   Pushed            Reason
+------------------------------------------------------------------------------------------------------------------------
+6f1c2b9a-4e8d-4f7b-8a5c-2e9d1f4b8a6c  failed      main                  6f2b1c9  2h ago            migration_failed
+7a2d3c0b-5f9e-4a8c-9b6d-3f0e2a5c9b7d  succeeded   main                  e41d07a  1d ago            -
+```
+
+`list` shows the newest push first, 20 per page; `--limit` takes 1 to 100, and
+the last line names the command for the next page. `--status` takes `pending`,
+`running`, `succeeded`, `failed`, `superseded` or `skipped`.
+
+`get` shows the commit, when the run started and finished, whether it applied
+migrations and the migration run it started on each database, and why it failed
+or was skipped, in Volcano's own words. When the push applied
+`volcano-config.yaml` sections, it also shows what each section created,
+updated and left for `volcano cloud config deploy`, and why.
+
+Both commands take `--json` and print Volcano's fields as sent, including the
+`config` result. They work with any token, including a read-only project access
+token, so a CI job can check what its push did. A run ID the project does not
+have exits with code 4.
+
 ## Exporting the project's source
 
 A project you deployed from the CLI keeps its source in Volcano. To move it into
@@ -398,6 +485,8 @@ integration is not configured. Run these commands against the cloud API.
 touch GitHub, so it reports that the project has nothing connected instead.
 `volcano git root-directory`, `production-branch`, `auto-deploy`, `functions`
 and `frontend` report that the integration is not configured, since no
-repository can be connected there for them to change. `volcano git export`
+repository can be connected there for them to change. So do
+`volcano git manifest-sections` and `volcano git runs`: no push arrives there,
+so there is nothing for a push to apply and no run to read. `volcano git export`
 reports that source export is not available: local mode serves functions from a
 directory on your machine, so Volcano stores no source to export.

@@ -1899,6 +1899,36 @@ func (e FunctionVisibility) Valid() bool {
 	}
 }
 
+// Defines values for GitDeploymentRunStatus.
+const (
+	GitDeploymentRunStatusFailed     GitDeploymentRunStatus = "failed"
+	GitDeploymentRunStatusPending    GitDeploymentRunStatus = "pending"
+	GitDeploymentRunStatusRunning    GitDeploymentRunStatus = "running"
+	GitDeploymentRunStatusSkipped    GitDeploymentRunStatus = "skipped"
+	GitDeploymentRunStatusSucceeded  GitDeploymentRunStatus = "succeeded"
+	GitDeploymentRunStatusSuperseded GitDeploymentRunStatus = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the GitDeploymentRunStatus enum.
+func (e GitDeploymentRunStatus) Valid() bool {
+	switch e {
+	case GitDeploymentRunStatusFailed:
+		return true
+	case GitDeploymentRunStatusPending:
+		return true
+	case GitDeploymentRunStatusRunning:
+		return true
+	case GitDeploymentRunStatusSkipped:
+		return true
+	case GitDeploymentRunStatusSucceeded:
+		return true
+	case GitDeploymentRunStatusSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HostedAuthPageType.
 const (
 	HostedAuthPageTypeDevice         HostedAuthPageType = "device"
@@ -3018,6 +3048,21 @@ func (e ProjectFrontendCustomDomainVerificationStatus) Valid() bool {
 	case ProjectFrontendCustomDomainVerificationStatusPending:
 		return true
 	case ProjectFrontendCustomDomainVerificationStatusVerified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectGitManifestSection.
+const (
+	ProjectGitManifestSectionFrontends ProjectGitManifestSection = "frontends"
+)
+
+// Valid indicates whether the value is a known member of the ProjectGitManifestSection enum.
+func (e ProjectGitManifestSection) Valid() bool {
+	switch e {
+	case ProjectGitManifestSectionFrontends:
 		return true
 	default:
 		return false
@@ -8041,6 +8086,56 @@ type GitConnectionsResponse struct {
 	Connections []GitConnection `json:"connections"`
 }
 
+// GitDeploymentMigrationRun A migration run a deployment run started. Get it at `GET /projects/{id}/databases/{databaseName}/migration-runs/{runId}` with `database.name` and `id`.
+type GitDeploymentMigrationRun struct {
+	// Database Stable reference to a Volcano resource.
+	Database ResourceReference  `json:"database"`
+	Id       openapi_types.UUID `json:"id"`
+}
+
+// GitDeploymentRun One push's deployment through Git auto deploy.
+type GitDeploymentRun struct {
+	// ApplyMigrations Whether the run applies the commit's migrations: the project's `apply_migrations` Git deploy setting when the push arrived.
+	ApplyMigrations bool `json:"apply_migrations"`
+
+	// Branch The branch the push updated, the project's production branch at the time.
+	Branch string `json:"branch"`
+
+	// CommitSha The commit the run deploys.
+	CommitSha string `json:"commit_sha"`
+
+	// CompletedAt When the run ended.
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+
+	// CreatedAt When the push was recorded.
+	CreatedAt time.Time `json:"created_at"`
+
+	// Error Why a run failed or was skipped.
+	Error *GitDeploymentRunError `json:"error,omitempty"`
+	Id    openapi_types.UUID     `json:"id"`
+
+	// MigrationRuns The migration runs the run started, one per database, ordered by database name. Empty when it started none.
+	MigrationRuns []GitDeploymentMigrationRun `json:"migration_runs"`
+
+	// StartedAt When a worker first picked the run up.
+	StartedAt *time.Time `json:"started_at,omitempty"`
+
+	// Status Where a run is. `pending` and `running` have not ended. `succeeded`: every deployment the run dispatched succeeded, or the commit only had migrations to apply. `failed`: `error` says why. `superseded`: a newer push replaced the run before it started. `skipped`: there was nothing to deploy; `error` says why.
+	Status GitDeploymentRunStatus `json:"status"`
+}
+
+// GitDeploymentRunError Why a run failed or was skipped.
+type GitDeploymentRunError struct {
+	// Code Stable machine-readable reason. For a failed run: `migration_failed`, `migration_invalid_layout`, `migration_timeout`, `feature_unavailable`, `source_invalid`, `child_deploy_failed`, `child_deploy_not_started`, `deploy_refused`, `typescript_not_compiled`, `deploy_failed`, `max_attempts_exhausted`, `owner_not_active`, or `project_deleting`. `source_invalid`, `deploy_refused`, and `typescript_not_compiled` fail the same way if the same commit is pushed again; `child_deploy_not_started`, `deploy_failed`, and `max_attempts_exhausted` may succeed on another push; for `owner_not_active`, reactivating the owner's account restores deployment eligibility; push again to deploy. `project_deleting` means the project is being deleted. For a skipped run: `auto_deploy_disabled`, `binding_changed`, `disconnected`, `project_missing`, or `nothing_to_deploy`. Treat a code you do not know as a failure.
+	Code string `json:"code"`
+
+	// Message What happened. For `migration_failed`, `migration_invalid_layout`, `source_invalid`, `deploy_refused`, `child_deploy_not_started`, and `typescript_not_compiled` it names the database, files, resource, or setting at fault when Volcano has them.
+	Message string `json:"message"`
+}
+
+// GitDeploymentRunStatus Where a run is. `pending` and `running` have not ended. `succeeded`: every deployment the run dispatched succeeded, or the commit only had migrations to apply. `failed`: `error` says why. `superseded`: a newer push replaced the run before it started. `skipped`: there was nothing to deploy; `error` says why.
+type GitDeploymentRunStatus string
+
 // GitInstallation defines model for GitInstallation.
 type GitInstallation struct {
 	AccountLogin        string `json:"account_login"`
@@ -9110,6 +9205,20 @@ type PaginatedFunctions struct {
 
 	// Total Total number of items across all pages
 	Total int `json:"total"`
+}
+
+// PaginatedGitDeploymentRuns defines model for PaginatedGitDeploymentRuns.
+type PaginatedGitDeploymentRuns struct {
+	Data []GitDeploymentRun `json:"data"`
+
+	// HasMore Whether a next page exists
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page (present if has_more is true)
+	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
 // PaginatedLavaflowRuns defines model for PaginatedLavaflowRuns.
@@ -10307,6 +10416,9 @@ type ProjectGitConnectionSummary struct {
 
 // ProjectGitDeploySettings A project's GitHub auto-deploy settings: what a push to the connected repo's production branch deploys. All settings are default-off.
 type ProjectGitDeploySettings struct {
+	// ApplyMigrations Whether a push applies the commit's pending migrations, the SQL files under volcano/migrations, before it deploys anything. Each database gets a migration run with source `git_deploy`; when one fails, nothing from the push deploys and the live version keeps serving. A push starts a migration run only while the project owner's account is `active`; otherwise it starts none, deploys nothing, and fails with code `owner_not_active`. A run an earlier attempt of the push started before the account changed keeps its outcome, but the push still deploys none of its code and fails with `owner_not_active`; its message says the schema changes stay. Nothing retries that push; push again once the account is `active`, and that push skips the migrations already applied. Reads back as saved even where the `databases.migrations` capability is unavailable; there, a push whose commit has migrations deploys nothing.
+	ApplyMigrations bool `json:"apply_migrations"`
+
 	// AutoDeployEnabled Whether a production-branch push triggers a deployment.
 	AutoDeployEnabled bool `json:"auto_deploy_enabled"`
 
@@ -10319,9 +10431,15 @@ type ProjectGitDeploySettings struct {
 	// FrontendName Name of the frontend to build and deploy on push. Omitted when no frontend is deployed. Resolved at deploy time; need not exist yet.
 	FrontendName *string `json:"frontend_name,omitempty"`
 
+	// ManifestSections The volcano-config.yaml sections a push applies after its deploys succeed. Empty applies none. Set with PUT /projects/{id}/git-deploy-settings/manifest-sections.
+	ManifestSections []ProjectGitManifestSection `json:"manifest_sections"`
+
 	// UpdatedAt When the settings were last saved, or last changed by connecting a repository. Other changes to the project leave it alone. Settings a connection turned on before Volcano began tracking this report the project's last change before then; settings never saved or changed report when the project was created.
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// ProjectGitManifestSection A volcano-config.yaml section a push can apply.
+type ProjectGitManifestSection string
 
 // ProjectHealthCategory defines model for ProjectHealthCategory.
 type ProjectHealthCategory string
@@ -11115,6 +11233,12 @@ type ServiceKey struct {
 	UpdatedAt   *time.Time          `json:"updated_at,omitempty"`
 }
 
+// SetProjectGitManifestSectionsRequest defines model for SetProjectGitManifestSectionsRequest.
+type SetProjectGitManifestSectionsRequest struct {
+	// Sections Every section a push applies. An empty list applies none.
+	Sections []ProjectGitManifestSection `json:"sections"`
+}
+
 // SetProjectGitProductionBranchRequest defines model for SetProjectGitProductionBranchRequest.
 type SetProjectGitProductionBranchRequest struct {
 	// ProductionBranch The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet. An empty string follows the repository's default branch, including later renames.
@@ -11559,10 +11683,12 @@ type UpdateOAuthConfigRequest struct {
 	Scopes       *[]string `json:"scopes,omitempty"`
 }
 
-// UpdateProjectGitDeploySettingsRequest Full replace of a project's Git auto-deploy settings.
+// UpdateProjectGitDeploySettingsRequest Full replace of a project's Git auto-deploy settings, except apply_migrations, which keeps its saved value when omitted.
 type UpdateProjectGitDeploySettingsRequest struct {
-	AutoDeployEnabled bool `json:"auto_deploy_enabled"`
-	DeployFunctions   bool `json:"deploy_functions"`
+	// ApplyMigrations Apply the commit's pending migrations before each push deploys. Anyone who can push to the production branch can then run any SQL as the database owner, so protect that branch first. Off until set. Omit to leave the saved value unchanged. Turning it on answers `400` with code `feature_unavailable` where the `databases.migrations` capability is unavailable; `false`, or the saved `true` sent back, is accepted even there. While the project owner's account is `read_only`, the request answers `403` whatever it sends; an `inactive` owner's credentials answer `401`.
+	ApplyMigrations   *bool `json:"apply_migrations,omitempty"`
+	AutoDeployEnabled bool  `json:"auto_deploy_enabled"`
+	DeployFunctions   bool  `json:"deploy_functions"`
 
 	// FrontendAppRoot App root the frontend builds from. Requires frontend_name; omit for the repo root.
 	FrontendAppRoot *string `json:"frontend_app_root,omitempty"`
@@ -13470,6 +13596,22 @@ type ListFunctionDeploymentsParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListGitDeploymentRunsParams defines parameters for ListGitDeploymentRuns.
+type ListGitDeploymentRunsParams struct {
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor from a previous response's `next_cursor`. Pages forward;
+	// keep the same filters while paging.
+	Cursor *IssueCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Status Return only runs in this status.
+	Status *GitDeploymentRunStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Branch Return only runs for pushes to this branch.
+	Branch *string `form:"branch,omitempty" json:"branch,omitempty"`
+}
+
 // UploadProjectLogoMultipartBody defines parameters for UploadProjectLogo.
 type UploadProjectLogoMultipartBody struct {
 	// Logo Logo image (PNG, JPEG, GIF, WebP, or SVG; max 2 MB)
@@ -14188,6 +14330,9 @@ type SetProjectGitRootDirectoryJSONRequestBody = SetProjectGitRootDirectoryReque
 
 // UpdateProjectGitDeploySettingsJSONRequestBody defines body for UpdateProjectGitDeploySettings for application/json ContentType.
 type UpdateProjectGitDeploySettingsJSONRequestBody = UpdateProjectGitDeploySettingsRequest
+
+// SetProjectGitManifestSectionsJSONRequestBody defines body for SetProjectGitManifestSections for application/json ContentType.
+type SetProjectGitManifestSectionsJSONRequestBody = SetProjectGitManifestSectionsRequest
 
 // UploadProjectLogoMultipartRequestBody defines body for UploadProjectLogo for multipart/form-data ContentType.
 type UploadProjectLogoMultipartRequestBody UploadProjectLogoMultipartBody
@@ -16531,6 +16676,17 @@ type ClientInterface interface {
 	UpdateProjectGitDeploySettingsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateProjectGitDeploySettings(ctx context.Context, id ProjectId, body UpdateProjectGitDeploySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetProjectGitManifestSectionsWithBody request with any body
+	SetProjectGitManifestSectionsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetProjectGitManifestSections(ctx context.Context, id ProjectId, body SetProjectGitManifestSectionsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGitDeploymentRuns request
+	ListGitDeploymentRuns(ctx context.Context, id ProjectId, params *ListGitDeploymentRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGitDeploymentRun request
+	GetGitDeploymentRun(ctx context.Context, id ProjectId, runId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectHealth request
 	GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -20895,6 +21051,54 @@ func (c *Client) UpdateProjectGitDeploySettingsWithBody(ctx context.Context, id 
 
 func (c *Client) UpdateProjectGitDeploySettings(ctx context.Context, id ProjectId, body UpdateProjectGitDeploySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateProjectGitDeploySettingsRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetProjectGitManifestSectionsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectGitManifestSectionsRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetProjectGitManifestSections(ctx context.Context, id ProjectId, body SetProjectGitManifestSectionsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectGitManifestSectionsRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGitDeploymentRuns(ctx context.Context, id ProjectId, params *ListGitDeploymentRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGitDeploymentRunsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGitDeploymentRun(ctx context.Context, id ProjectId, runId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGitDeploymentRunRequest(c.Server, id, runId)
 	if err != nil {
 		return nil, err
 	}
@@ -35483,6 +35687,191 @@ func NewUpdateProjectGitDeploySettingsRequestWithBody(server string, id ProjectI
 	return req, nil
 }
 
+// NewSetProjectGitManifestSectionsRequest calls the generic SetProjectGitManifestSections builder with application/json body
+func NewSetProjectGitManifestSectionsRequest(server string, id ProjectId, body SetProjectGitManifestSectionsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetProjectGitManifestSectionsRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetProjectGitManifestSectionsRequestWithBody generates requests for SetProjectGitManifestSections with any type of body
+func NewSetProjectGitManifestSectionsRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-deploy-settings/manifest-sections", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListGitDeploymentRunsRequest generates requests for ListGitDeploymentRuns
+func NewListGitDeploymentRunsRequest(server string, id ProjectId, params *ListGitDeploymentRunsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-deployment-runs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Branch != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", *params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGitDeploymentRunRequest generates requests for GetGitDeploymentRun
+func NewGetGitDeploymentRunRequest(server string, id ProjectId, runId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "runId", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-deployment-runs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetProjectHealthRequest generates requests for GetProjectHealth
 func NewGetProjectHealthRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -41397,6 +41786,17 @@ type ClientWithResponsesInterface interface {
 	UpdateProjectGitDeploySettingsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectGitDeploySettingsClientResponse, error)
 
 	UpdateProjectGitDeploySettingsWithResponse(ctx context.Context, id ProjectId, body UpdateProjectGitDeploySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectGitDeploySettingsClientResponse, error)
+
+	// SetProjectGitManifestSectionsWithBodyWithResponse request with any body
+	SetProjectGitManifestSectionsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitManifestSectionsClientResponse, error)
+
+	SetProjectGitManifestSectionsWithResponse(ctx context.Context, id ProjectId, body SetProjectGitManifestSectionsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitManifestSectionsClientResponse, error)
+
+	// ListGitDeploymentRunsWithResponse request
+	ListGitDeploymentRunsWithResponse(ctx context.Context, id ProjectId, params *ListGitDeploymentRunsParams, reqEditors ...RequestEditorFn) (*ListGitDeploymentRunsClientResponse, error)
+
+	// GetGitDeploymentRunWithResponse request
+	GetGitDeploymentRunWithResponse(ctx context.Context, id ProjectId, runId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetGitDeploymentRunClientResponse, error)
 
 	// GetProjectHealthWithResponse request
 	GetProjectHealthWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectHealthClientResponse, error)
@@ -50017,6 +50417,108 @@ func (r UpdateProjectGitDeploySettingsClientResponse) ContentType() string {
 	return ""
 }
 
+type SetProjectGitManifestSectionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectGitDeploySettings
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SetProjectGitManifestSectionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetProjectGitManifestSectionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetProjectGitManifestSectionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListGitDeploymentRunsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedGitDeploymentRuns
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGitDeploymentRunsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGitDeploymentRunsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListGitDeploymentRunsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetGitDeploymentRunClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *GitDeploymentRun
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGitDeploymentRunClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGitDeploymentRunClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetGitDeploymentRunClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetProjectHealthClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -56010,6 +56512,41 @@ func (c *ClientWithResponses) UpdateProjectGitDeploySettingsWithResponse(ctx con
 		return nil, err
 	}
 	return ParseUpdateProjectGitDeploySettingsClientResponse(rsp)
+}
+
+// SetProjectGitManifestSectionsWithBodyWithResponse request with arbitrary body returning *SetProjectGitManifestSectionsClientResponse
+func (c *ClientWithResponses) SetProjectGitManifestSectionsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitManifestSectionsClientResponse, error) {
+	rsp, err := c.SetProjectGitManifestSectionsWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectGitManifestSectionsClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetProjectGitManifestSectionsWithResponse(ctx context.Context, id ProjectId, body SetProjectGitManifestSectionsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitManifestSectionsClientResponse, error) {
+	rsp, err := c.SetProjectGitManifestSections(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectGitManifestSectionsClientResponse(rsp)
+}
+
+// ListGitDeploymentRunsWithResponse request returning *ListGitDeploymentRunsClientResponse
+func (c *ClientWithResponses) ListGitDeploymentRunsWithResponse(ctx context.Context, id ProjectId, params *ListGitDeploymentRunsParams, reqEditors ...RequestEditorFn) (*ListGitDeploymentRunsClientResponse, error) {
+	rsp, err := c.ListGitDeploymentRuns(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGitDeploymentRunsClientResponse(rsp)
+}
+
+// GetGitDeploymentRunWithResponse request returning *GetGitDeploymentRunClientResponse
+func (c *ClientWithResponses) GetGitDeploymentRunWithResponse(ctx context.Context, id ProjectId, runId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetGitDeploymentRunClientResponse, error) {
+	rsp, err := c.GetGitDeploymentRun(ctx, id, runId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGitDeploymentRunClientResponse(rsp)
 }
 
 // GetProjectHealthWithResponse request returning *GetProjectHealthClientResponse
@@ -68952,6 +69489,168 @@ func ParseUpdateProjectGitDeploySettingsClientResponse(rsp *http.Response) (*Upd
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetProjectGitManifestSectionsClientResponse parses an HTTP response from a SetProjectGitManifestSectionsWithResponse call
+func ParseSetProjectGitManifestSectionsClientResponse(rsp *http.Response) (*SetProjectGitManifestSectionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetProjectGitManifestSectionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectGitDeploySettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGitDeploymentRunsClientResponse parses an HTTP response from a ListGitDeploymentRunsWithResponse call
+func ParseListGitDeploymentRunsClientResponse(rsp *http.Response) (*ListGitDeploymentRunsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGitDeploymentRunsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedGitDeploymentRuns
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGitDeploymentRunClientResponse parses an HTTP response from a GetGitDeploymentRunWithResponse call
+func ParseGetGitDeploymentRunClientResponse(rsp *http.Response) (*GetGitDeploymentRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGitDeploymentRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GitDeploymentRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 

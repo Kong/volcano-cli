@@ -25,6 +25,36 @@ func TestStatusReportsTheBinding(t *testing.T) {
 	assert.Contains(t, out, "A push to main deploys: functions, frontend web")
 }
 
+// Status lists the volcano-config.yaml sections a push applies with the other
+// deploy settings, and says nothing of them where the API leaves them out.
+func TestStatusReportsTheManifestSections(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		sections    []string
+		unsupported bool
+		want        string
+	}{
+		{name: "chosen", sections: []string{"frontends"}, want: "Manifest sections: frontends\n"},
+		{name: "none", want: "Manifest sections: none\n"},
+		{name: "older API", unsupported: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setGitCommandTestHome(t)
+			api := newGitAPI(t)
+			api.connected = "octo/storefront"
+			api.manifestSections, api.sectionsUnsupported = tc.sections, tc.unsupported
+
+			out, err := executeGitCommand(t, api.serve(), nil, "", "status")
+			require.NoError(t, err)
+			if tc.want == "" {
+				assert.NotContains(t, out, "Manifest sections")
+				return
+			}
+			assert.Contains(t, out, tc.want)
+		})
+	}
+}
+
 // Status reads the project's own binding and nothing else. Contacting GitHub
 // would make a read of recorded state into a check of whether it still works,
 // which is a different and much more expensive question.
