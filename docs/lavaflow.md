@@ -194,8 +194,11 @@ A setting you don't pass keeps its value. `settings` shows both in full.
 
 ### Merge fixes
 
-At autonomy `merge`, LavaFlow can merge its fix pull requests. A fix it holds
-or stops is yours to review and merge on GitHub.
+At autonomy `merge`, LavaFlow can merge its fix pull requests. A fix built on
+a commit the deploy reported, at either
+[verification level](deploy.md#verification), is always held for a person.
+Only a fix on a commit that a push to the repository deployed is free of that
+hold. A fix it holds or stops is yours to review and merge on GitHub.
 
 ```bash
 volcano cloud lavaflow settings set --autonomy merge
@@ -415,7 +418,7 @@ The `Source:` line gives the commit's short SHA and where it came from:
 | --- | --- |
 | `deployed from a push` | A push to the project's connected repository deployed it. |
 | `reported by the deploy; deployed files match` | The deploy reported it, and Volcano matched the deployed files against it. |
-| `reported by the deploy; found on the production branch` | The deploy reported it, and Volcano confirmed only that the production branch holds it. A function upload is build output, so its files aren't matched. A fix on such a commit opens only while the production branch still holds it. |
+| `reported by the deploy; found on the production branch` | The deploy reported it, and Volcano confirmed only that the production branch holds it: the [`repository` level](deploy.md#verification) function and durable function deploys get. Volcano doesn't compare the deployed files with it. A fix on such a commit opens only while the production branch still holds it. |
 | `production branch; may not be deployed` | A reported problem's run read the production branch at a commit it pinned. |
 
 A run recorded before Volcano kept the origin, or with an origin your CLI
