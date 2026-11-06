@@ -497,7 +497,7 @@ func TestRunsOpenSaysWhenVolcanoRefusesTheRequest(t *testing.T) {
 	})
 	_, _, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
 	require.ErrorContains(t, err, "invalid or expired token")
-	assert.NotErrorIs(t, err, clilavaflow.ErrOpenRequestRefused)
+	require.NotErrorIs(t, err, clilavaflow.ErrOpenRequestRefused)
 	assert.Equal(t, http.StatusUnauthorized, api.Status(err))
 	assert.Len(t, fake.opens, 1)
 }
