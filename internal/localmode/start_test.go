@@ -42,6 +42,34 @@ func TestStartChecksDockerAvailability(t *testing.T) {
 	assert.True(t, runner.called("docker", "version"))
 }
 
+func TestStartFailsClearlyWhenComposeMissing(t *testing.T) {
+	runner := &fakeCommandRunner{
+		run: func(_ context.Context, command Command) ([]byte, error) {
+			switch {
+			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
+				return nil, errors.New("container not found")
+			case commandIs(command, "docker", "version"):
+				return []byte("Docker version 1\n"), nil
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return nil, errors.New("docker: unknown command: docker compose")
+			default:
+				t.Fatalf("unexpected command: %s", commandDebug(command))
+				return nil, nil
+			}
+		},
+	}
+
+	var out bytes.Buffer
+	err := NewService(cliruntime.Deps{}, WithDockerRunner(runner)).Start(context.Background(), &out)
+
+	require.ErrorContains(t, err, "docker compose v2 not found")
+	assert.Contains(t, out.String(), "✗ Docker Compose v2 is not available")
+	assert.Contains(t, out.String(), "https://docs.docker.com/compose/install/")
+	assert.NotContains(t, out.String(), "Docker and Docker Compose are available")
+	assert.False(t, runner.calledWithArg("docker", "pull"), "image pull must not run without the Compose plugin")
+	assert.False(t, runner.calledWithArg("docker", "up"), "compose up must not run without the Compose plugin")
+}
+
 func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 	setLocalDevTestHome(t)
 	withTempWorkingDir(t)
@@ -75,6 +103,8 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 				return []byte("false\n"), nil
 			case commandIs(command, "docker", "version"):
 				return []byte("Docker version 1\n"), nil
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return []byte("v2.28.1\n"), nil
 			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
 				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
@@ -279,6 +309,8 @@ func TestStartFailsWhenDefaultDatabaseCreationFails(t *testing.T) {
 				return []byte("false\n"), nil
 			case commandIs(command, "docker", "version"):
 				return []byte("Docker version 1\n"), nil
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return []byte("v2.28.1\n"), nil
 			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
 				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
@@ -420,6 +452,8 @@ func TestStartFailsWhenCustomImageMissing(t *testing.T) {
 				return []byte("false\n"), nil
 			case commandIs(command, "docker", "version"):
 				return []byte("Docker version 1\n"), nil
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return []byte("v2.28.1\n"), nil
 			case commandIs(command, "docker", "image", "inspect", "kong/volcano:local-dev"):
 				return nil, errors.New("Error: No such image: kong/volcano:local-dev")
 			case command.Name == "docker" && slices.Contains(command.Args, "pull"):

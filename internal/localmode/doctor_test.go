@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -98,4 +99,10 @@ func TestDoctorComposeMissing(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, out.String(), "✗ Docker Compose v2")
 	assert.Contains(t, out.String(), "docker compose")
+	if runtime.GOOS == "darwin" {
+		assert.Contains(t, out.String(), "brew install docker-compose")
+		assert.Contains(t, out.String(), "cliPluginsExtraDirs")
+	} else {
+		assert.NotContains(t, out.String(), "brew install docker-compose")
+	}
 }
