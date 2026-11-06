@@ -3,6 +3,7 @@ package lavaflow
 import (
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -53,9 +54,11 @@ const heldDiffShown = `  --- a/functions/checkout.ts
 `
 
 // wantOpen is the whole body of a request to open the held fix with these
-// fingerprints.
+// fingerprints: the project, the run and the two fingerprints.
 func wantOpen(diffSHA256 string) map[string]any {
-	return map[string]any{"project_id": lavaflowProjectID, "diff_sha256": diffSHA256, "jobs_sha256": heldJobsSHA256}
+	return map[string]any{
+		"project_id": lavaflowProjectID, "run_id": lavaflowHeldID, "diff_sha256": diffSHA256, "jobs_sha256": heldJobsSHA256,
+	}
 }
 
 // answers gives one answer per read, as a terminal does, and calls before,
@@ -87,8 +90,9 @@ func notATerminal(t *testing.T) io.Reader {
 }
 
 // runs open shows the diff as served, every job that will get the
-// repository's secrets and both fingerprints, asks, and queues the fix with
-// a body of exactly the project and the two fingerprints it showed.
+// repository's secrets and both fingerprints, asks, and queues the fix at
+// POST /lavaflow/held-fix-opens with a body of exactly the project, the run
+// and the two fingerprints it showed.
 func TestRunsOpenShowsTheHeldFixThenOpensItWithWhatItShowed(t *testing.T) {
 	fake, deps, _ := newHeldLavaflowServer(t)
 
@@ -99,6 +103,8 @@ func TestRunsOpenShowsTheHeldFixThenOpensItWithWhatItShowed(t *testing.T) {
 		" is queued; follow it with 'volcano cloud lavaflow show "+lavaflowHeldID+"'\n", out)
 	fake.set(func(s *lavaflowServer) {
 		assert.Equal(t, []map[string]any{wantOpen(heldDiffSHA256)}, s.opens)
+		assert.Len(t, s.queries["/held-fix-opens"], 1, "the open is a POST to /lavaflow/held-fix-opens")
+		assert.Equal(t, []url.Values{{}}, s.queries["/held-fix-opens"], "it names the project and the run in its body only")
 		assert.Equal(t, []string{lavaflowProjectID, lavaflowProjectID}, s.projects, "the read and the open name the project")
 	})
 	assertLavaFlowWording(t, errOut+out)
@@ -353,18 +359,21 @@ func TestRunsOpenWithYesStopsWhenTheFixChanged(t *testing.T) {
 	assert.Len(t, fake.queries["/runs/"+lavaflowHeldID], 1, "the run is read once")
 }
 
-// Every other 409 says plainly why LavaFlow can't open the fix, and keeps the
-// 409 for the exit code. A code this CLI doesn't know keeps Volcano's words.
+// Every other 409 says plainly why LavaFlow can't open the fix, as runs start
+// says the codes they share, and keeps the 409 for the exit code. A code this
+// CLI doesn't know keeps Volcano's words.
 func TestRunsOpenSaysWhyVolcanoCantOpenIt(t *testing.T) {
 	show := "'volcano cloud lavaflow show " + lavaflowHeldID + "'"
 	for code, want := range map[string]string{
-		"run_not_held": "LavaFlow run " + lavaflowHeldID + " no longer holds a fix a person can open. See it with " + show,
-		"lavaflow_disabled": "LavaFlow is off for this project, so it can't open the fix. " +
-			"The project's owner turns it on with 'volcano cloud lavaflow enable'",
-		"repository_required": "the project has no connected repository, so LavaFlow can't open the fix. " +
-			"Connect one with 'volcano git connect'",
-		"repository_changed": "the project no longer deploys from the repository this fix was written for, " +
-			"so LavaFlow can't open it. A new run uses the current one",
+		"run_not_held":      "LavaFlow run " + lavaflowHeldID + " no longer holds a fix a person can open. See it with " + show,
+		"lavaflow_disabled": "LavaFlow is off for this project. Turn it on with 'volcano cloud lavaflow enable', then run this again",
+		"repository_required": "the project no longer links the repository LavaFlow was turned on for. " +
+			"Connect it again with 'volcano git connect', or turn LavaFlow on again with 'volcano cloud lavaflow enable'",
+		"repository_changed": "the project links another repository than LavaFlow was turned on for, or than this fix " +
+			"was written for, so LavaFlow can't open it. Turn LavaFlow on again with 'volcano cloud lavaflow enable' " +
+			"to fix issues in the one it links now",
+		"repository_unreadable": "LavaFlow can no longer read the repository's workflows, so it can't open the fix. " +
+			"Connect the repository again with 'volcano git connect', then run this again",
 		"lavaflow_run_in_progress": "another LavaFlow run is in progress for this issue, so LavaFlow can't open this fix now. " +
 			"Try again once it finishes",
 		"run_attempts_exhausted": "LavaFlow has used every attempt it gets for run " + lavaflowHeldID +
@@ -407,21 +416,28 @@ func TestRunsOpenSaysWhenToTryAgain(t *testing.T) {
 	}
 }
 
-// Volcano refuses a credential that isn't a person's own sign-in with
-// person_required, in words that say what to do. The CLI keeps them and
-// points at volcano login, with the exit code of a permission refused.
-func TestRunsOpenPointsAPersonRequiredRefusalAtVolcanoLogin(t *testing.T) {
-	const neverExpires = "this token never expires; sign in with `volcano login` to open a held fix"
+// Volcano refuses a credential that isn't the owner's live sign-in, or an
+// owner whose GitHub account can't push to the repository, with
+// person_required. The CLI says what the open needs, keeps Volcano's words,
+// which name what to change, and points at volcano login, with the exit code
+// of a permission refused.
+func TestRunsOpenSaysAPersonRequiredRefusalNeedsTheOwnersLiveSignIn(t *testing.T) {
+	const needs = "opening a fix LavaFlow held needs the project owner's live sign-in, " +
+		"and a GitHub account that can push to the project's repository. "
+	const login = "Run 'volcano login', or use a platform token that expires"
+	const neverExpires = "only the project's owner, signed in with `volcano login` or a platform token that expires, " +
+		"can open a fix LavaFlow held"
+	const cantPush = "give the project owner's GitHub account push access to the project's repository, then open the fix"
 	for name, tc := range map[string]struct {
 		message  string
 		envToken bool
 		want     string
 	}{
-		"Volcano's words":      {neverExpires, false, "LavaFlow didn't open the fix: " + neverExpires},
-		"words from elsewhere": {"MCP can't open a held fix.", false, "LavaFlow didn't open the fix: MCP can't open a held fix. Sign in with 'volcano login' and run this again"},
-		"no words":             {"", false, "opening a fix LavaFlow held needs a person's own sign-in. Sign in with 'volcano login' and run this again"},
-		"token in VOLCANO_TOKEN": {neverExpires, true, "LavaFlow didn't open the fix: " + neverExpires +
-			". VOLCANO_TOKEN is set, and its token is used instead of a 'volcano login' sign-in until you unset it"},
+		"a token that never expires": {neverExpires, false, needs + "Volcano said: \"" + neverExpires + "\". " + login},
+		"an owner who can't push":    {cantPush, false, needs + "Volcano said: \"" + cantPush + "\". " + login},
+		"no words":                   {"", false, needs + login},
+		"token in VOLCANO_TOKEN": {neverExpires, true, needs + "Volcano said: \"" + neverExpires + "\". " +
+			"Unset VOLCANO_TOKEN and run 'volcano login', or set it to a platform token that expires"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			fake, deps, _ := newHeldLavaflowServer(t)
@@ -435,20 +451,26 @@ func TestRunsOpenPointsAPersonRequiredRefusalAtVolcanoLogin(t *testing.T) {
 
 			_, _, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
 			require.EqualError(t, err, tc.want)
+			require.ErrorIs(t, err, clilavaflow.ErrOpenNeedsLiveSignIn)
 			assert.Equal(t, http.StatusForbidden, api.Status(err))
 		})
 	}
 }
 
-// The owner's plan and a read-only credential are refused with 403 too, each
-// said for what it is.
+// The owner's plan, and an owner whose account is read-only or inactive, are
+// refused with 403 too, each said for what it is.
 func TestRunsOpenSaysWhenThePlanOrCredentialCantOpenIt(t *testing.T) {
 	for name, tc := range map[string]struct {
 		refusal map[string]any
 		want    string
 	}{
-		"plan":      {map[string]any{"error": "LavaFlow needs a plan that includes it", "code": "plan_required"}, lavaflowPlanRequired},
-		"read-only": {map[string]any{"error": "project access token is read-only"}, `LavaFlow didn't open the fix: Volcano refused this credential, as it does a read-only access token. Volcano said: "project access token is read-only"`},
+		"plan": {map[string]any{"error": "LavaFlow needs a plan that includes it", "code": "plan_required"}, lavaflowPlanRequired},
+		"read-only or inactive account": {
+			map[string]any{"error": "the project's owner is read-only or inactive"},
+			`LavaFlow didn't open the fix: a read-only or inactive account can't open one, and otherwise the project ` +
+				`owner's plan couldn't be read; try again later. Volcano said: "the project's owner is read-only or inactive"`,
+		},
+		"no words": {map[string]any{"error": ""}, clilavaflow.ErrOpenRefused.Error()},
 	} {
 		fake, deps, _ := newHeldLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
@@ -461,8 +483,9 @@ func TestRunsOpenSaysWhenThePlanOrCredentialCantOpenIt(t *testing.T) {
 	}
 }
 
-// Opening a held fix is a person's decision, so a project access token is
-// refused before anything is sent, as a permission the API refuses.
+// Opening a held fix needs the owner's own session, so a project access token
+// is refused before anything is sent, as runs start refuses one, with the
+// exit code of a permission the API refuses.
 func TestRunsOpenRefusesAProjectAccessTokenBeforeAnything(t *testing.T) {
 	for name, tc := range map[string]struct {
 		token func(t *testing.T)
@@ -485,8 +508,9 @@ func TestRunsOpenRefusesAProjectAccessTokenBeforeAnything(t *testing.T) {
 			tc.token(t)
 
 			_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID, "--yes")
-			require.EqualError(t, err, "opening a fix LavaFlow held is a person's decision, and a project access token "+
-				"can't make it. "+tc.how)
+			require.EqualError(t, err, "opening a fix LavaFlow held needs the project owner's session: "+
+				"a project access token can't. "+tc.how)
+			require.ErrorIs(t, err, clilavaflow.ErrPersonOpens)
 			require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired, "the exit code reports a permission refused")
 			assertNothingShownOrAsked(t, errOut, name)
 			fake.set(func(s *lavaflowServer) {
@@ -520,9 +544,11 @@ func TestRunsOpenSaysWhenTheRunIsUnknown(t *testing.T) {
 	require.EqualError(t, err, `invalid run ID "latest": use an ID from 'volcano cloud lavaflow list'`)
 }
 
-// Where LavaFlow isn't available, as in local mode, runs open says why
-// before it shows or asks anything, as every LavaFlow command does. An API
-// that has LavaFlow's runs but can't open a held fix says that.
+// Where LavaFlow isn't available, outside its cohort or with its release
+// gate off, runs open says it isn't available before it shows or asks
+// anything, as every LavaFlow command does, with the exit code of the 404.
+// So does the open's own feature_unavailable. An API that has LavaFlow's runs
+// but can't open a held fix says that.
 func TestRunsOpenSaysWhenItCantOpenHere(t *testing.T) {
 	fake, deps, _ := newHeldLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
@@ -541,11 +567,14 @@ func TestRunsOpenSaysWhenItCantOpenHere(t *testing.T) {
 	})
 	_, _, err = executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
 	require.EqualError(t, err, lavaflowNotAvailable, "the open's own feature_unavailable")
+	assert.Equal(t, http.StatusNotFound, api.Status(err))
+	assert.Len(t, fake.opens, 1)
 
 	fake, deps, _ = newHeldLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) { s.openRouteMissing = true })
 	_, _, err = executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
 	require.ErrorIs(t, err, clilavaflow.ErrOpenUnsupported)
+	assert.Len(t, fake.opens, 1, "the open reached POST /lavaflow/held-fix-opens")
 	assert.Equal(t, "this Volcano API can't open a fix LavaFlow held yet", err.Error())
 }
 

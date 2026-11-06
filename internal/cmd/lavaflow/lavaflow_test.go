@@ -19,6 +19,7 @@ func TestCloudOnlyStandInRefusesWithTheReason(t *testing.T) {
 		{"list", "--json"},
 		{"show", lavaflowRunID},
 		{"settings", "set", "--allow-ungated-workflows", "true", "--yes"},
+		{"runs", "start", lavaflowIssueID, "--json"},
 		{"runs", "open", lavaflowHeldID, "--yes"},
 	} {
 		_, err := executeLavaflowCommand(t, NewCloudOnly(), args...)
@@ -143,6 +144,7 @@ func lavaflowCommandArgs() [][]string {
 		{"resources"},
 		{"list"},
 		{"show", lavaflowRunID},
+		{"runs", "start", lavaflowIssueID},
 	}
 }
 

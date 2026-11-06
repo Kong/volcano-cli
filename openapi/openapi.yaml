@@ -7378,6 +7378,93 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - LavaFlow
+      summary: Start a LavaFlow run
+      description: |
+        Starts a run on one of the project's issues. LavaFlow starts runs on
+        its own only for issues with `exception: true`, and only while it is
+        on. Start one here for any other issue, or for one recorded before
+        LavaFlow was turned on. The run follows the project's settings, as
+        one LavaFlow starts on its own does, and answers `202` while it is
+        `queued`; read it with `GET /lavaflow/runs/{run_id}`.
+
+        Only the project's owner can start a run, as a person, while their
+        account is active: with a platform token that expires, or `volcano
+        login`. A platform token that never expires, a `volcano login` token
+        whose sign-in ended, a full-scope project access token, and a request
+        made through MCP get `403` with code `person_required`; a read-only
+        project access token is refused as read-only first, without a code,
+        and so is the owner of a read-only account.
+
+        Every start counts toward the run limits: 5 runs per issue and 200 per
+        project in any 24 hours. An issue has one run in progress at a time,
+        so sending the request again while the first run is in progress
+        answers `409` with code `lavaflow_run_in_progress`.
+      operationId: createLavaflowRun
+      security:
+        - UserToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LavaflowRunCreate'
+      responses:
+        '202':
+          description: The run, queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowRun'
+        '400':
+          description: 'The body is invalid: `project_id` or `issue_id` missing or not a UUID, or an unknown field.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 'Code `person_required` means the request didn''t come from the owner''s live person credential: a platform token that never expires, a `volcano login` token whose sign-in ended, a full-scope project access token, or MCP made it. Start a run with a platform token that expires, or `volcano login`. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only or inactive, or the owner''s plan could not be read; retry later.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `issue_not_found` means the project has no issue `issue_id`; an issue of another project answers the same. Code `feature_unavailable` means LavaFlow is not available for this project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The run did not start. Code `lavaflow_disabled` means LavaFlow is off for the project; turn it on. Code `repository_required` means LavaFlow was turned on for a repository the project no longer links, and `repository_changed` that the project links another repository than LavaFlow was turned on for; turn LavaFlow on again. Code `lavaflow_run_in_progress` means the issue has a run in progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request body exceeds 4,096 bytes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: A run limit is reached. Code `issue_run_limit_reached` means the issue started 5 runs in the last 24 hours, and `project_run_limit_reached` that the project started 200. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds until the limit has room for the run.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /lavaflow/runs/{run_id}:
     get:
       tags:
@@ -7431,42 +7518,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /lavaflow/runs/{run_id}/open:
+  /lavaflow/held-fix-opens:
     post:
       tags:
         - LavaFlow
-      summary: Open a held fix's pull request
+      summary: Open a held LavaFlow fix
       description: |
-        Queues the pull request for a fix LavaFlow held because the
+        Opens the pull request for a fix LavaFlow held because the
         repository's workflows could run it with the repository's secrets
         before a person approves it (`pull_request_skipped:
-        ungated_workflows`). The request repeats the run's `diff_sha256` and
-        `held_workflows.jobs_sha256`, so the pull request opens only for the
-        diff and jobs the person read.
+        ungated_workflows`). Read the run first: send its `id` as `run_id`,
+        with the `diff_sha256` and `held_workflows.jobs_sha256` it served, to
+        say you read that diff and that list of jobs. LavaFlow opens the fix it
+        saved, exactly as reviewed, past those jobs only. It writes no new
+        fix.
 
-        Only a person decides: a project access token, MCP, a platform token
-        that never expires and a sign-in that ended get `403` with code
-        `person_required`.
-      operationId: openLavaflowRun
+        Right before it queues the run, LavaFlow serves the diff again and
+        reads the workflows again. A diff served differently since you read
+        it, or a job list or a commit the workflows were read at that changed,
+        answers `409` with code `run_changed`; read the run again, which lists
+        what LavaFlow found. The response is the run, `202` while it is
+        `queued`. LavaFlow reads the workflows again before it opens the pull
+        request, and once more as it pushes the fix: a job you didn't read, a
+        new commit on a branch the workflows were read on, even one that
+        changes no job, or a production branch other than the one you read
+        them on holds the fix again with a new list.
+
+        Opening a fix lets its pull request open, nothing more. LavaFlow
+        starts no CI on it and never merges it, as for every fix opened past
+        ungated workflows; a person pushes to the branch or merges it. The
+        pull request's description names who opened it and lists the jobs.
+        One exception: when LavaFlow's read before the pull request opens
+        finds no job that runs the fix before a person approves it, because
+        the workflows were gated since you read them, the fix opens as any
+        other fix and follows the project's merge settings. A run whose
+        `held_workflows` lists no job opens the same way.
+
+        Only the project's owner can open a fix, as a person, while their
+        account is active: with a sign-in session, a `volcano login` token
+        whose sign-in is live, or a platform token that expires. Their GitHub
+        account must be able to push to the project's repository. A project
+        access token, a request made through MCP, a platform token that never
+        expires, and a sign-in that ended get `403` with code
+        `person_required`. Opening a fix uses one of the run's attempts: the
+        attempt that opens it is one of the run's, so a run held again on its
+        last attempt can't be opened again. It starts no new run and counts
+        toward no run limit.
+      operationId: createLavaflowHeldFixOpen
       security:
         - UserToken: []
-      parameters:
-        - $ref: '#/components/parameters/LavaflowRunId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LavaflowRunOpen'
+              $ref: '#/components/schemas/LavaflowHeldFixOpen'
       responses:
         '202':
-          description: Queued. The run, with status `queued`, opens its pull request shortly.
+          description: The run, queued to open its fix
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/LavaflowRun'
         '400':
-          description: The body is invalid.
+          description: 'The body is invalid: `project_id` or `run_id` missing or not a UUID, `diff_sha256` or `jobs_sha256` missing or not 64 lowercase hex characters, or an unknown field.'
           content:
             application/json:
               schema:
@@ -7478,19 +7593,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: 'Code `person_required` means a project access token, MCP, a platform token that never expires or a sign-in that ended made the request. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code, a read-only access token made the request.'
+          description: 'Code `person_required` means the request didn''t come from the owner''s live person credential: a full-scope project access token, MCP, a platform token that never expires, or a `volcano login` token whose sign-in ended made it, or the owner''s GitHub account can''t push to the project''s repository, or the project has none. Open the fix with a platform token that expires, or `volcano login`. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only or inactive, or the owner''s plan could not be read; retry later.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Not found. Code `feature_unavailable` means LavaFlow is not available for the project.
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. A run of another project than `project_id` answers as one that doesn't exist. Code `feature_unavailable` means LavaFlow is not available for this project.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: 'Code `run_not_held` means the run holds no fix a person can open: it was not held for `ungated_workflows`, it was opened or queued already, its diff is cut short or withholds a file, or its jobs were not listed. Code `run_changed` means its diff, its jobs or the commits they were read at changed. Codes `lavaflow_disabled`, `repository_required`, `repository_changed`, `lavaflow_run_in_progress` and `run_attempts_exhausted` say why LavaFlow cannot open it now.'
+          description: 'Nothing was queued. Code `run_not_held` means the run holds no fix you can open: it was not held for ungated workflows, its pull request opened or is queued to, its diff is cut short or withholds a file, or LavaFlow could not list every job that held it (`held_workflows` is `null`). Code `run_changed` means the diff or the jobs are not the ones you named: read the run again. Code `run_attempts_exhausted` means the run has no attempt left. Code `lavaflow_disabled` means LavaFlow is off for the project; turn it on. Code `repository_required` means LavaFlow was turned on for a repository the project no longer links, `repository_changed` that the project links another repository than LavaFlow was turned on for, or than the fix was written for, and `repository_unreadable` that LavaFlow can no longer read the repository''s workflows. Code `lavaflow_run_in_progress` means another run of the issue is in progress.'
           content:
             application/json:
               schema:
@@ -7502,10 +7617,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '429':
-          description: Too many requests. Try again after `Retry-After`.
+          description: The project, or its owner across their projects, used up the hour's checks of the owner's GitHub push access. Nothing was queued. Try again after `Retry-After`.
           headers:
             Retry-After:
-              description: Seconds until Volcano can take the request again.
+              description: Seconds until the budget's hour ends.
               schema:
                 type: integer
           content:
@@ -7513,10 +7628,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '503':
-          description: Volcano cannot take the request now. Try again after `Retry-After`.
+          description: GitHub didn't answer the owner's push check or the read of the workflows. Nothing was queued. Try again after `Retry-After`.
           headers:
             Retry-After:
-              description: Seconds until Volcano can take the request again.
+              description: Seconds to wait before trying again.
               schema:
                 type: integer
           content:
@@ -25196,6 +25311,22 @@ components:
       required:
         - name
       additionalProperties: false
+    LavaflowRunCreate:
+      type: object
+      additionalProperties: false
+      description: The project, and the issue to start a run on.
+      properties:
+        project_id:
+          type: string
+          format: uuid
+          description: The project the issue belongs to.
+        issue_id:
+          type: string
+          format: uuid
+          description: The issue to start a run on.
+      required:
+        - project_id
+        - issue_id
     LavaflowDayCounts:
       type: object
       properties:
@@ -25255,25 +25386,32 @@ components:
       required:
         - source
         - path
-    LavaflowRunOpen:
+    LavaflowHeldFixOpen:
       type: object
       additionalProperties: false
-      description: Opens a held fix's pull request for the digests the person read.
+      description: The project, the run, and the diff and jobs of the held fix you read, by the digests the run served them with.
       properties:
         project_id:
           type: string
           format: uuid
-          description: The run's project.
+          description: The project the run belongs to.
+        run_id:
+          type: string
+          format: uuid
+          description: The run whose held fix to open.
         diff_sha256:
           type: string
           pattern: ^[0-9a-f]{64}$
-          description: The run's `diff_sha256` as read.
+          description: The run's `diff_sha256`, as it served it.
+          example: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
         jobs_sha256:
           type: string
           pattern: ^[0-9a-f]{64}$
-          description: The run's `held_workflows.jobs_sha256` as read.
+          description: The run's `held_workflows.jobs_sha256`, as it served it.
+          example: 2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae
       required:
         - project_id
+        - run_id
         - diff_sha256
         - jobs_sha256
     LavaflowHeldWorkflows:
@@ -25289,7 +25427,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LavaflowAllowedWorkflow'
-          description: Every such job, at most 256, sorted by source, path and job.
+          description: Every such job, at most 256, sorted by source, path and job. Empty when LavaFlow read every workflow to the end and found none, such as when they changed between the hold and the read.
         jobs_sha256:
           type: string
           pattern: ^[0-9a-f]{64}$
@@ -25797,6 +25935,11 @@ components:
         - $ref: '#/components/schemas/LavaflowRunSummary'
         - type: object
           properties:
+            source_commit:
+              allOf:
+                - $ref: '#/components/schemas/LavaflowSourceCommit'
+              nullable: true
+              description: The commit the run read the code at. Null when it read none, as for a run that diagnosed from the logs alone.
             diagnosis:
               allOf:
                 - $ref: '#/components/schemas/LavaflowDiagnosis'
@@ -25804,7 +25947,7 @@ components:
             diff:
               type: string
               nullable: true
-              description: The fix LavaFlow saved, as the unified diff its reviewers read, cut short past 256 KiB as they read it, with a last line that starts with `[diff truncated`. When any change to a file may hold a credential, every change to that file is left out, with one line in their place that starts with `# LavaFlow withheld` and names the file. A run held with `possible_credential` leaves out every file. Null for a run with no saved fix, or one saved before LavaFlow kept its diff.
+              description: The fix LavaFlow saved, as the unified diff its reviewers read, cut short past 256 KiB as they read it, with a last line that starts with `[diff truncated`. When a file's content, before or after the fix, or any change to it may hold a credential, or the file is too long for LavaFlow to read whole (over 64 KiB, or past 256 KiB across the fix's files), every change to that file is left out, with one line in their place that starts with `# LavaFlow withheld` and names the file. A run held with `possible_credential` leaves out every file. Null for a run with no saved fix, or one saved before LavaFlow kept its diff.
             diff_sha256:
               type: string
               nullable: true
@@ -25838,8 +25981,9 @@ components:
               allOf:
                 - $ref: '#/components/schemas/LavaflowHeldWorkflows'
               nullable: true
-              description: For a run whose `pull_request_skipped` is `ungated_workflows`, every workflow job that held its fix. Null for any other run, and for a held run whose workflows LavaFlow couldn't list, such as one with more than 256 such jobs.
+              description: For a run whose `pull_request_skipped` is `ungated_workflows`, every workflow job that held its fix. Null for any other run, and for a held run whose workflows LavaFlow couldn't read to the end, such as one with a workflow it couldn't parse, or more than 256 such jobs.
           required:
+            - source_commit
             - diagnosis
             - diff
             - diff_sha256
@@ -29103,6 +29247,34 @@ components:
         message is handed over, then `delivered`. `expired` means the wait's
         timeout passed first, and `cancelled` that the execution stopped
         waiting.
+    LavaflowCommitOrigin:
+      type: string
+      enum:
+        - push
+        - client_reported
+        - client_reported_repository
+        - repository
+      x-enum-varnames:
+        - LavaflowCommitOriginPush
+        - LavaflowCommitOriginClientReported
+        - LavaflowCommitOriginClientReportedRepository
+        - LavaflowCommitOriginRepository
+      description: 'Where the commit a run read came from. `push`: a push to the project''s connected repository deployed it. `client_reported`: the deploy client reported it, and Volcano matched the deployed files against it. `client_reported_repository`: the deploy client reported it, and Volcano confirmed only that the connected repository''s production branch holds it, without matching the deployed files, which for a function are build output. A fix on such a commit opens only while the production branch still holds it. `repository`: a reported problem''s run read the production branch at a commit it pinned, which need not be deployed.'
+    LavaflowSourceCommit:
+      type: object
+      description: The commit a run read its source at.
+      properties:
+        sha:
+          type: string
+          description: The commit's full SHA.
+        origin:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowCommitOrigin'
+          nullable: true
+          description: Where the commit came from. Null for a run recorded before Volcano kept it.
+      required:
+        - sha
+        - origin
     DurableApprovalFunction:
       type: object
       description: |

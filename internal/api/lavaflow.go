@@ -107,17 +107,38 @@ func (c *Client) GetLavaflowRun(ctx context.Context, projectID, runID uuid.UUID)
 	return run, resp.Body, nil
 }
 
-// OpenLavaflowRun queues the pull request for a fix LavaFlow held, sending
-// the run's diff and job fingerprints as the caller read them, and returns
-// the queued run and the body the API sent it in. Volcano opens it only while
-// both still match. Only a person may: a project access token, MCP, a
-// platform token that never expires and a sign-in that ended get 403
-// person_required. A 429 or 503 keeps its Retry-After.
-func (c *Client) OpenLavaflowRun(
+// CreateLavaflowRun starts a LavaFlow run on one of a project's issues, and
+// returns it queued with the body the API sent it in. Only the project's
+// owner may, with a platform token: a project access token gets 403
+// person_required. A run limit's 429 keeps its Retry-After.
+func (c *Client) CreateLavaflowRun(ctx context.Context, projectID, issueID uuid.UUID) (*apiclient.LavaflowRun, []byte, error) {
+	resp, err := c.client.CreateLavaflowRunWithResponse(ctx, apiclient.LavaflowRunCreate{ProjectId: projectID, IssueId: issueID})
+	if err != nil {
+		return nil, nil, err
+	}
+	run, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON202, resp.JSON400, resp.JSON401, resp.JSON403,
+		resp.JSON404, resp.JSON409, resp.JSON413, resp.JSON429)
+	if err != nil {
+		if resp.HTTPResponse != nil {
+			err = withRetryAfter(err, resp.HTTPResponse.Header)
+		}
+		return nil, nil, err
+	}
+	return run, resp.Body, nil
+}
+
+// CreateLavaflowHeldFixOpen queues the pull request for a fix LavaFlow held,
+// sending the run's diff and job fingerprints as the caller read them, and
+// returns the queued run and the body the API sent it in. Volcano opens it
+// only while both still match. Only the project's owner may, as a person: a
+// project access token, MCP, a platform token that never expires and a
+// sign-in that ended get 403 person_required. A 429 or 503 keeps its
+// Retry-After.
+func (c *Client) CreateLavaflowHeldFixOpen(
 	ctx context.Context, projectID, runID uuid.UUID, diffSHA256, jobsSHA256 string,
 ) (*apiclient.LavaflowRun, []byte, error) {
-	resp, err := c.client.OpenLavaflowRunWithResponse(ctx, runID, apiclient.LavaflowRunOpen{
-		ProjectId: projectID, DiffSha256: diffSHA256, JobsSha256: jobsSHA256,
+	resp, err := c.client.CreateLavaflowHeldFixOpenWithResponse(ctx, apiclient.LavaflowHeldFixOpen{
+		ProjectId: projectID, RunId: runID, DiffSha256: diffSHA256, JobsSha256: jobsSHA256,
 	})
 	if err != nil {
 		return nil, nil, err

@@ -60,6 +60,7 @@ the same when the owner's plan couldn't be read.
 | Show what LavaFlow did for each resource | `volcano cloud lavaflow resources [--days n] [--json]` |
 | List runs | `volcano cloud lavaflow list [--status s] [--resource id] [--limit n] [--cursor c] [--json]` |
 | Show a run | `volcano cloud lavaflow show <run-id> [--json]` |
+| Start a run on an issue | `volcano cloud lavaflow runs start <issue-id> [--json]` |
 | Open a fix LavaFlow held for its workflows | `volcano cloud lavaflow runs open <run-id> [--yes] [--json]` |
 
 Every command takes `--json` for the API's own fields and values.
@@ -72,18 +73,20 @@ copied from a log, prints as a visible escape such as `\x1b`, and with
 LavaFlow belongs to the project's owner. For anyone else, every command says
 "project not found", as for a project that doesn't exist, and exits with
 code 4. A project access token can run the read commands for its own
-project, but only the owner's own session can turn LavaFlow on or off and
-change its settings: `enable`, `disable` and `settings set` refuse a project
-access token before they ask or send anything, with code 5. Sign in with
+project, but only the owner's own session can turn LavaFlow on or off,
+change its settings, start runs and open held fixes: `enable`, `disable`,
+`settings set`, `runs start` and `runs open` refuse a project access token
+before they ask or send anything, with code 5. Sign in with
 `volcano login` instead, and if `VOLCANO_TOKEN` holds a project access token,
 unset it first.
 
 When the owner's plan can't be read, a command says "LavaFlow couldn't read
 the project owner's plan; try again later" and exits with code 5. A change
 that `enable`, `disable` or `settings set` sends can also be refused for a
-read-only access token or account; the API doesn't tell those apart from a
-plan it couldn't read, so the command names all three, adds what Volcano
-said, and exits with code 5.
+read-only account; the API doesn't tell that apart from a plan it couldn't
+read, so the command names both, adds what Volcano said, and exits with
+code 5. `runs start` does the same for a read-only or inactive account and a
+plan it couldn't read (see [Start a run](#start-a-run)).
 
 ## Turn it on
 
@@ -342,6 +345,44 @@ function          checkout                        2026-10-30 09:00       6      
 durable function  nightly-report                  never                  0        0
 ```
 
+## Start a run
+
+LavaFlow starts runs on its own only for issues that hold an exception your
+code threw or logged. Start one yourself for any other
+issue of the project, or for one recorded before LavaFlow was turned on. Name
+the issue by its ID, such as the `Issue` that `show` prints for an earlier
+run, or an ID from the [issues](/platform/guides/issues) API. The run follows
+the project's settings and starts `queued`.
+
+```bash
+volcano cloud lavaflow runs start 5b2d8e1c-3f4a-4c6b-9d7e-8a1f2b3c4d5e
+```
+
+```text
+✓ LavaFlow run started
+Run: 0d6e9b1a-2f4c-4e8d-9a7b-3c5d1e2f4a6b
+Status: queued
+Follow it with volcano cloud lavaflow show 0d6e9b1a-2f4c-4e8d-9a7b-3c5d1e2f4a6b
+```
+
+`--json` prints the run as the API returned it.
+
+Only the project's owner can start a run, from a live sign-in, while LavaFlow
+is on: a sign-in from `volcano login`, or a platform token that expires. When
+the run doesn't start, the command says what to do:
+
+| When | The command says | Exit code |
+|---|---|---|
+| LavaFlow is off | Turn it on with `volcano cloud lavaflow enable` | 1 |
+| The project no longer links the repository LavaFlow was turned on for | Connect it again with `volcano git connect`, or turn LavaFlow on again | 1 |
+| The project links another repository | Turn LavaFlow on again to fix issues in it | 1 |
+| The issue has a run in progress | The run's ID and the `show` command for it, or `list` when it isn't among the newest 100 runs | 1 |
+| The issue started 5 runs, or the project 200, in the last 24 hours | When to try again | 1 |
+| The Volcano API serves LavaFlow but is older than starting runs | This Volcano API can't start LavaFlow runs yet | 1 |
+| The project has no such issue | The project has no issue with that ID | 4 |
+| The token never expires, or its sign-in ended | Run `volcano login`, or use a platform token that expires | 5 |
+| The owner's account is read-only or inactive, or their plan couldn't be read | All three, and what Volcano said | 5 |
+
 ## Follow the runs
 
 A run works on one issue. `list` shows the newest first, with the resource,
@@ -364,8 +405,22 @@ cause" (`diagnosing`), "Running: writing the fix" (`fixing`) or "Running:
 reviewing the fix" (`reviewing`). An open pull request shows as "PR open". A
 status the CLI doesn't know prints as the API gives it.
 
-`show` prints a run's review, a `Fix:` block, and its diagnosis and root
-cause with the evidence behind them. A run that failed says why.
+`show` prints the commit a run read the code at, its review, a `Fix:` block,
+and its diagnosis and root cause with the evidence behind them. A run that
+failed says why.
+
+The `Source:` line gives the commit's short SHA and where it came from:
+
+| Shown | Meaning |
+| --- | --- |
+| `deployed from a push` | A push to the project's connected repository deployed it. |
+| `reported by the deploy; deployed files match` | The deploy reported it, and Volcano matched the deployed files against it. |
+| `reported by the deploy; found on the production branch` | The deploy reported it, and Volcano confirmed only that the production branch holds it. A function upload is build output, so its files aren't matched. A fix on such a commit opens only while the production branch still holds it. |
+| `production branch; may not be deployed` | A reported problem's run read the production branch at a commit it pinned. |
+
+A run recorded before Volcano kept the origin, or with an origin your CLI
+doesn't know, shows the commit alone. A run that read no code, such as one
+that diagnosed from logs alone, has no `Source:` line.
 
 The `Fix:` block always says what happened to the run's fix:
 
@@ -390,6 +445,7 @@ Status: PR open
 Resource: function checkout
 Title: Load the cart before checkout reads it
 Issue: 5b2d8e1c-3f4a-4c6b-9d7e-8a1f2b3c4d5e
+Source: commit 4f1c2b3 (deployed from a push)
 Started: 2026-10-30 09:00
 Review: passed after 2 round(s)
 Fix:
@@ -459,8 +515,8 @@ It shows:
 
 The command checks the fix fingerprint against the diff as Volcano sent it,
 before escaping anything for display, and refuses a diff that doesn't match.
-It sends exactly the two fingerprints it showed. Volcano opens the
-pull request only while both still match. If the diff or its jobs changed
+It sends the run's ID and exactly the two fingerprints it showed. Volcano
+opens the pull request only while both still match. If the diff or its jobs changed
 since you looked, the command shows them again and asks again, up to 3
 times. Volcano queues the run and opens the pull request shortly; follow it
 with `show`.
@@ -488,14 +544,14 @@ command with `the fix or its jobs changed since you looked; run it again`.
 What it shows and asks goes to stderr, so `--json` prints only the queued run
 as Volcano's API returned it.
 
-Opening a held fix is a person's decision. Sign in with `volcano login`, or
-use another platform token that expires. A project access token is refused
-before anything is sent, with code 5. Volcano refuses other credentials that
-aren't a person's own sign-in, such as a platform token that never expires,
-a sign-in that ended or MCP, with `person_required`; the command says why in
-Volcano's words, points at `volcano login`, and exits with code 5. While
-`VOLCANO_TOKEN` is set, its token is used instead of a `volcano login`
-sign-in.
+Only the project's owner can open a held fix, from a live sign-in, while
+LavaFlow is on: a sign-in from `volcano login`, or a platform token that
+expires. Their GitHub account must also be able to push to the project's
+repository. A project access token is refused before anything is sent: the
+command says `opening a fix LavaFlow held needs the project owner's session: a project access token can't`
+and exits with code 5. While `VOLCANO_TOKEN` is set, its token is used
+instead of a `volcano login` sign-in. Opening a fix uses one of the run's
+attempts; it starts no new run and counts toward no run limit.
 
 `runs open` refuses, before it shows or asks anything, a run that:
 
@@ -506,11 +562,19 @@ sign-in.
 - LavaFlow couldn't list every job for, such as one with more than 256. Gate
   those workflows on a label a person adds instead.
 
-Volcano can also refuse to open it, and the command says why: LavaFlow is
-off, the project has no repository or deploys from another one now, another
-run for the issue is in progress, or the run has used every attempt it gets.
-When Volcano can't take the request now, the command says when to try
-again, from Volcano's answer, and doesn't retry for you.
+When Volcano doesn't open the fix, the command says what to do:
 
-A run the project doesn't have says `no LavaFlow run <run-id> in this project`
-and exits with code 4.
+| When | The command says | Exit code |
+|---|---|---|
+| LavaFlow is off | Turn it on with `volcano cloud lavaflow enable` | 1 |
+| The project no longer links the repository LavaFlow was turned on for | Connect it again with `volcano git connect`, or turn LavaFlow on again | 1 |
+| The project links another repository than LavaFlow was turned on for, or than the fix was written for | Turn LavaFlow on again to fix issues in the one it links now | 1 |
+| LavaFlow can no longer read the repository's workflows | Connect the repository again with `volcano git connect` | 1 |
+| Another run of the issue is in progress | Try again once it finishes | 1 |
+| The run no longer holds a fix a person can open, or has used every attempt it gets | The `show` command for the run | 1 |
+| Volcano can't take the request now | When to try again, from Volcano's answer; it doesn't retry for you | 1 |
+| LavaFlow isn't available for the project, or isn't open to it yet | LavaFlow isn't available for this project yet | 4 |
+| The project has no such run | `no LavaFlow run <run-id> in this project` | 4 |
+| The Volcano API serves LavaFlow but is older than opening held fixes | This Volcano API can't open a fix LavaFlow held yet | 4 |
+| The token never expires, its sign-in ended, or the owner's GitHub account can't push to the repository | What opening needs, what Volcano said, and to run `volcano login` or use a platform token that expires | 5 |
+| The owner's account is read-only or inactive, or their plan couldn't be read | Both, and what Volcano said | 5 |

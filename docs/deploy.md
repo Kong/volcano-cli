@@ -200,19 +200,23 @@ lists any domain it would delete.
 
 ## Source commit
 
-A cloud frontend deploy reports the commit its source came from, so Volcano
-can tie the deployment to your repository. The CLI sends four things: the
-GitHub repository as `owner/name`, the commit ID, whether the uploaded files
-differ from that commit, and the uploaded directory's path in the repository,
-which is empty when it's the repository's top level. It never sends the
-remote URL or any credentials in it, local paths, branch names, or diffs.
-Function and durable function deploys don't report a commit for now.
+A cloud frontend, function, or durable function deploy reports the commit its
+source came from, so Volcano can tie the deployment to your repository. The CLI sends the GitHub repository as
+`owner/name`, the commit ID, and whether the uploaded files differ from that
+commit. A frontend deploy also sends the uploaded directory's path in the
+repository, which is empty when it's the repository's top level. The CLI never
+sends the remote URL or any credentials in it, local paths, branch names, or
+diffs.
 
-The CLI reads the commit checked out in the directory `--path` names: the
-`origin` remote and `HEAD`, the same in GitHub Actions as anywhere else. It
-sends nothing, and the deploy goes ahead, when git isn't available, the
-repository isn't on github.com, the uploaded directory is outside the
-repository, or any part is missing. Local deploys never send it.
+The CLI reads the commit checked out where the deploy reads its files, the
+directory `--path` names for a frontend and the working directory for
+functions: the `origin` remote and `HEAD`, the same in GitHub Actions as
+anywhere else. It sends nothing, and the deploy goes ahead, when git isn't
+available, the repository isn't on github.com or has no commit yet, the
+uploaded files are outside the repository, or any part is missing. Local
+deploys never send it.
+
+### Frontends
 
 The upload matches the commit when each file in it is in the commit at the
 same path with the same content and executable bit, and it holds every file
@@ -239,6 +243,52 @@ lists, not what a `.gitignore` in a subdirectory or outside it lists, so a file
 only those ignore is uploaded and counts as changed. Windows has no executable
 bit, so a frontend deployed from Windows doesn't match a commit that holds an
 executable file.
+
+### Functions
+
+Function and durable function deploys send the commit only for a clean
+function, and nothing for one that has changed. A function is clean when
+every committed file its upload is made from is in the upload as the commit
+holds it, none of them is staged, and the upload holds no file the commit
+doesn't have unless git ignores it. Those files are:
+
+- The function's file, or the files in its directory that the upload keeps.
+- The dependency manifests the upload picks up, such as a `package.json` next
+  to the function or in a directory above it.
+- Shared libraries: entries under `volcano/` whose names start with `_`.
+- The `volcano-config.yaml` the deploy reads declarations from, and the root
+  `.gitignore`, which decides what the upload leaves out.
+
+A committed file the upload lacks counts as changed, such as one that was
+deleted or replaced by a symlink or a directory, or one in a directory a
+symlink replaced. So does a committed file that another file or a shared
+library takes the place of, unless the commit or the upload holds that
+replacement: an empty `volcano/functions/_shared/` left behind still replaces
+a committed `volcano/_shared/`, and a checkout of the commit would upload the
+committed one.
+
+In a directory function's directory and in each shared library, a file git
+neither tracks nor ignores counts as changed even when the upload leaves it
+out, such as a `*.log` file or a `node_modules` directory that no
+`.gitignore` lists. Changes anywhere else don't count, such as to another
+function or to a file beside a single-file function that its upload doesn't
+read. `functions deploy --all` checks each function on its own, so a batch
+can send the commit for some functions and not for others.
+
+A file git ignores is build output, such as a bundle your build writes to an
+ignored `volcano/functions/`. The CLI can't tell which sources made it, so a
+function whose upload holds one gets the commit only when the whole repository
+matches `HEAD`: every tracked file has the content and, where git tracks it,
+the executable bit that `HEAD` holds, nothing is staged, no file is untracked
+unless git ignores it, and there's no submodule. Deploy from a clean checkout,
+and commit any generated file the build changes.
+
+Line endings and Git LFS pointers count as they do for frontends, and the CLI
+runs no other git filter. A function with a submodule among its files, or one
+whose files or `volcano-config.yaml` are reached through a symlink or are
+outside the working directory, gets no commit.
+
+### Verification
 
 Volcano verifies the commit against the project's connected repository: a
 commit on its production branch is verified. LavaFlow reads source and opens

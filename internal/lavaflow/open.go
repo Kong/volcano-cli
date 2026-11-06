@@ -74,17 +74,33 @@ var (
 	// ErrOpenUnsupported reports an API that has LavaFlow's runs but not the
 	// route that opens a held fix.
 	ErrOpenUnsupported = errors.New("this Volcano API can't open a fix LavaFlow held yet")
+	// ErrPersonOpens refuses opening a held fix with a project access token.
+	// Opening one lets workflows run a fix a model wrote with the
+	// repository's secrets, so the API takes it from the owner's own session
+	// only.
+	ErrPersonOpens = errors.New("opening a fix LavaFlow held needs the project owner's session: a project access token can't")
+	// ErrOpenNeedsLiveSignIn reports the open's person_required for a token
+	// the CLI sent as a person's: a platform token that never expires, a
+	// sign-in that ended, or an owner whose GitHub account can't push to the
+	// project's repository. The CLI refuses a project access token before it
+	// asks.
+	ErrOpenNeedsLiveSignIn = errors.New("opening a fix LavaFlow held needs the project owner's live sign-in, " +
+		"and a GitHub account that can push to the project's repository")
+	// ErrOpenRefused reports the open's 403 without a code. It stands for
+	// refusals the API doesn't tell apart: an owner whose account is
+	// read-only or inactive, and an owner's plan that couldn't be read. A
+	// read-only project access token gets it too, but the CLI refuses every
+	// project access token first.
+	ErrOpenRefused = errors.New("LavaFlow didn't open the fix: a read-only or inactive account can't open one, " +
+		"and otherwise the project owner's plan couldn't be read; try again later")
 )
 
-// Codes of the open route's 409s.
+// Codes of the open route's 409s that runs start doesn't share.
 const (
-	codeRunNotHeld        = "run_not_held"
-	codeRunChanged        = "run_changed"
-	codeLavaflowDisabled  = "lavaflow_disabled"
-	codeRepoRequired      = "repository_required"
-	codeRepoChanged       = "repository_changed"
-	codeRunInProgress     = "lavaflow_run_in_progress"
-	codeAttemptsExhausted = "run_attempts_exhausted"
+	codeRunNotHeld           = "run_not_held"
+	codeRunChanged           = "run_changed"
+	codeRepositoryUnreadable = "repository_unreadable"
+	codeAttemptsExhausted    = "run_attempts_exhausted"
 )
 
 var fingerprintPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -95,7 +111,8 @@ var fingerprintPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 // and the fix is opened with the fingerprints it showed. When the fix or its
 // jobs changed in the meantime, it reads the run again and shows and asks
 // again, up to MaxOpenRounds times, or stops when prompt can't ask again. A
-// project access token is refused before anything is sent. It returns the
+// project access token is refused before anything is sent. The open names
+// the run in its body, at POST /lavaflow/held-fix-opens. It returns the
 // queued run and the body the API sent it in, for --json.
 func (s Service) OpenHeldFix(ctx context.Context, runID string, prompt OpenPrompt) (*apiclient.LavaflowRun, []byte, error) {
 	id, err := uuid.Parse(runID)
@@ -107,7 +124,7 @@ func (s Service) OpenHeldFix(ctx context.Context, runID string, prompt OpenPromp
 		return nil, nil, err
 	}
 	if config.IsProjectToken(authenticated.Config.Token()) {
-		return nil, nil, openNeedsAPerson(authenticated.Config, config.ErrAccountTokenRequired)
+		return nil, nil, personOpens(authenticated.Config, config.ErrAccountTokenRequired)
 	}
 	for round := 1; round <= MaxOpenRounds; round++ {
 		held, err := s.readHeldFix(ctx, authenticated, id, runID)
@@ -121,7 +138,7 @@ func (s Service) OpenHeldFix(ctx context.Context, runID string, prompt OpenPromp
 		if err := prompt.Confirm(held); err != nil {
 			return nil, nil, err
 		}
-		opened, body, err := authenticated.API.OpenLavaflowRun(ctx, authenticated.ProjectID, id, held.DiffSHA256, held.JobsSHA256)
+		opened, body, err := authenticated.API.CreateLavaflowHeldFixOpen(ctx, authenticated.ProjectID, id, held.DiffSHA256, held.JobsSHA256)
 		switch {
 		case err == nil:
 			return opened, body, nil
@@ -162,7 +179,7 @@ func heldFix(runID string, run *apiclient.LavaflowRun, show string) (*HeldFix, e
 	case run.PullRequest != nil:
 		return nil, fmt.Errorf("LavaFlow run %s already opened its fix's pull request, #%d, so there's nothing to open. "+
 			"See it with '%s'", runID, run.PullRequest.Number, show)
-	case running(run.Status):
+	case inProgress(run.Status):
 		return nil, fmt.Errorf("LavaFlow is still working on run %s, so it holds no fix to open yet. "+
 			"Follow it with '%s'", runID, show)
 	case run.PullRequestSkipped == nil || *run.PullRequestSkipped != apiclient.LavaflowSkipReasonUngatedWorkflows:
@@ -246,15 +263,6 @@ func withheldPath(line string) string {
 	return path
 }
 
-func running(status apiclient.LavaflowRunStatus) bool {
-	switch status {
-	case apiclient.LavaflowRunStatusQueued, apiclient.LavaflowRunStatusDiagnosing,
-		apiclient.LavaflowRunStatusFixing, apiclient.LavaflowRunStatusReviewing:
-		return true
-	}
-	return false
-}
-
 // runRefused says the project has no such run for a 404 the API sent without
 // a code, and otherwise why LavaFlow isn't available, keeping the refusal as
 // the cause for the exit code.
@@ -274,14 +282,16 @@ func (s Service) openRefused(cfg *config.Config, runID string, err error) error 
 	var refusal error
 	switch status, code := api.Status(err), api.Code(err); {
 	case status == http.StatusConflict:
-		refusal = conflictRefusal(code, runID, show, err)
+		refusal = s.conflictRefusal(code, runID, show, err)
 	case code == codePersonRequired:
-		return openNeedsAPerson(cfg, err)
+		return openNeedsLiveSignIn(cfg, err)
 	case code == codePlanRequired:
 		refusal = ErrPlanRequired
 	case status == http.StatusForbidden:
-		refusal = fmt.Errorf("LavaFlow didn't open the fix: Volcano refused this credential, as it does a read-only "+
-			"access token. Volcano said: %q", api.Message(err))
+		refusal = ErrOpenRefused
+		if message := api.Message(err); message != "" {
+			refusal = fmt.Errorf("%w. Volcano said: %q", ErrOpenRefused, message)
+		}
 	case status == http.StatusTooManyRequests || status == http.StatusServiceUnavailable:
 		refusal = retryLater(time.Now(), err)
 	case api.RouteMissing(err):
@@ -292,21 +302,25 @@ func (s Service) openRefused(cfg *config.Config, runID string, err error) error 
 	return api.WithCause(refusal, err)
 }
 
-// conflictRefusal words each 409 but run_changed. A code this CLI doesn't
-// know keeps Volcano's words.
-func conflictRefusal(code, runID, show string, err error) error {
+// conflictRefusal words each 409 but run_changed, as runs start words the
+// codes they share. A code this CLI doesn't know keeps Volcano's words.
+func (s Service) conflictRefusal(code, runID, show string, err error) error {
+	enable := cliruntime.CommandPath(s.deps, "lavaflow enable")
 	switch code {
 	case codeRunNotHeld:
 		return fmt.Errorf("LavaFlow run %s no longer holds a fix a person can open. See it with '%s'", runID, show)
 	case codeLavaflowDisabled:
-		return errors.New("LavaFlow is off for this project, so it can't open the fix. " +
-			"The project's owner turns it on with 'volcano cloud lavaflow enable'")
-	case codeRepoRequired:
-		return errors.New("the project has no connected repository, so LavaFlow can't open the fix. " +
-			"Connect one with 'volcano git connect'")
-	case codeRepoChanged:
-		return errors.New("the project no longer deploys from the repository this fix was written for, " +
-			"so LavaFlow can't open it. A new run uses the current one")
+		return fmt.Errorf("LavaFlow is off for this project. Turn it on with '%s', then run this again", enable)
+	case codeRepositoryRequired:
+		return fmt.Errorf("the project no longer links the repository LavaFlow was turned on for. "+
+			"Connect it again with '%s', or turn LavaFlow on again with '%s'", gitConnectCommand, enable)
+	case codeRepositoryChanged:
+		return fmt.Errorf("the project links another repository than LavaFlow was turned on for, or than this fix "+
+			"was written for, so LavaFlow can't open it. Turn LavaFlow on again with '%s' to fix issues in the one "+
+			"it links now", enable)
+	case codeRepositoryUnreadable:
+		return fmt.Errorf("LavaFlow can no longer read the repository's workflows, so it can't open the fix. "+
+			"Connect the repository again with '%s', then run this again", gitConnectCommand)
 	case codeRunInProgress:
 		return errors.New("another LavaFlow run is in progress for this issue, so LavaFlow can't open this fix now. " +
 			"Try again once it finishes")
@@ -333,28 +347,19 @@ func retryLater(now time.Time, err error) error {
 	return fmt.Errorf("%s. Try again later", refusal)
 }
 
-// openNeedsAPerson says a person opens a held fix, signed in with volcano
-// login, in Volcano's words when it gave some. cause is the refusal, the
-// API's or the CLI's own, which keeps the exit code of a permission refused.
-// A token in VOLCANO_TOKEN is used instead of a volcano login sign-in, so
-// that case says to unset it.
-func openNeedsAPerson(cfg *config.Config, cause error) error {
-	how := "Sign in with 'volcano login' and run this again"
-	if cfg.TokenFromEnv() {
-		how = "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
+// personOpens says how the owner opens a held fix instead of a project
+// access token. cause is the CLI's own refusal, which keeps the exit code of
+// a permission refused.
+func personOpens(cfg *config.Config, cause error) error {
+	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonOpens, signInAgain(cfg)), cause)
+}
+
+// openNeedsLiveSignIn says what the open's person_required asks of the owner,
+// with Volcano's words, which say whether the sign-in or the GitHub account
+// is what to change.
+func openNeedsLiveSignIn(cfg *config.Config, cause error) error {
+	if message := strings.TrimSuffix(strings.TrimSpace(api.Message(cause)), "."); message != "" {
+		return api.WithCause(fmt.Errorf("%w. Volcano said: %q. %s", ErrOpenNeedsLiveSignIn, message, liveSignInHow(cfg)), cause)
 	}
-	message := strings.TrimSuffix(strings.TrimSpace(api.Message(cause)), ".")
-	switch {
-	case config.IsProjectToken(cfg.Token()):
-		return api.WithCause(fmt.Errorf("opening a fix LavaFlow held is a person's decision, "+
-			"and a project access token can't make it. %s", how), cause)
-	case message == "":
-		return api.WithCause(fmt.Errorf("opening a fix LavaFlow held needs a person's own sign-in. %s", how), cause)
-	case !strings.Contains(message, "volcano login"):
-		return api.WithCause(fmt.Errorf("LavaFlow didn't open the fix: %s. %s", message, how), cause)
-	case cfg.TokenFromEnv():
-		return api.WithCause(fmt.Errorf("LavaFlow didn't open the fix: %s. %s is set, and its token is used instead "+
-			"of a 'volcano login' sign-in until you unset it", message, config.TokenEnv), cause)
-	}
-	return api.WithCause(fmt.Errorf("LavaFlow didn't open the fix: %s", message), cause)
+	return api.WithCause(fmt.Errorf("%w. %s", ErrOpenNeedsLiveSignIn, liveSignInHow(cfg)), cause)
 }
