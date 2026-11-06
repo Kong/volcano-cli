@@ -148,7 +148,7 @@ for CI.`,
 	cmd.Flags().BoolVar(&noAllowReshare, "no-allow-reshare", false, "Stop copies from being shared again")
 	cmd.Flags().StringVar(&opts.name, "name", "", "Project name offered to people who fork it, when the share is new (default: none)")
 	cmd.Flags().StringVar(&opts.envFile, "env-file", "", "Env file to deploy to your cloud project with the directory (default: none)")
-	cmd.Flags().BoolVar(&opts.noDeploy, "no-deploy", false, "Share what the cloud project runs now, without deploying this directory")
+	cmd.Flags().BoolVar(&opts.noDeploy, "no-deploy", false, "Share what the linked or selected cloud project runs now, without deploying or creating one")
 	cmd.Flags().StringVar(&opts.linkID, "link", "", "Share to publish to, by its link or id, when the project has several (default: its newest)")
 	cmd.Flags().BoolVarP(&opts.yes, "yes", "y", false, "Confirm without asking, including the service key functions")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Print the result as JSON")
