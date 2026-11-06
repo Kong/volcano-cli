@@ -10960,6 +10960,63 @@ type SandboxExecutionResult struct {
 	TimedOut        bool               `json:"timed_out"`
 }
 
+// SandboxFileArchive defines model for SandboxFileArchive.
+type SandboxFileArchive struct {
+	// Bytes Bytes of file content written.
+	Bytes int64 `json:"bytes"`
+
+	// Files Regular files written.
+	Files     int64              `json:"files"`
+	Path      string             `json:"path"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	SessionId openapi_types.UUID `json:"session_id"`
+}
+
+// SandboxFileArchiveForm Send `project_id`, `session_id` and `path`, in any order, then the `archive` part.
+type SandboxFileArchiveForm struct {
+	// Archive A tar archive, optionally gzip-compressed.
+	Archive openapi_types.File `json:"archive"`
+
+	// Path Workspace directory to extract into, relative to `/workspace`.
+	Path      string             `json:"path"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	SessionId openapi_types.UUID `json:"session_id"`
+}
+
+// SandboxFilePart defines model for SandboxFilePart.
+type SandboxFilePart struct {
+	// Complete True when this part finished the file and it is now at `path`.
+	Complete  bool               `json:"complete"`
+	Offset    int64              `json:"offset"`
+	Path      string             `json:"path"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// Received Bytes of the file received through the end of this part.
+	Received  int64              `json:"received"`
+	SessionId openapi_types.UUID `json:"session_id"`
+	Size      int64              `json:"size"`
+}
+
+// SandboxFilePartRequest defines model for SandboxFilePartRequest.
+type SandboxFilePartRequest struct {
+	// Data This part's bytes, at most 8 MiB.
+	Data []byte `json:"data"`
+
+	// Offset Byte offset of this part's data in the file.
+	Offset int64 `json:"offset"`
+
+	// Path Workspace file to write, relative to `/workspace`.
+	Path      string             `json:"path"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	SessionId openapi_types.UUID `json:"session_id"`
+
+	// Sha256 Lowercase hex SHA-256 of the whole file.
+	Sha256 string `json:"sha256"`
+
+	// Size Size of the whole file in bytes, at most 1 GiB.
+	Size int64 `json:"size"`
+}
+
 // SandboxFileReadRequest defines model for SandboxFileReadRequest.
 type SandboxFileReadRequest struct {
 	Path string `json:"path"`
@@ -14261,6 +14318,12 @@ type CreateVariableJSONRequestBody = CreateVariableRequest
 // UpdateVariableJSONRequestBody defines body for UpdateVariable for application/json ContentType.
 type UpdateVariableJSONRequestBody = UpdateVariableRequest
 
+// CreateSandboxFileArchiveMultipartRequestBody defines body for CreateSandboxFileArchive for multipart/form-data ContentType.
+type CreateSandboxFileArchiveMultipartRequestBody = SandboxFileArchiveForm
+
+// CreateSandboxFilePartJSONRequestBody defines body for CreateSandboxFilePart for application/json ContentType.
+type CreateSandboxFilePartJSONRequestBody = SandboxFilePartRequest
+
 // CreateSandboxSessionAccessJSONRequestBody defines body for CreateSandboxSessionAccess for application/json ContentType.
 type CreateSandboxSessionAccessJSONRequestBody = SandboxAccessRequest
 
@@ -16773,6 +16836,14 @@ type ClientInterface interface {
 
 	// DownloadPublicFile request
 	DownloadPublicFile(ctx context.Context, projectId openapi_types.UUID, bucketName BucketName, path string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSandboxFileArchiveWithBody request with any body
+	CreateSandboxFileArchiveWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSandboxFilePartWithBody request with any body
+	CreateSandboxFilePartWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateSandboxFilePart(ctx context.Context, body CreateSandboxFilePartJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// TerminateSandboxSession request
 	TerminateSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -21951,6 +22022,42 @@ func (c *Client) UpdateVariable(ctx context.Context, id ProjectId, name Variable
 
 func (c *Client) DownloadPublicFile(ctx context.Context, projectId openapi_types.UUID, bucketName BucketName, path string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDownloadPublicFileRequest(c.Server, projectId, bucketName, path)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxFileArchiveWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxFileArchiveRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxFilePartWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxFilePartRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxFilePart(ctx context.Context, body CreateSandboxFilePartJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxFilePartRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -39027,6 +39134,75 @@ func NewDownloadPublicFileRequest(server string, projectId openapi_types.UUID, b
 	return req, nil
 }
 
+// NewCreateSandboxFileArchiveRequestWithBody generates requests for CreateSandboxFileArchive with any type of body
+func NewCreateSandboxFileArchiveRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-file-archives")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCreateSandboxFilePartRequest calls the generic CreateSandboxFilePart builder with application/json body
+func NewCreateSandboxFilePartRequest(server string, body CreateSandboxFilePartJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSandboxFilePartRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateSandboxFilePartRequestWithBody generates requests for CreateSandboxFilePart with any type of body
+func NewCreateSandboxFilePartRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-file-parts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewTerminateSandboxSessionRequest generates requests for TerminateSandboxSession
 func NewTerminateSandboxSessionRequest(server string, sessionId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -41639,6 +41815,14 @@ type ClientWithResponsesInterface interface {
 
 	// DownloadPublicFileWithResponse request
 	DownloadPublicFileWithResponse(ctx context.Context, projectId openapi_types.UUID, bucketName BucketName, path string, reqEditors ...RequestEditorFn) (*DownloadPublicFileClientResponse, error)
+
+	// CreateSandboxFileArchiveWithBodyWithResponse request with any body
+	CreateSandboxFileArchiveWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxFileArchiveClientResponse, error)
+
+	// CreateSandboxFilePartWithBodyWithResponse request with any body
+	CreateSandboxFilePartWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxFilePartClientResponse, error)
+
+	CreateSandboxFilePartWithResponse(ctx context.Context, body CreateSandboxFilePartJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxFilePartClientResponse, error)
 
 	// TerminateSandboxSessionWithResponse request
 	TerminateSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*TerminateSandboxSessionClientResponse, error)
@@ -52128,6 +52312,68 @@ func (r DownloadPublicFileClientResponse) ContentType() string {
 	return ""
 }
 
+type CreateSandboxFileArchiveClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *SandboxFileArchive
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSandboxFileArchiveClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSandboxFileArchiveClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateSandboxFileArchiveClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateSandboxFilePartClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *SandboxFilePart
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSandboxFilePartClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSandboxFilePartClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateSandboxFilePartClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type TerminateSandboxSessionClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -56780,6 +57026,32 @@ func (c *ClientWithResponses) DownloadPublicFileWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseDownloadPublicFileClientResponse(rsp)
+}
+
+// CreateSandboxFileArchiveWithBodyWithResponse request with arbitrary body returning *CreateSandboxFileArchiveClientResponse
+func (c *ClientWithResponses) CreateSandboxFileArchiveWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxFileArchiveClientResponse, error) {
+	rsp, err := c.CreateSandboxFileArchiveWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxFileArchiveClientResponse(rsp)
+}
+
+// CreateSandboxFilePartWithBodyWithResponse request with arbitrary body returning *CreateSandboxFilePartClientResponse
+func (c *ClientWithResponses) CreateSandboxFilePartWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxFilePartClientResponse, error) {
+	rsp, err := c.CreateSandboxFilePartWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxFilePartClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateSandboxFilePartWithResponse(ctx context.Context, body CreateSandboxFilePartJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxFilePartClientResponse, error) {
+	rsp, err := c.CreateSandboxFilePart(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxFilePartClientResponse(rsp)
 }
 
 // TerminateSandboxSessionWithResponse request returning *TerminateSandboxSessionClientResponse
@@ -71453,6 +71725,72 @@ func ParseDownloadPublicFileClientResponse(rsp *http.Response) (*DownloadPublicF
 			return nil, err
 		}
 		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSandboxFileArchiveClientResponse parses an HTTP response from a CreateSandboxFileArchiveWithResponse call
+func ParseCreateSandboxFileArchiveClientResponse(rsp *http.Response) (*CreateSandboxFileArchiveClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSandboxFileArchiveClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SandboxFileArchive
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSandboxFilePartClientResponse parses an HTTP response from a CreateSandboxFilePartWithResponse call
+func ParseCreateSandboxFilePartClientResponse(rsp *http.Response) (*CreateSandboxFilePartClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSandboxFilePartClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SandboxFilePart
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 

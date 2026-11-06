@@ -1,4 +1,5 @@
-// Package sandbox packages custom Sandbox build contexts.
+// Package sandbox packages local directories for Sandboxes: custom build
+// contexts and uploads to a session's workspace.
 package sandbox
 
 import (

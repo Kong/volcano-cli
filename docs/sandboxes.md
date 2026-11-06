@@ -65,6 +65,59 @@ volcano cloud sandboxes files write SESSION_ID /workspace/input.bin < input.bin
 volcano cloud sandboxes files read SESSION_ID /workspace/output.bin > output.bin
 ```
 
+## Upload a directory
+
+Copy a local directory into a session's workspace:
+
+```bash
+volcano cloud sandboxes files upload SESSION_ID ./app --path app
+```
+
+```text
+✓ Uploaded 128 files (2.4MB) to /workspace/app in 1 call
+```
+
+`--path` is required: the workspace directory to copy into, relative to
+`/workspace` (`/workspace/app` also works). It must be below `/workspace`, and
+it is created when missing. Every file and subdirectory is copied, hidden ones
+included, with its permission bits. A file replaces a file or symbolic link at
+the same path in the session. A directory that already exists keeps its
+permissions.
+
+Only regular files and directories are uploaded. A symbolic link or special
+file, such as a socket or named pipe, fails the command before anything is
+sent, and the error names it.
+
+One call takes at most 32 MiB compressed, 10,000 files and directories, and
+256 MiB uncompressed. The CLI compresses the directory and splits it into as
+many calls as it needs, sent in order. Each call is written whole or not at
+all. If one fails, the calls before it stay written, and the error says how
+many files they wrote; run the same command again to finish.
+
+A file too large for one call, over 256 MiB or still over 32 MiB compressed,
+is sent after the rest, on its own, in uncompressed parts of 8 MiB. It appears
+in the session only once its last part arrives and the session has checked the
+whole file's size and SHA-256. It does not keep its permission bits: it lands
+with mode `0600`, like `files write`. A part that fails is resent once. Files
+are limited to 1 GiB; a larger file fails the command before anything is sent.
+
+Add `--json` for the totals:
+
+```json
+{"files":128,"bytes":2516582,"calls":1}
+```
+
+| Error | What to do |
+|---|---|
+| `no session SESSION_ID in the selected project` | The upload goes to a session of the selected project. Select the session's project with `volcano use`, or check the ID with `sandboxes sessions`. |
+| `the upload conflicts with the session's workspace` | `--path`, or a directory in the upload, is a file or symbolic link in the session, or a file in the upload is a directory there. Choose another `--path`, or remove the conflicting path with `exec`. |
+| `the session's disk has no room for the upload` | Free space in the session, or upload less. |
+| `this session's image predates uploads` | Start a new session from a current preset, or redeploy its template, then upload again. |
+| `a path may be too long` | Paths are limited to 4,096 bytes including `--path`, and 255 bytes per name. |
+| `changed while it was being uploaded` | A file changed while the CLI was reading or sending it. Upload again once it stops changing. |
+| `files are limited to 1 GiB` | Copy the file another way, such as downloading it from inside the session. |
+| `this server does not support Sandbox uploads yet` | The server predates uploads. In local development, start a newer server image. |
+
 ## Save a template
 
 ```bash
@@ -91,13 +144,14 @@ A template saves a preset and memory size. Custom image builds are not supported
 | `--timeout` | `exec` | Command deadline: 1–60 seconds for one-shot execution, 1–3600 for session execution; defaults to 60 |
 | `--duration` | `run` | Override session lifetime in seconds: cloud 30–28800; local 0 (unlimited) or positive. Omitted inherits the template |
 | `--request-id` | `exec`, `run` | UUID used to retry the same request safely |
-| `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, and `files read` return structured results |
+| `--path` | `files upload` | Workspace directory to copy into, relative to `/workspace` |
+| `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, `files read`, and `files upload` return structured results |
 
 Use a new request ID for each intent. After a network failure, retry with the original ID and identical arguments. A canceled client does not prove the remote command stopped.
 
 ## Output format
 
-Session, preset, template, and file-write commands always return JSON, indented by default and compact with `--json`. This JSON format is supported for scripts. `exec` and `shell` normally write guest stdout/stderr, and `files read` writes raw bytes; use `--json` for their API response instead. JSON execution results retain timeout and truncation flags without adding warnings to the JSON stream. `deployments source` writes the original tar.gz bytes to stdout and rejects `--json`; redirect its output to a file.
+Session, preset, template, and file-write commands always return JSON, indented by default and compact with `--json`. This JSON format is supported for scripts. `exec` and `shell` normally write guest stdout/stderr, `files read` writes raw bytes, and `files upload` prints a summary; use `--json` for their structured results instead. JSON execution results retain timeout and truncation flags without adding warnings to the JSON stream. `deployments source` writes the original tar.gz bytes to stdout and rejects `--json`; redirect its output to a file.
 
 Template creation requires an explicit `--preset` from `sandboxes presets`. Shell command lines may be up to 64 KiB. For commands longer than the 60-second one-shot limit, start a session and use `exec SESSION_ID --timeout SECONDS`.
 
