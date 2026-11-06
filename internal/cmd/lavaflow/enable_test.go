@@ -116,9 +116,9 @@ func TestEnablePassesTheAPIsRefusalThrough(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, api.Status(err))
 }
 
-// enable says what LavaFlow does, in the approved AI disclosure, and where it
-// sends the project's data before it changes anything, --yes included, on
-// stderr so --json stays JSON.
+// enable says what LavaFlow does, in the approved AI disclosure, where it
+// sends the project's data and which past issues it starts on before it
+// changes anything, --yes included, on stderr so --json stays JSON.
 func TestEnableSaysWhatLavaFlowDoesAndWhereTheDataGoesEvenWithYes(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 
@@ -126,7 +126,10 @@ func TestEnableSaysWhatLavaFlowDoesAndWhereTheDataGoesEvenWithYes(t *testing.T) 
 	require.NoError(t, err)
 	assert.Equal(t, "LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, "+
 		"and opens fix pull requests in your connected repository.\n"+
-		"LavaFlow sends this project's logs and source code to an AI service that Volcano operates.\n", errOut)
+		"LavaFlow sends this project's logs and source code to an AI service that Volcano operates.\n"+
+		"Turning LavaFlow on from off, signed in as the project's owner, also starts runs for up to 5 open issues "+
+		"that hold an exception, were seen at least twice, most recently in the past 7 days, "+
+		"and haven't had a LavaFlow run. Runs start only with 'volcano login' or a platform token that expires.\n", errOut)
 	assert.Equal(t, true, decodeJSON(t, out)["enabled"])
 	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
 }
