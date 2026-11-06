@@ -22,11 +22,12 @@ func newShow(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <run-id>",
 		Short: "Show one LavaFlow run",
-		Long: `Show one LavaFlow run: the diagnosis, root cause and the evidence behind it,
-its review, and what happened to its fix. The Fix block gives the pull
-request, its state and where its merge is, or why the run opened none. A fix
-LavaFlow held or stopped lists why, and a failed run says why, in the API's
-words. --json prints the run as the API returned it.`,
+		Long: `Show one LavaFlow run: the commit it read the code at, the diagnosis, root
+cause and the evidence behind it, its review, and what happened to its fix.
+The Fix block gives the pull request, its state and where its merge is, or
+why the run opened none. A fix LavaFlow held or stopped lists why, and a
+failed run says why, in the API's words. --json prints the run as the API
+returned it.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.deps = deps

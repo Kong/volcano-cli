@@ -1992,6 +1992,30 @@ func (e LavaflowAutonomy) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowCommitOrigin.
+const (
+	LavaflowCommitOriginClientReported           LavaflowCommitOrigin = "client_reported"
+	LavaflowCommitOriginClientReportedRepository LavaflowCommitOrigin = "client_reported_repository"
+	LavaflowCommitOriginPush                     LavaflowCommitOrigin = "push"
+	LavaflowCommitOriginRepository               LavaflowCommitOrigin = "repository"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowCommitOrigin enum.
+func (e LavaflowCommitOrigin) Valid() bool {
+	switch e {
+	case LavaflowCommitOriginClientReported:
+		return true
+	case LavaflowCommitOriginClientReportedRepository:
+		return true
+	case LavaflowCommitOriginPush:
+		return true
+	case LavaflowCommitOriginRepository:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowDraftReason.
 const (
 	LavaflowDraftReasonConvertedToDraft LavaflowDraftReason = "converted_to_draft"
@@ -8156,6 +8180,9 @@ type LavaflowAnomaly struct {
 // LavaflowAutonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
 type LavaflowAutonomy string
 
+// LavaflowCommitOrigin Where the commit a run read came from. `push`: a push to the project's connected repository deployed it. `client_reported`: the deploy client reported it, and Volcano matched the deployed files against it. `client_reported_repository`: the deploy client reported it, and Volcano confirmed only that the connected repository's production branch holds it, without matching the deployed files, which for a function are build output. A fix on such a commit opens only while the production branch still holds it. `repository`: a reported problem's run read the production branch at a commit it pinned, which need not be deployed.
+type LavaflowCommitOrigin string
+
 // LavaflowDayCounts defines model for LavaflowDayCounts.
 type LavaflowDayCounts struct {
 	Date openapi_types.Date `json:"date"`
@@ -8328,6 +8355,9 @@ type LavaflowRun struct {
 	Resource LavaflowResourceReference `json:"resource"`
 	Review   *LavaflowReview           `json:"review"`
 
+	// SourceCommit The commit the run read the code at. Null when it read none, as for a run that diagnosed from the logs alone.
+	SourceCommit *LavaflowSourceCommit `json:"source_commit"`
+
 	// Status Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 	Status LavaflowRunStatus `json:"status"`
 
@@ -8428,6 +8458,15 @@ type LavaflowSettingsUpdate struct {
 
 // LavaflowSkipReason Why a run that may open a pull request opened none, with what you can do next. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit; check the project's repository connection and that the commit exists. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. New reasons may appear.
 type LavaflowSkipReason string
+
+// LavaflowSourceCommit The commit a run read its source at.
+type LavaflowSourceCommit struct {
+	// Origin Where the commit came from. Null for a run recorded before Volcano kept it.
+	Origin *LavaflowCommitOrigin `json:"origin"`
+
+	// Sha The commit's full SHA.
+	Sha string `json:"sha"`
+}
 
 // LavaflowStats defines model for LavaflowStats.
 type LavaflowStats struct {
