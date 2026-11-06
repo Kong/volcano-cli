@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.72.2](https://github.com/Kong/volcano-cli/compare/v0.72.1...v0.72.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **config:** align manifest priority and explicit frontend clearing ([#445](https://github.com/Kong/volcano-cli/issues/445)) ([a1e58a3](https://github.com/Kong/volcano-cli/commit/a1e58a3f16e9028e79992ba5b0983073a82931a2))
+
 ## [0.72.1](https://github.com/Kong/volcano-cli/compare/v0.72.0...v0.72.1) (2026-11-06)
 
 
