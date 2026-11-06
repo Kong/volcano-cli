@@ -39,7 +39,7 @@ func Deployments(w io.Writer, deployments []apiclient.ProjectDeployment, more bo
 // DeploymentResource names the resource a deployment belongs to, with its kind:
 // "function checkout", "durable function pipeline" or "frontend web".
 func DeploymentResource(resource apiclient.ProjectDeploymentResource) string {
-	if resource.Kind != nil && *resource.Kind == apiclient.Durable {
+	if resource.Kind != nil && *resource.Kind == apiclient.FunctionKindDurable {
 		return "durable function " + resource.Name
 	}
 	return string(resource.Type) + " " + resource.Name

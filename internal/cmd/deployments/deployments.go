@@ -205,7 +205,7 @@ func buildLogsCommand(deps cliruntime.Deps, found *apiclient.ProjectDeployment) 
 		return ""
 	case resource.Type == apiclient.ProjectDeploymentResourceTypeFrontend:
 		return cliruntime.CommandPath(deps, "frontends logs "+name+" "+found.Id.String()+" --type build")
-	case resource.Kind != nil && *resource.Kind == apiclient.Durable:
+	case resource.Kind != nil && *resource.Kind == apiclient.FunctionKindDurable:
 		return ""
 	default:
 		return cliruntime.CommandPath(deps, "functions logs "+name+" "+found.Id.String()+" --type build")
