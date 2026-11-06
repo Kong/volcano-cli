@@ -20,6 +20,7 @@ func TestCloudOnlyStandInRefusesWithTheReason(t *testing.T) {
 		{"show", lavaflowRunID},
 		{"settings", "set", "--allow-ungated-workflows", "true", "--yes"},
 		{"runs", "start", lavaflowIssueID, "--json"},
+		{"runs", "open", lavaflowHeldID, "--yes"},
 	} {
 		_, err := executeLavaflowCommand(t, NewCloudOnly(), args...)
 		require.Error(t, err)

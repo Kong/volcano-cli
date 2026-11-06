@@ -8216,6 +8216,33 @@ type LavaflowFailure struct {
 	Message string `json:"message"`
 }
 
+// LavaflowHeldFixOpen The project, the run, and the diff and jobs of the held fix you read, by the digests the run served them with.
+type LavaflowHeldFixOpen struct {
+	// DiffSha256 The run's `diff_sha256`, as it served it.
+	DiffSha256 string `json:"diff_sha256"`
+
+	// JobsSha256 The run's `held_workflows.jobs_sha256`, as it served it.
+	JobsSha256 string `json:"jobs_sha256"`
+
+	// ProjectId The project the run belongs to.
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// RunId The run whose held fix to open.
+	RunId openapi_types.UUID `json:"run_id"`
+}
+
+// LavaflowHeldWorkflows Every workflow job that could run a held fix's pull request with the repository's secrets before a person approves it, as LavaFlow found them when it held the fix, and the commits it read the workflows at.
+type LavaflowHeldWorkflows struct {
+	// Jobs Every such job, at most 256, sorted by source, path and job. Empty when LavaFlow read every workflow to the end and found none, such as when they changed between the hold and the read.
+	Jobs []LavaflowAllowedWorkflow `json:"jobs"`
+
+	// JobsSha256 Identifies `read_at` and `jobs` together. Treat it as opaque: it changes when a listed job, or a commit the workflows were read at, does.
+	JobsSha256 string `json:"jobs_sha256"`
+
+	// ReadAt Each branch or commit whose workflows LavaFlow read: the project's production branch, the repository's default branch, and the commit the fix is cut from.
+	ReadAt []LavaflowWorkflowSource `json:"read_at"`
+}
+
 // LavaflowHoldReason One reason LavaFlow holds the fix for a person.
 type LavaflowHoldReason struct {
 	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files or a YAML file that declares a resource. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent's instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `ungated_workflows`: the fix opened past workflows that can run it with the repository's secrets before a person approves it, as the project's owner allowed, or LavaFlow couldn't check its workflows, so LavaFlow never starts its CI or merges it. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
@@ -8334,15 +8361,27 @@ type LavaflowRun struct {
 	CreatedAt time.Time          `json:"created_at"`
 	Diagnosis *LavaflowDiagnosis `json:"diagnosis"`
 
-	// Diff The fix as a unified diff. Null for now; a run that opened a pull request links to the change in `pull_request`.
+	// Diff The fix LavaFlow saved, as the unified diff its reviewers read, cut short past 256 KiB as they read it, with a last line that starts with `[diff truncated`. When a file's content, before or after the fix, or any change to it may hold a credential, or the file is too long for LavaFlow to read whole (over 64 KiB, or past 256 KiB across the fix's files), every change to that file is left out, with one line in their place that starts with `# LavaFlow withheld` and names the file. A run held with `possible_credential` leaves out every file. Null for a run with no saved fix, or one saved before LavaFlow kept its diff.
 	Diff *string `json:"diff"`
 
+	// DiffSha256 The SHA-256, in hex, of `diff` exactly as served, its UTF-8 bytes. Null whenever `diff` is.
+	DiffSha256 *string `json:"diff_sha256"`
+
+	// DiffTruncated `diff` was cut short, so it does not show the whole fix. False when `diff` is null.
+	DiffTruncated bool `json:"diff_truncated"`
+
+	// DiffWithheld The files whose changes `diff` leaves out, by path, as its `# LavaFlow withheld` lines name them; an empty string for a file whose path may itself hold a credential. Empty when `diff` shows every file, or is null.
+	DiffWithheld []string `json:"diff_withheld"`
+
 	// Failure Why the run stopped or waits, null when nothing went wrong.
-	Failure    *LavaflowFailure   `json:"failure"`
-	FinishedAt *time.Time         `json:"finished_at"`
-	Id         openapi_types.UUID `json:"id"`
-	IssueId    openapi_types.UUID `json:"issue_id"`
-	Merge      *LavaflowMerge     `json:"merge"`
+	Failure    *LavaflowFailure `json:"failure"`
+	FinishedAt *time.Time       `json:"finished_at"`
+
+	// HeldWorkflows For a run whose `pull_request_skipped` is `ungated_workflows`, every workflow job that held its fix. Null for any other run, and for a held run whose workflows LavaFlow couldn't read to the end, such as one with a workflow it couldn't parse, or more than 256 such jobs.
+	HeldWorkflows *LavaflowHeldWorkflows `json:"held_workflows"`
+	Id            openapi_types.UUID     `json:"id"`
+	IssueId       openapi_types.UUID     `json:"issue_id"`
+	Merge         *LavaflowMerge         `json:"merge"`
 
 	// ProjectId The project the run belongs to.
 	ProjectId   openapi_types.UUID   `json:"project_id"`
@@ -8485,6 +8524,15 @@ type LavaflowStats struct {
 
 	// WindowStart The first UTC day in the window.
 	WindowStart openapi_types.Date `json:"window_start"`
+}
+
+// LavaflowWorkflowSource A branch or commit whose workflows LavaFlow read, and the commit it read them at.
+type LavaflowWorkflowSource struct {
+	// CommitSha The commit LavaFlow read the workflows at.
+	CommitSha string `json:"commit_sha"`
+
+	// Source The branch, or the commit SHA for a commit.
+	Source string `json:"source"`
 }
 
 // LiveLogLevel Canonical lowercase function runtime log level.
@@ -14015,6 +14063,9 @@ type PreflightProjectImportJSONRequestBody = ProjectImportPreflightRequest
 // StartProjectImportJSONRequestBody defines body for StartProjectImport for application/json ContentType.
 type StartProjectImportJSONRequestBody = ProjectImportStartRequest
 
+// CreateLavaflowHeldFixOpenJSONRequestBody defines body for CreateLavaflowHeldFixOpen for application/json ContentType.
+type CreateLavaflowHeldFixOpenJSONRequestBody = LavaflowHeldFixOpen
+
 // CreateLavaflowRunJSONRequestBody defines body for CreateLavaflowRun for application/json ContentType.
 type CreateLavaflowRunJSONRequestBody = LavaflowRunCreate
 
@@ -15914,6 +15965,11 @@ type ClientInterface interface {
 
 	// ListImportSources request
 	ListImportSources(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLavaflowHeldFixOpenWithBody request with any body
+	CreateLavaflowHeldFixOpenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateLavaflowHeldFixOpen(ctx context.Context, body CreateLavaflowHeldFixOpenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLavaflowResources request
 	ListLavaflowResources(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -18219,6 +18275,30 @@ func (c *Client) GetProjectImportRun(ctx context.Context, provider ImportProvide
 
 func (c *Client) ListImportSources(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListImportSourcesRequest(c.Server, provider, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLavaflowHeldFixOpenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLavaflowHeldFixOpenRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLavaflowHeldFixOpen(ctx context.Context, body CreateLavaflowHeldFixOpenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLavaflowHeldFixOpenRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -25936,6 +26016,46 @@ func NewListImportSourcesRequest(server string, provider ImportProvider, params 
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateLavaflowHeldFixOpenRequest calls the generic CreateLavaflowHeldFixOpen builder with application/json body
+func NewCreateLavaflowHeldFixOpenRequest(server string, body CreateLavaflowHeldFixOpenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateLavaflowHeldFixOpenRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateLavaflowHeldFixOpenRequestWithBody generates requests for CreateLavaflowHeldFixOpen with any type of body
+func NewCreateLavaflowHeldFixOpenRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/held-fix-opens")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -40781,6 +40901,11 @@ type ClientWithResponsesInterface interface {
 	// ListImportSourcesWithResponse request
 	ListImportSourcesWithResponse(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*ListImportSourcesClientResponse, error)
 
+	// CreateLavaflowHeldFixOpenWithBodyWithResponse request with any body
+	CreateLavaflowHeldFixOpenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowHeldFixOpenClientResponse, error)
+
+	CreateLavaflowHeldFixOpenWithResponse(ctx context.Context, body CreateLavaflowHeldFixOpenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLavaflowHeldFixOpenClientResponse, error)
+
 	// ListLavaflowResourcesWithResponse request
 	ListLavaflowResourcesWithResponse(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*ListLavaflowResourcesClientResponse, error)
 
@@ -44256,6 +44381,44 @@ func (r ListImportSourcesClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListImportSourcesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateLavaflowHeldFixOpenClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *LavaflowRun
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLavaflowHeldFixOpenClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLavaflowHeldFixOpenClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateLavaflowHeldFixOpenClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -54057,6 +54220,23 @@ func (c *ClientWithResponses) ListImportSourcesWithResponse(ctx context.Context,
 	return ParseListImportSourcesClientResponse(rsp)
 }
 
+// CreateLavaflowHeldFixOpenWithBodyWithResponse request with arbitrary body returning *CreateLavaflowHeldFixOpenClientResponse
+func (c *ClientWithResponses) CreateLavaflowHeldFixOpenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowHeldFixOpenClientResponse, error) {
+	rsp, err := c.CreateLavaflowHeldFixOpenWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLavaflowHeldFixOpenClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateLavaflowHeldFixOpenWithResponse(ctx context.Context, body CreateLavaflowHeldFixOpenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLavaflowHeldFixOpenClientResponse, error) {
+	rsp, err := c.CreateLavaflowHeldFixOpen(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLavaflowHeldFixOpenClientResponse(rsp)
+}
+
 // ListLavaflowResourcesWithResponse request returning *ListLavaflowResourcesClientResponse
 func (c *ClientWithResponses) ListLavaflowResourcesWithResponse(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*ListLavaflowResourcesClientResponse, error) {
 	rsp, err := c.ListLavaflowResources(ctx, params, reqEditors...)
@@ -60685,6 +60865,88 @@ func ParseListImportSourcesClientResponse(rsp *http.Response) (*ListImportSource
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateLavaflowHeldFixOpenClientResponse parses an HTTP response from a CreateLavaflowHeldFixOpenWithResponse call
+func ParseCreateLavaflowHeldFixOpenClientResponse(rsp *http.Response) (*CreateLavaflowHeldFixOpenClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLavaflowHeldFixOpenClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest LavaflowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error

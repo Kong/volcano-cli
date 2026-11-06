@@ -152,15 +152,19 @@ func runLimitReached(now time.Time, err error) error {
 	return api.WithCause(fmt.Errorf("%s. Try again later", refusal), err)
 }
 
-// liveSignIn says how the owner signs in so a start counts as theirs. A token
-// in VOLCANO_TOKEN wins over a 'volcano login' sign-in, so that case says to
-// unset it or replace it.
+// liveSignIn says how the owner signs in so a start counts as theirs.
 func liveSignIn(cfg *config.Config, cause error) error {
-	how := "Run 'volcano login', or use a platform token that expires"
+	return api.WithCause(fmt.Errorf("%w. %s", ErrStartNeedsLiveSignIn, liveSignInHow(cfg)), cause)
+}
+
+// liveSignInHow says how the owner signs in live. A token in VOLCANO_TOKEN
+// wins over a 'volcano login' sign-in, so that case says to unset it or
+// replace it.
+func liveSignInHow(cfg *config.Config) string {
 	if cfg.TokenFromEnv() {
-		how = "Unset " + config.TokenEnv + " and run 'volcano login', or set it to a platform token that expires"
+		return "Unset " + config.TokenEnv + " and run 'volcano login', or set it to a platform token that expires"
 	}
-	return api.WithCause(fmt.Errorf("%w. %s", ErrStartNeedsLiveSignIn, how), cause)
+	return "Run 'volcano login', or use a platform token that expires"
 }
 
 // personStarts says how the owner starts a run instead. cause is the

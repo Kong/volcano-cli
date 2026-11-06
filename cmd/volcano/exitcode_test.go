@@ -93,6 +93,18 @@ func TestRunLavaFlowEnableByAProjectTokenExitsPermissionDenied(t *testing.T) {
 	assert.Contains(t, stderr, "Error: changing LavaFlow's settings needs a person's session")
 }
 
+// Opening a fix LavaFlow held with a project access token is refused before
+// any request, with the exit code of a permission the API refuses.
+func TestRunLavaFlowRunsOpenByAProjectTokenExitsPermissionDenied(t *testing.T) {
+	code, stderr := runAgainst(t, cliconfig.ProjectTokenPrefix+"scoped", func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("a project access token must not open a held fix: %s %s", r.Method, r.URL.Path)
+		respondExitTestJSON(w, http.StatusNotFound, `{"error":"not found"}`)
+	}, "cloud", "lavaflow", "runs", "open", exitTestApprovalID, "--yes")
+
+	assert.Equal(t, exitPermissionDenied, code, stderr)
+	assert.Contains(t, stderr, "Error: opening a fix LavaFlow held needs the project owner's session: a project access token can't")
+}
+
 // The API's 403 for a credential the CLI did not recognize is rewritten into
 // the same answer. The exit code reports the refusal, and no hint about the
 // token's project is added.

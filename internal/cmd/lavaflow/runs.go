@@ -14,6 +14,6 @@ func newRuns(deps cliruntime.Deps) *cobra.Command {
 show one with '` + cliruntime.CommandPath(deps, "lavaflow show <run-id>") + `'.`,
 		Args: cobra.NoArgs,
 	}
-	cmd.AddCommand(newRunsStart(deps))
+	cmd.AddCommand(newRunsStart(deps), newRunsOpen(deps))
 	return cmd
 }
