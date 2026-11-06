@@ -162,6 +162,38 @@ func TestDockerComposeTemplateLeavesServerOwnedLocalSecretsUnset(t *testing.T) {
 	}
 }
 
+// TestDockerComposeTemplatePassesAgentChatSettingsThrough guards the model
+// gateway and agent chat settings. Each secret or endpoint is an empty
+// passthrough: it reaches the server only when the developer sets it, and the
+// template never ships a value of its own.
+func TestDockerComposeTemplatePassesAgentChatSettingsThrough(t *testing.T) {
+	lines := map[string]bool{}
+	for line := range strings.SplitSeq(string(dockerComposeTemplate), "\n") {
+		lines[strings.TrimSpace(line)] = true
+	}
+
+	for _, key := range []string{
+		"AI_GATEWAY_ANTHROPIC_API_KEY",
+		"AI_GATEWAY_ANTHROPIC_BASE_URL",
+		"AI_GATEWAY_MODELS",
+		"AGENT_CHAT_TELEGRAM_BOT_TOKEN",
+		"AGENT_CHAT_TELEGRAM_WEBHOOK_SECRET",
+		"AGENT_CHAT_TELEGRAM_API_BASE_URL",
+		"AGENT_CHAT_MANAGER_SECRET",
+		"AGENT_CHAT_MANAGER_API_URL",
+		"AGENT_CHAT_MANAGER_PROJECT_ID",
+		"AGENT_CHAT_MANAGER_FUNCTION",
+		"AGENT_CHAT_MANAGER_TOKEN",
+		"AGENT_CHAT_CONNECT_URL",
+	} {
+		want := key + ": ${" + key + ":-}"
+		assert.Truef(t, lines[want], "compose template must pass %s through as %q with no default", key, want)
+	}
+
+	assert.True(t, lines["AGENT_CHAT_TELEGRAM_MODE: ${AGENT_CHAT_TELEGRAM_MODE:-polling}"],
+		"AGENT_CHAT_TELEGRAM_MODE must default to polling")
+}
+
 func TestDockerComposeTemplateExposesLocalFrontendProxy(t *testing.T) {
 	template := string(dockerComposeTemplate)
 
