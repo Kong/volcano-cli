@@ -82,10 +82,10 @@ unset it first.
 When the owner's plan can't be read, a command says "LavaFlow couldn't read
 the project owner's plan; try again later" and exits with code 5. A change
 that `enable`, `disable` or `settings set` sends can also be refused for a
-read-only access token or account; the API doesn't tell those apart from a
-plan it couldn't read, so the command names all three, adds what Volcano
-said, and exits with code 5. `runs start` does the same for a read-only or
-inactive account and a plan it couldn't read (see [Start a run](#start-a-run)).
+read-only account; the API doesn't tell that apart from a plan it couldn't
+read, so the command names both, adds what Volcano said, and exits with
+code 5. `runs start` does the same for a read-only or inactive account and a
+plan it couldn't read (see [Start a run](#start-a-run)).
 
 ## Turn it on
 
@@ -374,6 +374,7 @@ the run doesn't start, the command says what to do:
 | The project links another repository | Turn LavaFlow on again to fix issues in it | 1 |
 | The issue has a run in progress | The run's ID and the `show` command for it, or `list` when it isn't among the newest 100 runs | 1 |
 | The issue started 5 runs, or the project 200, in the last 24 hours | When to try again | 1 |
+| The Volcano API serves LavaFlow but is older than starting runs | This Volcano API can't start LavaFlow runs yet | 1 |
 | The project has no such issue | The project has no issue with that ID | 4 |
 | The token never expires, or its sign-in ended | Run `volcano login`, or use a platform token that expires | 5 |
 | The owner's account is read-only or inactive, or their plan couldn't be read | All three, and what Volcano said | 5 |
