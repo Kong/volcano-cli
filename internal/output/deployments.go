@@ -3,6 +3,7 @@ package output
 import (
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -53,6 +54,9 @@ func Deployment(w io.Writer, deployment *apiclient.ProjectDeployment, logsComman
 	kv(w, on, "Operation", "%s", deployment.Operation)
 	kv(w, on, "Status", "%s", theme.Status(string(deployment.Status), on))
 	kv(w, on, "Trigger", "%s", deployment.DeploySource)
+	if commit := deploymentCommit(deployment.Commit); commit != "" {
+		kv(w, on, "Commit", "%s", commit)
+	}
 	kv(w, on, "Created", "%s", FormatTimestamp(deployment.CreatedAt))
 	if deployment.CompletedAt != nil {
 		kv(w, on, "Completed", "%s", FormatTimestamp(*deployment.CompletedAt))
@@ -75,6 +79,31 @@ func Deployment(w io.Writer, deployment *apiclient.ProjectDeployment, logsComman
 	if logsCommand != "" {
 		fmt.Fprintf(w, "\n%s%s\n", theme.Dim("Build logs: ", on), theme.Command(logsCommand, on))
 	}
+}
+
+// deploymentCommit is the commit the deploy client reported, short, with what
+// Volcano confirmed about it: "acme/app@4f1c2b7 (verification: repository)".
+// It is "" when the client reported none, as local mode never does.
+func deploymentCommit(commit *apiclient.DeploymentCommit) string {
+	if commit == nil || commit.Sha == "" {
+		return ""
+	}
+	sha := commit.Sha
+	if len(sha) > 7 {
+		sha = sha[:7]
+	}
+	var notes []string
+	if commit.Verification != "" {
+		notes = append(notes, "verification: "+string(commit.Verification))
+	}
+	if commit.Dirty {
+		notes = append(notes, "dirty")
+	}
+	text := commit.Repository + "@" + sha
+	if len(notes) > 0 {
+		text += " (" + strings.Join(notes, ", ") + ")"
+	}
+	return clean(text)
 }
 
 // DeploymentSummary renders the outcome counts of a resource type's

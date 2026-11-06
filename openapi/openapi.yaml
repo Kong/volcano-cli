@@ -27407,6 +27407,8 @@ components:
           format: date-time
         progress:
           $ref: '#/components/schemas/DeploymentProgress'
+        commit:
+          $ref: '#/components/schemas/DeploymentCommit'
         created_at:
           type: string
           format: date-time
@@ -29014,12 +29016,24 @@ components:
           description: '`true` when the client reported that the uploaded files differ from the commit, or Volcano found an uploaded file in the project''s root directory that the commit does not hold, so the deployed code may differ from the commit.'
         verified:
           type: boolean
-          description: '`true` when Volcano confirmed, through the project''s GitHub connection, that `repository` is the project''s connected repository, `sha` is on its production branch, every uploaded file is the commit''s file at its path, and the upload holds the commit''s files under its root but those deploy clients leave out. Only frontend uploads are checked; a function deployment''s commit, one the client reports dirty, and one from another branch, repository, or a project without a connection, is recorded unverified. LavaFlow reads source and opens pull requests only for a verified commit with `dirty: false`.'
+          description: '`true` only when `verification` is `files`: Volcano confirmed that the deployed files are the commit''s. A commit verified at the `repository` level is not `verified`.'
+        verification:
+          type: string
+          enum:
+            - none
+            - repository
+            - files
+          x-enum-varnames:
+            - DeploymentCommitVerificationNone
+            - DeploymentCommitVerificationRepository
+            - DeploymentCommitVerificationFiles
+          description: 'What Volcano confirmed about the commit, through the project''s GitHub connection, when it recorded the deployment. `files`: `repository` is the project''s connected repository, `sha` is on its production branch, every uploaded file is the commit''s file at its path, and the upload holds the commit''s files under its root but those deploy clients leave out. Only a frontend upload is checked this far. `repository`: `repository` is the project''s connected repository and `sha` is on its production branch, but the uploaded files were not compared with the commit, since a function upload holds build output rather than the repository''s layout. Only a function upload the client reports clean is checked at this level. `none`: Volcano confirmed nothing, as for a commit the client reports dirty, one from another branch or repository, one from a project without a connection, or one it couldn''t check in time.'
       required:
         - repository
         - sha
         - dirty
         - verified
+        - verification
     DurableMessageWaitStatus:
       type: string
       enum:

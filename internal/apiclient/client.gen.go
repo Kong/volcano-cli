@@ -777,6 +777,27 @@ func (e DatabaseStatsGranularity) Valid() bool {
 	}
 }
 
+// Defines values for DeploymentCommitVerification.
+const (
+	DeploymentCommitVerificationFiles      DeploymentCommitVerification = "files"
+	DeploymentCommitVerificationNone       DeploymentCommitVerification = "none"
+	DeploymentCommitVerificationRepository DeploymentCommitVerification = "repository"
+)
+
+// Valid indicates whether the value is a known member of the DeploymentCommitVerification enum.
+func (e DeploymentCommitVerification) Valid() bool {
+	switch e {
+	case DeploymentCommitVerificationFiles:
+		return true
+	case DeploymentCommitVerificationNone:
+		return true
+	case DeploymentCommitVerificationRepository:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeploymentPhaseName.
 const (
 	DeploymentPhaseNameBuild        DeploymentPhaseName = "build"
@@ -6648,9 +6669,15 @@ type DeploymentCommit struct {
 	// Sha Full commit ID.
 	Sha string `json:"sha"`
 
-	// Verified `true` when Volcano confirmed, through the project's GitHub connection, that `repository` is the project's connected repository, `sha` is on its production branch, every uploaded file is the commit's file at its path, and the upload holds the commit's files under its root but those deploy clients leave out. Only frontend uploads are checked; a function deployment's commit, one the client reports dirty, and one from another branch, repository, or a project without a connection, is recorded unverified. LavaFlow reads source and opens pull requests only for a verified commit with `dirty: false`.
+	// Verification What Volcano confirmed about the commit, through the project's GitHub connection, when it recorded the deployment. `files`: `repository` is the project's connected repository, `sha` is on its production branch, every uploaded file is the commit's file at its path, and the upload holds the commit's files under its root but those deploy clients leave out. Only a frontend upload is checked this far. `repository`: `repository` is the project's connected repository and `sha` is on its production branch, but the uploaded files were not compared with the commit, since a function upload holds build output rather than the repository's layout. Only a function upload the client reports clean is checked at this level. `none`: Volcano confirmed nothing, as for a commit the client reports dirty, one from another branch or repository, one from a project without a connection, or one it couldn't check in time.
+	Verification DeploymentCommitVerification `json:"verification"`
+
+	// Verified `true` only when `verification` is `files`: Volcano confirmed that the deployed files are the commit's. A commit verified at the `repository` level is not `verified`.
 	Verified bool `json:"verified"`
 }
+
+// DeploymentCommitVerification What Volcano confirmed about the commit, through the project's GitHub connection, when it recorded the deployment. `files`: `repository` is the project's connected repository, `sha` is on its production branch, every uploaded file is the commit's file at its path, and the upload holds the commit's files under its root but those deploy clients leave out. Only a frontend upload is checked this far. `repository`: `repository` is the project's connected repository and `sha` is on its production branch, but the uploaded files were not compared with the commit, since a function upload holds build output rather than the repository's layout. Only a function upload the client reports clean is checked at this level. `none`: Volcano confirmed nothing, as for a commit the client reports dirty, one from another branch or repository, one from a project without a connection, or one it couldn't check in time.
+type DeploymentCommitVerification string
 
 // DeploymentPhase Timing and outcome for one normalized deployment pipeline phase.
 type DeploymentPhase struct {
@@ -10159,8 +10186,10 @@ type ProjectConfigVariable struct {
 
 // ProjectDeployment A Function or Frontend deployment attempt in a project-scoped feed.
 type ProjectDeployment struct {
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
+	// Commit The commit a deploy client reported for the deployment's source. Absent when the client reported none. A frontend deployment that publishes another deployment's build carries that deployment's commit.
+	Commit      *DeploymentCommit `json:"commit,omitempty"`
+	CompletedAt *time.Time        `json:"completed_at,omitempty"`
+	CreatedAt   time.Time         `json:"created_at"`
 
 	// DeploySource What initiated this deployment.
 	DeploySource ProjectDeploymentDeploySource `json:"deploy_source"`

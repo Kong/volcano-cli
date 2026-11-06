@@ -166,9 +166,9 @@ func newGet(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <deployment-id>",
 		Short: "Show one deployment's status, phases, trigger and duration",
-		Long: `Show one deployment: the resource it deployed, its status and trigger, when it
-started and finished, each build phase, and, for a function or frontend deploy,
-the command that prints its build logs.
+		Long: `Show one deployment: the resource it deployed, its status and trigger, the
+commit its deploy reported, when it started and finished, each build phase,
+and, for a function or frontend deploy, the command that prints its build logs.
 
 The ID can belong to any function, durable function or frontend in the project.`,
 		Args: cobra.ExactArgs(1),
