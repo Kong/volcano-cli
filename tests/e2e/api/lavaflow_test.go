@@ -40,6 +40,10 @@ var lavaflowCommands = [][]string{
 // no run starts and nothing can open a pull request; Kong/volcano-hosting's
 // cloud E2E covers runs.
 //
+// A project access token can't start a run or open a held fix: the CLI
+// refuses it before it sends anything, so that is checked first, wherever
+// LavaFlow is open.
+//
 // LavaFlow is open to a list of accounts, on plans that include it. A fresh
 // account is not on the list, or its plan doesn't include LavaFlow, so every
 // command says which and exits nonzero: runs open with the 404's code 4
@@ -47,10 +51,13 @@ var lavaflowCommands = [][]string{
 // the round trip runs instead: settings saved by one command read back by the
 // next, a start reaches Volcano and is refused for the lane's token, runs open
 // finds no held run to open, and a project access token reads but can't
-// change them, start a run or open a held fix.
+// change them.
 func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env := setupAPIE2E(t, "cloud-lavaflow")
 	env.loginAndUse(t)
+
+	projectTokenEnv := apiE2ELavaFlowProjectTokenEnv(t, env)
+	requireAPIE2ELavaFlowRunsRefuseAProjectToken(t, env, projectTokenEnv)
 
 	probe := env.runCloudCLI(t, "lavaflow", "status")
 	for _, refusal := range []string{lavaflowNotOpen, lavaflowNoPlan} {
@@ -95,7 +102,7 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	requireAPIE2ELavaFlowRunsOpenNeedsAHeldRun(t, env)
 	requireAPIE2ELavaFlowMergeRefusesATokenThatNeverExpires(t, env)
 	requireAPIE2ELavaFlowUngatedWorkflowsRefuseATokenThatNeverExpires(t, env)
-	requireAPIE2ELavaFlowNeedsAPerson(t, env)
+	requireAPIE2ELavaFlowNeedsAPerson(t, env, projectTokenEnv)
 
 	env.runCloudCLI(t, "lavaflow", "disable").requireSuccess(t, "LavaFlow is off")
 	env.runCloudCLI(t, "lavaflow", "status").requireSuccess(t, "LavaFlow: off")
@@ -135,11 +142,10 @@ func requireAPIE2ELavaFlowRunsOpenUnavailable(t *testing.T, env *apiE2E, refusal
 	}
 }
 
-// requireAPIE2ELavaFlowNeedsAPerson checks a project access token reads
-// LavaFlow but can't change it, start a run or open a held fix. The CLI
-// refuses runs open before it sends anything, as Volcano refuses the token
-// with person_required, and exits 5.
-func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
+// apiE2ELavaFlowProjectTokenEnv mints a full-scope project access token for
+// the project, revoked when the test ends, and returns the environment that
+// uses it from a HOME of its own.
+func apiE2ELavaFlowProjectTokenEnv(t *testing.T, env *apiE2E) []string {
 	t.Helper()
 	name := "cli-e2e-lavaflow-" + apiE2ESuffix(t)
 	created := env.runCloudCLI(t, "access-tokens", "create", name, "--scope", "full", "--json")
@@ -152,6 +158,40 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 
 	projectTokenEnv := []string{"HOME=" + t.TempDir(), "VOLCANO_TOKEN=" + secret}
 	env.runCLIWithEnv(t, projectTokenEnv, "use", env.projectID).requireSuccess(t, "Now using project")
+	return projectTokenEnv
+}
+
+// requireAPIE2ELavaFlowRunsRefuseAProjectToken checks runs start and runs
+// open refuse a project access token before they send anything, as Volcano
+// refuses one with person_required, and exit 5.
+func requireAPIE2ELavaFlowRunsRefuseAProjectToken(t *testing.T, env *apiE2E, projectTokenEnv []string) {
+	t.Helper()
+	for _, tc := range []struct {
+		args    []string
+		refusal string
+	}{
+		{
+			[]string{"lavaflow", "runs", "start", lavaflowUnknownIssue},
+			"starting a LavaFlow run needs the project owner's session: a project access token can't",
+		},
+		{
+			[]string{"lavaflow", "runs", "open", lavaflowUnknownRun, "--yes"},
+			"opening a fix LavaFlow held needs the project owner's session: a project access token can't",
+		},
+	} {
+		refused := env.runCloudCLIWithEnv(t, projectTokenEnv, tc.args...)
+		refused.requireFailure(t, tc.refusal)
+		if refused.code != 5 {
+			t.Fatalf("%s with a project access token exited %d, want 5:\n%s",
+				strings.Join(tc.args, " "), refused.code, redactCredentials(refused.output))
+		}
+	}
+}
+
+// requireAPIE2ELavaFlowNeedsAPerson checks a project access token reads
+// LavaFlow's settings but can't change them.
+func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E, projectTokenEnv []string) {
+	t.Helper()
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings").requireSuccess(t, "LavaFlow: on")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "disable").
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
@@ -159,20 +199,13 @@ func requireAPIE2ELavaFlowNeedsAPerson(t *testing.T, env *apiE2E) {
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "settings", "set", "--allow-ungated-workflows", "false").
 		requireFailure(t, "changing LavaFlow's settings needs a person's session")
-	env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "runs", "start", lavaflowUnknownIssue).
-		requireFailure(t, "starting a LavaFlow run needs the project owner's session")
-	opening := env.runCloudCLIWithEnv(t, projectTokenEnv, "lavaflow", "runs", "open", lavaflowUnknownRun, "--yes")
-	opening.requireFailure(t, "opening a fix LavaFlow held needs the project owner's session: a project access token can't")
-	if opening.code != 5 {
-		t.Fatalf("runs open with a project access token exited %d, want 5:\n%s", opening.code, redactCredentials(opening.output))
-	}
 }
 
 // requireAPIE2ELavaFlowRunsOpenNeedsAHeldRun opens a run the project doesn't
 // have. The project has no repository and no issues, so staging can't hold a
 // fix here: the command reads the run first, and says the project has none by
-// that ID, with exit code 4, before it shows or asks anything. Opening a held
-// fix runs in Kong/volcano-hosting's cloud E2E, which connects a repository.
+// that ID, with exit code 4, before it shows or asks anything. No E2E opens a
+// held fix: Kong/volcano-hosting's cloud E2E covers only the open's refusals.
 func requireAPIE2ELavaFlowRunsOpenNeedsAHeldRun(t *testing.T, env *apiE2E) {
 	t.Helper()
 	opening := env.runCloudCLI(t, "lavaflow", "runs", "open", lavaflowUnknownRun, "--yes")

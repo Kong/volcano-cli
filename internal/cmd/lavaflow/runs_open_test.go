@@ -643,11 +643,11 @@ func TestRunsOpenPrintsRunTextAsPlainText(t *testing.T) {
 	}
 }
 
-// Bidi controls and zero-width characters in a held fix print as visible
-// escapes too, in the diff and in the jobs, so a line can't read differently
-// on the terminal from the bytes the fix fingerprint covers. The open still
-// sends the fingerprint of the diff as served.
-func TestRunsOpenEscapesBidiAndZeroWidthCharacters(t *testing.T) {
+// Every character a terminal may draw as nothing, or as a break, prints as a
+// visible escape in a held fix, in the diff and in the jobs: one case per
+// class the review escapes. The open still sends the fingerprint of the diff
+// as served.
+func TestRunsOpenEscapesInvisibleCharacters(t *testing.T) {
 	for name, tc := range map[string]struct {
 		line, lineShown, job, jobShown string
 	}{
@@ -655,9 +655,30 @@ func TestRunsOpenEscapesBidiAndZeroWidthCharacters(t *testing.T) {
 			"+  if (isAdmin) { \u202e} \u2067// skip the check\u2069 {\n", `  +  if (isAdmin) { \u202e} \u2067// skip the check\u2069 {`,
 			"deploy\u202epreview", `job deploy\u202epreview, runs on`,
 		},
-		"zero-width characters": {
-			"+  const role\u200b = \"ad\u200dmin\ufeff\"\n", `  +  const role\u200b = "ad\u200dmin\ufeff"`,
+		"join controls": {
+			"+  const ad\u200dmin = \"x\u200c\"\n", `  +  const ad\u200dmin = "x\u200c"`,
+			"deploy\u200dpreview", `job deploy\u200dpreview, runs on`,
+		},
+		"other format characters": {
+			"+  const role\u200b = \"admin\ufeff\u2060\U000e0041\"\n", `  +  const role\u200b = "admin\ufeff\u2060\U000e0041"`,
 			"deploy\u200bpreview", `job deploy\u200bpreview, runs on`,
+		},
+		"variation selectors": {
+			"+  check(\"ok\ufe0f\", \"go\U000e0100\")\n", `  +  check("ok\ufe0f", "go\U000e0100")`,
+			"deploy\ufe0e", `job deploy\ufe0e, runs on`,
+		},
+		"Hangul fillers": {
+			"+  const {timeout,\u3164} = req.query; run(\u3164, \u115f\u1160\uffa0)\n",
+			`  +  const {timeout,\u3164} = req.query; run(\u3164, \u115f\u1160\uffa0)`,
+			"deploy\u3164", `job deploy\u3164, runs on`,
+		},
+		"combining grapheme joiner": {
+			"+  const a\u034fb = 1\n", `  +  const a\u034fb = 1`,
+			"deploy\u034fpreview", `job deploy\u034fpreview, runs on`,
+		},
+		"line and paragraph separators": {
+			"+  // ok\u2028return admin()\u2029\n", `  +  // ok\u2028return admin()\u2029`,
+			"deploy\u2028preview", `job deploy\u2028preview, runs on`,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -674,7 +695,7 @@ func TestRunsOpenEscapesBidiAndZeroWidthCharacters(t *testing.T) {
 			assert.Contains(t, errOut, tc.lineShown+"\n")
 			assert.Contains(t, errOut, tc.jobShown)
 			for _, r := range tc.line + tc.job {
-				if unicode.Is(unicode.Cf, r) {
+				if r > unicode.MaxASCII {
 					assert.NotContains(t, errOut, string(r), "%U prints escaped", r)
 				}
 			}

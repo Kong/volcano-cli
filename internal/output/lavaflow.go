@@ -8,7 +8,7 @@ import (
 	"unicode"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
+	"github.com/Kong/volcano-cli/internal/lavaflow/heldfix"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
@@ -326,15 +326,14 @@ func clean(text string) string {
 }
 
 // cleanReviewed is clean for text a person reads before letting workflows run
-// it with the repository's secrets. It also escapes every Unicode format
-// character, such as a bidi override or isolate and a zero-width space or
-// joiner, as \u202e, so a line can't read differently on the terminal from
-// the bytes the fix fingerprint covers.
+// it with the repository's secrets. It also escapes, as \u3164 or
+// \U000e0100, every character in reviewHidden, so the review shows each
+// character the fix holds.
 func cleanReviewed(text string) string {
 	var b strings.Builder
 	for _, r := range clean(text) {
 		switch {
-		case !unicode.Is(unicode.Cf, r):
+		case !unicode.IsOneOf(reviewHidden, r):
 			b.WriteRune(r)
 		case r > 0xffff:
 			fmt.Fprintf(&b, "\\U%08x", r)
@@ -343,6 +342,18 @@ func cleanReviewed(text string) string {
 		}
 	}
 	return b.String()
+}
+
+// reviewHidden are the characters a terminal may draw as nothing, or as a
+// break, that cleanReviewed escapes. Cf, Variation_Selector and
+// Other_Default_Ignorable_Code_Point make up Default_Ignorable_Code_Point,
+// which includes the combining grapheme joiner U+034F and the Hangul fillers
+// U+115F, U+1160, U+3164 and U+FFA0. Bidi_Control and Join_Control fall
+// within Cf and are listed so the escaping doesn't depend on that. Zl and Zp
+// are the line and paragraph separators U+2028 and U+2029.
+var reviewHidden = []*unicode.RangeTable{
+	unicode.Cf, unicode.Variation_Selector, unicode.Other_Default_Ignorable_Code_Point,
+	unicode.Bidi_Control, unicode.Join_Control, unicode.Zl, unicode.Zp,
 }
 
 // lavaflowUngatedWorkflows says whether LavaFlow opens fixes past ungated
@@ -695,7 +706,7 @@ func formatLavaflowTimePtr(t *time.Time, fallback string) string {
 // the branches and commits their workflows were read at, and last, what the
 // diff leaves out. Volcano opens the fix only while both fingerprints match,
 // so they are printed as given.
-func LavaflowHeldFix(w io.Writer, held *clilavaflow.HeldFix) {
+func LavaflowHeldFix(w io.Writer, held *heldfix.Fix) {
 	on := theme.On(w)
 	run := held.Run
 	kv(w, on, "Run", "%s", run.Id)
@@ -774,7 +785,7 @@ func lavaflowServedDiff(w io.Writer, on bool, diff string) {
 		return
 	}
 	for line := range strings.SplitSeq(strings.TrimRight(diff, "\n"), "\n") {
-		if clilavaflow.WithheldLine(line) || clilavaflow.CutLine(line) {
+		if heldfix.WithheldLine(line) || heldfix.CutLine(line) {
 			fmt.Fprintf(w, "%s %s\n", theme.Fail("!!", on), theme.Error(cleanReviewed(line), on))
 			continue
 		}

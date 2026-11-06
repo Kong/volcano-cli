@@ -511,9 +511,12 @@ Open the fix's pull request? Type 'y' or 'yes' to confirm: y
 It shows:
 
 - The fix's diff exactly as Volcano serves it. A control character prints as
-  a visible escape, as in `show`, and so does a bidi control or a zero-width
-  character, such as `\u202e` or `\u200b`, so a line can't read differently
-  from what opens.
+  a visible escape, as in `show`. So does every character a terminal may draw
+  as nothing or as a break, such as `\u202e` or `\u3164`: format
+  characters, including bidi and join controls and zero-width characters,
+  variation selectors, other default-ignorable characters such as Hangul
+  fillers and the combining grapheme joiner, and line and paragraph
+  separators. The jobs and paths below print the same way.
 - Every workflow job that will get the repository's secrets: its file, the
   branch or commit whose workflows run it, the job and the event that runs
   it. `Workflows read at` names the commits LavaFlow read them at.
