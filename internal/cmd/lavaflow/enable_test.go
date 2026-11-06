@@ -183,14 +183,13 @@ func TestChangesBySomeoneWhoIsntTheOwnerAreRefusedFirst(t *testing.T) {
 }
 
 // The API's refusal of a change is read by its code, not its status or its
-// words. A change's 403 without a code covers a read-only token or account as
-// well as a plan that couldn't be read, so it says all three and keeps the
-// API's words.
+// words. A change's 403 without a code covers a read-only account as well as
+// a plan that couldn't be read, so it says both and keeps the API's words.
 func TestARefusedChangeSaysWhy(t *testing.T) {
 	for code, want := range map[string]string{
 		"person_required": "LavaFlow's settings weren't changed: " + apiPlanRefusal,
 		"plan_required":   lavaflowPlanRequired,
-		"": "LavaFlow's settings weren't changed: a read-only access token or account can't change them, " +
+		"": "LavaFlow's settings weren't changed: a read-only account can't change them, " +
 			"and otherwise the project owner's plan couldn't be read; try again later. Volcano said: \"" + apiPlanRefusal + "\"",
 	} {
 		fake, deps := newLavaflowServer(t)
@@ -215,8 +214,8 @@ func TestARefusedChangeSaysWhy(t *testing.T) {
 func TestAPersonRequiredRefusalKeepsVolcanosWords(t *testing.T) {
 	for _, args := range [][]string{{"enable", "--yes"}, {"settings", "set", "--autonomy", "diagnose_only", "--json"}} {
 		for message, want := range map[string]string{
-			"a platform token that never expires can't let LavaFlow merge; run `volcano login`, or create a token with an expiry": "LavaFlow's settings weren't changed: a platform token that never expires can't let LavaFlow merge; " +
-				"run `volcano login`, or create a token with an expiry",
+			tokenNeverExpiresRefusal: "LavaFlow's settings weren't changed: " + tokenNeverExpiresRefusal,
+			signInRefusal:            "LavaFlow's settings weren't changed: " + signInRefusal,
 			"": "changing LavaFlow's settings needs a person's session: a project access token can't. " +
 				"Sign in with 'volcano login' and run this again",
 		} {
@@ -237,21 +236,30 @@ func TestAPersonRequiredRefusalKeepsVolcanosWords(t *testing.T) {
 // A token in VOLCANO_TOKEN is used instead of a sign-in, so when Volcano asks
 // for one, the refusal says to unset it.
 func TestAPersonRequiredRefusalSaysToUnsetVolcanoToken(t *testing.T) {
-	const neverExpires = "a platform token that never expires can't let LavaFlow merge; " +
-		"run `volcano login`, or create a token with an expiry"
-	fake, deps := newLavaflowServer(t)
-	fake.set(func(s *lavaflowServer) {
-		s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
-		s.refusal = map[string]any{"error": neverExpires, "code": "person_required"}
-	})
-	t.Setenv("VOLCANO_TOKEN", "pk-secret")
+	for _, message := range []string{tokenNeverExpiresRefusal, signInRefusal} {
+		t.Run(message, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
+				s.refusal = map[string]any{"error": message, "code": "person_required"}
+			})
+			t.Setenv("VOLCANO_TOKEN", "pk-secret")
 
-	_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "merge", "--yes")
-	require.Error(t, err)
-	assert.Equal(t, "LavaFlow's settings weren't changed: "+neverExpires+". VOLCANO_TOKEN is set, and its token is "+
-		"used instead of a 'volcano login' sign-in until you unset it", err.Error())
-	assert.Equal(t, http.StatusForbidden, api.Status(err))
+			_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "merge", "--yes")
+			require.Error(t, err)
+			assert.Equal(t, "LavaFlow's settings weren't changed: "+message+". VOLCANO_TOKEN is set, and its token is "+
+				"used instead of a 'volcano login' sign-in until you unset it", err.Error())
+			assert.Equal(t, http.StatusForbidden, api.Status(err))
+		})
+	}
 }
+
+// Volcano's words for a platform token that never expires, and for a
+// credential that isn't the owner's own sign-in, such as one that ended.
+const (
+	tokenNeverExpiresRefusal = "this token never expires; sign in with `volcano login` to turn this on"
+	signInRefusal            = "only the project's owner, signed in with `volcano login`, can turn this on"
+)
 
 // An owner's account can turn read-only after settings set reads can_update.
 // The change's 403 without a code then says so, with the API's words, rather
@@ -266,7 +274,7 @@ func TestAChangeRefusedForAReadOnlyAccountSaysSo(t *testing.T) {
 
 		_, err := executeLavaflowCommand(t, New(deps), args...)
 		require.Error(t, err, "%q", args)
-		assert.Equal(t, "LavaFlow's settings weren't changed: a read-only access token or account can't change them, "+
+		assert.Equal(t, "LavaFlow's settings weren't changed: a read-only account can't change them, "+
 			"and otherwise the project owner's plan couldn't be read; try again later. Volcano said: \"the account is read-only\"",
 			err.Error(), "%q", args)
 		assert.Equal(t, http.StatusForbidden, api.Status(err), "%q", args)
@@ -283,9 +291,14 @@ const apiPlanRefusal = "the project owner's plan does not include LavaFlow"
 
 // A 403 without a code, for an owner's plan that couldn't be read, says so
 // from every route, reads included, rather than repeat the API's plan
-// refusal, with the exit code of a permission refused.
+// refusal, with the exit code of a permission refused. A start sends no read
+// first, and its 403 without a code covers a read-only account too, so it
+// says both; TestRunStartSaysWhatToDoAboutARefusal covers it.
 func TestAPlanThatCantBeReadSaysSo(t *testing.T) {
 	for _, args := range lavaflowCommandArgs() {
+		if args[0] == "runs" {
+			continue
+		}
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
 			s.refuse = http.StatusForbidden

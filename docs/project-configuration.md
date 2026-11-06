@@ -152,6 +152,16 @@ Key semantics:
   `variable_scope`, leaves the function's existing declaration untouched. See
   "Function variable scope" below.
 
+Without `--file`, the CLI uses `./volcano-config.yaml` first and falls back to
+`volcano/volcano-config.yaml` only when the outer file is absent. When both
+exist, only the outer file applies; they are not merged. An invalid selected
+file fails without falling back. `config pull` also updates the outer file
+when both exist and requires `--force` to replace an existing file or symbolic
+link, including a link whose target is missing. Use `--file` to select a different
+location explicitly. Deployment output names the selected configuration path.
+`volcano init` leaves both existing configuration files intact and uses the same
+root-file priority.
+
 ## Function visibility
 
 `functions[].visibility` decides who can invoke a function:
@@ -306,6 +316,28 @@ domain. A server that predates `custom_domains` refuses the key in the dry run.
 See
 [Custom domains](frontends.md#custom-domains) and the
 [configuration reference](/platform/projects/configuration).
+
+## Frontend preview CORS
+
+`auth.cors.allow_frontend_previews: true` lets the project's own live frontend
+previews call its auth and other endpoints from their origins, including with
+credentials. It applies only while CORS is enabled. Previews need no listing:
+each is allowed while it serves and refused once it is deleted or expires.
+
+```yaml
+version: 1
+auth:
+  cors:
+    enabled: true
+    allow_frontend_previews: true
+```
+
+- Omitting `allow_frontend_previews` keeps the server's value.
+- `false` turns it off.
+- `config pull` writes it when it is on.
+
+A server that predates the setting refuses the key in the dry run. See
+[CORS configuration](/platform/authentication/configuration/cors#frontend-previews).
 
 ## Shared variable names
 

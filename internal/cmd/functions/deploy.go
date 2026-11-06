@@ -14,6 +14,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
 	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
+	"github.com/Kong/volcano-cli/internal/deploycommit"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
 	"github.com/Kong/volcano-cli/internal/projectconfig"
@@ -183,11 +184,16 @@ func deploy(ctx context.Context, opts deployOptions) ([]apiclient.Function, erro
 		fmt.Fprintf(opts.out, "Found %d function(s)\n", len(sources))
 	}
 
+	commits := deploycommit.Detect(ctx, opts.deps, baseDir)
+	prepare := func(pkg *clifunction.Package) {
+		applyVariableDeclaration(pkg, manifest.Declarations)
+		pkg.SetCommit(ctx, commits, manifest.Paths)
+	}
 	report := newDeployReport(ctx, opts, service, manifest.Visibility)
 	if opts.all {
-		err = runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, manifest.Declarations, report)
+		err = runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, prepare, report)
 	} else {
-		err = runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations, report)
+		err = runDeployOne(ctx, opts.out, service, baseDir, sources[0], prepare, report)
 	}
 	report.finish(opts.out, opts.errOut)
 	return report.started, err
@@ -291,9 +297,13 @@ func applyVariableDeclaration(pkg *clifunction.Package, declarations map[string]
 	pkg.Variables = declaration.Variables
 }
 
+// prepareFunc adds what the manifest and the checkout say about a package
+// before it is uploaded.
+type prepareFunc func(*clifunction.Package)
+
 func runDeployOne(
 	ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo,
-	declarations map[string]projectconfig.FunctionVariableDeclaration, report *deployReport,
+	prepare prepareFunc, report *deployReport,
 ) error {
 	fmt.Fprintf(out, "\n[1/1] Deploying %s...\n", source.Name)
 	printSourceSummary(out, source)
@@ -302,7 +312,7 @@ func runDeployOne(
 		return fmt.Errorf("failed to package function %s: %w", source.Name, err)
 	}
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
-	applyVariableDeclaration(pkg, declarations)
+	prepare(pkg)
 
 	deployed, err := service.DeployPackage(ctx, *pkg)
 	if err != nil {
@@ -317,7 +327,7 @@ func runDeployOne(
 
 func runDeployAll(
 	ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, sources []clifunction.SourceInfo,
-	batch bool, declarations map[string]projectconfig.FunctionVariableDeclaration, report *deployReport,
+	batch bool, prepare prepareFunc, report *deployReport,
 ) error {
 	packages := make([]clifunction.Package, 0, len(sources))
 	var totalSize int64
@@ -329,7 +339,7 @@ func runDeployAll(
 			return fmt.Errorf("failed to package function %s: %w", source.Name, err)
 		}
 		fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
-		applyVariableDeclaration(pkg, declarations)
+		prepare(pkg)
 		totalSize += pkg.Size
 		packages = append(packages, *pkg)
 	}

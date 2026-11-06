@@ -233,17 +233,16 @@ functions:
 	})
 }
 
-// Two competing manifests is an ambiguity, not an absence.
-func TestFunctionVariableDeclarationsAmbiguousManifestErrors(t *testing.T) {
+// Variable declarations use the same root-first selection as config deploy.
+func TestFunctionVariableDeclarationsRootTakesPrecedence(t *testing.T) {
 	withTempWorkingDir(t, func(_ string) {
 		require.NoError(t, os.MkdirAll("volcano", 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join("volcano", "volcano-config.yaml"), []byte("version: 1\n"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join("volcano", "volcano-config.yaml"), []byte("invalid: ["), 0o644))
 		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\n"), 0o644))
 
 		declarations, err := FunctionVariableDeclarations("")
-		require.Error(t, err)
-		assert.Nil(t, declarations)
-		assert.Contains(t, err.Error(), "multiple volcano-config.yaml files")
+		require.NoError(t, err)
+		assert.Empty(t, declarations)
 	})
 }
 

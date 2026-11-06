@@ -19,6 +19,7 @@ func TestStatusOffSaysWhatLavaFlowDoesAndHowToTurnItOn(t *testing.T) {
 	assert.Contains(t, out, "LavaFlow: off")
 	assert.Contains(t, out, "Autonomy: open fix pull requests")
 	assert.Contains(t, out, "Repository: "+lavaflowRepo)
+	assert.Contains(t, out, "Ungated workflows: not allowed\n")
 	assert.Contains(t, out, "Custom context: not set")
 	assert.Contains(t, out, "Updated: not saved yet")
 	assert.Contains(t, out, clilavaflow.OnDescription)
@@ -26,8 +27,22 @@ func TestStatusOffSaysWhatLavaFlowDoesAndHowToTurnItOn(t *testing.T) {
 	assertLavaFlowWording(t, out)
 }
 
+// The status says whether LavaFlow opens fixes past ungated workflows, which
+// the API answers only for the connected repository.
+func TestStatusSaysWhetherUngatedWorkflowsAreAllowed(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["enabled"], s.settings["allow_ungated_workflows"] = true, true
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Ungated workflows: allowed for the connected repository\n")
+}
+
 // LavaFlow opens fix pull requests at open_pr and at merge, so both ask for a
-// repository.
+// repository, and for turning it on again, since it starts no run for a
+// repository other than the one it was turned on for.
 func TestStatusOnWithoutARepositoryAsksForOne(t *testing.T) {
 	for _, autonomy := range []string{"open_pr", "merge"} {
 		fake, deps := newLavaflowServer(t)
@@ -42,9 +57,25 @@ func TestStatusOnWithoutARepositoryAsksForOne(t *testing.T) {
 		assert.Contains(t, out, "LavaFlow: on", autonomy)
 		assert.Contains(t, out, "Repository: none connected", autonomy)
 		assert.Contains(t, out, "Custom context: set (30 characters)", autonomy)
-		assert.Contains(t, out, "Connect a repository so LavaFlow can open fix pull requests: volcano git connect", autonomy)
+		assert.Contains(t, out, "Connect a repository, then turn LavaFlow on again so it can open fix pull requests: "+
+			"volcano git connect, then volcano cloud lavaflow enable", autonomy)
 		assert.NotContains(t, out, "Turn it on", autonomy)
 	}
+}
+
+// A caller who can't change LavaFlow is told the owner turns it on again, not
+// to run enable.
+func TestStatusWithoutARepositoryLeavesTurningItOnToTheOwner(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["enabled"], s.settings["can_update"], s.repoConnected = true, false, false
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Connect a repository, then have the project's owner turn LavaFlow on again so it can open "+
+		"fix pull requests: volcano git connect")
+	assert.NotContains(t, out, "lavaflow enable")
 }
 
 // Diagnosing needs no repository, and a connection that can't be read is
@@ -112,7 +143,7 @@ func TestStatusSaysWhetherLavaFlowCanMerge(t *testing.T) {
 		case true:
 			assert.Contains(t, out, "Merging: available\n", "%q", capability)
 		case false:
-			assert.Contains(t, out, "Merging: not available for this project yet\n", "%q", capability)
+			assert.Contains(t, out, "Merging: not available for this project\n", "%q", capability)
 		default:
 			assert.NotContains(t, out, "Merging:", "%q", capability)
 		}
@@ -124,6 +155,29 @@ func TestStatusSaysWhetherLavaFlowCanMerge(t *testing.T) {
 		assert.Equal(t, want != nil, listed, "%q", capability)
 		assert.Equal(t, want, got, "%q", capability)
 	}
+}
+
+// At autonomy merge, merging off means it was on and is paused, so the status
+// says what happens to waiting and new fixes rather than that it isn't
+// available.
+func TestStatusSaysMergingIsPausedAtAutonomyMerge(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["enabled"], s.settings["autonomy"], s.mergeCapability = true, "merge", "unavailable"
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Merging: paused; waiting fixes resume when it's back, new fixes open as pull requests for review\n")
+	assert.NotContains(t, out, "not available")
+	assertLavaFlowWording(t, out)
+
+	// Off, LavaFlow opens no new fix, so merging is just not available.
+	fake.set(func(s *lavaflowServer) { s.settings["enabled"] = false })
+	out, err = executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Merging: not available for this project\n")
+	assert.NotContains(t, out, "paused")
 }
 
 // A capabilities read that fails leaves merging unknown, as it does LavaFlow's

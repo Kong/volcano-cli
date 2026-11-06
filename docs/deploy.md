@@ -85,7 +85,7 @@ its status is `provisioning`.
 | `-d, --database` | Database to migrate. Local mode defaults to `app`. In the cloud, the default is the database the manifests' `databases:` sections declare, if they declare exactly one. |
 | `--env-file` | Env file to deploy. Default: `volcano/volcano.env` or `./volcano.env`. |
 | `--no-env-file` | Deploy no env file, even when `volcano/volcano.env` exists. Use it when a manifest's `variables` section holds the project's variables. |
-| `-c, --config` | Manifest to apply. Repeat it to apply several, in order. Passing any `-c` replaces the default `volcano/volcano-config.yaml` or `./volcano-config.yaml`. |
+| `-c, --config` | Manifest to apply. Repeat it to apply several, in order. Passing any `-c` replaces default lookup: `./volcano-config.yaml` first, then `volcano/volcano-config.yaml` only when the root file is absent. |
 | `--no-frontends` | Skip frontends. Useful while `npm run dev` is your edit loop, or when only function code changed. |
 | `--no-wait` | Return without waiting for deployments to finish. |
 
@@ -200,19 +200,23 @@ lists any domain it would delete.
 
 ## Source commit
 
-A cloud frontend deploy reports the commit its source came from, so Volcano
-can tie the deployment to your repository. The CLI sends four things: the
-GitHub repository as `owner/name`, the commit ID, whether the uploaded files
-differ from that commit, and the uploaded directory's path in the repository,
-which is empty when it's the repository's top level. It never sends the
-remote URL or any credentials in it, local paths, branch names, or diffs.
-Function and durable function deploys don't report a commit for now.
+A cloud frontend, function, or durable function deploy reports the commit its
+source came from, so Volcano can tie the deployment to your repository. The CLI sends the GitHub repository as
+`owner/name`, the commit ID, and whether the uploaded files differ from that
+commit. A frontend deploy also sends the uploaded directory's path in the
+repository, which is empty when it's the repository's top level. The CLI never
+sends the remote URL or any credentials in it, local paths, branch names, or
+diffs.
 
-The CLI reads the commit checked out in the directory `--path` names: the
-`origin` remote and `HEAD`, the same in GitHub Actions as anywhere else. It
-sends nothing, and the deploy goes ahead, when git isn't available, the
-repository isn't on github.com, the uploaded directory is outside the
-repository, or any part is missing. Local deploys never send it.
+The CLI reads the commit checked out where the deploy reads its files, the
+directory `--path` names for a frontend and the working directory for
+functions: the `origin` remote and `HEAD`, the same in GitHub Actions as
+anywhere else. It sends nothing, and the deploy goes ahead, when git isn't
+available, the repository isn't on github.com or has no commit yet, the
+uploaded files are outside the repository, or any part is missing. Local
+deploys never send it.
+
+### Frontend uploads
 
 The upload matches the commit when each file in it is in the commit at the
 same path with the same content and executable bit, and it holds every file
@@ -240,15 +244,81 @@ only those ignore is uploaded and counts as changed. Windows has no executable
 bit, so a frontend deployed from Windows doesn't match a commit that holds an
 executable file.
 
-Volcano verifies the commit against the project's connected repository: a
-commit on its production branch is verified. LavaFlow reads source and opens
-fix pull requests only for a deployment whose commit is verified and whose
-upload matched it, so commit your changes before you deploy. Of the deploys
-the CLI runs, only frontend deploys can get LavaFlow fix pull requests for
-now. A workflow run for a pull request deploys GitHub's merge commit, which is
-on no branch, so that deployment is recorded unverified.
-`frontends deploy --from` and a redeploy keep the commit of the build they
-publish.
+### Function uploads
+
+Function and durable function deploys send the commit only for a clean
+function, and nothing for one that has changed. A function is clean when
+every committed file its upload is made from is in the upload as the commit
+holds it, none of them is staged, and the upload holds no file the commit
+doesn't have unless git ignores it. Those files are:
+
+- The function's file, or the files in its directory that the upload keeps.
+- The dependency manifests the upload picks up, such as a `package.json` next
+  to the function or in a directory above it.
+- Shared libraries: entries under `volcano/` whose names start with `_`.
+- The `volcano-config.yaml` the deploy reads declarations from, and the root
+  `.gitignore`, which decides what the upload leaves out.
+
+A committed file the upload lacks counts as changed, such as one that was
+deleted or replaced by a symlink or a directory, or one in a directory a
+symlink replaced. So does a committed file that another file or a shared
+library takes the place of, unless the commit or the upload holds that
+replacement: an empty `volcano/functions/_shared/` left behind still replaces
+a committed `volcano/_shared/`, and a checkout of the commit would upload the
+committed one.
+
+In a directory function's directory and in each shared library, a file git
+neither tracks nor ignores counts as changed even when the upload leaves it
+out, such as a `*.log` file or a `node_modules` directory that no
+`.gitignore` lists. Changes anywhere else don't count, such as to another
+function or to a file beside a single-file function that its upload doesn't
+read. `functions deploy --all` checks each function on its own, so a batch
+can send the commit for some functions and not for others.
+
+A file git ignores is build output, such as a bundle your build writes to an
+ignored `volcano/functions/`. The CLI can't tell which sources made it, so a
+function whose upload holds one gets the commit only when the whole repository
+matches `HEAD`: every tracked file has the content and, where git tracks it,
+the executable bit that `HEAD` holds, nothing is staged, no file is untracked
+unless git ignores it, and there's no submodule. Deploy from a clean checkout,
+and commit any generated file the build changes.
+
+Line endings and Git LFS pointers count as they do for frontends, and the CLI
+runs no other git filter. A function with a submodule among its files, or one
+whose files or `volcano-config.yaml` are reached through a symlink or are
+outside the working directory, gets no commit.
+
+### Verification
+
+Volcano checks the commit against the project's connected repository and
+records what it confirmed as `verification`. LavaFlow reads source at a commit
+with either level below, never the uploaded files, so commit your changes
+before you deploy:
+
+- `files`, for frontend deploys: the commit is on the production branch, and
+  the upload [matches it](#frontend-uploads). LavaFlow reads the commit for
+  the deployment and for each redeploy of its build.
+- `repository`, for function and durable function deploys: the commit is on
+  the production branch. Volcano doesn't compare a function upload's files
+  with the commit. LavaFlow reads the commit for that deployment only, not
+  for a redeploy, such as one a variable change starts, and only while the
+  project's repository link is unchanged since Volcano checked it. Relinking,
+  even to the same repository, reinstalling the GitHub App, renaming the
+  repository, or changing the production branch or root directory ends it. A
+  fix opens only while the production branch still holds the commit, and a
+  deployment at this level never counts as deploying a merged fix, so
+  LavaFlow doesn't resolve the issue from it.
+
+A reported commit Volcano can't confirm is recorded with `verification: none`,
+and LavaFlow diagnoses that deployment from the logs alone. That includes a
+frontend upload that doesn't match its commit, and a workflow run for a pull
+request, which deploys GitHub's merge commit on no branch. At autonomy
+`merge`, LavaFlow holds a fix built on a reported commit, at either level, for
+a person to merge. A fix built on a commit that a
+[push to the repository deployed](#cloud-projects-that-deploy-from-git) has no
+such hold. `frontends deploy --from` keeps the commit of the build it
+publishes. A frontend redeploy reports no commit of its own, and LavaFlow
+reads it as the commit of the build that made its artifact.
 
 To send nothing, set:
 
