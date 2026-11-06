@@ -421,13 +421,17 @@ that diagnosed from logs alone, has no `Source:` line.
 The `Fix:` block always says what happened to the run's fix:
 
 - With a pull request: its link, its state (`open`, `draft`, `merged` or
-  `closed`), when it opened, and where its merge is (see
-  [Merge fixes](#merge-fixes)). A draft says why it's one, such as LavaFlow's
-  review not passing the fix. A pull request opened before LavaFlow recorded
-  the time has no open time.
+  `closed`), when it opened, where its merge is (see
+  [Merge fixes](#merge-fixes)), and, as `Deployed:`, when the merged fix went
+  live. A draft says why it's one, such as LavaFlow's review not passing the
+  fix. A pull request opened before LavaFlow recorded the time has no open
+  time. `Deployed:` shows once LavaFlow finds the fix in a live deployment,
+  which it watches for a week after the merge. When more than 20 deployments
+  went live between the merge and that one, it shows the merge time.
 - With none: why LavaFlow opened none, and what to do next, such as reading
   the diagnosis or reviewing another LavaFlow pull request that is still
-  open. A run that finished without a recorded reason says
+  open. A run that stopped at its diagnosis because the project's autonomy was
+  `diagnose_only` says so. A run that finished without a recorded reason says
   `No fix pull request was opened. LavaFlow didn't record why.`
 - While the run is queued or working: `No fix yet: LavaFlow is still working on this run.`
 

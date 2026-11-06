@@ -2168,22 +2168,33 @@ func (e LavaflowRunStatus) Valid() bool {
 
 // Defines values for LavaflowSkipReason.
 const (
-	LavaflowSkipReasonLowConfidence        LavaflowSkipReason = "low_confidence"
-	LavaflowSkipReasonNoPatch              LavaflowSkipReason = "no_patch"
-	LavaflowSkipReasonNotFixable           LavaflowSkipReason = "not_fixable"
-	LavaflowSkipReasonPermissionMissing    LavaflowSkipReason = "permission_missing"
-	LavaflowSkipReasonPossibleCredential   LavaflowSkipReason = "possible_credential"
-	LavaflowSkipReasonPossiblePersonalData LavaflowSkipReason = "possible_personal_data"
-	LavaflowSkipReasonPublishFailed        LavaflowSkipReason = "publish_failed"
-	LavaflowSkipReasonPullRequestOpen      LavaflowSkipReason = "pull_request_open"
-	LavaflowSkipReasonRepositoryChanged    LavaflowSkipReason = "repository_changed"
-	LavaflowSkipReasonSourceUnavailable    LavaflowSkipReason = "source_unavailable"
-	LavaflowSkipReasonUngatedWorkflows     LavaflowSkipReason = "ungated_workflows"
+	LavaflowSkipReasonConventionUnsatisfiable LavaflowSkipReason = "convention_unsatisfiable"
+	LavaflowSkipReasonDiagnoseOnly            LavaflowSkipReason = "diagnose_only"
+	LavaflowSkipReasonDuplicateInRepository   LavaflowSkipReason = "duplicate_in_repository"
+	LavaflowSkipReasonLowConfidence           LavaflowSkipReason = "low_confidence"
+	LavaflowSkipReasonNoPatch                 LavaflowSkipReason = "no_patch"
+	LavaflowSkipReasonNotFixable              LavaflowSkipReason = "not_fixable"
+	LavaflowSkipReasonPermissionMissing       LavaflowSkipReason = "permission_missing"
+	LavaflowSkipReasonPossibleCredential      LavaflowSkipReason = "possible_credential"
+	LavaflowSkipReasonPossiblePersonalData    LavaflowSkipReason = "possible_personal_data"
+	LavaflowSkipReasonPublishFailed           LavaflowSkipReason = "publish_failed"
+	LavaflowSkipReasonPullRequestOpen         LavaflowSkipReason = "pull_request_open"
+	LavaflowSkipReasonRepositoryChanged       LavaflowSkipReason = "repository_changed"
+	LavaflowSkipReasonReviewUnresolved        LavaflowSkipReason = "review_unresolved"
+	LavaflowSkipReasonSecurityFinding         LavaflowSkipReason = "security_finding"
+	LavaflowSkipReasonSourceUnavailable       LavaflowSkipReason = "source_unavailable"
+	LavaflowSkipReasonUngatedWorkflows        LavaflowSkipReason = "ungated_workflows"
 )
 
 // Valid indicates whether the value is a known member of the LavaflowSkipReason enum.
 func (e LavaflowSkipReason) Valid() bool {
 	switch e {
+	case LavaflowSkipReasonConventionUnsatisfiable:
+		return true
+	case LavaflowSkipReasonDiagnoseOnly:
+		return true
+	case LavaflowSkipReasonDuplicateInRepository:
+		return true
 	case LavaflowSkipReasonLowConfidence:
 		return true
 	case LavaflowSkipReasonNoPatch:
@@ -2201,6 +2212,10 @@ func (e LavaflowSkipReason) Valid() bool {
 	case LavaflowSkipReasonPullRequestOpen:
 		return true
 	case LavaflowSkipReasonRepositoryChanged:
+		return true
+	case LavaflowSkipReasonReviewUnresolved:
+		return true
+	case LavaflowSkipReasonSecurityFinding:
 		return true
 	case LavaflowSkipReasonSourceUnavailable:
 		return true
@@ -8267,6 +8282,9 @@ type LavaflowMergeStatus string
 
 // LavaflowPullRequest defines model for LavaflowPullRequest.
 type LavaflowPullRequest struct {
+	// DeployedAt When the merged fix went live: the first live deployment of the issue's resource that includes it finished. When more than 20 deployments went live between the merge and the one LavaFlow found the fix in, LavaFlow can't tell which first included it, and this is the merge time. Null until LavaFlow finds the fix live, and for a pull request that didn't merge. LavaFlow watches the resource's deployments for a week after the merge.
+	DeployedAt *time.Time `json:"deployed_at"`
+
 	// Draft Whether the pull request is a draft, as GitHub last reported it to LavaFlow. Null for one opened before LavaFlow recorded it.
 	Draft *bool `json:"draft"`
 
@@ -8348,7 +8366,7 @@ type LavaflowRun struct {
 	ProjectId   openapi_types.UUID   `json:"project_id"`
 	PullRequest *LavaflowPullRequest `json:"pull_request"`
 
-	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
+	// PullRequestSkipped Why a finished run opened no pull request. A `completed` run without `pull_request` always has one; it is `diagnose_only` when the project's `autonomy` stopped the run at its diagnosis. Null when the run opened a pull request, while it is queued or runs, and when it failed or was cancelled.
 	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
 
 	// Resource The function, durable function or frontend an issue came from.
@@ -8392,7 +8410,7 @@ type LavaflowRunSummary struct {
 	ProjectId   openapi_types.UUID   `json:"project_id"`
 	PullRequest *LavaflowPullRequest `json:"pull_request"`
 
-	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
+	// PullRequestSkipped Why a finished run opened no pull request. A `completed` run without `pull_request` always has one; it is `diagnose_only` when the project's `autonomy` stopped the run at its diagnosis. Null when the run opened a pull request, while it is queued or runs, and when it failed or was cancelled.
 	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
 
 	// Resource The function, durable function or frontend an issue came from.
@@ -8456,7 +8474,7 @@ type LavaflowSettingsUpdate struct {
 	SystemPrompt *string            `json:"system_prompt,omitempty"`
 }
 
-// LavaflowSkipReason Why a run that may open a pull request opened none, with what you can do next. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit; check the project's repository connection and that the commit exists. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. New reasons may appear.
+// LavaflowSkipReason Why a finished run opened no pull request, with what you can do next. `diagnose_only`: the project's `autonomy` was `diagnose_only` when the run was queued, or became it before the pull request opened, so LavaFlow only diagnosed the issue; read the diagnosis, and set `autonomy` to `open_pr` or `merge` for later runs to open pull requests. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `convention_unsatisfiable`: LavaFlow would merge the fix, but no title can meet the repository's commit convention, so it kept the fix on the run; apply the fix yourself, or relax the convention. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit, or the production branch no longer holds it; check the project's repository connection and that the commit exists on that branch. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. `review_unresolved`: LavaFlow's review didn't pass a Code Quality fix; read the diagnosis. `duplicate_in_repository`: another project on the repository has the open Code Quality pull request for the same finding. `security_finding`: the finding has security impact and the repository isn't private, so the fix would disclose it; fix it yourself. New reasons may appear.
 type LavaflowSkipReason string
 
 // LavaflowSourceCommit The commit a run read its source at.
