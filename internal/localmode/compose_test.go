@@ -95,6 +95,45 @@ func TestComposeEnvironmentDefaultsVolcanoImage(t *testing.T) {
 	assert.Equal(t, defaultVolcanoImage, actual)
 }
 
+// TestComposeEnvironmentForwardsBotTokenOnlyWhenSet checks the only two ways a
+// Telegram bot token reaches the local server: the shell environment and the
+// project's .env.local. In polling mode the server deletes the bot's webhook,
+// so a forwarded token for a cloud bot takes that bot over.
+func TestComposeEnvironmentForwardsBotTokenOnlyWhenSet(t *testing.T) {
+	const key = "AGENT_CHAT_TELEGRAM_BOT_TOKEN"
+	newService := func(environ ...string) Service {
+		return NewService(
+			cliruntime.Deps{},
+			WithEnvironment(func() []string { return environ }, func(string) string { return "" }),
+		)
+	}
+
+	t.Run("unset", func(t *testing.T) {
+		withTempWorkingDir(t)
+		env, _, err := newService("PATH=/bin").composeEnvironment()
+		require.NoError(t, err)
+		_, ok := lastEnvValue(env, key)
+		assert.False(t, ok, "an unset token must not reach Compose")
+	})
+
+	t.Run("shell", func(t *testing.T) {
+		withTempWorkingDir(t)
+		env, _, err := newService("PATH=/bin", key+"=from-shell").composeEnvironment()
+		require.NoError(t, err)
+		value, _ := lastEnvValue(env, key)
+		assert.Equal(t, "from-shell", value)
+	})
+
+	t.Run("env.local", func(t *testing.T) {
+		withTempWorkingDir(t)
+		require.NoError(t, os.WriteFile(".env.local", []byte(key+"=from-file\n"), 0o600))
+		env, _, err := newService("PATH=/bin").composeEnvironment()
+		require.NoError(t, err)
+		value, _ := lastEnvValue(env, key)
+		assert.Equal(t, "from-file", value)
+	})
+}
+
 // TestDefaultVolcanoImageIsPublishedLocalTag guards that the built-in default
 // points at the local-mode image family (kong/volcano:local-*) that
 // volcano-hosting publishes and that `volcano start` must run — never the empty

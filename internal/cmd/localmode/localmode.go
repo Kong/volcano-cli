@@ -22,7 +22,14 @@ or set VOLCANO_IMAGE:
   VOLCANO_IMAGE=kong/volcano:local-nightly volcano start
 
 An explicitly selected image must already exist locally: the CLI never pulls an
-unpublished local-mode image and fails fast if it is missing.`,
+unpublished local-mode image and fails fast if it is missing.
+
+The local server reads optional settings from your shell environment and the
+project's .env.local. If either sets AGENT_CHAT_TELEGRAM_BOT_TOKEN, the local
+server runs that Telegram bot. Its default polling mode deletes the bot's
+webhook, so the token of a bot that a deployed server uses takes that bot over:
+the deployed server stops receiving its messages. Use a separate bot for local
+work, or unset the token before you run volcano start.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return localmodecore.NewService(deps, localmodecore.WithImage(image)).Start(cmd.Context(), cmd.OutOrStdout())

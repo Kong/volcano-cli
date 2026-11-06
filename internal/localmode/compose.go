@@ -46,6 +46,13 @@ func (s Service) composeProjectHasContainers(ctx context.Context) bool {
 	return strings.TrimSpace(string(containers)) != ""
 }
 
+// composeEnvironment builds the environment for Docker Compose: the process
+// env, then .env.local. The template passes optional server settings through
+// as ${KEY:-}, so any of them set in either source reaches the server. That
+// includes AGENT_CHAT_TELEGRAM_BOT_TOKEN: in its default polling mode the
+// server deletes the bot's webhook, so a token for a deployed bot exported in
+// a developer's shell takes that bot over. `volcano start --help` warns about
+// this.
 func (s Service) composeEnvironment() ([]string, string, error) {
 	env := append([]string{}, s.environ()...)
 
