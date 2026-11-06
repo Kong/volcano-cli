@@ -423,6 +423,49 @@ func TestDeployHintsAtAServerWithoutFrontendRoutes(t *testing.T) {
 	}
 }
 
+func TestDeployHintsAtAServerWithoutFrontendPreviewsCORS(t *testing.T) {
+	const declared = "version: 1\nauth:\n  cors:\n    enabled: true\n    allow_frontend_previews: true\n"
+	for name, tc := range map[string]struct {
+		manifest  string
+		localMode bool
+		hint      string
+	}{
+		"cloud": {
+			manifest: declared,
+			hint:     "if this server predates frontend preview CORS, it refuses auth.cors.allow_frontend_previews this way: remove it",
+		},
+		"local": {
+			manifest:  declared,
+			localMode: true,
+			hint: "if this server predates frontend preview CORS, it refuses auth.cors.allow_frontend_previews this way: " +
+				"upgrade your local-mode server image, or remove it",
+		},
+		"omitted": {manifest: "version: 1\nauth:\n  cors:\n    enabled: true\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := chdirToTemp(t)
+			setConfigCommandTestHome(t)
+			saveConfigCommandTestConfig(t)
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte(tc.manifest), 0o644))
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeConfigCommandJSON(t, w, http.StatusBadRequest, map[string]any{"error": "invalid request"})
+			}))
+			defer server.Close()
+
+			deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, LocalMode: tc.localMode}
+			_, err := executeConfigCommand(t, New(deps), "deploy")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "HTTP 400: invalid request")
+			if tc.hint == "" {
+				assert.NotContains(t, err.Error(), "allow_frontend_previews")
+				return
+			}
+			assert.Contains(t, err.Error(), "\n"+tc.hint)
+		})
+	}
+}
+
 // public: false reads as "not public" but now admits signed-in users, so every
 // deploy that reads it, the dry run included, warns. The warning goes to
 // stderr so it cannot break output a script parses.
@@ -501,7 +544,7 @@ func TestDeployExplicitFile(t *testing.T) {
 
 	out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "-f", filepath.Join("config", "custom.yaml"))
 	require.NoError(t, err)
-	assert.Contains(t, out, "Configuration deployed from custom.yaml")
+	assert.Contains(t, out, "Configuration deployed from "+filepath.Join("config", "custom.yaml"))
 	assert.Contains(t, out, "realtime: 1 unchanged")
 }
 
@@ -1062,4 +1105,57 @@ auth:
 	gotJSON, err := json.Marshal(uploaded)
 	require.NoError(t, err)
 	assert.JSONEq(t, string(wantJSON), string(gotJSON))
+}
+
+func TestPullProtectsDanglingRootSymlink(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+	require.NoError(t, os.Mkdir("volcano", 0o750))
+	nested := filepath.Join("volcano", "volcano-config.yaml")
+	require.NoError(t, os.WriteFile(nested, []byte("version: 1\n"), 0o600))
+	require.NoError(t, os.Symlink("missing.yaml", "volcano-config.yaml"))
+	server := newPullTestServer(t)
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+	_, err := executeConfigCommand(t, New(deps), "pull")
+	require.ErrorContains(t, err, "refusing to overwrite existing file volcano-config.yaml")
+	link, err := os.Readlink("volcano-config.yaml")
+	require.NoError(t, err)
+	assert.Equal(t, "missing.yaml", link)
+	_, err = executeConfigCommand(t, New(deps), "pull", "--force")
+	require.NoError(t, err)
+	requirePulledYAMLVerbatim(t, filepath.Join(dir, "volcano-config.yaml"))
+	assert.NoFileExists(t, "missing.yaml")
+	data, err := os.ReadFile(nested)
+	require.NoError(t, err)
+	assert.Equal(t, "version: 1\n", string(data))
+}
+
+func TestDeployReportsSelectedManifestPath(t *testing.T) {
+	for _, rootExists := range []bool{false, true} {
+		name := "nested only"
+		if rootExists {
+			name = "both files"
+		}
+		t.Run(name, func(t *testing.T) {
+			chdirToTemp(t)
+			setConfigCommandTestHome(t)
+			saveConfigCommandTestConfig(t)
+			require.NoError(t, os.Mkdir("volcano", 0o750))
+			selected := filepath.Join("volcano", "volcano-config.yaml")
+			require.NoError(t, os.WriteFile(selected, []byte("version: 1\n"), 0o600))
+			if rootExists {
+				selected = "volcano-config.yaml"
+				require.NoError(t, os.WriteFile(selected, []byte("version: 1\n"), 0o600))
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeConfigCommandJSON(t, w, http.StatusOK, applyResultResponse())
+			}))
+			defer server.Close()
+			out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy")
+			require.NoError(t, err)
+			assert.Contains(t, out, "Configuration deployed from "+filepath.ToSlash(selected))
+		})
+	}
 }

@@ -23,7 +23,8 @@ func newSettings(deps cliruntime.Deps) *cobra.Command {
 		Use:   "settings",
 		Short: "Show LavaFlow's settings",
 		Long: `Show LavaFlow's settings for the current project: whether it is on, how far it
-goes, and the custom context and system prompt in full. Change them with
+goes, whether it can merge its fixes, whether it opens fixes past ungated
+workflows, and the custom context and system prompt in full. Change them with
 '` + cliruntime.CommandPath(deps, "lavaflow settings set") + `'.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -38,13 +39,18 @@ goes, and the custom context and system prompt in full. Change them with
 }
 
 func runSettings(ctx context.Context, opts settingsOptions) error {
-	settings, err := clilavaflow.NewService(opts.deps).Settings(ctx)
+	service := clilavaflow.NewService(opts.deps)
+	if opts.jsonOutput {
+		settings, err := service.Settings(ctx)
+		if err != nil {
+			return err
+		}
+		return writeJSON(opts.out, settings)
+	}
+	settings, available, mergeAvailable, err := service.SettingsAndMerging(ctx)
 	if err != nil {
 		return err
 	}
-	if opts.jsonOutput {
-		return writeJSON(opts.out, settings)
-	}
-	output.LavaflowSettings(opts.out, settings)
+	output.LavaflowSettings(opts.out, settings, available, mergeAvailable)
 	return nil
 }

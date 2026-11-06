@@ -50,12 +50,11 @@ var ErrPlanRequired = errors.New("LavaFlow needs a plan that includes it, and th
 var ErrPlanUnreadable = errors.New("LavaFlow couldn't read the project owner's plan; try again later")
 
 // ErrChangeRefused reports the settings change's 403 without a code. It
-// stands for three refusals the API doesn't tell apart: a read-only project
-// access token, an owner whose account is read-only, and an owner's plan that
-// couldn't be read. The CLI refuses a project access token and checks
+// stands for two refusals the API doesn't tell apart: an owner whose account
+// is read-only, and an owner's plan that couldn't be read. The CLI checks
 // can_update first, but an account can turn read-only after that check, such
 // as while enable waits for its answer.
-var ErrChangeRefused = errors.New("LavaFlow's settings weren't changed: a read-only access token or account " +
+var ErrChangeRefused = errors.New("LavaFlow's settings weren't changed: a read-only account " +
 	"can't change them, and otherwise the project owner's plan couldn't be read; try again later")
 
 // MergeWarning is what turning on merging risks, in the approved words the
@@ -68,18 +67,36 @@ const MergeWarning = "Turning on merge lets LavaFlow's fixes, including those fr
 const MergeDisclosure = "At autonomy merge, LavaFlow can merge its fix pull requests. " +
 	"A fix it holds or stops is yours to review and merge on GitHub. " + MergeWarning
 
+// UngatedWorkflowsWarning is what allowing ungated workflows risks, in the
+// approved words the API's contract and the docs also use.
+const UngatedWorkflowsWarning = "Workflows in the repository may then run LavaFlow's pull requests, or put their " +
+	"text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those " +
+	"changes from the project's error logs, which its users can influence. Turn it on only if those workflows " +
+	"keep secrets away from untrusted code; gating them on a label a person adds is safer."
+
+// UngatedWorkflowsSetting is what allow_ungated_workflows decides, in the API
+// contract's words.
+const UngatedWorkflowsSetting = "Whether LavaFlow opens a fix's pull request even where a workflow could run " +
+	"it, or put its text into a command, with the repository's secrets before a person approves it."
+
+// UngatedWorkflowsRules is the setting's default and who changes it, in the
+// API contract's words.
+const UngatedWorkflowsRules = "Off by default; while off, such a fix stays on its run and no pull request opens. " +
+	"Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform " +
+	"token `volcano login` stores, or another platform token that expires. It applies to the repository their " +
+	"GitHub account can push to. Any of the owner's credentials turns it off."
+
+// UngatedWorkflowsDisclosure is what settings set prints before it allows
+// ungated workflows, in the API contract's words: what turning it on does and
+// where, what turns it off again, then the warning.
+const UngatedWorkflowsDisclosure = "Turns on opening fixes past ungated workflows, for the repository the " +
+	"project is connected to now; it applies only to that repository. Connecting the project to another " +
+	"repository, or disconnecting it, turns it off, and connecting the first one again doesn't turn it back " +
+	"on. " + UngatedWorkflowsWarning
+
 // ErrMergingNotAvailable reports feature_unavailable for autonomy merge:
 // LavaFlow doesn't merge for this project yet.
 var ErrMergingNotAvailable = errors.New("LavaFlow merging isn't available for this project yet")
-
-// ErrOwnerCantPush reports permission_missing: LavaFlow merges with the
-// owner's GitHub account, which can't push to the repository.
-var ErrOwnerCantPush = errors.New("LavaFlow can't merge for this project: " +
-	"the project owner's GitHub account can't push to its repository")
-
-// connectGitHubDocs is the docs section on connecting GitHub, which a
-// permission_missing refusal points to.
-const connectGitHubDocs = "platform/projects/git-deploy.md#1-connect-github"
 
 // ErrCantTurnOn reports, before enable asks, that the project's capabilities
 // say LavaFlow can't be turned on for a project that has LavaFlow records.
@@ -112,7 +129,6 @@ const (
 	codeFeatureUnavailable = "feature_unavailable"
 	codePlanRequired       = "plan_required"
 	codePersonRequired     = "person_required"
-	codePermissionMissing  = "permission_missing"
 )
 
 // Limits the API sets.
@@ -255,6 +271,26 @@ func (s Service) Settings(ctx context.Context) (*apiclient.LavaflowSettings, err
 	return settings, nil
 }
 
+// SettingsAndMerging returns the current project's LavaFlow settings, whether
+// LavaFlow takes changes for it, and whether it can merge its fixes. Either
+// is nil when the capabilities could not be read, and merging is nil when
+// they don't list it.
+func (s Service) SettingsAndMerging(ctx context.Context) (settings *apiclient.LavaflowSettings, available, merge *bool, err error) {
+	authenticated, err := s.project()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	settings, err = authenticated.API.GetLavaflowSettings(ctx, authenticated.ProjectID)
+	if err != nil {
+		return nil, nil, nil, unavailable(fmt.Errorf("failed to get LavaFlow settings: %w", err))
+	}
+	available, merge, err = availability(ctx, authenticated)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return settings, available, merge, nil
+}
+
 // availability reads whether LavaFlow takes changes for the project, and
 // whether it can merge its fixes. Both are hints: the status adds them as
 // detail, and autonomy merge leaves an unknown answer to the save. So a
@@ -312,7 +348,7 @@ const EnableDisclosure = OnDescription + "\n" + EnableNotice
 // stops the change and is returned as is.
 func (s Service) Enable(ctx context.Context, confirm func() error) (*apiclient.LavaflowSettings, error) {
 	enabled := true
-	return s.update(ctx, "turn LavaFlow on", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, true, confirm)
+	return s.update(ctx, "turn LavaFlow on", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, true, confirm, nil)
 }
 
 // Disable turns LavaFlow off for the current project, sending enabled alone
@@ -320,7 +356,19 @@ func (s Service) Enable(ctx context.Context, confirm func() error) (*apiclient.L
 // unavailable for a project that has LavaFlow records.
 func (s Service) Disable(ctx context.Context) (*apiclient.LavaflowSettings, error) {
 	enabled := false
-	return s.update(ctx, "turn LavaFlow off", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, false, nil)
+	return s.update(ctx, "turn LavaFlow off", apiclient.LavaflowSettingsUpdate{Enabled: &enabled}, false, nil, nil)
+}
+
+// TurnOffUngatedWorkflows turns allow_ungated_workflows off. While LavaFlow
+// isn't available for the project, Volcano saves that only with enabled
+// false, so it then turns LavaFlow off too and reports that it did. A
+// capabilities read that fails leaves the save to say why.
+func (s Service) TurnOffUngatedWorkflows(ctx context.Context) (*apiclient.LavaflowSettings, bool, error) {
+	off := false
+	var lavaflowOff bool
+	settings, err := s.update(ctx, "change LavaFlow's settings",
+		apiclient.LavaflowSettingsUpdate{AllowUngatedWorkflows: &off}, false, nil, &lavaflowOff)
+	return settings, lavaflowOff, err
 }
 
 // UpdateSettings changes the fields update sets and keeps the rest. Only a
@@ -342,7 +390,7 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 			return nil, fmt.Errorf("the %s is %d characters long: the most is %d", name, len([]rune(*text)), MaxTextLength)
 		}
 	}
-	return s.update(ctx, "change LavaFlow's settings", update, false, confirm)
+	return s.update(ctx, "change LavaFlow's settings", update, false, confirm, nil)
 }
 
 // The most paths a merge policy holds for a person, and the longest one.
@@ -373,9 +421,11 @@ func validMergePolicy(policy *apiclient.LavaflowMergePolicyUpdate) error {
 // sends. A change that turns LavaFlow on, or changes autonomy to merge, then
 // checks the project's capabilities, so it isn't asked for when it would be
 // refused.
-// A non-nil confirm runs just before the change.
+// A non-nil confirm runs just before the change. A non-nil lavaflowOff marks
+// an update that turns ungated workflows off: while the capabilities say
+// LavaFlow isn't available, it adds enabled false and sets *lavaflowOff.
 func (s Service) update(ctx context.Context, verb string, update apiclient.LavaflowSettingsUpdate,
-	turnsOn bool, confirm func() error,
+	turnsOn bool, confirm func() error, lavaflowOff *bool,
 ) (*apiclient.LavaflowSettings, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
@@ -395,6 +445,16 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	if turnsOn {
 		if err := requireTurnOnAvailable(ctx, authenticated); err != nil {
 			return nil, err
+		}
+	}
+	if lavaflowOff != nil {
+		available, _, err := availability(ctx, authenticated)
+		if err != nil {
+			return nil, err
+		}
+		if available != nil && !*available {
+			off := false
+			update.Enabled, *lavaflowOff = &off, true
 		}
 	}
 	// The save accepts the saved autonomy again without merging available.
@@ -436,22 +496,23 @@ func pushCheckUnanswered(now time.Time, err error) error {
 
 // refused says why the API refused a change, by its code rather than its
 // status, keeping the refusal as the cause for the exit code. person_required
-// keeps Volcano's words, which say how to sign in instead. A 400 with
+// keeps Volcano's words, which say what the owner does instead. A 400 with
 // feature_unavailable refuses autonomy merge while merging is off for the
-// project, and permission_missing refuses it while the owner's GitHub account
-// can't push to the repository. A 403 without a code covers more than the
-// plan here, so it adds the API's words, quoted as Volcano's: for a plan that
-// couldn't be read they read like a plan refusal, which isn't the CLI's
-// conclusion.
+// project. A 403 without a code covers more than the plan here, so it adds the
+// API's words, quoted as Volcano's: for a plan that couldn't be read they read
+// like a plan refusal, which isn't the CLI's conclusion.
 func refused(cfg *config.Config, err error) error {
 	switch {
 	case api.Code(err) == codePersonRequired:
-		// Volcano says why in its own words, such as a token that never
-		// expires or a sign-in that ended, and how to sign in instead.
-		// A token in VOLCANO_TOKEN wins over a sign-in, so say so.
+		// Volcano says why in its own words: a platform token that never
+		// expires, a sign-in that ended, an owner whose GitHub account can't
+		// push to the repository, or a project with no repository.
+		// When its words say to sign in with volcano login, a token in
+		// VOLCANO_TOKEN wins over that sign-in, so say so; unsetting it
+		// fixes nothing about the repository.
 		if message := api.Message(err); message != "" {
 			refusal := fmt.Errorf("LavaFlow's settings weren't changed: %s", message)
-			if cfg.TokenFromEnv() {
+			if cfg.TokenFromEnv() && strings.Contains(message, "volcano login") {
 				refusal = fmt.Errorf("%w. %s is set, and its token is used instead of a 'volcano login' sign-in "+
 					"until you unset it", refusal, config.TokenEnv)
 			}
@@ -460,12 +521,6 @@ func refused(cfg *config.Config, err error) error {
 		return personDecides(cfg, err)
 	case api.Code(err) == codeFeatureUnavailable && api.Status(err) == http.StatusBadRequest:
 		return api.WithCause(ErrMergingNotAvailable, err)
-	case api.Code(err) == codePermissionMissing:
-		refusal := ErrOwnerCantPush
-		if message := api.Message(err); message != "" {
-			refusal = fmt.Errorf("%w (%s)", ErrOwnerCantPush, message)
-		}
-		return api.WithCause(fmt.Errorf("%w. To connect GitHub, see 'volcano docs get %s'", refusal, connectGitHubDocs), err)
 	case api.Code(err) == "" && api.Status(err) == http.StatusForbidden:
 		if message := api.Message(err); message != "" {
 			return api.WithCause(fmt.Errorf("%w. Volcano said: %q", ErrChangeRefused, message), err)
@@ -475,16 +530,21 @@ func refused(cfg *config.Config, err error) error {
 	return unavailable(err)
 }
 
-// personDecides says how a person changes the settings instead. A token from
-// the environment outlasts a sign-in, so that case names the variable to
-// unset first. cause is the refusal, the API's or the CLI's own, which keeps
-// the exit code of a permission refused.
+// personDecides says how a person changes the settings instead. cause is the
+// refusal, the API's or the CLI's own, which keeps the exit code of a
+// permission refused.
 func personDecides(cfg *config.Config, cause error) error {
-	how := "Sign in with 'volcano login' and run this again"
+	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonDecides, signInAgain(cfg)), cause)
+}
+
+// signInAgain says how a person signs in and runs the command again. A token
+// from the environment outlasts a sign-in, so that case names the variable to
+// unset first.
+func signInAgain(cfg *config.Config) string {
 	if cfg.TokenFromEnv() {
-		how = "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
+		return "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
 	}
-	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonDecides, how), cause)
+	return "Sign in with 'volcano login' and run this again"
 }
 
 // Stats returns the issues LavaFlow took on and the fix pull requests it
@@ -528,16 +588,17 @@ func checkDays(days int) error {
 	return nil
 }
 
-// ListRuns returns one page of the current project's runs, newest first.
-func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.PaginatedLavaflowRuns, error) {
+// ListRuns returns one page of the current project's runs, newest first, and
+// the body the API sent it in, for --json.
+func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.PaginatedLavaflowRuns, []byte, error) {
 	if query.Limit < 1 || query.Limit > MaxRunsLimit {
-		return nil, fmt.Errorf("--limit must be between 1 and %d", MaxRunsLimit)
+		return nil, nil, fmt.Errorf("--limit must be between 1 and %d", MaxRunsLimit)
 	}
 	params := apiclient.ListLavaflowRunsParams{Limit: &query.Limit}
 	if query.Status != "" {
 		status := apiclient.LavaflowRunStatus(query.Status)
 		if !status.Valid() {
-			return nil, fmt.Errorf("invalid --status %q: use one of %s", query.Status, runStatuses())
+			return nil, nil, fmt.Errorf("invalid --status %q: use one of %s", query.Status, runStatuses())
 		}
 		params.Status = &status
 	}
@@ -547,20 +608,20 @@ func (s Service) ListRuns(ctx context.Context, query RunsQuery) (*apiclient.Pagi
 	if query.ResourceID != "" {
 		resourceID, err := uuid.Parse(query.ResourceID)
 		if err != nil {
-			return nil, fmt.Errorf("invalid --resource %q: use a resource ID from '%s'",
+			return nil, nil, fmt.Errorf("invalid --resource %q: use a resource ID from '%s'",
 				query.ResourceID, cliruntime.CommandPath(s.deps, "lavaflow resources --json"))
 		}
 		params.ResourceId = &resourceID
 	}
 	authenticated, err := s.project()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	page, err := authenticated.API.ListLavaflowRuns(ctx, authenticated.ProjectID, params)
+	page, body, err := authenticated.API.ListLavaflowRuns(ctx, authenticated.ProjectID, params)
 	if err != nil {
-		return nil, unavailable(fmt.Errorf("failed to list LavaFlow runs: %w", err))
+		return nil, nil, unavailable(fmt.Errorf("failed to list LavaFlow runs: %w", err))
 	}
-	return page, nil
+	return page, body, nil
 }
 
 func runStatuses() string {
@@ -577,21 +638,21 @@ func runStatuses() string {
 }
 
 // GetRun returns one of the current project's runs with its diagnosis, diff
-// and review.
-func (s Service) GetRun(ctx context.Context, runID string) (*apiclient.LavaflowRun, error) {
+// and review, and the body the API sent it in, for --json.
+func (s Service) GetRun(ctx context.Context, runID string) (*apiclient.LavaflowRun, []byte, error) {
 	id, err := uuid.Parse(runID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid run ID %q: use an ID from '%s'", runID, cliruntime.CommandPath(s.deps, "lavaflow list"))
+		return nil, nil, fmt.Errorf("invalid run ID %q: use an ID from '%s'", runID, cliruntime.CommandPath(s.deps, "lavaflow list"))
 	}
 	authenticated, err := s.project()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	run, err := authenticated.API.GetLavaflowRun(ctx, authenticated.ProjectID, id)
+	run, body, err := authenticated.API.GetLavaflowRun(ctx, authenticated.ProjectID, id)
 	if err != nil {
-		return nil, unavailable(fmt.Errorf("failed to get LavaFlow run %s: %w", runID, err))
+		return nil, nil, unavailable(fmt.Errorf("failed to get LavaFlow run %s: %w", runID, err))
 	}
-	return run, nil
+	return run, body, nil
 }
 
 // unavailable replaces a refusal that says LavaFlow is not on with the error

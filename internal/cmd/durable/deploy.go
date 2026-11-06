@@ -14,6 +14,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
 	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
+	"github.com/Kong/volcano-cli/internal/deploycommit"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -151,12 +152,13 @@ func deploy(ctx context.Context, opts *deployOptions) ([]apiclient.DurableFuncti
 			sources[0].Name, manifest.Name, cliruntime.CommandPath(opts.deps, "functions deploy -f "+sources[0].Name))
 	}
 
+	commits := deploycommit.Detect(ctx, opts.deps, baseDir)
 	var newPrivate, unreported []string
 	started := make([]apiclient.DurableFunction, 0, len(sources))
 	for i, source := range sources {
 		fmt.Fprintf(opts.out, "\n[%d/%d] Deploying %s...\n", i+1, len(sources), source.Name)
 		deployed, created, err := deployOne(
-			ctx, opts.out, service, baseDir, source, visibility, manifest.Declarations,
+			ctx, opts.out, service, baseDir, source, visibility, manifest, commits,
 		)
 		if err != nil {
 			return started, err
@@ -202,7 +204,8 @@ func deployOne(
 	baseDir string,
 	source clifunction.SourceInfo,
 	visibility *apiclient.FunctionVisibility,
-	declarations map[string]projectconfig.FunctionVariableDeclaration,
+	manifest projectconfig.FunctionDeployManifest,
+	commits *deploycommit.Source,
 ) (deployed *apiclient.DurableFunction, created bool, err error) {
 	fmt.Fprintf(out, "  Runtime: %s\n", source.Runtime.Name)
 	fmt.Fprintf(out, "  Function code: %s\n", source.Path)
@@ -210,10 +213,11 @@ func deployOne(
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to package durable function %s: %w", source.Name, err)
 	}
-	if declaration, ok := declarations[pkg.Name]; ok {
+	if declaration, ok := manifest.Declarations[pkg.Name]; ok {
 		pkg.VariableScope = declaration.VariableScope
 		pkg.Variables = declaration.Variables
 	}
+	pkg.SetCommit(ctx, commits, manifest.Paths)
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
 
 	deployed, created, err = service.Deploy(ctx, *pkg, visibility)

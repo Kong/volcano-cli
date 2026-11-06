@@ -20,8 +20,8 @@ const groupShort = "Diagnose and fix the project's runtime errors"
 var groupLong = clilavaflow.OnDescription + ` It covers every function, frontend
 and durable function in the project, and turning it on is the whole setup.
 
-Turning it on or off and changing its settings is a person's decision: a
-project access token can read LavaFlow but not change it.`
+A project access token can read LavaFlow, but only the owner's own session
+can turn it on or off, change its settings and start runs.`
 
 // New returns the lavaflow command.
 func New(deps cliruntime.Deps) *cobra.Command {
@@ -38,6 +38,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newResources(deps))
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newShow(deps))
+	cmd.AddCommand(newRuns(deps))
 	return cmd
 }
 
@@ -76,6 +77,19 @@ func writeJSON(w io.Writer, value any) error {
 	if err := encoder.Encode(value); err != nil {
 		return err
 	}
+	_, err := io.WriteString(w, escapeJSONControls(buf.String()))
+	return err
+}
+
+// writeAPIJSON prints a body as the API sent it, indented. Re-encoding the
+// generated type would drop every field newer than the CLI's vendored
+// contract.
+func writeAPIJSON(w io.Writer, body []byte) error {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, bytes.TrimSpace(body), "", "  "); err != nil {
+		return fmt.Errorf("the API's response isn't valid JSON: %w", err)
+	}
+	buf.WriteByte('\n')
 	_, err := io.WriteString(w, escapeJSONControls(buf.String()))
 	return err
 }

@@ -283,7 +283,7 @@ functions:
 	requireContains(t, dryRunOutput, "variables: 1 created")
 
 	deployOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy")
-	requireContains(t, deployOutput, "Configuration deployed from volcano-config.yaml")
+	requireContains(t, deployOutput, "Configuration deployed from volcano/volcano-config.yaml")
 	requireContains(t, deployOutput, "variables:")
 
 	variablesAfterConfig := runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "list")
@@ -321,7 +321,7 @@ functions:
 `)
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy", "--dry-run"), "variables: 1 updated")
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "CONFIG_SMOKE"), "Shared: no")
-	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy"), "Configuration deployed from volcano-config.yaml")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy"), "Configuration deployed from volcano/volcano-config.yaml")
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "get", "CONFIG_SMOKE"), "Shared: yes")
 
 	configDeleteOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "delete", "CONFIG_SMOKE", "--yes")

@@ -16,7 +16,7 @@ import (
 
 // FunctionDeployInput contains one packaged function source archive. A nil
 // VariableScope or Variables sends no field at all, which leaves the stored
-// declaration on the server unchanged.
+// declaration on the server unchanged. A nil Commit reports no commit.
 type FunctionDeployInput struct {
 	Name          string
 	Runtime       string
@@ -24,6 +24,7 @@ type FunctionDeployInput struct {
 	SourceArchive []byte
 	VariableScope *string
 	Variables     *[]string
+	Commit        *FunctionCommit
 }
 
 // FunctionSchedulerInput contains one function scheduler create or update request.
@@ -218,6 +219,9 @@ func buildFunctionDeployMultipart(fn FunctionDeployInput) (*bytes.Buffer, string
 			return nil, "", fmt.Errorf("failed to write variables field: %w", err)
 		}
 	}
+	if err := writeFunctionCommitField(writer, fn.Commit); err != nil {
+		return nil, "", err
+	}
 	if err := archive.WriteArchivePart(writer, "code", fn.Name, fn.SourceArchive); err != nil {
 		return nil, "", err
 	}
@@ -237,6 +241,9 @@ func buildFunctionsBatchMultipart(functions []FunctionDeployInput) (*bytes.Buffe
 		FileField     string    `json:"file_field"`
 		VariableScope *string   `json:"variable_scope,omitempty"`
 		Variables     *[]string `json:"variables,omitempty"`
+		// Commit is an object here, not the JSON-encoded string the single
+		// upload takes.
+		Commit *FunctionCommit `json:"commit,omitempty"`
 	}
 	manifest := make([]manifestItem, 0, len(functions))
 	for i, fn := range functions {
@@ -248,6 +255,7 @@ func buildFunctionsBatchMultipart(functions []FunctionDeployInput) (*bytes.Buffe
 			FileField:     fieldName,
 			VariableScope: fn.VariableScope,
 			Variables:     fn.Variables,
+			Commit:        fn.Commit,
 		})
 		if err := archive.WriteArchivePart(writer, fieldName, fn.Name, fn.SourceArchive); err != nil {
 			return nil, "", err

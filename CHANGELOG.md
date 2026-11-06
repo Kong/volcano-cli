@@ -1,5 +1,73 @@
 # Changelog
 
+## [0.72.2](https://github.com/Kong/volcano-cli/compare/v0.72.1...v0.72.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **config:** align manifest priority and explicit frontend clearing ([#445](https://github.com/Kong/volcano-cli/issues/445)) ([a1e58a3](https://github.com/Kong/volcano-cli/commit/a1e58a3f16e9028e79992ba5b0983073a82931a2))
+
+## [0.72.1](https://github.com/Kong/volcano-cli/compare/v0.72.0...v0.72.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **lavaflow:** say a project token can't start a run ([#451](https://github.com/Kong/volcano-cli/issues/451)) ([53bb804](https://github.com/Kong/volcano-cli/commit/53bb804a60df5535695c9ed40db88d6d518e5729))
+
+## [0.72.0](https://github.com/Kong/volcano-cli/compare/v0.71.0...v0.72.0) (2026-11-06)
+
+
+### Features
+
+* **lavaflow:** start a LavaFlow run for an issue ([#439](https://github.com/Kong/volcano-cli/issues/439)) ([8ed7377](https://github.com/Kong/volcano-cli/commit/8ed7377cd09aa45edf800e3710aa7239a3b02b81))
+
+## [0.71.0](https://github.com/Kong/volcano-cli/compare/v0.70.0...v0.71.0) (2026-11-05)
+
+
+### Features
+
+* **lavaflow:** show the commit a run read the code at ([#448](https://github.com/Kong/volcano-cli/issues/448)) ([f42aabc](https://github.com/Kong/volcano-cli/commit/f42aabc97e6383938824cf67b1b419c48927ed36))
+
+## [0.70.0](https://github.com/Kong/volcano-cli/compare/v0.69.0...v0.70.0) (2026-11-05)
+
+
+### Features
+
+* **deploy:** report the source commit for clean function deploys ([#443](https://github.com/Kong/volcano-cli/issues/443)) ([9bdaa2a](https://github.com/Kong/volcano-cli/commit/9bdaa2a07cbf606c6ed518c9a35c87bbf7047d81))
+
+## [0.69.0](https://github.com/Kong/volcano-cli/compare/v0.68.0...v0.69.0) (2026-11-05)
+
+
+### Features
+
+* **lavaflow:** let the owner allow ungated workflows, after a warning ([#403](https://github.com/Kong/volcano-cli/issues/403)) ([c6c0222](https://github.com/Kong/volcano-cli/commit/c6c0222af5b6ad977eb0c3301cce72d3655ea0dd))
+
+## [0.68.0](https://github.com/Kong/volcano-cli/compare/v0.67.0...v0.68.0) (2026-11-05)
+
+
+### Features
+
+* **lavaflow:** show what happened to a run's fix ([#438](https://github.com/Kong/volcano-cli/issues/438)) ([e19cf5f](https://github.com/Kong/volcano-cli/commit/e19cf5f8ac53f4bd30237f2ff918710718af8668))
+
+
+### Bug Fixes
+
+* **lavaflow:** say merging is paused at autonomy merge, and show it in settings ([#436](https://github.com/Kong/volcano-cli/issues/436)) ([788a4cf](https://github.com/Kong/volcano-cli/commit/788a4cf906a5740a26f3271be0cdeac730f580de))
+
+## [0.67.0](https://github.com/Kong/volcano-cli/compare/v0.66.1...v0.67.0) (2026-11-05)
+
+
+### Features
+
+* **config:** accept auth.cors.allow_frontend_previews in project manifests ([#431](https://github.com/Kong/volcano-cli/issues/431)) ([c0b66d1](https://github.com/Kong/volcano-cli/commit/c0b66d13a66de30e3c048ffcd4a0c4187009e304))
+
+## [0.66.1](https://github.com/Kong/volcano-cli/compare/v0.66.0...v0.66.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **lavaflow:** read person_required for an owner who can't push, and vendor the merged settings contract ([#423](https://github.com/Kong/volcano-cli/issues/423)) ([89c6e28](https://github.com/Kong/volcano-cli/commit/89c6e286c17d2ef13cb97bcc6aa7cc0c90e28d4f))
+
 ## [0.66.0](https://github.com/Kong/volcano-cli/compare/v0.65.1...v0.66.0) (2026-11-04)
 
 

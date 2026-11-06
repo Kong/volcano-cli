@@ -1992,6 +1992,51 @@ func (e LavaflowAutonomy) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowCommitOrigin.
+const (
+	LavaflowCommitOriginClientReported           LavaflowCommitOrigin = "client_reported"
+	LavaflowCommitOriginClientReportedRepository LavaflowCommitOrigin = "client_reported_repository"
+	LavaflowCommitOriginPush                     LavaflowCommitOrigin = "push"
+	LavaflowCommitOriginRepository               LavaflowCommitOrigin = "repository"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowCommitOrigin enum.
+func (e LavaflowCommitOrigin) Valid() bool {
+	switch e {
+	case LavaflowCommitOriginClientReported:
+		return true
+	case LavaflowCommitOriginClientReportedRepository:
+		return true
+	case LavaflowCommitOriginPush:
+		return true
+	case LavaflowCommitOriginRepository:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowDraftReason.
+const (
+	LavaflowDraftReasonConvertedToDraft LavaflowDraftReason = "converted_to_draft"
+	LavaflowDraftReasonOpenPr           LavaflowDraftReason = "open_pr"
+	LavaflowDraftReasonReviewUnresolved LavaflowDraftReason = "review_unresolved"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowDraftReason enum.
+func (e LavaflowDraftReason) Valid() bool {
+	switch e {
+	case LavaflowDraftReasonConvertedToDraft:
+		return true
+	case LavaflowDraftReasonOpenPr:
+		return true
+	case LavaflowDraftReasonReviewUnresolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowMergeStatus.
 const (
 	LavaflowMergeStatusHeld             LavaflowMergeStatus = "held"
@@ -2115,6 +2160,51 @@ func (e LavaflowRunStatus) Valid() bool {
 	case LavaflowRunStatusQueued:
 		return true
 	case LavaflowRunStatusReviewing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkipReason.
+const (
+	LavaflowSkipReasonLowConfidence        LavaflowSkipReason = "low_confidence"
+	LavaflowSkipReasonNoPatch              LavaflowSkipReason = "no_patch"
+	LavaflowSkipReasonNotFixable           LavaflowSkipReason = "not_fixable"
+	LavaflowSkipReasonPermissionMissing    LavaflowSkipReason = "permission_missing"
+	LavaflowSkipReasonPossibleCredential   LavaflowSkipReason = "possible_credential"
+	LavaflowSkipReasonPossiblePersonalData LavaflowSkipReason = "possible_personal_data"
+	LavaflowSkipReasonPublishFailed        LavaflowSkipReason = "publish_failed"
+	LavaflowSkipReasonPullRequestOpen      LavaflowSkipReason = "pull_request_open"
+	LavaflowSkipReasonRepositoryChanged    LavaflowSkipReason = "repository_changed"
+	LavaflowSkipReasonSourceUnavailable    LavaflowSkipReason = "source_unavailable"
+	LavaflowSkipReasonUngatedWorkflows     LavaflowSkipReason = "ungated_workflows"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkipReason enum.
+func (e LavaflowSkipReason) Valid() bool {
+	switch e {
+	case LavaflowSkipReasonLowConfidence:
+		return true
+	case LavaflowSkipReasonNoPatch:
+		return true
+	case LavaflowSkipReasonNotFixable:
+		return true
+	case LavaflowSkipReasonPermissionMissing:
+		return true
+	case LavaflowSkipReasonPossibleCredential:
+		return true
+	case LavaflowSkipReasonPossiblePersonalData:
+		return true
+	case LavaflowSkipReasonPublishFailed:
+		return true
+	case LavaflowSkipReasonPullRequestOpen:
+		return true
+	case LavaflowSkipReasonRepositoryChanged:
+		return true
+	case LavaflowSkipReasonSourceUnavailable:
+		return true
+	case LavaflowSkipReasonUngatedWorkflows:
 		return true
 	default:
 		return false
@@ -7224,7 +7314,7 @@ type EmailTemplateTemplateType string
 
 // Error defines model for Error.
 type Error struct {
-	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
+	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token, or that the change needs the owner's own credential that expires, a project repository, and an owner whose GitHub account can push to it; `error` says which. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
 	Code  *string `json:"code,omitempty"`
 	Error string  `json:"error"`
 }
@@ -7391,7 +7481,7 @@ type FrontendCandidateList struct {
 
 // FrontendCustomDomainConflictError defines model for FrontendCustomDomainConflictError.
 type FrontendCustomDomainConflictError struct {
-	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
+	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token, or that the change needs the owner's own credential that expires, a project repository, and an owner whose GitHub account can push to it; `error` says which. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
 	Code  *string `json:"code,omitempty"`
 	Error string  `json:"error"`
 
@@ -8066,6 +8156,19 @@ type ImportSourcesResponse struct {
 	Sources []ImportSource `json:"sources"`
 }
 
+// LavaflowAllowedWorkflow A workflow job that could run a fix's pull request with the repository's secrets before a person approves it.
+type LavaflowAllowedWorkflow struct {
+	// Job The job, absent for a workflow that could not be read.
+	Job  *string `json:"job,omitempty"`
+	Path string  `json:"path"`
+
+	// Source The branch or commit whose workflows run it.
+	Source string `json:"source"`
+
+	// Trigger The event that runs it, absent for a workflow that could not be read.
+	Trigger *string `json:"trigger,omitempty"`
+}
+
 // LavaflowAnomaly defines model for LavaflowAnomaly.
 type LavaflowAnomaly struct {
 	Flagged bool `json:"flagged"`
@@ -8076,6 +8179,9 @@ type LavaflowAnomaly struct {
 
 // LavaflowAutonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
 type LavaflowAutonomy string
+
+// LavaflowCommitOrigin Where the commit a run read came from. `push`: a push to the project's connected repository deployed it. `client_reported`: the deploy client reported it, and Volcano matched the deployed files against it. `client_reported_repository`: the deploy client reported it, and Volcano confirmed only that the connected repository's production branch holds it, without matching the deployed files, which for a function are build output. A fix on such a commit opens only while the production branch still holds it. `repository`: a reported problem's run read the production branch at a commit it pinned, which need not be deployed.
+type LavaflowCommitOrigin string
 
 // LavaflowDayCounts defines model for LavaflowDayCounts.
 type LavaflowDayCounts struct {
@@ -8090,11 +8196,16 @@ type LavaflowDayCounts struct {
 
 // LavaflowDiagnosis defines model for LavaflowDiagnosis.
 type LavaflowDiagnosis struct {
-	Evidence  []string          `json:"evidence"`
+	Evidence []string `json:"evidence"`
+
+	// LogLines Empty for now. `evidence` cites the log lines the diagnosis relies on.
 	LogLines  []LavaflowLogLine `json:"log_lines"`
 	RootCause string            `json:"root_cause"`
 	Summary   string            `json:"summary"`
 }
+
+// LavaflowDraftReason Why a run's pull request is a draft. `open_pr`: LavaFlow doesn't merge the fix, because the project's autonomy is `open_pr`, merging was unavailable when it opened, or it was already a draft when the run took it on; it waits for a person to review it and mark it ready. `review_unresolved`: LavaFlow's review didn't pass the fix, so LavaFlow never merges it; a person decides whether to finish it. `converted_to_draft`: LavaFlow opened it ready for review, and someone made it a draft since.
+type LavaflowDraftReason string
 
 // LavaflowFailure defines model for LavaflowFailure.
 type LavaflowFailure struct {
@@ -8107,7 +8218,7 @@ type LavaflowFailure struct {
 
 // LavaflowHoldReason One reason LavaFlow holds the fix for a person.
 type LavaflowHoldReason struct {
-	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `sensitive_path`: it changes authentication, secret or configuration files, or a dependency manifest or lockfile. `path`: it changes a path in `human_review_paths`. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
+	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files or a YAML file that declares a resource. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent's instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `ungated_workflows`: the fix opened past workflows that can run it with the repository's secrets before a person approves it, as the project's owner allowed, or LavaFlow couldn't check its workflows, so LavaFlow never starts its CI or merges it. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
 	Code string `json:"code"`
 
 	// Paths The changed paths that matched, for a path code.
@@ -8128,7 +8239,10 @@ type LavaflowLogLine struct {
 type LavaflowMerge struct {
 	// HoldReasons Why LavaFlow holds the fix. Empty unless `status` is `held`.
 	HoldReasons []LavaflowHoldReason `json:"hold_reasons"`
-	Reason      *LavaflowMergeReason `json:"reason"`
+
+	// MergedByLavaflow Whether LavaFlow made the merge: `true` when it merged the fix's commit itself or through the merge queue, `false` when someone else merged the pull request while LavaFlow waited. `null` unless `status` is `merged`.
+	MergedByLavaflow *bool                `json:"merged_by_lavaflow"`
+	Reason           *LavaflowMergeReason `json:"reason"`
 
 	// Status `waiting_for_checks`: LavaFlow waits for the checks on the fix's commit. `queued`: the fix is in the repository's merge queue. `merged`: the pull request merged. `held`: something in `hold_reasons` needs a person. LavaFlow commented on the pull request once and never merges, pushes to, rebases or dequeues it again; review it and merge it yourself if you want it. `stopped`: LavaFlow left the pull request open for you, for `reason`.
 	Status LavaflowMergeStatus `json:"status"`
@@ -8136,7 +8250,7 @@ type LavaflowMerge struct {
 
 // LavaflowMergePolicy Your rules for fixes LavaFlow must never merge. They apply with `autonomy: merge`; at another autonomy they are saved and do nothing.
 type LavaflowMergePolicy struct {
-	// HumanReviewPaths Globs of paths whose change LavaFlow never merges: a fix that changes one is held and handed to you. Paths are relative to the repository root, such as `db/migrations/**`. `*` and `?` match within one directory, `**/` spans any number of directories, and a final `**` matches the rest. A pattern that starts with `/`, `./` or `../`, ends with `/`, or holds an empty, `.` or `..` segment answers `400`. Volcano's own held paths, such as deploy configuration and authentication code, are always held too. Defaults to none.
+	// HumanReviewPaths Globs of paths whose change LavaFlow never merges: a fix that changes one is held and handed to you. Paths are relative to the repository root, such as `db/migrations/**`. `*` and `?` match within one directory, `**/` spans any number of directories, and a final `**` matches the rest. A pattern that starts with `/`, `./` or `../`, ends with `/`, holds an empty, `.` or `..` segment, or holds a NUL character answers `400`. Volcano's own held paths, such as deploy configuration and authentication code, are always held too. Defaults to none.
 	HumanReviewPaths []string `json:"human_review_paths"`
 }
 
@@ -8145,7 +8259,7 @@ type LavaflowMergePolicyUpdate struct {
 	HumanReviewPaths *[]string `json:"human_review_paths,omitempty"`
 }
 
-// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `removed_from_queue`: the merge queue dropped it. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused; a waiting fix keeps its status and resumes. `paused_too_long`: merging stayed paused for more than 7 days. New reasons may appear.
+// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `branch_behind`: the base branch requires the fix to be up to date with it, and LavaFlow doesn't update fix branches. `removed_from_queue`: the fix isn't in the merge queue, and LavaFlow can't tell why, for example because its checks failed there or someone removed it. `reads_failed`: LavaFlow failed to read the pull request for about an hour while the fix may have been queued, so it took the fix out of the merge queue, when it could still reach it, and stopped. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `request_rejected`: GitHub refused LavaFlow's request to start the checks on the fix. `ci_start_commit_mismatch`: GitHub reports a different commit from the one LavaFlow made to start the checks. `queue_carries_ci_skip`: the repository's merge queue could carry the fix commit's instruction to skip checks into the base branch. `merge_carries_ci_skip`: the repository allows no squash merge, so merging would carry that instruction into the base branch. Each of these four hands the fix to you for good. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused, and the merge waits. LavaFlow takes a queued fix out of the merge queue, so it shows `waiting_for_checks`, and queues it again when merging resumes. `paused_too_long`: merging stayed paused for more than 7 days. `cancelled`: the project is being deleted, so LavaFlow stopped waiting on the merge. New reasons may appear.
 type LavaflowMergeReason = string
 
 // LavaflowMergeStatus `waiting_for_checks`: LavaFlow waits for the checks on the fix's commit. `queued`: the fix is in the repository's merge queue. `merged`: the pull request merged. `held`: something in `hold_reasons` needs a person. LavaFlow commented on the pull request once and never merges, pushes to, rebases or dequeues it again; review it and merge it yourself if you want it. `stopped`: LavaFlow left the pull request open for you, for `reason`.
@@ -8153,7 +8267,12 @@ type LavaflowMergeStatus string
 
 // LavaflowPullRequest defines model for LavaflowPullRequest.
 type LavaflowPullRequest struct {
-	Number int64 `json:"number"`
+	// Draft Whether the pull request is a draft, as GitHub last reported it to LavaFlow. Null for one opened before LavaFlow recorded it.
+	Draft *bool `json:"draft"`
+
+	// DraftReason Why the pull request is a draft, null unless `draft` is true.
+	DraftReason *LavaflowDraftReason `json:"draft_reason"`
+	Number      int64                `json:"number"`
 
 	// OpenedAt When the run opened the pull request, null for one opened before LavaFlow recorded the time.
 	OpenedAt *time.Time               `json:"opened_at"`
@@ -8229,15 +8348,33 @@ type LavaflowRun struct {
 	ProjectId   openapi_types.UUID   `json:"project_id"`
 	PullRequest *LavaflowPullRequest `json:"pull_request"`
 
+	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
+	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
+
 	// Resource The function, durable function or frontend an issue came from.
 	Resource LavaflowResourceReference `json:"resource"`
 	Review   *LavaflowReview           `json:"review"`
+
+	// SourceCommit The commit the run read the code at. Null when it read none, as for a run that diagnosed from the logs alone.
+	SourceCommit *LavaflowSourceCommit `json:"source_commit"`
 
 	// Status Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 	Status LavaflowRunStatus `json:"status"`
 
 	// Title The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
 	Title *string `json:"title"`
+
+	// UngatedWorkflows The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none or when the run opened no pull request. Null when there is no record of the workflows its pull request opened past, as for pull requests opened before LavaFlow recorded them. Under the merge stage, LavaFlow holds such a fix as unchecked, with `ungated_workflows`.
+	UngatedWorkflows *[]LavaflowAllowedWorkflow `json:"ungated_workflows"`
+}
+
+// LavaflowRunCreate The project, and the issue to start a run on.
+type LavaflowRunCreate struct {
+	// IssueId The issue to start a run on.
+	IssueId openapi_types.UUID `json:"issue_id"`
+
+	// ProjectId The project the issue belongs to.
+	ProjectId openapi_types.UUID `json:"project_id"`
 }
 
 // LavaflowRunStatus Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
@@ -8255,6 +8392,9 @@ type LavaflowRunSummary struct {
 	ProjectId   openapi_types.UUID   `json:"project_id"`
 	PullRequest *LavaflowPullRequest `json:"pull_request"`
 
+	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
+	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
+
 	// Resource The function, durable function or frontend an issue came from.
 	Resource LavaflowResourceReference `json:"resource"`
 
@@ -8267,6 +8407,9 @@ type LavaflowRunSummary struct {
 
 // LavaflowSettings A project's LavaFlow settings. LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
 type LavaflowSettings struct {
+	// AllowUngatedWorkflows Whether LavaFlow opens a fix's pull request even where a workflow could run it, or put its text into a command, with the repository's secrets before a person approves it. Off by default; while off, such a fix stays on its run and no pull request opens. Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. It applies to the repository their GitHub account can push to. Connecting the project to another repository, or disconnecting it, turns it off, and connecting the first one again doesn't turn it back on. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer.
+	AllowUngatedWorkflows bool `json:"allow_ungated_workflows"`
+
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
 	Autonomy LavaflowAutonomy `json:"autonomy"`
 
@@ -8297,6 +8440,9 @@ type LavaflowSettings struct {
 
 // LavaflowSettingsUpdate The project, and at least one field to change. An omitted field keeps its saved value.
 type LavaflowSettingsUpdate struct {
+	// AllowUngatedWorkflows Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner's credentials turns it off. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`.
+	AllowUngatedWorkflows *bool `json:"allow_ungated_workflows,omitempty"`
+
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
 	Autonomy      *LavaflowAutonomy `json:"autonomy,omitempty"`
 	CustomContext *string           `json:"custom_context,omitempty"`
@@ -8308,6 +8454,18 @@ type LavaflowSettingsUpdate struct {
 	// ProjectId The project whose settings to change.
 	ProjectId    openapi_types.UUID `json:"project_id"`
 	SystemPrompt *string            `json:"system_prompt,omitempty"`
+}
+
+// LavaflowSkipReason Why a run that may open a pull request opened none, with what you can do next. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit; check the project's repository connection and that the commit exists. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. New reasons may appear.
+type LavaflowSkipReason string
+
+// LavaflowSourceCommit The commit a run read its source at.
+type LavaflowSourceCommit struct {
+	// Origin Where the commit came from. Null for a run recorded before Volcano kept it.
+	Origin *LavaflowCommitOrigin `json:"origin"`
+
+	// Sha The commit's full SHA.
+	Sha string `json:"sha"`
 }
 
 // LavaflowStats defines model for LavaflowStats.
@@ -13857,6 +14015,9 @@ type PreflightProjectImportJSONRequestBody = ProjectImportPreflightRequest
 // StartProjectImportJSONRequestBody defines body for StartProjectImport for application/json ContentType.
 type StartProjectImportJSONRequestBody = ProjectImportStartRequest
 
+// CreateLavaflowRunJSONRequestBody defines body for CreateLavaflowRun for application/json ContentType.
+type CreateLavaflowRunJSONRequestBody = LavaflowRunCreate
+
 // UpdateLavaflowSettingsJSONRequestBody defines body for UpdateLavaflowSettings for application/json ContentType.
 type UpdateLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
 
@@ -15759,6 +15920,11 @@ type ClientInterface interface {
 
 	// ListLavaflowRuns request
 	ListLavaflowRuns(ctx context.Context, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLavaflowRunWithBody request with any body
+	CreateLavaflowRunWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateLavaflowRun(ctx context.Context, body CreateLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLavaflowRun request
 	GetLavaflowRun(ctx context.Context, runId LavaflowRunId, params *GetLavaflowRunParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -18077,6 +18243,30 @@ func (c *Client) ListLavaflowResources(ctx context.Context, params *ListLavaflow
 
 func (c *Client) ListLavaflowRuns(ctx context.Context, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListLavaflowRunsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLavaflowRunWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLavaflowRunRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLavaflowRun(ctx context.Context, body CreateLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLavaflowRunRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -25906,6 +26096,46 @@ func NewListLavaflowRunsRequest(server string, params *ListLavaflowRunsParams) (
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateLavaflowRunRequest calls the generic CreateLavaflowRun builder with application/json body
+func NewCreateLavaflowRunRequest(server string, body CreateLavaflowRunJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateLavaflowRunRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateLavaflowRunRequestWithBody generates requests for CreateLavaflowRun with any type of body
+func NewCreateLavaflowRunRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/runs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -40557,6 +40787,11 @@ type ClientWithResponsesInterface interface {
 	// ListLavaflowRunsWithResponse request
 	ListLavaflowRunsWithResponse(ctx context.Context, params *ListLavaflowRunsParams, reqEditors ...RequestEditorFn) (*ListLavaflowRunsClientResponse, error)
 
+	// CreateLavaflowRunWithBodyWithResponse request with any body
+	CreateLavaflowRunWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowRunClientResponse, error)
+
+	CreateLavaflowRunWithResponse(ctx context.Context, body CreateLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLavaflowRunClientResponse, error)
+
 	// GetLavaflowRunWithResponse request
 	GetLavaflowRunWithResponse(ctx context.Context, runId LavaflowRunId, params *GetLavaflowRunParams, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error)
 
@@ -44095,6 +44330,43 @@ func (r ListLavaflowRunsClientResponse) ContentType() string {
 	return ""
 }
 
+type CreateLavaflowRunClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *LavaflowRun
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLavaflowRunClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLavaflowRunClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateLavaflowRunClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetLavaflowRunClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -44171,6 +44443,7 @@ type UpdateLavaflowSettingsClientResponse struct {
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON413      *Error
 	JSON429      *Error
 	JSON503      *Error
@@ -53802,6 +54075,23 @@ func (c *ClientWithResponses) ListLavaflowRunsWithResponse(ctx context.Context, 
 	return ParseListLavaflowRunsClientResponse(rsp)
 }
 
+// CreateLavaflowRunWithBodyWithResponse request with arbitrary body returning *CreateLavaflowRunClientResponse
+func (c *ClientWithResponses) CreateLavaflowRunWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowRunClientResponse, error) {
+	rsp, err := c.CreateLavaflowRunWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLavaflowRunClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateLavaflowRunWithResponse(ctx context.Context, body CreateLavaflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLavaflowRunClientResponse, error) {
+	rsp, err := c.CreateLavaflowRun(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLavaflowRunClientResponse(rsp)
+}
+
 // GetLavaflowRunWithResponse request returning *GetLavaflowRunClientResponse
 func (c *ClientWithResponses) GetLavaflowRunWithResponse(ctx context.Context, runId LavaflowRunId, params *GetLavaflowRunParams, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error) {
 	rsp, err := c.GetLavaflowRun(ctx, runId, params, reqEditors...)
@@ -60516,6 +60806,81 @@ func ParseListLavaflowRunsClientResponse(rsp *http.Response) (*ListLavaflowRunsC
 	return response, nil
 }
 
+// ParseCreateLavaflowRunClientResponse parses an HTTP response from a CreateLavaflowRunWithResponse call
+func ParseCreateLavaflowRunClientResponse(rsp *http.Response) (*CreateLavaflowRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLavaflowRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest LavaflowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetLavaflowRunClientResponse parses an HTTP response from a GetLavaflowRunWithResponse call
 func ParseGetLavaflowRunClientResponse(rsp *http.Response) (*GetLavaflowRunClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -60672,6 +61037,13 @@ func ParseUpdateLavaflowSettingsClientResponse(rsp *http.Response) (*UpdateLavaf
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
 		var dest Error

@@ -36,7 +36,7 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
 	if details.MergeAvailable != nil {
-		kv(w, on, "Merging", "%s", lavaflowMergeAvailability(*details.MergeAvailable))
+		kv(w, on, "Merging", "%s", lavaflowMergeAvailability(*details.MergeAvailable, settings, details.Available))
 	}
 	switch details.RepositoryState {
 	case "connected":
@@ -44,6 +44,7 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	case "not_connected":
 		kv(w, on, "Repository", "none connected")
 	}
+	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
@@ -62,20 +63,33 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 		}
 		return
 	}
+	// LavaFlow on starts no run for a repository other than the one it was
+	// turned on for, so connecting one takes turning it on again.
 	opensFixes := settings.Autonomy == apiclient.OpenPr || settings.Autonomy == apiclient.Merge
-	if details.RepositoryState == "not_connected" && opensFixes {
-		Warning(w, "Connect a repository so LavaFlow can open fix pull requests: %s",
+	switch {
+	case details.RepositoryState != "not_connected" || !opensFixes:
+	case settings.CanUpdate:
+		Warning(w, "Connect a repository, then turn LavaFlow on again so it can open fix pull requests: %s, then %s",
+			theme.Command(details.GitConnectCommand, on), theme.Command(details.EnableCommand, on))
+	default:
+		Warning(w, "Connect a repository, then have the project's owner turn LavaFlow on again so it can open fix pull requests: %s",
 			theme.Command(details.GitConnectCommand, on))
 	}
 }
 
 // LavaflowSettings renders every setting, with the custom context and system
-// prompt in full.
-func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings) {
+// prompt in full. available and mergeAvailable are whether LavaFlow takes
+// changes and can merge its fixes for the project; a nil mergeAvailable
+// leaves the Merging line out.
+func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings, available, mergeAvailable *bool) {
 	on := theme.On(w)
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
+	if mergeAvailable != nil {
+		kv(w, on, "Merging", "%s", lavaflowMergeAvailability(*mergeAvailable, settings, available))
+	}
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
+	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	block(w, on, "Custom context", settings.CustomContext)
 	block(w, on, "System prompt", settings.SystemPrompt)
@@ -88,6 +102,7 @@ func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.Lava
 	kv(w, on, "LavaFlow", "%s", onOff(settings.Enabled))
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
+	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 }
@@ -160,8 +175,19 @@ func LavaflowRuns(w io.Writer, page LavaflowRunsPage) {
 	}
 }
 
-// LavaflowRun renders one run: what it worked on, its diagnosis, review,
-// pull request, any failure in the API's own words, and the diff.
+// LavaflowRunStarted renders a run a person started: its ID and status, and
+// the command that follows it.
+func LavaflowRunStarted(w io.Writer, runID string, status apiclient.LavaflowRunStatus, showCommand string) {
+	Success(w, "LavaFlow run started")
+	on := theme.On(w)
+	kv(w, on, "Run", "%s", clean(runID))
+	kv(w, on, "Status", "%s", lavaflowRunStatus(status))
+	fmt.Fprintf(w, "Follow it with %s\n", theme.Command(showCommand, on))
+}
+
+// LavaflowRun renders one run: what it worked on, the commit it read, its
+// review, what happened to its fix, any failure in the API's own words, its
+// diagnosis and the diff.
 func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	on := theme.On(w)
 	kv(w, on, "Run", "%s", run.Id)
@@ -171,22 +197,26 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 		kv(w, on, "Title", "%s", clean(*run.Title))
 	}
 	kv(w, on, "Issue", "%s", run.IssueId)
+	if source := lavaflowSourceCommit(run.SourceCommit); source != "" {
+		kv(w, on, "Source", "%s", source)
+	}
 	kv(w, on, "Started", "%s", formatLavaflowTime(run.CreatedAt))
 	if run.FinishedAt != nil {
 		kv(w, on, "Finished", "%s", formatLavaflowTime(*run.FinishedAt))
 	}
-	if run.PullRequest != nil {
-		kv(w, on, "Pull request", "#%d (%s) %s", run.PullRequest.Number, clean(string(run.PullRequest.State)), clean(run.PullRequest.Url))
-		if run.PullRequest.OpenedAt != nil {
-			kv(w, on, "Pull request opened", "%s", formatLavaflowTime(*run.PullRequest.OpenedAt))
-		}
-	}
 	if run.Review != nil {
 		kv(w, on, "Review", "%s after %d round(s)", clean(strings.ReplaceAll(string(run.Review.Verdict), "_", " ")), run.Review.Rounds)
 	}
-	if run.Merge != nil {
-		lavaflowMergeLines(w, on, run.Merge, run.PullRequest)
+	// The API lists only the first ungated job on each branch or commit it
+	// checked, so a count would understate the jobs that could run the change.
+	// Null, no record of them, prints nothing, as none does.
+	if workflows := run.UngatedWorkflows; workflows != nil && len(*workflows) > 0 {
+		kv(w, on, "Ungated workflows", "the pull request opened past these, the first one on each branch or commit checked")
+		for _, workflow := range *workflows {
+			fmt.Fprintf(w, "  - %s\n", lavaflowAllowedWorkflow(workflow))
+		}
 	}
+	lavaflowFix(w, on, run)
 	if run.Failure != nil && run.Failure.Message != "" {
 		// The API words each failure code itself, so it is printed as given.
 		Warning(w, "%s", clean(run.Failure.Message))
@@ -224,6 +254,42 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	}
 }
 
+// lavaflowSourceCommit is the commit a run read the code at, short, with
+// where it came from, or "" when the run read none.
+func lavaflowSourceCommit(commit *apiclient.LavaflowSourceCommit) string {
+	if commit == nil || commit.Sha == "" {
+		return ""
+	}
+	sha := commit.Sha
+	if len(sha) > 7 {
+		sha = sha[:7]
+	}
+	text := "commit " + clean(sha)
+	if commit.Origin == nil {
+		return text
+	}
+	if origin := lavaflowCommitOrigin(*commit.Origin); origin != "" {
+		text += " (" + origin + ")"
+	}
+	return text
+}
+
+// lavaflowCommitOrigin says where a run's commit came from, in the words the
+// dashboard uses too, or "" for an origin the CLI doesn't know.
+func lavaflowCommitOrigin(origin apiclient.LavaflowCommitOrigin) string {
+	switch origin {
+	case apiclient.LavaflowCommitOriginPush:
+		return "deployed from a push"
+	case apiclient.LavaflowCommitOriginClientReported:
+		return "reported by the deploy; deployed files match"
+	case apiclient.LavaflowCommitOriginClientReportedRepository:
+		return "reported by the deploy; found on the production branch"
+	case apiclient.LavaflowCommitOriginRepository:
+		return "production branch; may not be deployed"
+	}
+	return ""
+}
+
 func block(w io.Writer, on bool, title, text string) {
 	fmt.Fprintf(w, "\n%s\n", theme.Title(title, on))
 	if strings.TrimSpace(text) == "" {
@@ -257,6 +323,35 @@ func clean(text string) string {
 	return b.String()
 }
 
+// lavaflowUngatedWorkflows says whether LavaFlow opens fixes past ungated
+// workflows. Allowing them applies only to the repository connected when a
+// person allowed them: connecting another repository, or disconnecting it,
+// turns them off.
+func lavaflowUngatedWorkflows(allowed bool) string {
+	if allowed {
+		return "allowed for the connected repository"
+	}
+	return "not allowed"
+}
+
+// lavaflowAllowedWorkflow names an ungated workflow job a pull request opened
+// past: its file, the branch or commit whose workflows run it, and the job
+// and the event that runs it, which are absent for a file that couldn't be
+// read.
+func lavaflowAllowedWorkflow(workflow apiclient.LavaflowAllowedWorkflow) string {
+	line := clean(workflow.Path) + " on " + clean(workflow.Source)
+	switch {
+	case workflow.Job != nil && workflow.Trigger != nil:
+		return line + ": job " + clean(*workflow.Job) + ", runs on " + clean(*workflow.Trigger)
+	case workflow.Job != nil:
+		return line + ": job " + clean(*workflow.Job)
+	case workflow.Trigger != nil:
+		return line + ": runs on " + clean(*workflow.Trigger)
+	default:
+		return line + ": couldn't be read"
+	}
+}
+
 func setOrNot(text string) string {
 	if strings.TrimSpace(text) == "" {
 		return "not set"
@@ -264,13 +359,20 @@ func setOrNot(text string) string {
 	return fmt.Sprintf("set (%d characters)", len([]rune(text)))
 }
 
-// lavaflowMergeAvailability says whether autonomy merge can be chosen. The
-// API gives no reason when it can't.
-func lavaflowMergeAvailability(available bool) string {
-	if available {
+// lavaflowMergeAvailability says whether LavaFlow can merge its fixes. The
+// API gives no reason when it can't. While LavaFlow is on and available at
+// autonomy merge, merging was on and is paused: a waiting fix merges once
+// merging is back, and a new one opens for review. LavaFlow off or
+// unavailable opens no new fix, so merging is just not available.
+func lavaflowMergeAvailability(mergeAvailable bool, settings *apiclient.LavaflowSettings, available *bool) string {
+	switch {
+	case mergeAvailable:
 		return "available"
+	case settings.Enabled && settings.Autonomy == apiclient.Merge && available != nil && *available:
+		return "paused; waiting fixes resume when it's back, new fixes open as pull requests for review"
+	default:
+		return "not available for this project"
 	}
-	return "not available for this project yet"
 }
 
 func lavaflowAutonomy(autonomy apiclient.LavaflowAutonomy) string {
@@ -299,16 +401,148 @@ func lavaflowHumanReviewPaths(w io.Writer, on bool, policy apiclient.LavaflowMer
 	kv(w, on, "Human review paths", "%s", paths)
 }
 
-// lavaflowMergeLines says where a run's merge is, and why LavaFlow held or
-// stopped it. Both are final: the pull request is then the person's, which
-// is said only while it is still open. A status the CLI doesn't know prints
-// as the API gives it.
+// lavaflowFix prints the Fix block, always: the run's pull request, its
+// state and where its merge is, or why the run has no pull request.
+func lavaflowFix(w io.Writer, on bool, run *apiclient.LavaflowRun) {
+	fmt.Fprintln(w, theme.Dim("Fix:", on))
+	pr := run.PullRequest
+	if pr == nil {
+		fmt.Fprintf(w, "  %s\n", lavaflowNoFix(run))
+		return
+	}
+	fixKV(w, on, "Pull request", "#%d %s", pr.Number, clean(pr.Url))
+	fixKV(w, on, "State", "%s", lavaflowPullRequestState(pr))
+	if pr.OpenedAt != nil {
+		fixKV(w, on, "Opened", "%s", formatLavaflowTime(*pr.OpenedAt))
+	}
+	if run.Merge != nil {
+		lavaflowMergeLines(w, on, run.Merge, pr)
+	}
+	// The API doesn't say yet whether a merged fix deployed. Print it here
+	// once the pull request carries deployed_at.
+}
+
+// fixKV writes a "Label: value" line inside the Fix block.
+func fixKV(w io.Writer, on bool, label, format string, args ...any) {
+	fmt.Fprintf(w, "  %s %s\n", theme.Dim(label+":", on), fmt.Sprintf(format, args...))
+}
+
+// lavaflowPullRequestState is open, merged or closed, and draft for an open
+// pull request GitHub last reported as a draft, with why when the API says.
+func lavaflowPullRequestState(pr *apiclient.LavaflowPullRequest) string {
+	if pr.State != apiclient.LavaflowPullRequestStateOpen || pr.Draft == nil || !*pr.Draft {
+		return clean(string(pr.State))
+	}
+	if pr.DraftReason == nil {
+		return "draft"
+	}
+	return "draft (" + lavaflowDraftReason(*pr.DraftReason) + ")"
+}
+
+func lavaflowDraftReason(reason apiclient.LavaflowDraftReason) string {
+	switch reason {
+	case apiclient.LavaflowDraftReasonOpenPr:
+		return "LavaFlow doesn't merge it; review it and mark it ready"
+	case apiclient.LavaflowDraftReasonReviewUnresolved:
+		return "LavaFlow's review didn't pass the fix, so LavaFlow won't merge it; decide whether to finish it"
+	case apiclient.LavaflowDraftReasonConvertedToDraft:
+		return "someone made it a draft after LavaFlow opened it"
+	default:
+		return clean(strings.ReplaceAll(string(reason), "_", " "))
+	}
+}
+
+// lavaflowSkipDiagnoseOnly is the code the API is to send for a run that
+// wasn't set to open a pull request, named after the autonomy setting.
+const lavaflowSkipDiagnoseOnly = "diagnose_only"
+
+// lavaflowNoFix says why a run has no pull request, and what to do next. The
+// API's reason wins; without one, the run's status says it. A completed run
+// without a reason may have stopped short for any reason, so it claims none.
+func lavaflowNoFix(run *apiclient.LavaflowRun) string {
+	readDiagnosis := ""
+	fromDiagnosis := ""
+	if lavaflowDiagnosisShown(run.Diagnosis) {
+		readDiagnosis = " Read the diagnosis below."
+		fromDiagnosis = " from the diagnosis below"
+	}
+	none := "No fix pull request was opened"
+	if run.PullRequestSkipped != nil {
+		switch reason := *run.PullRequestSkipped; reason {
+		case apiclient.LavaflowSkipReasonNotFixable:
+			return none + ": the diagnosis found no change in the code that fixes the error, for example because the cause is outside it." + readDiagnosis
+		case apiclient.LavaflowSkipReasonLowConfidence:
+			return none + ": the diagnosis isn't confident enough to propose a fix." + readDiagnosis
+		case apiclient.LavaflowSkipReasonNoPatch:
+			return none + ": LavaFlow proposed no change." + readDiagnosis
+		case apiclient.LavaflowSkipReasonPossibleCredential:
+			return none + ": the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing. Apply the fix yourself" + fromDiagnosis + "."
+		case apiclient.LavaflowSkipReasonPossiblePersonalData:
+			return none + ": the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing. Apply the fix yourself."
+		case apiclient.LavaflowSkipReasonUngatedWorkflows:
+			return none + ": a workflow could run the fix with the repository's secrets before a person approves it. Gate that workflow on a label a person adds, or have the project's owner allow ungated workflows."
+		case apiclient.LavaflowSkipReasonPullRequestOpen:
+			return none + ": another LavaFlow pull request for this issue is open. Review or close it first."
+		case apiclient.LavaflowSkipReasonSourceUnavailable:
+			return none + ": LavaFlow couldn't read the repository at the deployed commit. Check the project's repository connection and that the commit exists."
+		case apiclient.LavaflowSkipReasonPermissionMissing:
+			return none + ": the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs. Grant the App's requested permissions, and make sure the owner can push to the repository."
+		case apiclient.LavaflowSkipReasonRepositoryChanged:
+			return none + ": the project no longer deploys from the repository the run read. A new run uses the current one."
+		case apiclient.LavaflowSkipReasonPublishFailed:
+			return none + ": opening the pull request failed. A new run tries again."
+		case lavaflowSkipDiagnoseOnly:
+			return "Diagnosis only: this run wasn't set to open a fix."
+		default:
+			return none + ", for a reason this version of the CLI doesn't know: " + clean(string(reason)) + "."
+		}
+	}
+	switch run.Status {
+	case apiclient.LavaflowRunStatusQueued, apiclient.LavaflowRunStatusDiagnosing,
+		apiclient.LavaflowRunStatusFixing, apiclient.LavaflowRunStatusReviewing:
+		return "No fix yet: LavaFlow is still working on this run."
+	case apiclient.LavaflowRunStatusCompleted:
+		return none + ". LavaFlow didn't record why." + readDiagnosis
+	case apiclient.LavaflowRunStatusFailed:
+		return none + ": the run failed."
+	case apiclient.LavaflowRunStatusCancelled:
+		return none + ": the run was cancelled."
+	default:
+		return none + "."
+	}
+}
+
+// lavaflowDiagnosisShown is whether show prints a diagnosis for a run to
+// point to.
+func lavaflowDiagnosisShown(diagnosis *apiclient.LavaflowDiagnosis) bool {
+	return diagnosis != nil && (diagnosis.Summary != "" || diagnosis.RootCause != "" || len(diagnosis.Evidence) > 0)
+}
+
+// lavaflowMergeLines says where a run's merge is, who merged a merged fix,
+// and why LavaFlow held or stopped it. Both are final: the pull request is
+// then the person's, which is said only while it is still open. A status the
+// CLI doesn't know prints as the API gives it.
 func lavaflowMergeLines(w io.Writer, on bool, merge *apiclient.LavaflowMerge, pr *apiclient.LavaflowPullRequest) {
 	status := lavaflowMergeStatus(merge.Status)
-	if merge.Reason != nil && *merge.Reason != "" {
+	// An API older than merged_by_lavaflow leaves it out, so a merged fix
+	// then says only that it merged.
+	if merge.Status == apiclient.LavaflowMergeStatusMerged && merge.MergedByLavaflow != nil {
+		if *merge.MergedByLavaflow {
+			status = "merged by LavaFlow"
+		} else {
+			status = "merged by someone else"
+		}
+	}
+	switch {
+	case merge.Reason == nil || *merge.Reason == "":
+	case *merge.Reason == "paused":
+		// A paused merge keeps the status it had, which no longer says what
+		// it waits for: its checks may have finished since.
+		status = lavaflowMergeReason(*merge.Reason)
+	default:
 		status += " (" + lavaflowMergeReason(*merge.Reason) + ")"
 	}
-	kv(w, on, "Merge", "%s", status)
+	fixKV(w, on, "Merge", "%s", status)
 	for _, reason := range merge.HoldReasons {
 		line := clean(reason.Question)
 		if strings.TrimSpace(line) == "" {
@@ -317,10 +551,10 @@ func lavaflowMergeLines(w io.Writer, on bool, merge *apiclient.LavaflowMerge, pr
 		if len(reason.Paths) > 0 {
 			line += " (" + cleanList(reason.Paths) + ")"
 		}
-		fmt.Fprintf(w, "  - %s\n", line)
+		fmt.Fprintf(w, "    - %s\n", line)
 	}
 	if lavaflowMergeLeftToYou(merge.Status, pr) {
-		fmt.Fprintln(w, "The pull request is now yours to review and merge on GitHub.")
+		fmt.Fprintln(w, "  The pull request is now yours to review and merge on GitHub.")
 	}
 }
 

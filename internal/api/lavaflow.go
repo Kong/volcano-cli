@@ -44,7 +44,7 @@ func (c *Client) UpdateLavaflowSettings(
 		return nil, err
 	}
 	settings, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403,
-		resp.JSON404, resp.JSON413, resp.JSON429, resp.JSON503)
+		resp.JSON404, resp.JSON409, resp.JSON413, resp.JSON429, resp.JSON503)
 	if err != nil && resp.HTTPResponse != nil {
 		// A 429 or 503 for autonomy merge says when Volcano can check the
 		// owner's push access again.
@@ -74,26 +74,55 @@ func (c *Client) ListLavaflowResources(ctx context.Context, projectID uuid.UUID,
 }
 
 // ListLavaflowRuns returns one page of a project's LavaFlow runs, newest
-// first. A cursor continues only the same project's list for the same caller.
+// first, and the body the API sent it in. A cursor continues only the same
+// project's list for the same caller.
 func (c *Client) ListLavaflowRuns(
 	ctx context.Context, projectID uuid.UUID, params apiclient.ListLavaflowRunsParams,
-) (*apiclient.PaginatedLavaflowRuns, error) {
+) (*apiclient.PaginatedLavaflowRuns, []byte, error) {
 	params.ProjectId = projectID
 	resp, err := c.client.ListLavaflowRunsWithResponse(ctx, &params)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404)
+	page, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404)
+	if err != nil {
+		return nil, nil, err
+	}
+	return page, resp.Body, nil
 }
 
 // GetLavaflowRun returns one LavaFlow run with its diagnosis, diff and
-// review. It takes the access the project's log routes take. The run's own
-// project authorizes the read; naming projectID too answers a run of another
-// project as unknown.
-func (c *Client) GetLavaflowRun(ctx context.Context, projectID, runID uuid.UUID) (*apiclient.LavaflowRun, error) {
+// review, and the body the API sent it in. It takes the access the project's
+// log routes take. The run's own project authorizes the read; naming
+// projectID too answers a run of another project as unknown.
+func (c *Client) GetLavaflowRun(ctx context.Context, projectID, runID uuid.UUID) (*apiclient.LavaflowRun, []byte, error) {
 	resp, err := c.client.GetLavaflowRunWithResponse(ctx, runID, &apiclient.GetLavaflowRunParams{ProjectId: &projectID})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404)
+	run, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404)
+	if err != nil {
+		return nil, nil, err
+	}
+	return run, resp.Body, nil
+}
+
+// CreateLavaflowRun starts a LavaFlow run on one of a project's issues, and
+// returns it queued with the body the API sent it in. Only the project's
+// owner may, with a platform token: a project access token gets 403
+// person_required. A run limit's 429 keeps its Retry-After.
+func (c *Client) CreateLavaflowRun(ctx context.Context, projectID, issueID uuid.UUID) (*apiclient.LavaflowRun, []byte, error) {
+	resp, err := c.client.CreateLavaflowRunWithResponse(ctx, apiclient.LavaflowRunCreate{ProjectId: projectID, IssueId: issueID})
+	if err != nil {
+		return nil, nil, err
+	}
+	run, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON202, resp.JSON400, resp.JSON401, resp.JSON403,
+		resp.JSON404, resp.JSON409, resp.JSON413, resp.JSON429)
+	if err != nil {
+		if resp.HTTPResponse != nil {
+			err = withRetryAfter(err, resp.HTTPResponse.Header)
+		}
+		return nil, nil, err
+	}
+	return run, resp.Body, nil
 }
