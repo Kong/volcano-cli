@@ -30,8 +30,9 @@ server runs that Telegram bot. Its default polling mode deletes the bot's
 webhook, so the token of a bot that a deployed server uses takes that bot over:
 the deployed server stops receiving its messages. Use a separate bot for local
 work, or unset the token before you run volcano start. The AGENT_CHAT_WHATSAPP_*
-settings add WhatsApp, which only delivers messages to a public webhook URL, so
-a local server receives them only from a fake WhatsApp API or a tunnel.`,
+settings add WhatsApp on Meta's Cloud API, and the AGENT_CHAT_TWILIO_* settings
+add it on Twilio instead. Both only deliver messages to a public webhook URL, so
+a local server receives them only from a fake API or a tunnel.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return localmodecore.NewService(deps, localmodecore.WithImage(image)).Start(cmd.Context(), cmd.OutOrStdout())
