@@ -361,6 +361,7 @@ func startedRun(issueID string) map[string]any {
 		"id": startedRunID, "project_id": lavaflowProjectID, "status": "queued", "issue_id": issueID,
 		"resource": checkoutResource(), "title": nil, "pull_request": nil, "merge": nil, "pull_request_skipped": nil,
 		"diagnosis": nil, "diff": nil, "review": nil, "created_at": "2026-11-05T10:00:00Z", "finished_at": nil,
+		"source_commit": nil, "failure": nil, "ungated_workflows": nil,
 	}
 }
 
