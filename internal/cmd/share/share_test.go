@@ -288,6 +288,38 @@ func TestShareRefusesAProjectOverrideThatIsNotTheLinkedProject(t *testing.T) {
 	assert.Empty(t, fake.calls)
 }
 
+// VOLCANO_PROJECT_ID spelling the linked project's ID in capitals is the same
+// project, so the directory is deployed and shared.
+func TestShareAcceptsAnOverrideSpellingTheLinkedProject(t *testing.T) {
+	setTestHome(t)
+	t.Setenv("VOLCANO_PROJECT_ID", strings.ToUpper(projectID))
+	fake, server := newFakeAPI(t)
+	record := &steps{}
+	opts, _ := testOptions(t, server, "", linkedDir(), false, record)
+	opts.yes = true
+
+	require.NoError(t, run(t.Context(), opts))
+	assert.Equal(t, 1, record.deployed)
+	assert.Equal(t, 1, fake.publishes)
+}
+
+// A link that can't be used is never replaced by a new project: the command
+// stops with connect's advice and changes nothing.
+func TestShareRefusesADirectoryWithAnUnusableLink(t *testing.T) {
+	setTestHome(t)
+	fake, server := newFakeAPI(t)
+	record := &steps{}
+	bad := &cliconfig.LinkError{Dir: "/work/shop", Err: errors.New("the project link is not valid JSON")}
+	opts, _ := testOptions(t, server, "", directory{path: "/work/shop", badLink: bad}, false, record)
+	opts.yes = true
+
+	err := run(t.Context(), opts)
+	require.ErrorContains(t, err, "nothing was deployed or shared: the project link is not valid JSON")
+	assert.Contains(t, err.Error(), "--project <project-id>")
+	assert.Zero(t, record.connected+record.deployed)
+	assert.Empty(t, fake.calls)
+}
+
 // A project whose Git repository is its source refuses direct deploys, so share
 // says so and shares what the project runs.
 func TestShareNeverDeploysAProjectThatDeploysFromGit(t *testing.T) {

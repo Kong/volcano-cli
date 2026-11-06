@@ -210,7 +210,8 @@ func ParseVarFlags(flags []string) (map[string]string, error) {
 		name, value, ok := strings.Cut(flag, "=")
 		name = strings.TrimSpace(name)
 		if !ok || name == "" {
-			return nil, fmt.Errorf("invalid --var %q: use --var NAME=value", flag)
+			// The flag may hold a secret, so the error never repeats it.
+			return nil, errors.New("invalid --var: each one must be NAME=value, with the variable's name before '='")
 		}
 		if _, seen := values[name]; seen {
 			return nil, fmt.Errorf("--var %s is given more than once", name)

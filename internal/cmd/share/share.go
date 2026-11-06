@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
@@ -67,6 +68,8 @@ type directory struct {
 	path string
 	// link is the cloud project the directory is linked to, nil when none.
 	link *config.Link
+	// badLink is a link that can't be used, nil when none.
+	badLink *config.LinkError
 }
 
 func (d directory) project() bool { return d.path != "" }
@@ -398,6 +401,14 @@ func putDirectoryOnCloud(ctx context.Context, opts options, dir directory, ask b
 			"Run the command in the project's directory, or set the cloud project's variables with %s",
 			cliruntime.CommandPath(cliruntime.Deps{}, "cloud variables deploy --file "+opts.envFile))
 	}
+	if dir.badLink != nil {
+		// Connect would replace it with a new project; the owner decides.
+		wd, err := os.Getwd()
+		if err != nil {
+			wd = dir.path
+		}
+		return fmt.Errorf("nothing was deployed or shared: %w", connectcmd.BadLinkError(wd, dir.badLink))
+	}
 	if !dir.project() || opts.noDeploy {
 		return nil
 	}
@@ -471,7 +482,11 @@ func checkSelectedProject(link *config.Link) error {
 		return nil //nolint:nilerr // The deploy loads the config again and reports it.
 	}
 	selected := cfg.SelectedProjectID()
-	if selected == "" || selected == link.Project.ID {
+	if selected == "" {
+		return nil
+	}
+	// The link holds the canonical spelling; the variable may not.
+	if id, err := uuid.Parse(selected); err == nil && id.String() == link.Project.ID {
 		return nil
 	}
 	return fmt.Errorf("VOLCANO_PROJECT_ID selects project %s, but this directory is linked to %s, "+
@@ -538,8 +553,12 @@ func execute(ctx context.Context, cmd *cobra.Command, args []string, opts option
 // workingDirectory reports what the working directory is: a directory linked
 // to a cloud project, or one holding a volcano/ directory, is a project.
 func workingDirectory() directory {
-	if link, err := config.FindLinkFromWorkingDir(); err == nil && link != nil {
+	link, err := config.FindLinkFromWorkingDir()
+	if err == nil && link != nil {
 		return directory{path: link.Dir, link: link}
+	}
+	if bad, ok := errors.AsType[*config.LinkError](err); ok {
+		return directory{path: bad.Dir, badLink: bad}
 	}
 	wd, err := os.Getwd()
 	if err != nil {

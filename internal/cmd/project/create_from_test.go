@@ -275,8 +275,8 @@ func TestCreateFromVarFlagsAreCheckedBeforeAnythingIsCreated(t *testing.T) {
 		want string
 	}{
 		{"not listed", []string{"--var", "OPENAI_API_KEY=x", "--var", "OTHER=y"}, "--var OTHER: the release does not declare this variable; it declares: OPENAI_API_KEY"},
-		{"malformed", []string{"--var", "OPENAI_API_KEY"}, `invalid --var "OPENAI_API_KEY": use --var NAME=value`},
-		{"no name", []string{"--var", "=x"}, "use --var NAME=value"},
+		{"malformed", []string{"--var", "OPENAI_API_KEY"}, `invalid --var: each one must be NAME=value`},
+		{"no name", []string{"--var", "=s3cret-value"}, "each one must be NAME=value"},
 		{"twice", []string{"--var", "OPENAI_API_KEY=x", "--var", "OPENAI_API_KEY=y"}, "--var OPENAI_API_KEY is given more than once"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -285,6 +285,7 @@ func TestCreateFromVarFlagsAreCheckedBeforeAnythingIsCreated(t *testing.T) {
 
 			_, err := runFrom(t, server, "", append([]string{"--from", fromLink, "--yes"}, tc.args...)...)
 			require.ErrorContains(t, err, tc.want)
+			assert.NotContains(t, err.Error(), "s3cret-value", "a --var value never reaches an error")
 			assert.Zero(t, fake.creates)
 		})
 	}
