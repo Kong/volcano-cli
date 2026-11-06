@@ -126,6 +126,15 @@ func (c *Client) ReadSandboxFile(ctx context.Context, id uuid.UUID, body apiclie
 	return apiResult(response.StatusCode(), response.Body, response.JSON200, response.JSONDefault)
 }
 
+// ListSandboxFiles calls the Sandbox ListSandboxSessionFiles operation.
+func (c *Client) ListSandboxFiles(ctx context.Context, params *apiclient.ListSandboxSessionFilesParams) (*apiclient.SandboxFileListResult, error) {
+	response, err := c.client.ListSandboxSessionFilesWithResponse(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(response.StatusCode(), response.Body, response.JSON200, response.JSONDefault)
+}
+
 // SandboxAccess calls the Sandbox CreateSandboxSessionAccess operation.
 func (c *Client) SandboxAccess(ctx context.Context, id uuid.UUID, body apiclient.SandboxAccessRequest) (*apiclient.SandboxAccess, error) {
 	response, err := c.client.CreateSandboxSessionAccessWithResponse(ctx, id, body)

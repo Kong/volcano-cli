@@ -646,6 +646,79 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /sandbox-session-files:
+    get:
+      tags:
+        - Sandboxes
+      summary: List workspace files
+      description: 'Lists a directory in a Sandbox session''s workspace, one page at a time. The listing never follows a symlink and never leaves the workspace. It is not a snapshot: a file that changes while it runs can appear before or after the change. Sessions started on an image built before file listing answer 409 with code `sandbox_image_outdated`; start a new session, after redeploying a custom template.'
+      operationId: listSandboxSessionFiles
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+        - ProjectAccessToken: []
+        - AuthUserAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdQuery'
+        - name: session_id
+          in: query
+          required: true
+          description: The session to list. A session outside `project_id` answers like one that doesn't exist.
+          schema:
+            type: string
+            format: uuid
+        - name: path
+          in: query
+          required: false
+          description: Workspace directory to list, such as `src` or `/workspace/src`. Omit it, or pass `.` or `/workspace`, to list the workspace root. The path must be a directory; it is never reached through a symlink.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 4096
+        - name: recursive
+          in: query
+          required: false
+          description: List every entry below the directory. When false, list only its direct entries.
+          schema:
+            type: boolean
+            default: true
+        - name: include_sha256
+          in: query
+          required: false
+          description: Add the SHA-256 digest of each regular file's content. A call reads at most 256 MiB to hash; a page ends early, with `next_cursor`, before a file that would pass that budget. A file without a digest says why in `sha256_skipped`.
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          required: false
+          description: Most entries to return. A page can hold fewer, so continue while `next_cursor` is present.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 10000
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque cursor from the previous page's `next_cursor`. It is valid only for the same project and session; send the same `path` and `recursive` with it.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 8192
+      responses:
+        '200':
+          description: One page of workspace entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxFileListResult'
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflict (409), capacity exhausted (429), and temporarily unavailable (503). A project the caller can't read answers 404 exactly like one that doesn't exist, and a session outside the project answers like an unknown session. A credential for the project that lacks the `sandboxes.files.read` permission answers 403. Code `sandbox_path_not_directory` with 400 means the path is missing, is not a directory, or passes through a symlink. Code `sandbox_path_unreadable` with 400 means the session user can't list the path or pass through a directory above it. Code `sandbox_image_outdated` with 409 means the session's image predates file listing. Code `feature_unavailable` with 404 means sandboxes are not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /sandbox-sessions/{sessionId}:
     get:
       tags:
@@ -18983,6 +19056,82 @@ components:
           format: byte
       required:
         - data
+    SandboxFileEntry:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          description: Path relative to the workspace root, usable with the read and write file routes.
+        type:
+          type: string
+          enum:
+            - file
+            - directory
+            - symlink
+            - other
+          description: Entry type from the entry itself. A symlink is reported, never followed.
+        size:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Size in bytes of a regular file; 0 for every other type.
+        mode:
+          type: integer
+          minimum: 0
+          maximum: 4095
+          description: Permission bits, including setuid, setgid and sticky (`st_mode & 07777`). For example, 420 is `0644` and 493 is `0755`.
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: Lowercase hex SHA-256 of a regular file's content, present only when `include_sha256` is true and the file could be hashed.
+        sha256_skipped:
+          type: string
+          enum:
+            - budget
+            - changing
+            - unreadable
+          description: Why a regular file has no `sha256` when `include_sha256` is true. `budget` is a file over 256 MiB. `changing` is a file that changed while it was hashed or kept changing; list it again later. `unreadable` is a file the session user doesn't own, whose owner-read bit (`0400`) is clear, or that has more than one hard link. Treat such a file as unverified.
+        unreadable:
+          type: boolean
+          description: 'True on a directory the session user can''t list; the listing doesn''t enter it. The user''s permission bits on the directory lack read or execute: the owner bits when the user owns it, the group bits when it belongs to the user''s group, and the other bits otherwise. Absent on every other entry.'
+        unsupported_names:
+          type: integer
+          minimum: 1
+          description: 'In a recursive listing, how many names directly inside this directory no entry can carry: names that are not UTF-8, or whose path would pass 4096 bytes. The listing skips them and everything below them. Absent when there are none.'
+      required:
+        - path
+        - type
+        - size
+        - mode
+    SandboxFileListResult:
+      type: object
+      additionalProperties: false
+      properties:
+        project_id:
+          type: string
+          format: uuid
+          description: The project the session belongs to.
+        session_id:
+          type: string
+          format: uuid
+          description: The session listed.
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxFileEntry'
+          description: Entries sorted by path, compared one path element at a time by bytes, so a directory comes right before its contents.
+        unsupported_names:
+          type: integer
+          minimum: 1
+          description: 'How many names directly inside the listed directory no entry can carry: names that are not UTF-8, or whose path would pass 4096 bytes. The listing skips them and everything below them. Every page reports it. Absent when there are none.'
+        next_cursor:
+          type: string
+          description: Present when more entries remain. Pass it as `cursor` to get the next page.
+      required:
+        - project_id
+        - session_id
+        - entries
     SandboxSubjectGrantRequest:
       type: object
       additionalProperties: false

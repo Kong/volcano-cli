@@ -35,6 +35,7 @@ volcano cloud sandboxes sessions
 volcano cloud sandboxes get SESSION_ID
 volcano cloud sandboxes exec SESSION_ID -- sh -c 'echo hello > /workspace/message'
 volcano cloud sandboxes files read SESSION_ID /workspace/message
+volcano cloud sandboxes files list SESSION_ID
 volcano cloud sandboxes shell SESSION_ID
 volcano cloud sandboxes suspend SESSION_ID
 volcano cloud sandboxes resume SESSION_ID
@@ -65,6 +66,93 @@ volcano cloud sandboxes files write SESSION_ID /workspace/input.bin < input.bin
 volcano cloud sandboxes files read SESSION_ID /workspace/output.bin > output.bin
 ```
 
+## List files
+
+List a directory in the session's workspace. Name it as `src` or
+`/workspace/src`, or omit it to list the whole workspace:
+
+```bash
+volcano cloud sandboxes files list SESSION_ID src
+```
+
+```text
+Type       Mode          Size  Path
+-----------------------------------
+file       0644            31  src/main.py
+directory  0755             -  src/pkg
+file       0600             5  src/pkg/data.txt
+symlink    0777             -  src/pkg-link
+file       0755            20  src/run.sh
+
+Total: 5 entries
+```
+
+Paths are relative to the workspace root and work with `files read` and
+`files write`. Entries are sorted by path, so a directory comes right before its
+contents. The listing includes every entry below the directory; pass
+`--recursive=false` for its direct entries only. A symlink is listed as
+`symlink` and never followed. A path that is missing, is a file, or passes
+through a symlink is refused as not a directory. A path the session user can't
+list, or can't reach because a directory above it lacks execute permission, is
+refused as unreadable. A credential for the session's project that lacks the
+`sandboxes.files.read` permission is refused with 403; a project the credential
+can't reach answers 404, like one that doesn't exist.
+
+Add `--sha256` for each regular file's SHA-256 digest. A file without a digest
+says why in its place, and is unverified:
+
+| Reason | File |
+|---|---|
+| `skipped: budget` | Larger than 256 MiB |
+| `skipped: changing` | Changed while it was hashed; list it again later |
+| `skipped: unreadable` | Not owned by the session user, has its owner-read bit (`0400`) clear, or has more than one hard link |
+
+The command reads every page before it prints, and stops with an error after
+1000 pages. `--limit` sets the most entries per request, from 1 to 10000. With `--json` it prints one JSON object with the
+API's fields: `project_id`, `session_id`, every page's entries in `entries`,
+and `unsupported_names` when the listed directory holds names the listing
+skipped. In an entry, `mode` is the permission bits as a number (420 is
+`0644`); `sha256` or `sha256_skipped` (`budget`, `changing`, or `unreadable`)
+appears only with `--sha256`; `unreadable: true` marks a directory the listing
+didn't enter; and `unsupported_names` counts the names skipped in a directory:
+
+```bash
+volcano cloud sandboxes files list SESSION_ID src --sha256 --json
+```
+
+A session started before file listing was available can't list its files.
+Start a new session; for a custom template, redeploy the template first.
+
+### Incomplete listings
+
+A listing leaves out a directory's contents when the session user can't list
+it, and names that are not UTF-8 or whose paths would pass 4096 bytes, with
+everything below them. The table marks each such directory in the Size column:
+
+| Marker | Directory |
+|---|---|
+| `unreadable` | The session user lacks read or execute permission on it; its contents aren't listed |
+| `incomplete` | Holds names the listing skipped |
+
+```text
+Type       Mode          Size  Path
+-----------------------------------
+directory  0000    unreadable  src/locked
+directory  0755    incomplete  src/pkg
+file       0600             5  src/pkg/data.txt
+
+Total: 3 entries
+
+Warning: The listing is incomplete.
+  1 directory marked unreadable was not entered: the session user lacks read or execute permission on it.
+  2 names were skipped, with everything below them, because they are not UTF-8 or their paths would pass 4096 bytes (1 in the listed directory, 1 in 1 directory marked incomplete).
+```
+
+The warning goes to stderr after the table. It also counts names skipped in the
+listed directory itself, which has no row. The command still succeeds. With
+`--json`, the same facts are in `unreadable` and `unsupported_names`, and no
+warning is printed.
+
 ## Save a template
 
 ```bash
@@ -91,13 +179,15 @@ A template saves a preset and memory size. Custom image builds are not supported
 | `--timeout` | `exec` | Command deadline: 1–60 seconds for one-shot execution, 1–3600 for session execution; defaults to 60 |
 | `--duration` | `run` | Override session lifetime in seconds: cloud 30–28800; local 0 (unlimited) or positive. Omitted inherits the template |
 | `--request-id` | `exec`, `run` | UUID used to retry the same request safely |
-| `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, and `files read` return structured results |
+| `--sha256` | `files list` | Add each regular file's SHA-256 digest |
+| `--recursive` | `files list` | `--recursive=false` lists only the directory's direct entries |
+| `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, `files read`, and `files list` return structured results |
 
 Use a new request ID for each intent. After a network failure, retry with the original ID and identical arguments. A canceled client does not prove the remote command stopped.
 
 ## Output format
 
-Session, preset, template, and file-write commands always return JSON, indented by default and compact with `--json`. This JSON format is supported for scripts. `exec` and `shell` normally write guest stdout/stderr, and `files read` writes raw bytes; use `--json` for their API response instead. JSON execution results retain timeout and truncation flags without adding warnings to the JSON stream. `deployments source` writes the original tar.gz bytes to stdout and rejects `--json`; redirect its output to a file.
+Session, preset, template, and file-write commands always return JSON, indented by default and compact with `--json`. This JSON format is supported for scripts. `exec` and `shell` normally write guest stdout/stderr, `files read` writes raw bytes, and `files list` prints a table; use `--json` for their structured results instead. JSON execution results retain timeout and truncation flags without adding warnings to the JSON stream. `deployments source` writes the original tar.gz bytes to stdout and rejects `--json`; redirect its output to a file.
 
 Template creation requires an explicit `--preset` from `sandboxes presets`. Shell command lines may be up to 64 KiB. For commands longer than the 60-second one-shot limit, start a session and use `exec SESSION_ID --timeout SECONDS`.
 
