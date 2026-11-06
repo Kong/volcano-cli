@@ -183,14 +183,13 @@ func TestChangesBySomeoneWhoIsntTheOwnerAreRefusedFirst(t *testing.T) {
 }
 
 // The API's refusal of a change is read by its code, not its status or its
-// words. A change's 403 without a code covers a read-only token or account as
-// well as a plan that couldn't be read, so it says all three and keeps the
-// API's words.
+// words. A change's 403 without a code covers a read-only account as well as
+// a plan that couldn't be read, so it says both and keeps the API's words.
 func TestARefusedChangeSaysWhy(t *testing.T) {
 	for code, want := range map[string]string{
 		"person_required": "LavaFlow's settings weren't changed: " + apiPlanRefusal,
 		"plan_required":   lavaflowPlanRequired,
-		"": "LavaFlow's settings weren't changed: a read-only access token or account can't change them, " +
+		"": "LavaFlow's settings weren't changed: a read-only account can't change them, " +
 			"and otherwise the project owner's plan couldn't be read; try again later. Volcano said: \"" + apiPlanRefusal + "\"",
 	} {
 		fake, deps := newLavaflowServer(t)
@@ -275,7 +274,7 @@ func TestAChangeRefusedForAReadOnlyAccountSaysSo(t *testing.T) {
 
 		_, err := executeLavaflowCommand(t, New(deps), args...)
 		require.Error(t, err, "%q", args)
-		assert.Equal(t, "LavaFlow's settings weren't changed: a read-only access token or account can't change them, "+
+		assert.Equal(t, "LavaFlow's settings weren't changed: a read-only account can't change them, "+
 			"and otherwise the project owner's plan couldn't be read; try again later. Volcano said: \"the account is read-only\"",
 			err.Error(), "%q", args)
 		assert.Equal(t, http.StatusForbidden, api.Status(err), "%q", args)
