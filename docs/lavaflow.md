@@ -469,8 +469,11 @@ When a workflow in the repository could run a fix with the repository's
 secrets before a person approves it, and ungated workflows aren't allowed,
 LavaFlow holds the fix on its run. `show` says
 `No fix pull request was opened: a workflow could run the fix with the repository's secrets before a person approves it.`
-and ends with the `runs open` command for the run. `runs open` lets a person
-read that fix and open its pull request anyway:
+When the fix can be opened, `show` ends with the `runs open` command for the
+run. It leaves the command out for a fix `runs open` refuses: a diff that
+withholds a file or is cut short, jobs LavaFlow couldn't list, or a diff or
+fingerprint that doesn't check out. `runs open` lets a person read the fix
+and open its pull request anyway:
 
 ```bash
 volcano cloud lavaflow runs open 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
@@ -508,7 +511,9 @@ Open the fix's pull request? Type 'y' or 'yes' to confirm: y
 It shows:
 
 - The fix's diff exactly as Volcano serves it. A control character prints as
-  a visible escape, as in `show`.
+  a visible escape, as in `show`, and so does a bidi control or a zero-width
+  character, such as `\u202e` or `\u200b`, so a line can't read differently
+  from what opens.
 - Every workflow job that will get the repository's secrets: its file, the
   branch or commit whose workflows run it, the job and the event that runs
   it. `Workflows read at` names the commits LavaFlow read them at.

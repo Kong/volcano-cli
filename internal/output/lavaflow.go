@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
@@ -324,6 +325,26 @@ func clean(text string) string {
 	return b.String()
 }
 
+// cleanReviewed is clean for text a person reads before letting workflows run
+// it with the repository's secrets. It also escapes every Unicode format
+// character, such as a bidi override or isolate and a zero-width space or
+// joiner, as \u202e, so a line can't read differently on the terminal from
+// the bytes the fix fingerprint covers.
+func cleanReviewed(text string) string {
+	var b strings.Builder
+	for _, r := range clean(text) {
+		switch {
+		case !unicode.Is(unicode.Cf, r):
+			b.WriteRune(r)
+		case r > 0xffff:
+			fmt.Fprintf(&b, "\\U%08x", r)
+		default:
+			fmt.Fprintf(&b, "\\u%04x", r)
+		}
+	}
+	return b.String()
+}
+
 // lavaflowUngatedWorkflows says whether LavaFlow opens fixes past ungated
 // workflows. Allowing them applies only to the repository connected when a
 // person allowed them: connecting another repository, or disconnecting it,
@@ -338,16 +359,17 @@ func lavaflowUngatedWorkflows(allowed bool) string {
 // lavaflowAllowedWorkflow names an ungated workflow job a pull request opened
 // past: its file, the branch or commit whose workflows run it, and the job
 // and the event that runs it, which are absent for a file that couldn't be
-// read.
+// read. Each is escaped as cleanReviewed escapes it: runs open lists these
+// jobs for a person to decide on.
 func lavaflowAllowedWorkflow(workflow apiclient.LavaflowAllowedWorkflow) string {
-	line := clean(workflow.Path) + " on " + clean(workflow.Source)
+	line := cleanReviewed(workflow.Path) + " on " + cleanReviewed(workflow.Source)
 	switch {
 	case workflow.Job != nil && workflow.Trigger != nil:
-		return line + ": job " + clean(*workflow.Job) + ", runs on " + clean(*workflow.Trigger)
+		return line + ": job " + cleanReviewed(*workflow.Job) + ", runs on " + cleanReviewed(*workflow.Trigger)
 	case workflow.Job != nil:
-		return line + ": job " + clean(*workflow.Job)
+		return line + ": job " + cleanReviewed(*workflow.Job)
 	case workflow.Trigger != nil:
-		return line + ": runs on " + clean(*workflow.Trigger)
+		return line + ": runs on " + cleanReviewed(*workflow.Trigger)
 	default:
 		return line + ": couldn't be read"
 	}
@@ -677,9 +699,9 @@ func LavaflowHeldFix(w io.Writer, held *clilavaflow.HeldFix) {
 	on := theme.On(w)
 	run := held.Run
 	kv(w, on, "Run", "%s", run.Id)
-	kv(w, on, "Resource", "%s %s", lavaflowResourceType(string(run.Resource.Type)), clean(run.Resource.Name))
+	kv(w, on, "Resource", "%s %s", lavaflowResourceType(string(run.Resource.Type)), cleanReviewed(run.Resource.Name))
 	if run.Title != nil {
-		kv(w, on, "Title", "%s", clean(*run.Title))
+		kv(w, on, "Title", "%s", cleanReviewed(*run.Title))
 	}
 	kv(w, on, "Issue", "%s", run.IssueId)
 	kv(w, on, "Held", "a workflow could run this fix with the repository's secrets before a person approves it")
@@ -738,12 +760,13 @@ func lavaflowWithheldNote(path string) string {
 	if strings.TrimSpace(path) == "" {
 		return "a file whose path LavaFlow can't show, or couldn't read back"
 	}
-	return clean(path) + " withheld: it may contain credentials or is too large to show."
+	return cleanReviewed(path) + " withheld: it may contain credentials or is too large to show."
 }
 
 // lavaflowServedDiff prints a held fix's diff line by line as Volcano served
-// it, escaping control characters as clean does. A line Volcano writes in
-// place of a withheld file, or at a cut, prints with !! in the gutter.
+// it, escaping control and format characters as cleanReviewed does. A line
+// Volcano writes in place of a withheld file, or at a cut, prints with !! in
+// the gutter.
 func lavaflowServedDiff(w io.Writer, on bool, diff string) {
 	fmt.Fprintf(w, "\n%s\n", theme.Title("Diff", on))
 	if strings.TrimSpace(diff) == "" {
@@ -752,10 +775,10 @@ func lavaflowServedDiff(w io.Writer, on bool, diff string) {
 	}
 	for line := range strings.SplitSeq(strings.TrimRight(diff, "\n"), "\n") {
 		if clilavaflow.WithheldLine(line) || clilavaflow.CutLine(line) {
-			fmt.Fprintf(w, "%s %s\n", theme.Fail("!!", on), theme.Error(clean(line), on))
+			fmt.Fprintf(w, "%s %s\n", theme.Fail("!!", on), theme.Error(cleanReviewed(line), on))
 			continue
 		}
-		fmt.Fprintf(w, "  %s\n", clean(line))
+		fmt.Fprintf(w, "  %s\n", cleanReviewed(line))
 	}
 }
 
@@ -763,9 +786,9 @@ func lavaflowServedDiff(w io.Writer, on bool, diff string) {
 // read at, or the commit alone when LavaFlow read a commit.
 func lavaflowWorkflowSource(source apiclient.LavaflowWorkflowSource) string {
 	if source.Source == source.CommitSha {
-		return "commit " + clean(source.CommitSha)
+		return "commit " + cleanReviewed(source.CommitSha)
 	}
-	return clean(source.Source) + " at " + clean(source.CommitSha)
+	return cleanReviewed(source.Source) + " at " + cleanReviewed(source.CommitSha)
 }
 
 // LavaflowOpenHint names the command that shows a held fix and opens its pull

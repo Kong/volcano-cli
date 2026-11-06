@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -642,6 +643,46 @@ func TestRunsOpenPrintsRunTextAsPlainText(t *testing.T) {
 	}
 }
 
+// Bidi controls and zero-width characters in a held fix print as visible
+// escapes too, in the diff and in the jobs, so a line can't read differently
+// on the terminal from the bytes the fix fingerprint covers. The open still
+// sends the fingerprint of the diff as served.
+func TestRunsOpenEscapesBidiAndZeroWidthCharacters(t *testing.T) {
+	for name, tc := range map[string]struct {
+		line, lineShown, job, jobShown string
+	}{
+		"bidi controls": {
+			"+  if (isAdmin) { \u202e} \u2067// skip the check\u2069 {\n", `  +  if (isAdmin) { \u202e} \u2067// skip the check\u2069 {`,
+			"deploy\u202epreview", `job deploy\u202epreview, runs on`,
+		},
+		"zero-width characters": {
+			"+  const role\u200b = \"ad\u200dmin\ufeff\"\n", `  +  const role\u200b = "ad\u200dmin\ufeff"`,
+			"deploy\u200bpreview", `job deploy\u200bpreview, runs on`,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps, held := newHeldLavaflowServer(t)
+			diff := heldDiff + tc.line
+			fake.set(func(*lavaflowServer) {
+				setHeldDiff(held, diff)
+				jobs := held["held_workflows"].(map[string]any)["jobs"].([]any)
+				jobs[0].(map[string]any)["job"] = tc.job
+			})
+
+			_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
+			require.NoError(t, err)
+			assert.Contains(t, errOut, tc.lineShown+"\n")
+			assert.Contains(t, errOut, tc.jobShown)
+			for _, r := range tc.line + tc.job {
+				if unicode.Is(unicode.Cf, r) {
+					assert.NotContains(t, errOut, string(r), "%U prints escaped", r)
+				}
+			}
+			assert.Equal(t, []map[string]any{wantOpen(sha256Hex(diff))}, fake.opens)
+		})
+	}
+}
+
 // The fix fingerprint is checked against the diff exactly as decoded from the
 // API, before display escapes a control character or a carriage return, and
 // the open sends the served fingerprint. A fingerprint of the diff as
@@ -680,7 +721,7 @@ func TestRunsOpenChecksTheFingerprintAgainstTheDiffAsServed(t *testing.T) {
 // only there.
 func TestShowNamesRunsOpenForAHeldFix(t *testing.T) {
 	const hint = "To read this fix and open its pull request yourself, run volcano cloud lavaflow runs open "
-	fake, deps, held := newHeldLavaflowServer(t)
+	_, deps, _ := newHeldLavaflowServer(t)
 
 	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowHeldID)
 	require.NoError(t, err)
@@ -692,12 +733,14 @@ func TestShowNamesRunsOpenForAHeldFix(t *testing.T) {
 		assert.NotContains(t, out, hint, id)
 	}
 
-	for name, change := range map[string]func(){
-		"jobs not listed": func() { held["held_workflows"] = nil },
-		"withheld file":   func() { held["diff_withheld"] = []any{".env"} },
+	// Each case starts from a fresh held run, so it fails for its own reason.
+	for name, change := range map[string]func(held map[string]any){
+		"jobs not listed": func(held map[string]any) { held["held_workflows"] = nil },
+		"withheld file":   func(held map[string]any) { held["diff_withheld"] = []any{".env"} },
 	} {
-		fake.set(func(*lavaflowServer) { change() })
-		out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowHeldID)
+		fake, deps, held := newHeldLavaflowServer(t)
+		fake.set(func(*lavaflowServer) { change(held) })
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowHeldID)
 		require.NoError(t, err)
 		assert.NotContains(t, out, hint, name)
 	}
