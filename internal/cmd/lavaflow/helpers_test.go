@@ -355,13 +355,15 @@ func fixedRun() map[string]any {
 const startedRunID = "99999999-9999-4999-8999-999999999999"
 
 // startedRun is a run a person just started on issueID: queued, with nothing
-// found yet.
+// found yet. The diff_ fields and held_workflows are newer than the CLI's
+// contract, so --json must keep them.
 func startedRun(issueID string) map[string]any {
 	return map[string]any{
 		"id": startedRunID, "project_id": lavaflowProjectID, "status": "queued", "issue_id": issueID,
 		"resource": checkoutResource(), "title": nil, "pull_request": nil, "merge": nil, "pull_request_skipped": nil,
 		"diagnosis": nil, "diff": nil, "review": nil, "created_at": "2026-11-05T10:00:00Z", "finished_at": nil,
 		"source_commit": nil, "failure": nil, "ungated_workflows": nil,
+		"diff_sha256": nil, "diff_truncated": false, "diff_withheld": []any{}, "held_workflows": nil,
 	}
 }
 
