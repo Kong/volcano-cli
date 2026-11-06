@@ -212,8 +212,16 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	// Null, no record of them, prints nothing, as none does.
 	if workflows := run.UngatedWorkflows; workflows != nil && len(*workflows) > 0 {
 		kv(w, on, "Ungated workflows", "the pull request opened past these, the first one on each branch or commit checked")
+		dispatched := false
 		for _, workflow := range *workflows {
 			fmt.Fprintf(w, "  - %s\n", lavaflowAllowedWorkflow(workflow))
+			if by := workflow.DispatchedBy; by != nil {
+				fmt.Fprintf(w, "    may be dispatched by %s\n", lavaflowWorkflowDispatcher(*by))
+			}
+			dispatched = dispatched || (workflow.Trigger != nil && *workflow.Trigger == workflowDispatch)
+		}
+		if dispatched {
+			fmt.Fprintf(w, "  %s\n", dispatchAdvice)
 		}
 	}
 	lavaflowFix(w, on, run)
@@ -350,6 +358,25 @@ func lavaflowAllowedWorkflow(workflow apiclient.LavaflowAllowedWorkflow) string 
 	default:
 		return line + ": couldn't be read"
 	}
+}
+
+// workflowDispatch is the event a workflow dispatch fires.
+const workflowDispatch = "workflow_dispatch"
+
+// dispatchAdvice is the sentence Volcano adds to a fix's pull request when it
+// opened past a workflow_dispatch job, word for word. The API returns no
+// advice of its own, and a label can't gate a dispatch.
+const dispatchAdvice = "A dispatch carries no label: give the job that may dispatch one permissions without actions: write."
+
+// lavaflowWorkflowDispatcher names the job that may dispatch an allowed
+// workflow_dispatch job: its name, absent for a workflow that couldn't be
+// read, its file, and the branch or commit whose workflows hold it.
+func lavaflowWorkflowDispatcher(by apiclient.LavaflowWorkflowDispatcher) string {
+	where := clean(by.Path) + " on " + clean(by.Source)
+	if by.Job == nil {
+		return "a job of " + where + ", which couldn't be read"
+	}
+	return "job " + clean(*by.Job) + " of " + where
 }
 
 func setOrNot(text string) string {
