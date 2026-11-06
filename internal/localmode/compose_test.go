@@ -95,6 +95,45 @@ func TestComposeEnvironmentDefaultsVolcanoImage(t *testing.T) {
 	assert.Equal(t, defaultVolcanoImage, actual)
 }
 
+// TestComposeEnvironmentForwardsBotTokenOnlyWhenSet checks the only two ways a
+// Telegram bot token reaches the local server: the shell environment and the
+// project's .env.local. In polling mode the server deletes the bot's webhook,
+// so a forwarded token for a cloud bot takes that bot over.
+func TestComposeEnvironmentForwardsBotTokenOnlyWhenSet(t *testing.T) {
+	const key = "AGENT_CHAT_TELEGRAM_BOT_TOKEN"
+	newService := func(environ ...string) Service {
+		return NewService(
+			cliruntime.Deps{},
+			WithEnvironment(func() []string { return environ }, func(string) string { return "" }),
+		)
+	}
+
+	t.Run("unset", func(t *testing.T) {
+		withTempWorkingDir(t)
+		env, _, err := newService("PATH=/bin").composeEnvironment()
+		require.NoError(t, err)
+		_, ok := lastEnvValue(env, key)
+		assert.False(t, ok, "an unset token must not reach Compose")
+	})
+
+	t.Run("shell", func(t *testing.T) {
+		withTempWorkingDir(t)
+		env, _, err := newService("PATH=/bin", key+"=from-shell").composeEnvironment()
+		require.NoError(t, err)
+		value, _ := lastEnvValue(env, key)
+		assert.Equal(t, "from-shell", value)
+	})
+
+	t.Run("env.local", func(t *testing.T) {
+		withTempWorkingDir(t)
+		require.NoError(t, os.WriteFile(".env.local", []byte(key+"=from-file\n"), 0o600))
+		env, _, err := newService("PATH=/bin").composeEnvironment()
+		require.NoError(t, err)
+		value, _ := lastEnvValue(env, key)
+		assert.Equal(t, "from-file", value)
+	})
+}
+
 // TestDefaultVolcanoImageIsPublishedLocalTag guards that the built-in default
 // points at the local-mode image family (kong/volcano:local-*) that
 // volcano-hosting publishes and that `volcano start` must run — never the empty
@@ -162,12 +201,55 @@ func TestDockerComposeTemplateLeavesServerOwnedLocalSecretsUnset(t *testing.T) {
 	}
 }
 
+// TestDockerComposeTemplatePassesAgentChatSettingsThrough guards the model
+// gateway and agent chat settings. Each secret or endpoint is an empty
+// passthrough: it reaches the server only when the developer sets it, and the
+// template never ships a value of its own.
+func TestDockerComposeTemplatePassesAgentChatSettingsThrough(t *testing.T) {
+	lines := map[string]bool{}
+	for line := range strings.SplitSeq(string(dockerComposeTemplate), "\n") {
+		lines[strings.TrimSpace(line)] = true
+	}
+
+	for _, key := range []string{
+		"AI_GATEWAY_ANTHROPIC_API_KEY",
+		"AI_GATEWAY_ANTHROPIC_BASE_URL",
+		"AI_GATEWAY_MODELS",
+		"AGENT_CHAT_TELEGRAM_BOT_TOKEN",
+		"AGENT_CHAT_TELEGRAM_WEBHOOK_SECRET",
+		"AGENT_CHAT_TELEGRAM_API_BASE_URL",
+		"AGENT_CHAT_WHATSAPP_ACCESS_TOKEN",
+		"AGENT_CHAT_WHATSAPP_PHONE_NUMBER_ID",
+		"AGENT_CHAT_WHATSAPP_APP_SECRET",
+		"AGENT_CHAT_WHATSAPP_VERIFY_TOKEN",
+		"AGENT_CHAT_WHATSAPP_API_BASE_URL",
+		"AGENT_CHAT_WHATSAPP_NUMBER",
+		"AGENT_CHAT_TWILIO_ACCOUNT_SID",
+		"AGENT_CHAT_TWILIO_AUTH_TOKEN",
+		"AGENT_CHAT_TWILIO_API_BASE_URL",
+		"AGENT_CHAT_TWILIO_WHATSAPP_NUMBER",
+		"AGENT_CHAT_TWILIO_WHATSAPP_WEBHOOK_URL",
+		"AGENT_CHAT_MANAGER_SECRET",
+		"AGENT_CHAT_MANAGER_API_URL",
+		"AGENT_CHAT_MANAGER_PROJECT_ID",
+		"AGENT_CHAT_MANAGER_FUNCTION",
+		"AGENT_CHAT_MANAGER_TOKEN",
+		"AGENT_CHAT_CONNECT_URL",
+	} {
+		want := key + ": ${" + key + ":-}"
+		assert.Truef(t, lines[want], "compose template must pass %s through as %q with no default", key, want)
+	}
+
+	assert.True(t, lines["AGENT_CHAT_TELEGRAM_MODE: ${AGENT_CHAT_TELEGRAM_MODE:-polling}"],
+		"AGENT_CHAT_TELEGRAM_MODE must default to polling")
+}
+
 func TestDockerComposeTemplateExposesLocalFrontendProxy(t *testing.T) {
 	template := string(dockerComposeTemplate)
 
-	assert.Contains(t, template, `FRONTENDS_HTTP_PORT: "8080"`)
-	assert.Contains(t, template, `FRONTEND_INVOCATION_DNS: "*.frontends.localhost"`)
-	assert.Contains(t, template, `"8080:8080"`)
+	assert.Equal(t, "8080", composeTemplateEnvValue(t, template, "FRONTENDS_HTTP_PORT"))
+	assert.Equal(t, "*.frontends.localhost", composeTemplateEnvValue(t, template, "FRONTEND_INVOCATION_DNS"))
+	assert.Regexp(t, `(?m)^\s*- ['"]8080:8080['"]\s*$`, template)
 }
 
 func TestDockerComposePersistencePreservesFunctionSource(t *testing.T) {
@@ -212,11 +294,13 @@ func TestDockerComposeTemplateUsesDurationStringsForTimingVars(t *testing.T) {
 	}
 }
 
-// composeTemplateEnvValue extracts the (optionally quoted) value assigned to key
-// in the raw compose template, e.g. `REDIS_TIMEOUT: "60s"` -> "60s".
+// composeTemplateEnvValue extracts the (optionally single- or double-quoted)
+// value assigned to key in the raw compose template, e.g. `REDIS_TIMEOUT: '60s'`
+// -> "60s". The generator copies the Hosting source verbatim, so the quote style
+// follows that repository's formatter.
 func composeTemplateEnvValue(t *testing.T, template, key string) string {
 	t.Helper()
-	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:\s*"?([^"\n]+)"?\s*$`)
+	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:\s*['"]?([^'"\n]+)['"]?\s*$`)
 	match := re.FindStringSubmatch(template)
 	require.Len(t, match, 2, "compose template missing env var %s", key)
 	return strings.TrimSpace(match[1])
@@ -244,7 +328,7 @@ func TestDockerComposeTemplateHasNoProductionIdentifiers(t *testing.T) {
 
 	// AWS credentials must be the inert "local" placeholder, never a real key.
 	for _, key := range []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"} {
-		re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:\s*"?([^"\n]+?)"?\s*$`)
+		re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:\s*['"]?([^'"\n]+?)['"]?\s*$`)
 		for _, match := range re.FindAllStringSubmatch(template, -1) {
 			assert.Equalf(t, "local", strings.TrimSpace(match[1]), "%s must be the inert local placeholder", key)
 		}
