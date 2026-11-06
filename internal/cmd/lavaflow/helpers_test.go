@@ -332,7 +332,7 @@ func fixedRun() map[string]any {
 		"created_at": "2026-10-30T09:00:00Z", "finished_at": "2026-10-30T09:03:00Z",
 		"pull_request": map[string]any{
 			"number": 42, "url": "https://github.com/acme/shop/pull/42", "state": "open", "opened_at": "2026-10-30T09:03:00Z",
-			"draft": false, "draft_reason": nil,
+			"deployed_at": nil, "draft": false, "draft_reason": nil,
 		},
 		"merge": nil, "pull_request_skipped": nil,
 		"diagnosis": map[string]any{

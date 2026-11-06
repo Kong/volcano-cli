@@ -402,7 +402,8 @@ func lavaflowHumanReviewPaths(w io.Writer, on bool, policy apiclient.LavaflowMer
 }
 
 // lavaflowFix prints the Fix block, always: the run's pull request, its
-// state and where its merge is, or why the run has no pull request.
+// state, where its merge is and when the merged fix went live, or why the
+// run has no pull request.
 func lavaflowFix(w io.Writer, on bool, run *apiclient.LavaflowRun) {
 	fmt.Fprintln(w, theme.Dim("Fix:", on))
 	pr := run.PullRequest
@@ -418,8 +419,11 @@ func lavaflowFix(w io.Writer, on bool, run *apiclient.LavaflowRun) {
 	if run.Merge != nil {
 		lavaflowMergeLines(w, on, run.Merge, pr)
 	}
-	// The API doesn't say yet whether a merged fix deployed. Print it here
-	// once the pull request carries deployed_at.
+	// Null until LavaFlow finds the merged fix live, and for one that didn't
+	// merge. After more than 20 deployments it is the merge time.
+	if pr.DeployedAt != nil {
+		fixKV(w, on, "Deployed", "%s", formatLavaflowTime(*pr.DeployedAt))
+	}
 }
 
 // fixKV writes a "Label: value" line inside the Fix block.
@@ -452,50 +456,23 @@ func lavaflowDraftReason(reason apiclient.LavaflowDraftReason) string {
 	}
 }
 
-// lavaflowSkipDiagnoseOnly is the code the API is to send for a run that
-// wasn't set to open a pull request, named after the autonomy setting.
-const lavaflowSkipDiagnoseOnly = "diagnose_only"
-
 // lavaflowNoFix says why a run has no pull request, and what to do next. The
 // API's reason wins; without one, the run's status says it. A completed run
 // without a reason may have stopped short for any reason, so it claims none.
 func lavaflowNoFix(run *apiclient.LavaflowRun) string {
+	diagnosisShown := lavaflowDiagnosisShown(run.Diagnosis)
 	readDiagnosis := ""
-	fromDiagnosis := ""
-	if lavaflowDiagnosisShown(run.Diagnosis) {
+	if diagnosisShown {
 		readDiagnosis = " Read the diagnosis below."
-		fromDiagnosis = " from the diagnosis below"
 	}
 	none := "No fix pull request was opened"
 	if run.PullRequestSkipped != nil {
-		switch reason := *run.PullRequestSkipped; reason {
-		case apiclient.LavaflowSkipReasonNotFixable:
-			return none + ": the diagnosis found no change in the code that fixes the error, for example because the cause is outside it." + readDiagnosis
-		case apiclient.LavaflowSkipReasonLowConfidence:
-			return none + ": the diagnosis isn't confident enough to propose a fix." + readDiagnosis
-		case apiclient.LavaflowSkipReasonNoPatch:
-			return none + ": LavaFlow proposed no change." + readDiagnosis
-		case apiclient.LavaflowSkipReasonPossibleCredential:
-			return none + ": the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing. Apply the fix yourself" + fromDiagnosis + "."
-		case apiclient.LavaflowSkipReasonPossiblePersonalData:
-			return none + ": the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing. Apply the fix yourself."
-		case apiclient.LavaflowSkipReasonUngatedWorkflows:
-			return none + ": a workflow could run the fix with the repository's secrets before a person approves it. Gate that workflow on a label a person adds, or have the project's owner allow ungated workflows."
-		case apiclient.LavaflowSkipReasonPullRequestOpen:
-			return none + ": another LavaFlow pull request for this issue is open. Review or close it first."
-		case apiclient.LavaflowSkipReasonSourceUnavailable:
-			return none + ": LavaFlow couldn't read the repository at the deployed commit. Check the project's repository connection and that the commit exists."
-		case apiclient.LavaflowSkipReasonPermissionMissing:
-			return none + ": the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs. Grant the App's requested permissions, and make sure the owner can push to the repository."
-		case apiclient.LavaflowSkipReasonRepositoryChanged:
-			return none + ": the project no longer deploys from the repository the run read. A new run uses the current one."
-		case apiclient.LavaflowSkipReasonPublishFailed:
-			return none + ": opening the pull request failed. A new run tries again."
-		case lavaflowSkipDiagnoseOnly:
-			return "Diagnosis only: this run wasn't set to open a fix."
-		default:
+		reason := *run.PullRequestSkipped
+		why, next := lavaflowSkipReason(reason, diagnosisShown)
+		if why == "" {
 			return none + ", for a reason this version of the CLI doesn't know: " + clean(string(reason)) + "."
 		}
+		return strings.TrimSpace(none + ". " + why + " " + next)
 	}
 	switch run.Status {
 	case apiclient.LavaflowRunStatusQueued, apiclient.LavaflowRunStatusDiagnosing,
@@ -509,6 +486,57 @@ func lavaflowNoFix(run *apiclient.LavaflowRun) string {
 		return none + ": the run was cancelled."
 	default:
 		return none + "."
+	}
+}
+
+// lavaflowSkipReason says why a finished run opened no pull request, and what
+// to do next, in the same words as the dashboard and the LavaFlow guide. A
+// step that points to the diagnosis drops out when show prints none. Both
+// are empty for a reason this CLI doesn't know.
+func lavaflowSkipReason(reason apiclient.LavaflowSkipReason, diagnosisShown bool) (why, next string) {
+	readDiagnosis, applyIt := "", "Apply the fix yourself."
+	if diagnosisShown {
+		readDiagnosis, applyIt = "Read the diagnosis below.", "Apply the fix yourself from the diagnosis below."
+	}
+	switch reason {
+	case apiclient.LavaflowSkipReasonDiagnoseOnly:
+		return "The project's autonomy was diagnose only, so LavaFlow stopped at the diagnosis.", readDiagnosis
+	case apiclient.LavaflowSkipReasonNotFixable:
+		return "The diagnosis found no change in the code that fixes the error, for example because the cause is outside the code.", readDiagnosis
+	case apiclient.LavaflowSkipReasonLowConfidence:
+		return "The diagnosis isn't confident enough to propose a fix.", readDiagnosis
+	case apiclient.LavaflowSkipReasonNoPatch:
+		return "LavaFlow proposed no change.", readDiagnosis
+	case apiclient.LavaflowSkipReasonPossibleCredential:
+		return "The fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing.", applyIt
+	case apiclient.LavaflowSkipReasonPossiblePersonalData:
+		return "The fix adds an email address the repository doesn't have, and the repository isn't private, so LavaFlow pushed nothing.", "Apply the fix yourself."
+	case apiclient.LavaflowSkipReasonUngatedWorkflows:
+		return "A workflow could run the fix with the repository's secrets before a person approves it.",
+			"Gate the workflow on a label a person adds, or have the project's owner allow ungated workflows."
+	case apiclient.LavaflowSkipReasonConventionUnsatisfiable:
+		return "LavaFlow would merge the fix, but no pull request title can meet the repository's commit convention, so it kept the fix on this run.",
+			"Apply the fix yourself, or relax the convention."
+	case apiclient.LavaflowSkipReasonPullRequestOpen:
+		return "Another LavaFlow pull request for this issue is open.", "Review or close it first."
+	case apiclient.LavaflowSkipReasonSourceUnavailable:
+		return "LavaFlow couldn't read the repository at the deployed commit, or the production branch no longer has that commit.",
+			"Check the project's repository connection, and that the commit is on the production branch."
+	case apiclient.LavaflowSkipReasonPermissionMissing:
+		return "The Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs.",
+			"Grant the App the permissions it requests, and make sure the owner can push to the repository."
+	case apiclient.LavaflowSkipReasonRepositoryChanged:
+		return "The project no longer deploys from the repository this run read.", "A new run uses the current one."
+	case apiclient.LavaflowSkipReasonPublishFailed:
+		return "Opening the pull request failed.", "A new run tries again."
+	case apiclient.LavaflowSkipReasonReviewUnresolved:
+		return "LavaFlow's review didn't pass this Code Quality fix.", readDiagnosis
+	case apiclient.LavaflowSkipReasonDuplicateInRepository:
+		return "Another project on this repository has the open Code Quality pull request for the same finding.", ""
+	case apiclient.LavaflowSkipReasonSecurityFinding:
+		return "The Code Quality finding has security impact and the repository isn't private, so a pull request would disclose it.", "Fix it yourself."
+	default:
+		return "", ""
 	}
 }
 

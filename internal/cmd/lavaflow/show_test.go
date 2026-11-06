@@ -1,12 +1,18 @@
 package lavaflow
 
 import (
+	"maps"
 	"net/http"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"github.com/Kong/volcano-cli/internal/api"
 )
@@ -118,6 +124,34 @@ func TestShowSaysWhenThePullRequestOpened(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "  Pull request: #42 https://github.com/acme/shop/pull/42\n  State: open\n")
 	assert.NotContains(t, out, "Opened:")
+}
+
+// show says when a merged fix went live, after its merge, and prints no
+// such line while deployed_at is null or from an API that doesn't send it.
+func TestShowSaysWhenTheMergedFixWentLive(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["status"] = "completed"
+		pr := s.runs[0]["pull_request"].(map[string]any)
+		pr["state"], pr["deployed_at"] = "merged", "2026-10-30T10:12:00Z"
+		s.runs[0]["merge"] = map[string]any{"status": "merged", "reason": nil, "hold_reasons": []any{}, "merged_by_lavaflow": true}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	deployed := time.Date(2026, 10, 30, 10, 12, 0, 0, time.UTC).Local().Format("2006-01-02 15:04")
+	assert.Contains(t, out, "  Merge: merged by LavaFlow\n  Deployed: "+deployed+"\n")
+
+	fake.set(func(s *lavaflowServer) { s.runs[0]["pull_request"].(map[string]any)["deployed_at"] = nil })
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "  Merge: merged by LavaFlow\n")
+	assert.NotContains(t, out, "Deployed:")
+
+	fake.set(func(s *lavaflowServer) { delete(s.runs[0]["pull_request"].(map[string]any), "deployed_at") })
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.NotContains(t, out, "Deployed:")
 }
 
 // show says where a run's merge is and, once LavaFlow holds the fix, each
@@ -300,57 +334,101 @@ func TestShowSaysWhoMergedTheFix(t *testing.T) {
 	}
 }
 
+// lavaflowSkipReasonText is what show says for each pull_request_skipped
+// code, in the dashboard's words, for a run whose diagnosis it prints.
+var lavaflowSkipReasonText = map[string]string{
+	"diagnose_only": "The project's autonomy was diagnose only, so LavaFlow stopped at the diagnosis. Read the diagnosis below.",
+	"not_fixable": "The diagnosis found no change in the code that fixes the error, " +
+		"for example because the cause is outside the code. Read the diagnosis below.",
+	"low_confidence": "The diagnosis isn't confident enough to propose a fix. Read the diagnosis below.",
+	"no_patch":       "LavaFlow proposed no change. Read the diagnosis below.",
+	"possible_credential": "The fix or its description held what looks like a credential or a project secret, " +
+		"so LavaFlow pushed nothing. Apply the fix yourself from the diagnosis below.",
+	"possible_personal_data": "The fix adds an email address the repository doesn't have, and the repository isn't private, " +
+		"so LavaFlow pushed nothing. Apply the fix yourself.",
+	"ungated_workflows": "A workflow could run the fix with the repository's secrets before a person approves it. " +
+		"Gate the workflow on a label a person adds, or have the project's owner allow ungated workflows.",
+	"convention_unsatisfiable": "LavaFlow would merge the fix, but no pull request title can meet the repository's commit convention, " +
+		"so it kept the fix on this run. Apply the fix yourself, or relax the convention.",
+	"pull_request_open": "Another LavaFlow pull request for this issue is open. Review or close it first.",
+	"source_unavailable": "LavaFlow couldn't read the repository at the deployed commit, or the production branch no longer has that commit. " +
+		"Check the project's repository connection, and that the commit is on the production branch.",
+	"permission_missing": "The Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs. " +
+		"Grant the App the permissions it requests, and make sure the owner can push to the repository.",
+	"repository_changed":      "The project no longer deploys from the repository this run read. A new run uses the current one.",
+	"publish_failed":          "Opening the pull request failed. A new run tries again.",
+	"review_unresolved":       "LavaFlow's review didn't pass this Code Quality fix. Read the diagnosis below.",
+	"duplicate_in_repository": "Another project on this repository has the open Code Quality pull request for the same finding.",
+	"security_finding": "The Code Quality finding has security impact and the repository isn't private, " +
+		"so a pull request would disclose it. Fix it yourself.",
+}
+
+// lavaflowSkipReasonsInContract is every LavaflowSkipReason the vendored API
+// contract lists.
+func lavaflowSkipReasonsInContract(t *testing.T) []string {
+	t.Helper()
+	spec, err := os.ReadFile(filepath.Join("..", "..", "..", "openapi", "openapi.yaml"))
+	require.NoError(t, err)
+	var contract struct {
+		Components struct {
+			Schemas struct {
+				LavaflowSkipReason struct {
+					Enum []string `yaml:"enum"`
+				} `yaml:"LavaflowSkipReason"`
+			} `yaml:"schemas"`
+		} `yaml:"components"`
+	}
+	require.NoError(t, yaml.Unmarshal(spec, &contract))
+	reasons := contract.Components.Schemas.LavaflowSkipReason.Enum
+	require.NotEmpty(t, reasons)
+	return reasons
+}
+
 // A completed run with no pull request says why in plain words, with what to
-// do next, for every code the API documents, and for diagnose_only once the
-// API sends it. An unknown code prints as given.
+// do next, for every code the API contract lists, so a code the contract adds
+// fails here until it has words. An unknown code prints as given.
 func TestShowSaysWhyARunOpenedNoPullRequest(t *testing.T) {
-	const none = "No fix pull request was opened"
-	for code, want := range map[string]string{
-		"not_fixable": none + ": the diagnosis found no change in the code that fixes the error, " +
-			"for example because the cause is outside it. Read the diagnosis below.",
-		"low_confidence": none + ": the diagnosis isn't confident enough to propose a fix. Read the diagnosis below.",
-		"no_patch":       none + ": LavaFlow proposed no change. Read the diagnosis below.",
-		"possible_credential": none + ": the fix or its description held what looks like a credential or a project secret, " +
-			"so LavaFlow pushed nothing. Apply the fix yourself from the diagnosis below.",
-		"possible_personal_data": none + ": the fix adds an email address the repository lacks, and the repository isn't private, " +
-			"so LavaFlow pushed nothing. Apply the fix yourself.",
-		"ungated_workflows": none + ": a workflow could run the fix with the repository's secrets before a person approves it. " +
-			"Gate that workflow on a label a person adds, or have the project's owner allow ungated workflows.",
-		"pull_request_open": none + ": another LavaFlow pull request for this issue is open. Review or close it first.",
-		"source_unavailable": none + ": LavaFlow couldn't read the repository at the deployed commit. " +
-			"Check the project's repository connection and that the commit exists.",
-		"permission_missing": none + ": the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs. " +
-			"Grant the App's requested permissions, and make sure the owner can push to the repository.",
-		"repository_changed": none + ": the project no longer deploys from the repository the run read. A new run uses the current one.",
-		"publish_failed":     none + ": opening the pull request failed. A new run tries again.",
-		"diagnose_only":      "Diagnosis only: this run wasn't set to open a fix.",
-		"new_code\x1b[2J":    none + ", for a reason this version of the CLI doesn't know: new_code\\x1b[2J.",
-	} {
+	const none = "No fix pull request was opened. "
+	reasons := lavaflowSkipReasonsInContract(t)
+	assert.ElementsMatch(t, reasons, slices.Collect(maps.Keys(lavaflowSkipReasonText)),
+		"every code in the contract, and no other, has words")
+	for _, code := range reasons {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) { s.openNoPullRequest(code) })
 
 		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 		require.NoError(t, err, code)
-		assert.Contains(t, out, "Fix:\n  "+want+"\n", code)
+		assert.Contains(t, out, "Fix:\n  "+none+lavaflowSkipReasonText[code]+"\n", code)
 		assert.NotContains(t, out, "Pull request:", code)
-		assert.NotContains(t, out, "\x1b", code)
+		assert.NotContains(t, out, "doesn't know", code)
 		assertLavaFlowWording(t, out)
 	}
+
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.openNoPullRequest("new_code\x1b[2J") })
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Fix:\n  No fix pull request was opened, for a reason this version of the CLI doesn't know: new_code\\x1b[2J.\n")
+	assert.NotContains(t, out, "\x1b")
 }
 
 // A reason that points to the diagnosis leaves the pointer out when show
-// prints no diagnosis.
+// prints no diagnosis, and keeps its reason.
 func TestShowPointsToADiagnosisOnlyWhenItPrintsOne(t *testing.T) {
-	fake, deps := newLavaflowServer(t)
-	fake.set(func(s *lavaflowServer) {
-		s.openNoPullRequest("possible_credential")
-		s.runs[0]["diagnosis"] = nil
-	})
+	for _, code := range lavaflowSkipReasonsInContract(t) {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.openNoPullRequest(code)
+			s.runs[0]["diagnosis"] = nil
+		})
 
-	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
-	require.NoError(t, err)
-	assert.Contains(t, out, "so LavaFlow pushed nothing. Apply the fix yourself.\n")
-	assert.NotContains(t, out, "below")
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, code)
+		want := strings.ReplaceAll(lavaflowSkipReasonText[code], " Read the diagnosis below.", "")
+		want = strings.ReplaceAll(want, " from the diagnosis below.", ".")
+		assert.Contains(t, out, "Fix:\n  No fix pull request was opened. "+want+"\n", code)
+		assert.NotContains(t, out, "below", code)
+	}
 }
 
 // A completed run with no pull request and no reason claims none: it may
@@ -363,7 +441,7 @@ func TestShowClaimsNoReasonTheRunDidntRecord(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
 	assert.Contains(t, out, "Fix:\n  No fix pull request was opened. LavaFlow didn't record why. Read the diagnosis below.\n")
-	assert.NotContains(t, out, "Diagnosis only")
+	assert.NotContains(t, out, "autonomy")
 	assert.Contains(t, out, "\nDiagnosis\n  Checkout reads the cart before it loads.\n")
 
 	// An API older than pull_request_skipped leaves it out.
