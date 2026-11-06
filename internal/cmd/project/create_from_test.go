@@ -402,6 +402,45 @@ func TestCreateFromRetriesALostAnswerWithTheSameKey(t *testing.T) {
 	assert.Equal(t, keys[0], keys[1])
 }
 
+// After a lost answer, the resend finds the first attempt still settling; it
+// waits as the API says and sends once more with the same key.
+func TestCreateFromWaitsWhenTheResendFindsTheFirstAttemptInProgress(t *testing.T) {
+	loggedIn(t)
+	var mu sync.Mutex
+	var keys []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch r.URL.Path {
+		case "/share-previews/" + fromLinkID:
+			writeProjectCommandJSON(t, w, http.StatusOK, previewPayload(releaseOne))
+		case "/forks":
+			keys = append(keys, r.Header.Get("Idempotency-Key"))
+			switch len(keys) {
+			case 1:
+				hijacked, _, err := w.(http.Hijacker).Hijack()
+				require.NoError(t, err)
+				require.NoError(t, hijacked.Close())
+			case 2:
+				w.Header().Set("Retry-After", "0")
+				writeProjectCommandJSON(t, w, http.StatusConflict,
+					map[string]any{"error": "still settling", "code": "request_in_progress"})
+			default:
+				writeProjectCommandJSON(t, w, http.StatusCreated, installingProject("ready", "ready", sourcePayload(releaseOne)))
+			}
+		default:
+			t.Errorf("unexpected request %s", r.URL.Path)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := runFrom(t, server, "", "--from", fromLink, "--var", "OPENAI_API_KEY=x", "--yes")
+	require.NoError(t, err)
+	require.Len(t, keys, 3)
+	assert.NotEmpty(t, keys[0])
+	assert.Equal(t, []string{keys[0], keys[0], keys[0]}, keys, "one request keeps its key")
+}
+
 func TestCreateFromWaitsThroughThePhasesToReady(t *testing.T) {
 	loggedIn(t)
 	fake, server := newFromServer(t)

@@ -50,6 +50,9 @@ type options struct {
 	// connect and cloud deploy commands; tests replace them.
 	connect func(ctx context.Context, opts options) error
 	deploy  func(ctx context.Context, opts options) error
+	// newProjectName names the cloud project connect creates, so connect
+	// never asks for one after the owner confirmed it.
+	newProjectName string
 	// directory says what the working directory is: a Volcano project linked
 	// to a cloud project, one that is not, or neither.
 	directory func() directory
@@ -88,9 +91,10 @@ links it. That deploy sends no env file, because volcano/volcano.env holds the
 local server's values: variables the project declares start empty. Pass
 --env-file to deploy your own values to your cloud project; the share still
 carries only their names. --no-deploy deploys nothing and creates no cloud
-project: it shares what the linked or selected cloud project already runs. A project that deploys from its Git repository is
-never deployed directly: the command shares what it runs. Outside a project
-directory, the command shares the selected cloud project as it runs.
+project: it shares what the linked or selected cloud project already runs. A
+project that deploys from its Git repository is never deployed directly: the
+command shares what it runs. Outside a project directory, the command shares
+the selected cloud project as it runs.
 
 Sharing publishes a release Volcano stores, and prints the link and a deploy
 button for a README. Run it again to share what the project has then. A share
@@ -389,12 +393,18 @@ func printShared(opts options, share *apiclient.Share, release *apiclient.ShareR
 // cloud deploy deploys it. Whatever a failed step leaves stays, and running the
 // command again picks up from the linked project.
 func putDirectoryOnCloud(ctx context.Context, opts options, dir directory, ask bool) error {
+	if !dir.project() && opts.envFile != "" {
+		return fmt.Errorf("--env-file is deployed with a project directory, and this is not one, so it would be ignored. "+
+			"Run the command in the project's directory, or set the cloud project's variables with %s",
+			cliruntime.CommandPath(cliruntime.Deps{}, "cloud variables deploy --file "+opts.envFile))
+	}
 	if !dir.project() || opts.noDeploy {
 		return nil
 	}
 	on := theme.On(opts.out)
 	if dir.link == nil {
-		name := filepath.Base(dir.path)
+		name := connectcmd.DefaultProjectName(dir.path)
+		opts.newProjectName = name
 		if ask {
 			confirmed, err := confirm.Action(opts.in, opts.out,
 				"This project isn't on Volcano Cloud yet.",
@@ -420,7 +430,15 @@ func putDirectoryOnCloud(ctx context.Context, opts options, dir directory, ask b
 	}
 
 	project := projectLabel(dir.link.Project)
+	if err := checkSelectedProject(dir.link); err != nil {
+		return err
+	}
 	if opts.deploysFromGit(ctx, opts) {
+		if opts.envFile != "" {
+			return fmt.Errorf("--env-file: %s deploys from its Git repository, so this directory and its env file "+
+				"are not deployed. Set the variables with %s, then share without --env-file", project,
+				cliruntime.CommandPath(cliruntime.Deps{}, "cloud variables deploy --file "+opts.envFile))
+		}
 		output.Warning(opts.out, "%s deploys from its Git repository, so this directory is not deployed: "+
 			"the share is what the project runs now. Push to its production branch to share newer code.", project)
 		return nil
@@ -443,6 +461,25 @@ func putDirectoryOnCloud(ctx context.Context, opts options, dir directory, ask b
 	return nil
 }
 
+// checkSelectedProject refuses a VOLCANO_PROJECT_ID that selects a project
+// other than the one the directory is linked to: deploying and sharing go to
+// the selected project, so the owner would confirm one project and change
+// another.
+func checkSelectedProject(link *config.Link) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil //nolint:nilerr // The deploy loads the config again and reports it.
+	}
+	selected := cfg.SelectedProjectID()
+	if selected == "" || selected == link.Project.ID {
+		return nil
+	}
+	return fmt.Errorf("VOLCANO_PROJECT_ID selects project %s, but this directory is linked to %s, "+
+		"so nothing was deployed or shared. Unset VOLCANO_PROJECT_ID to deploy and share %s, "+
+		"or pass --no-deploy to share %s as it runs",
+		theme.StripControl(selected), projectLabel(link.Project), projectLabel(link.Project), theme.StripControl(selected))
+}
+
 func projectLabel(project config.ProjectConfig) string {
 	if name := theme.StripControl(project.Name); name != "" {
 		return name
@@ -462,7 +499,17 @@ func deployStep(ctx context.Context, opts options) error {
 // runConnect creates a cloud project for the working directory and links it,
 // by running volcano connect . without installing agent skills.
 func runConnect(ctx context.Context, opts options) error {
-	return execute(ctx, connectcmd.New(opts.deps), []string{".", "--skip-skills"}, opts) //nolint:contextcheck // ExecuteContext hands ctx to the command.
+	return execute(ctx, connectcmd.New(opts.deps), connectArgs(opts), opts) //nolint:contextcheck // ExecuteContext hands ctx to the command.
+}
+
+// connectArgs are the arguments runConnect gives volcano connect: the working
+// directory, no agent skills, and the name the owner confirmed.
+func connectArgs(opts options) []string {
+	args := []string{".", "--skip-skills"}
+	if opts.newProjectName != "" {
+		args = append(args, "--name", opts.newProjectName)
+	}
+	return args
 }
 
 // runCloudDeploy deploys the working directory to its linked cloud project, by

@@ -838,6 +838,11 @@ func defaultProjectName(dir string) string {
 	return dirName(filepath.Base(dir))
 }
 
+// DefaultProjectName is the name connect gives a new project for dir.
+func DefaultProjectName(dir string) string {
+	return defaultProjectName(dir)
+}
+
 // dirName makes name safe as a project name and a directory name: lowercase
 // letters, digits and dashes.
 func dirName(name string) string {

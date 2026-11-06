@@ -65,29 +65,29 @@ func (s Service) PreviewShare(ctx context.Context, shareID string) (*apiclient.S
 // installation is ready or failed.
 //
 // A request whose answer never arrived is sent once more with the same
-// idempotency key, and so is one the API says an earlier attempt with that key
-// is still settling, after the wait it names; either way it creates at most one
-// project.
+// idempotency key. When the API answers that an earlier attempt with that key
+// is still settling, as it does after a lost answer, it is sent once more after
+// the wait the API names. Either way it creates at most one project.
 func (s Service) Fork(ctx context.Context, request api.ForkRequest) (*apiclient.Project, error) {
 	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return nil, err
 	}
 	project, err := authenticated.API.CreateFork(ctx, request)
-	if err != nil && request.IdempotencyKey != "" && ctx.Err() == nil {
-		switch {
-		case api.Status(err) == 0:
-			project, err = authenticated.API.CreateFork(ctx, request)
-		case api.Status(err) == http.StatusConflict && api.Code(err) == requestInProgressCode:
-			sleep := s.sleep
-			if sleep == nil {
-				sleep = sleepContext
-			}
-			if waitErr := waitRetryAfter(ctx, err, sleep); waitErr != nil {
-				return nil, waitErr
-			}
-			project, err = authenticated.API.CreateFork(ctx, request)
+	retryable := request.IdempotencyKey != ""
+	if err != nil && retryable && ctx.Err() == nil && api.Status(err) == 0 {
+		project, err = authenticated.API.CreateFork(ctx, request)
+	}
+	if err != nil && retryable && ctx.Err() == nil &&
+		api.Status(err) == http.StatusConflict && api.Code(err) == requestInProgressCode {
+		sleep := s.sleep
+		if sleep == nil {
+			sleep = sleepContext
 		}
+		if waitErr := waitRetryAfter(ctx, err, sleep); waitErr != nil {
+			return nil, waitErr
+		}
+		project, err = authenticated.API.CreateFork(ctx, request)
 	}
 	if err != nil {
 		return nil, forkError(fmt.Sprintf("fork the share as project %q", request.Name), err, time.Now())

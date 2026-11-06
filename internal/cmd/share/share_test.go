@@ -131,6 +131,7 @@ type retryAfter struct {
 // steps records which of the put-on-cloud steps ran.
 type steps struct {
 	connected, deployed int
+	connectName         string
 	connectErr          error
 	deployErr           error
 }
@@ -144,8 +145,9 @@ func testOptions(t *testing.T, server *httptest.Server, stdin string, dir direct
 		out:    &out,
 		stdout: &out,
 		errOut: &out,
-		connect: func(context.Context, options) error {
+		connect: func(_ context.Context, opts options) error {
 			record.connected++
+			record.connectName = opts.newProjectName
 			return record.connectErr
 		},
 		deploy: func(context.Context, options) error {
@@ -242,6 +244,50 @@ func TestShareNoDeployInAnUnlinkedDirectoryCreatesNothing(t *testing.T) {
 	assert.Equal(t, 1, fake.publishes)
 }
 
+// --env-file is deployed with a project directory; outside one it would be
+// ignored, so it is refused before anything is shared.
+func TestShareRefusesAnEnvFileOutsideAProjectDirectory(t *testing.T) {
+	setTestHome(t)
+	fake, server := newFakeAPI(t)
+	opts, _ := testOptions(t, server, "", directory{}, false, &steps{})
+	opts.yes, opts.envFile = true, "prod.env"
+
+	err := run(t.Context(), opts)
+	require.ErrorContains(t, err, "--env-file is deployed with a project directory, and this is not one")
+	assert.Contains(t, err.Error(), "volcano cloud variables deploy --file prod.env")
+	assert.Empty(t, fake.calls)
+}
+
+func TestShareRefusesAnEnvFileForAProjectThatDeploysFromGit(t *testing.T) {
+	setTestHome(t)
+	fake, server := newFakeAPI(t)
+	record := &steps{}
+	opts, _ := testOptions(t, server, "", linkedDir(), true, record)
+	opts.yes, opts.envFile = true, "prod.env"
+
+	require.ErrorContains(t, run(t.Context(), opts), "Beta deploys from its Git repository, so this directory and its env file are not deployed")
+	assert.Zero(t, record.deployed)
+	assert.Empty(t, fake.calls)
+}
+
+// VOLCANO_PROJECT_ID selecting another project than the directory's link
+// would deploy and share that project after the owner confirmed the linked
+// one, so nothing is deployed.
+func TestShareRefusesAProjectOverrideThatIsNotTheLinkedProject(t *testing.T) {
+	setTestHome(t)
+	other := "44444444-4444-4444-8444-444444444444"
+	t.Setenv("VOLCANO_PROJECT_ID", other)
+	fake, server := newFakeAPI(t)
+	record := &steps{}
+	opts, _ := testOptions(t, server, "", linkedDir(), false, record)
+	opts.yes = true
+
+	err := run(t.Context(), opts)
+	require.ErrorContains(t, err, "VOLCANO_PROJECT_ID selects project "+other+", but this directory is linked to Beta")
+	assert.Zero(t, record.deployed)
+	assert.Empty(t, fake.calls)
+}
+
 // A project whose Git repository is its source refuses direct deploys, so share
 // says so and shares what the project runs.
 func TestShareNeverDeploysAProjectThatDeploysFromGit(t *testing.T) {
@@ -269,6 +315,7 @@ func TestShareCreatesDeploysAndSharesALocalOnlyProject(t *testing.T) {
 	require.NoError(t, run(t.Context(), opts))
 
 	assert.Equal(t, 1, record.connected)
+	assert.Equal(t, "shop", record.connectName, "connect is given the confirmed name, so it never asks for one")
 	assert.Equal(t, 1, record.deployed)
 	for _, want := range []string{
 		"This project isn't on Volcano Cloud yet.", "Create cloud project shop, deploy it, and share it?",
@@ -775,4 +822,8 @@ func releasePayload() map[string]any {
 	release["sha256"] = strings.Repeat("ab", 32)
 	release["size_bytes"] = 48211
 	return release
+}
+
+func TestConnectArgsNameTheConfirmedProject(t *testing.T) {
+	assert.Equal(t, []string{".", "--skip-skills", "--name", "shop"}, connectArgs(options{newProjectName: "shop"}))
 }
