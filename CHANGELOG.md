@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.72.1](https://github.com/Kong/volcano-cli/compare/v0.72.0...v0.72.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **lavaflow:** say a project token can't start a run ([#451](https://github.com/Kong/volcano-cli/issues/451)) ([53bb804](https://github.com/Kong/volcano-cli/commit/53bb804a60df5535695c9ed40db88d6d518e5729))
+
 ## [0.72.0](https://github.com/Kong/volcano-cli/compare/v0.71.0...v0.72.0) (2026-11-06)
 
 
