@@ -576,6 +576,7 @@ When Volcano doesn't open the fix, the command says what to do:
 | Another run of the issue is in progress | Try again once it finishes | 1 |
 | The run no longer holds a fix a person can open, or has used every attempt it gets | The `show` command for the run | 1 |
 | Volcano can't take the request now | When to try again, from Volcano's answer; it doesn't retry for you | 1 |
+| Volcano refused the request the CLI sent | What Volcano said, and to update the CLI with `volcano upgrade` | 1 |
 | LavaFlow isn't available for the project, or isn't open to it yet | LavaFlow isn't available for this project yet | 4 |
 | The project has no such run | `no LavaFlow run <run-id> in this project` | 4 |
 | The Volcano API serves LavaFlow but is older than opening held fixes | This Volcano API can't open a fix LavaFlow held yet | 4 |

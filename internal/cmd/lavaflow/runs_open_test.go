@@ -457,6 +457,51 @@ func TestRunsOpenSaysAPersonRequiredRefusalNeedsTheOwnersLiveSignIn(t *testing.T
 	}
 }
 
+// A 400 or 413 means Volcano didn't take the request this CLI built: the
+// command says nothing was queued, keeps Volcano's words, and points at
+// volcano upgrade, without retrying. A 401 keeps its status, so the exit code
+// says the credential isn't signed in, and keeps Volcano's words.
+func TestRunsOpenSaysWhenVolcanoRefusesTheRequest(t *testing.T) {
+	const upgrade = "Update the CLI with 'volcano upgrade' and run this again"
+	for _, tc := range []struct {
+		status        int
+		message, want string
+	}{
+		{
+			http.StatusBadRequest, "jobs_sha256 must be 64 lowercase hex characters",
+			clilavaflow.ErrOpenRequestRefused.Error() + `. Volcano said: "jobs_sha256 must be 64 lowercase hex characters". ` + upgrade,
+		},
+		{
+			http.StatusRequestEntityTooLarge, "Request body exceeds 4,096 bytes.",
+			clilavaflow.ErrOpenRequestRefused.Error() + `. Volcano said: "Request body exceeds 4,096 bytes". ` + upgrade,
+		},
+		{http.StatusBadRequest, "", clilavaflow.ErrOpenRequestRefused.Error() + ". " + upgrade},
+	} {
+		fake, deps, _ := newHeldLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse, s.refuseMethod = tc.status, http.MethodPost
+			s.refusal = map[string]any{"error": tc.message}
+		})
+
+		_, _, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
+		require.EqualError(t, err, tc.want, "%d %q", tc.status, tc.message)
+		require.ErrorIs(t, err, clilavaflow.ErrOpenRequestRefused)
+		assert.Equal(t, tc.status, api.Status(err))
+		assert.Len(t, fake.opens, 1, "%d: not retried", tc.status)
+	}
+
+	fake, deps, _ := newHeldLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.refuse, s.refuseMethod = http.StatusUnauthorized, http.MethodPost
+		s.refusal = map[string]any{"error": "invalid or expired token"}
+	})
+	_, _, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), "runs", "open", lavaflowHeldID)
+	require.ErrorContains(t, err, "invalid or expired token")
+	assert.NotErrorIs(t, err, clilavaflow.ErrOpenRequestRefused)
+	assert.Equal(t, http.StatusUnauthorized, api.Status(err))
+	assert.Len(t, fake.opens, 1)
+}
+
 // The owner's plan, and an owner whose account is read-only or inactive, are
 // refused with 403 too, each said for what it is.
 func TestRunsOpenSaysWhenThePlanOrCredentialCantOpenIt(t *testing.T) {

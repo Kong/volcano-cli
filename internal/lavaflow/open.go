@@ -93,6 +93,11 @@ var (
 	// project access token first.
 	ErrOpenRefused = errors.New("LavaFlow didn't open the fix: a read-only or inactive account can't open one, " +
 		"and otherwise the project owner's plan couldn't be read; try again later")
+	// ErrOpenRequestRefused reports the open's 400 or 413: Volcano didn't take
+	// the request this CLI built, as when the CLI is older than the route's
+	// contract. Nothing was queued.
+	ErrOpenRequestRefused = errors.New("LavaFlow didn't open the fix: Volcano refused the request this CLI sent, " +
+		"so nothing was queued")
 )
 
 // Codes of the open route's 409s that runs start doesn't share.
@@ -294,6 +299,8 @@ func (s Service) openRefused(cfg *config.Config, runID string, err error) error 
 		}
 	case status == http.StatusTooManyRequests || status == http.StatusServiceUnavailable:
 		refusal = retryLater(time.Now(), err)
+	case status == http.StatusBadRequest || status == http.StatusRequestEntityTooLarge:
+		refusal = requestRefused(err)
 	case api.RouteMissing(err):
 		refusal = ErrOpenUnsupported
 	default:
@@ -345,6 +352,17 @@ func retryLater(now time.Time, err error) error {
 		}
 	}
 	return fmt.Errorf("%s. Try again later", refusal)
+}
+
+// requestRefused says Volcano didn't take the request this CLI built, in
+// Volcano's words when it gave some, and that a newer CLI may send one it
+// takes.
+func requestRefused(err error) error {
+	const upgrade = "Update the CLI with 'volcano upgrade' and run this again"
+	if message := strings.TrimSuffix(strings.TrimSpace(api.Message(err)), "."); message != "" {
+		return fmt.Errorf("%w. Volcano said: %q. %s", ErrOpenRequestRefused, message, upgrade)
+	}
+	return fmt.Errorf("%w. %s", ErrOpenRequestRefused, upgrade)
 }
 
 // personOpens says how the owner opens a held fix instead of a project
