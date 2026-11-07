@@ -216,6 +216,22 @@ func TestCreateFromShowsTheReleaseAndDeploysItWithNoValues(t *testing.T) {
 	assert.NotEmpty(t, fake.createKeys[0], "the create carries an idempotency key")
 }
 
+// VOLCANO_PROJECT_ID outranks the copy's selection, so the variables hint points
+// the variable at the copy rather than deploying to the project it names.
+func TestCreateFromUnderAProjectOverrideDoesNotSendVariablesToIt(t *testing.T) {
+	loggedIn(t)
+	interactive(t)
+	_, server := newFromServer(t)
+	other := "44444444-4444-4444-8444-444444444444"
+	t.Setenv("VOLCANO_PROJECT_ID", other)
+
+	out, err := runFrom(t, server, "y\n", "--from", fromLink)
+	require.NoError(t, err)
+	assert.Contains(t, out, "VOLCANO_PROJECT_ID selects project "+other)
+	assert.Contains(t, out, "set VOLCANO_PROJECT_ID to "+projectBetaID+" first")
+	assert.NotContains(t, out, "select the copy with `volcano use")
+}
+
 // The preview route is public, so it carries no credential; the create does.
 func TestCreateFromSendsNoCredentialForThePreview(t *testing.T) {
 	loggedIn(t)

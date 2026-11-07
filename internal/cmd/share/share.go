@@ -117,8 +117,9 @@ which bypasses row-level security, so the command asks you to confirm them.
 
 --description says what the project does, on the link's page. Copies cannot be
 shared again unless --allow-reshare lets them; --no-allow-reshare takes that
-back, and stops copies that are already shared, before the release is built, so
-it holds even if you decline to publish. --yes confirms without asking, for CI.`,
+back, and stops copies that are already shared. It applies after any deploy and
+before the release is built, so it holds if you decline to publish; pass
+--no-deploy as well to change only that. --yes confirms without asking, for CI.`,
 		Example: fmt.Sprintf("  %s\n  %s\n  %s",
 			cliruntime.CommandPath(deps, "share"),
 			cliruntime.CommandPath(deps, `share --description "Ask a question, get a checked answer."`),
@@ -246,7 +247,8 @@ func prepareShare(ctx context.Context, opts options, service sharing.Service) (*
 }
 
 // stopResharing applies --no-allow-reshare to a share that existed before the
-// release is built. It only takes consent back, so it needs no release: it
+// release is built, after any deploy: until the directory is on the cloud, the
+// selected project may not be the one being shared. It only takes consent back, so it needs no release: it
 // holds even when the build fails or the owner declines to publish.
 func stopResharing(
 	ctx context.Context, opts *options, service sharing.Service, share *apiclient.Share, created bool,

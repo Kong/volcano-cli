@@ -130,7 +130,7 @@ func Run(ctx context.Context, opts Options) error {
 // empty and how to set them on the copy, and prints the JSON result.
 func finish(ctx context.Context, opts Options, project *apiclient.Project, preview *apiclient.SharePreview) error {
 	selected, err := selectCopy(ctx, opts, project)
-	emptyVariables(opts, project, preview, selected)
+	emptyVariables(opts, project, preview, selected, overridingProject(project))
 	if err != nil {
 		return err
 	}
@@ -160,15 +160,21 @@ func selectCopy(ctx context.Context, opts Options, project *apiclient.Project) (
 	if result.EnvErr != nil {
 		output.Warning(opts.Out, "Could not update the anon key in %s for this project: %v.", result.EnvFile, result.EnvErr)
 	}
-	// VOLCANO_PROJECT_ID outranks the project use saves.
-	if cfg, err := config.Load(); err == nil {
-		if selected := cfg.SelectedProjectID(); selected != "" && !isProject(selected, project.Id) {
-			output.Warning(opts.Out, "VOLCANO_PROJECT_ID selects project %s, so cloud commands still use it. "+
-				"Unset it to use the copy.", theme.StripControl(selected))
-			return false, nil
-		}
-	}
 	return true, nil
+}
+
+// overridingProject returns the project VOLCANO_PROJECT_ID selects when it is
+// not the copy. The variable outranks both a directory's link and the project
+// use saves, so cloud commands go to that project whatever was selected.
+func overridingProject(project *apiclient.Project) string {
+	cfg, err := config.Load()
+	if err != nil {
+		return ""
+	}
+	if id := cfg.ProjectIDFromEnv(); id != "" && !isProject(id, project.Id) {
+		return id
+	}
+	return ""
 }
 
 // isProject reports whether id, in any UUID spelling, names project.
@@ -178,10 +184,12 @@ func isProject(id string, project uuid.UUID) bool {
 }
 
 // emptyVariables lists the variables the copy starts with empty. cloud
-// variables deploy writes to the active project, so when the copy is not it,
-// the hint selects the copy first: following it must not change another
-// project's variables.
-func emptyVariables(opts Options, project *apiclient.Project, preview *apiclient.SharePreview, selected bool) {
+// variables deploy writes to the project cloud commands use, so when that is
+// not the copy, the hint points them at the copy first: following it must not
+// change another project's variables.
+func emptyVariables(
+	opts Options, project *apiclient.Project, preview *apiclient.SharePreview, selected bool, override string,
+) {
 	var empty []string
 	for _, variable := range preview.Release.Variables {
 		if value, ok := ParseVarValue(opts.Vars, variable.Name); !ok || value == "" {
@@ -189,8 +197,15 @@ func emptyVariables(opts Options, project *apiclient.Project, preview *apiclient
 		}
 	}
 	deploy := cliruntime.CommandPath(cliruntime.Deps{}, "cloud variables deploy --file <env-file>")
-	hint := fmt.Sprintf("Set them in an env file and run `%s`, or in the dashboard.", deploy)
-	if !selected {
+	var hint string
+	switch {
+	case override != "":
+		hint = fmt.Sprintf("Set them in the dashboard. VOLCANO_PROJECT_ID selects project %s, so `%s` would write "+
+			"to it: set VOLCANO_PROJECT_ID to %s first, then set them in an env file and run it.",
+			theme.StripControl(override), deploy, project.Id.String())
+	case selected:
+		hint = fmt.Sprintf("Set them in an env file and run `%s`, or in the dashboard.", deploy)
+	default:
 		hint = fmt.Sprintf("Set them in the dashboard, or select the copy with `%s` outside a linked directory, "+
 			"then set them in an env file and run `%s`.",
 			cliruntime.CommandPath(cliruntime.Deps{}, "use "+project.Id.String()), deploy)
