@@ -25721,12 +25721,40 @@ components:
             - changes_requested
             - blocked
             - error
-          description: The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding.
+          description: The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding, or no reviewer could run.
         rounds:
           type: integer
+          description: The review rounds that ran, 0 when no reviewer could run.
+        stopped:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowReviewStop'
+          nullable: true
+          description: Why the review ended without passing the fix, null when it passed the fix or when the run saved no fix.
       required:
         - verdict
         - rounds
+        - stopped
+    LavaflowReviewStop:
+      type: string
+      enum:
+        - rounds
+        - no_revision
+        - budget_exhausted
+        - context_limit
+        - timed_out
+        - reviewers_failed
+        - too_few_reviewers
+        - unreadable
+      x-enum-varnames:
+        - LavaflowReviewStopRounds
+        - LavaflowReviewStopNoRevision
+        - LavaflowReviewStopBudgetExhausted
+        - LavaflowReviewStopContextLimit
+        - LavaflowReviewStopTimedOut
+        - LavaflowReviewStopReviewersFailed
+        - LavaflowReviewStopTooFewReviewers
+        - LavaflowReviewStopUnreadable
+      description: 'Why a run''s review ended without passing its fix. `rounds`: the last review round still found problems. `no_revision`: LavaFlow gave no revised fix. `budget_exhausted`: the run used its token budget before LavaFlow could revise the fix; this is the run''s own budget, not the project''s daily spend limit. `context_limit`: the fix''s conversation grew too long for the model before LavaFlow could revise it. `timed_out`: the run''s time for review ran out. `reviewers_failed`: no reviewer of the last round finished. `too_few_reviewers`: fewer reviewers could run than a round needs to pass the fix. `unreadable`: a retried run could not read the review saved with its fix, so a person must review it. More values may be added: treat a value you don''t know as other.'
     LavaflowFailure:
       type: object
       properties:
@@ -25741,17 +25769,17 @@ components:
         - message
     LavaflowRepositoryChecks:
       type: object
-      description: Whether LavaFlow ran the repository's own checks, such as its tests, on a fix before its pull request opened.
+      description: Whether LavaFlow ran the repository's own checks, such as its tests, on a fix itself, before it opened a pull request or held the fix. CI that runs on the pull request afterwards is the repository's own.
       properties:
         status:
           type: string
           description: '`not_run`: LavaFlow did not run the repository''s checks on the fix, for the reason `reason` names. Treat a status you don''t know as `not_run`.'
         reason:
           type: string
-          description: 'Stable code for why the checks did not run. `sandbox_unavailable`: LavaFlow cannot run a repository''s checks before the pull request opens yet.'
+          description: 'Stable code for why the checks did not run. `sandbox_unavailable`: LavaFlow cannot run a repository''s checks itself yet.'
         message:
           type: string
-          description: Text to show for the status and reason.
+          description: Text to show for the status and reason. It names the pull request when one opened.
       required:
         - status
         - reason
@@ -25778,11 +25806,12 @@ components:
               allOf:
                 - $ref: '#/components/schemas/LavaflowReview'
               nullable: true
+              description: The review of the run's fix. When no reviewer could run, it still says why in `stopped`. Null when no review ran.
             repository_checks:
               allOf:
                 - $ref: '#/components/schemas/LavaflowRepositoryChecks'
               nullable: true
-              description: Whether LavaFlow ran the repository's own checks on the fix before its pull request opened. Null for a run with no fix.
+              description: Whether LavaFlow ran the repository's own checks on the fix itself. Null for a run with no fix.
             failure:
               allOf:
                 - $ref: '#/components/schemas/LavaflowFailure'

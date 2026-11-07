@@ -21,7 +21,7 @@ func TestShowSaysWhatTheRunFoundAndFixed(t *testing.T) {
 		"Resource: function checkout",
 		"Title: " + lavaflowIssueTitle,
 		"Review: passed after 2 round(s)\n" +
-			"Checks: The repository's tests didn't run. " + lavaflowChecksMessage + "\n" +
+			"Checks: " + lavaflowChecksMessage + "\n" +
 			"Fix:\n  Pull request: #42 https://github.com/acme/shop/pull/42\n  State: open\n",
 		"Diagnosis\n  Checkout reads the cart before it loads.\n",
 		"Root cause\n  handleCheckout dereferences cart without a guard.\n",
@@ -493,9 +493,10 @@ func TestRunJSONKeepsEveryFieldTheAPISends(t *testing.T) {
 	assert.Equal(t, "source_unavailable", second["pull_request_skipped"])
 }
 
-// show says when the repository's own checks didn't run on the fix, with why
-// in the API's words. A run with no fix has none, and prints no line. The API
-// asks clients to read a status or reason they don't know as not_run.
+// show says when the repository's own checks didn't run on the fix, in the
+// API's words, and says so itself when the API sends none. A run with no fix
+// has none, and prints no line. The API asks clients to read a status or
+// reason they don't know as not_run.
 func TestShowSaysTheRepositorysTestsDidntRun(t *testing.T) {
 	for name, checks := range map[string]any{
 		"not run":        checksNotRun(),
@@ -509,11 +510,25 @@ func TestShowSaysTheRepositorysTestsDidntRun(t *testing.T) {
 
 			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 			require.NoError(t, err)
-			assert.Contains(t, out, "Review: passed after 2 round(s)\nChecks: The repository's tests didn't run. "+lavaflowChecksMessage+"\nFix:\n")
+			assert.Contains(t, out, "Review: passed after 2 round(s)\nChecks: "+lavaflowChecksMessage+"\nFix:\n")
 			assert.NotContains(t, out, "not_run")
 			assert.NotContains(t, out, "sandbox_unavailable")
 		})
 	}
+
+	t.Run("no pull request", func(t *testing.T) {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.openNoPullRequest("ungated_workflows")
+			s.runs[0]["repository_checks"] = map[string]any{
+				"status": "not_run", "reason": "sandbox_unavailable", "message": "LavaFlow didn't run the repository's tests.",
+			}
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err)
+		assert.Contains(t, out, "Checks: LavaFlow didn't run the repository's tests.\nFix:\n  No fix pull request was opened")
+	})
 
 	t.Run("no message", func(t *testing.T) {
 		fake, deps := newLavaflowServer(t)
@@ -534,7 +549,7 @@ func TestShowSaysTheRepositorysTestsDidntRun(t *testing.T) {
 
 		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 		require.NoError(t, err)
-		assert.Contains(t, out, `Checks: The repository's tests didn't run. push\x1b[2J\x0dnow`)
+		assert.Contains(t, out, `Checks: push\x1b[2J\x0dnow`)
 		assert.NotContains(t, out, "\x1b")
 	})
 
@@ -574,4 +589,86 @@ func TestShowJSONKeepsTheRepositoryChecks(t *testing.T) {
 	got := decodeJSON(t, out)
 	assert.Contains(t, got, "repository_checks")
 	assert.Nil(t, got["repository_checks"])
+}
+
+// show says in plain words why a review ended without passing its fix. A
+// passed review has no reason and prints no line; a reason the CLI doesn't
+// know prints as other, with its code.
+func TestShowSaysWhyTheReviewStopped(t *testing.T) {
+	for stopped, want := range map[string]string{
+		"rounds":            "The last review round still found problems.",
+		"no_revision":       "LavaFlow gave no revised fix.",
+		"budget_exhausted":  "The run used its token budget before LavaFlow could revise the fix, not the daily spend limit.",
+		"context_limit":     "The fix's conversation grew too long for LavaFlow before it could revise it.",
+		"timed_out":         "The run's time for review ran out.",
+		"reviewers_failed":  "No reviewer of the last round finished.",
+		"too_few_reviewers": "Fewer reviewers could run than a round needs to pass the fix.",
+		"unreadable":        "A retried run couldn't read the review saved with its fix, so a person must review it.",
+		"future_reason":     "Other (future reason).",
+		"future\x1b[2J":     `Other (future\x1b[2J).`,
+	} {
+		t.Run(stopped, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.runs[0]["review"] = map[string]any{"verdict": "blocked", "rounds": 3, "stopped": stopped}
+			})
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Review: blocked after 3 round(s)\nReview stopped: "+want+"\nChecks: ")
+			assert.NotContains(t, out, "\x1b")
+			assertLavaFlowWording(t, out)
+
+			out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+			require.NoError(t, err)
+			assert.Equal(t, stopped, decodeJSON(t, out)["review"].(map[string]any)["stopped"], "--json keeps the code as sent")
+		})
+	}
+
+	for name, review := range map[string]map[string]any{
+		"null":   {"verdict": "passed", "rounds": 2, "stopped": nil},
+		"absent": {"verdict": "passed", "rounds": 2},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) { s.runs[0]["review"] = review })
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Review: passed after 2 round(s)\nChecks: ")
+			assert.NotContains(t, out, "Review stopped")
+		})
+	}
+}
+
+// A review with no round says no reviewer could run, rather than counting
+// zero rounds.
+func TestShowSaysWhenNoReviewerCouldRun(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["review"] = map[string]any{"verdict": "error", "rounds": 0, "stopped": "too_few_reviewers"}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Review: error; no reviewer could run\nReview stopped: ")
+	assert.NotContains(t, out, "0 round(s)")
+}
+
+// A run reviewed before Volcano kept each round's findings sends
+// round_reviews as []: show prints the review as before, and --json keeps the
+// list as sent.
+func TestShowReadsARunReviewedBeforeRoundsWereKept(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["review"] = map[string]any{"verdict": "passed", "rounds": 2, "stopped": nil, "round_reviews": []any{}}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Review: passed after 2 round(s)\nChecks: ")
+
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+	require.NoError(t, err)
+	assert.Equal(t, []any{}, decodeJSON(t, out)["review"].(map[string]any)["round_reviews"])
 }

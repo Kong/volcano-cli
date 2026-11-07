@@ -2130,6 +2130,42 @@ func (e LavaflowReviewVerdict) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowReviewStop.
+const (
+	LavaflowReviewStopBudgetExhausted LavaflowReviewStop = "budget_exhausted"
+	LavaflowReviewStopContextLimit    LavaflowReviewStop = "context_limit"
+	LavaflowReviewStopNoRevision      LavaflowReviewStop = "no_revision"
+	LavaflowReviewStopReviewersFailed LavaflowReviewStop = "reviewers_failed"
+	LavaflowReviewStopRounds          LavaflowReviewStop = "rounds"
+	LavaflowReviewStopTimedOut        LavaflowReviewStop = "timed_out"
+	LavaflowReviewStopTooFewReviewers LavaflowReviewStop = "too_few_reviewers"
+	LavaflowReviewStopUnreadable      LavaflowReviewStop = "unreadable"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowReviewStop enum.
+func (e LavaflowReviewStop) Valid() bool {
+	switch e {
+	case LavaflowReviewStopBudgetExhausted:
+		return true
+	case LavaflowReviewStopContextLimit:
+		return true
+	case LavaflowReviewStopNoRevision:
+		return true
+	case LavaflowReviewStopReviewersFailed:
+		return true
+	case LavaflowReviewStopRounds:
+		return true
+	case LavaflowReviewStopTimedOut:
+		return true
+	case LavaflowReviewStopTooFewReviewers:
+		return true
+	case LavaflowReviewStopUnreadable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowRunStatus.
 const (
 	LavaflowRunStatusCancelled  LavaflowRunStatus = "cancelled"
@@ -8283,12 +8319,12 @@ type LavaflowPullRequest struct {
 // LavaflowPullRequestState defines model for LavaflowPullRequest.State.
 type LavaflowPullRequestState string
 
-// LavaflowRepositoryChecks Whether LavaFlow ran the repository's own checks, such as its tests, on a fix before its pull request opened.
+// LavaflowRepositoryChecks Whether LavaFlow ran the repository's own checks, such as its tests, on a fix itself, before it opened a pull request or held the fix. CI that runs on the pull request afterwards is the repository's own.
 type LavaflowRepositoryChecks struct {
-	// Message Text to show for the status and reason.
+	// Message Text to show for the status and reason. It names the pull request when one opened.
 	Message string `json:"message"`
 
-	// Reason Stable code for why the checks did not run. `sandbox_unavailable`: LavaFlow cannot run a repository's checks before the pull request opens yet.
+	// Reason Stable code for why the checks did not run. `sandbox_unavailable`: LavaFlow cannot run a repository's checks itself yet.
 	Reason string `json:"reason"`
 
 	// Status `not_run`: LavaFlow did not run the repository's checks on the fix, for the reason `reason` names. Treat a status you don't know as `not_run`.
@@ -8332,14 +8368,21 @@ type LavaflowResourceReferenceType string
 
 // LavaflowReview defines model for LavaflowReview.
 type LavaflowReview struct {
+	// Rounds The review rounds that ran, 0 when no reviewer could run.
 	Rounds int `json:"rounds"`
 
-	// Verdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding.
+	// Stopped Why the review ended without passing the fix, null when it passed the fix or when the run saved no fix.
+	Stopped *LavaflowReviewStop `json:"stopped"`
+
+	// Verdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding, or no reviewer could run.
 	Verdict LavaflowReviewVerdict `json:"verdict"`
 }
 
-// LavaflowReviewVerdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding.
+// LavaflowReviewVerdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding, or no reviewer could run.
 type LavaflowReviewVerdict string
+
+// LavaflowReviewStop Why a run's review ended without passing its fix. `rounds`: the last review round still found problems. `no_revision`: LavaFlow gave no revised fix. `budget_exhausted`: the run used its token budget before LavaFlow could revise the fix; this is the run's own budget, not the project's daily spend limit. `context_limit`: the fix's conversation grew too long for the model before LavaFlow could revise it. `timed_out`: the run's time for review ran out. `reviewers_failed`: no reviewer of the last round finished. `too_few_reviewers`: fewer reviewers could run than a round needs to pass the fix. `unreadable`: a retried run could not read the review saved with its fix, so a person must review it. More values may be added: treat a value you don't know as other.
+type LavaflowReviewStop string
 
 // LavaflowRun defines model for LavaflowRun.
 type LavaflowRun struct {
@@ -8363,12 +8406,14 @@ type LavaflowRun struct {
 	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
 	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
 
-	// RepositoryChecks Whether LavaFlow ran the repository's own checks on the fix before its pull request opened. Null for a run with no fix.
+	// RepositoryChecks Whether LavaFlow ran the repository's own checks on the fix itself. Null for a run with no fix.
 	RepositoryChecks *LavaflowRepositoryChecks `json:"repository_checks"`
 
 	// Resource The function, durable function or frontend an issue came from.
 	Resource LavaflowResourceReference `json:"resource"`
-	Review   *LavaflowReview           `json:"review"`
+
+	// Review The review of the run's fix. When no reviewer could run, it still says why in `stopped`. Null when no review ran.
+	Review *LavaflowReview `json:"review"`
 
 	// SourceCommit The commit the run read the code at. Null when it read none, as for a run that diagnosed from the logs alone.
 	SourceCommit *LavaflowSourceCommit `json:"source_commit"`

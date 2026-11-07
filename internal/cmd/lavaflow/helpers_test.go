@@ -322,9 +322,9 @@ func checkoutResource() map[string]any {
 	return map[string]any{"id": lavaflowResourceID, "type": "function", "name": "checkout"}
 }
 
-// lavaflowChecksMessage is the API's text for checks it didn't run.
-const lavaflowChecksMessage = "LavaFlow did not run the repository's checks on this fix. Its commit skips CI; " +
-	"push a commit to the pull request's branch to run them."
+// lavaflowChecksMessage is the API's text for checks it didn't run on a fix
+// with a pull request.
+const lavaflowChecksMessage = "LavaFlow didn't run the repository's tests before opening this pull request."
 
 // checksNotRun is repository_checks as the API sends it for every run with a
 // fix: LavaFlow can't run a repository's checks yet.
