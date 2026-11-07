@@ -155,9 +155,8 @@ them. Set them in an env file and run
 command writes to your active project, so when the copy is not it, for example
 inside a linked directory or after `volcano projects create --from`, first run
 `volcano use <project-id>` outside a linked directory. `VOLCANO_PROJECT_ID`
-outranks both, so if it is set, set it to the copy's ID instead. To fill one in
-up front,
-pass `--var NAME=value`; repeat it for more.
+outranks both, so unset it first. To fill one in up front, pass
+`--var NAME=value`; repeat it for more.
 
 If the owner shares a new release after you saw the preview, nothing is
 created. At a terminal the command shows what changed and asks again; with

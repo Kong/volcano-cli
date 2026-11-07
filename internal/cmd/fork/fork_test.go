@@ -164,7 +164,7 @@ func TestForkUnderAProjectOverrideDoesNotSendVariablesToIt(t *testing.T) {
 	out, err := run(t, server, link, "--yes")
 	require.NoError(t, err)
 	assert.Contains(t, out, "VOLCANO_PROJECT_ID selects project 44444444-4444-4444-8444-444444444444, "+
-		"so `volcano cloud variables deploy --file <env-file>` would write to it: set VOLCANO_PROJECT_ID to "+copyID)
+		"so `volcano cloud variables deploy --file <env-file>` would write to it: unset VOLCANO_PROJECT_ID first")
 	assert.NotContains(t, out, "Set them in an env file and run `volcano cloud variables deploy")
 	assert.NotContains(t, out, "select the copy with `volcano use")
 }

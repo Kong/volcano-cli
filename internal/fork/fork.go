@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"slices"
 	"strings"
@@ -168,10 +169,12 @@ func selectCopy(ctx context.Context, opts Options, project *apiclient.Project) (
 // use saves, so cloud commands go to that project whatever was selected.
 func overridingProject(project *apiclient.Project) string {
 	cfg, err := config.Load()
-	if err != nil {
+	if err != nil || cfg.IgnoreEnv {
 		return ""
 	}
-	if id := cfg.ProjectIDFromEnv(); id != "" && !isProject(id, project.Id) {
+	// Read directly: ProjectIDFromEnv would record a use and end the run with
+	// the deprecation warning, though nothing here ran against that project.
+	if id := strings.TrimSpace(os.Getenv("VOLCANO_PROJECT_ID")); id != "" && !isProject(id, project.Id) {
 		return id
 	}
 	return ""
@@ -199,10 +202,15 @@ func emptyVariables(
 	deploy := cliruntime.CommandPath(cliruntime.Deps{}, "cloud variables deploy --file <env-file>")
 	var hint string
 	switch {
+	case override != "" && selected:
+		hint = fmt.Sprintf("Set them in the dashboard. VOLCANO_PROJECT_ID selects project %s, so `%s` would write "+
+			"to it: unset VOLCANO_PROJECT_ID first, then set them in an env file and run it.",
+			theme.StripControl(override), deploy)
 	case override != "":
 		hint = fmt.Sprintf("Set them in the dashboard. VOLCANO_PROJECT_ID selects project %s, so `%s` would write "+
-			"to it: set VOLCANO_PROJECT_ID to %s first, then set them in an env file and run it.",
-			theme.StripControl(override), deploy, project.Id.String())
+			"to it: unset VOLCANO_PROJECT_ID and select the copy with `%s` outside a linked directory first, "+
+			"then set them in an env file and run it.",
+			theme.StripControl(override), deploy, cliruntime.CommandPath(cliruntime.Deps{}, "use "+project.Id.String()))
 	case selected:
 		hint = fmt.Sprintf("Set them in an env file and run `%s`, or in the dashboard.", deploy)
 	default:

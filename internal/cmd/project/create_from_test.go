@@ -228,8 +228,8 @@ func TestCreateFromUnderAProjectOverrideDoesNotSendVariablesToIt(t *testing.T) {
 	out, err := runFrom(t, server, "y\n", "--from", fromLink)
 	require.NoError(t, err)
 	assert.Contains(t, out, "VOLCANO_PROJECT_ID selects project "+other)
-	assert.Contains(t, out, "set VOLCANO_PROJECT_ID to "+projectBetaID+" first")
-	assert.NotContains(t, out, "select the copy with `volcano use")
+	assert.Contains(t, out, "unset VOLCANO_PROJECT_ID and select the copy with `volcano use "+projectBetaID+
+		"` outside a linked directory first")
 }
 
 // The preview route is public, so it carries no credential; the create does.
