@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.74.0](https://github.com/Kong/volcano-cli/compare/v0.73.0...v0.74.0) (2026-11-07)
+
+
+### Features
+
+* **lavaflow:** say why a fix's review stopped and whether its tests ran ([#460](https://github.com/Kong/volcano-cli/issues/460)) ([65ed9e0](https://github.com/Kong/volcano-cli/commit/65ed9e0b5bffba4b49517c3453463d9735ee603b))
+
 ## [0.73.0](https://github.com/Kong/volcano-cli/compare/v0.72.2...v0.73.0) (2026-11-06)
 
 
