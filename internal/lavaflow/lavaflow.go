@@ -82,8 +82,8 @@ const UngatedWorkflowsSetting = "Whether LavaFlow opens a fix's pull request eve
 // UngatedWorkflowsRules is the setting's default and who changes it, in the
 // API contract's words.
 const UngatedWorkflowsRules = "Off by default; while off, such a fix stays on its run and no pull request opens. " +
-	"Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform " +
-	"token `volcano login` stores, or another platform token that expires. It applies to the repository their " +
+	"Only the project's owner turns it on, signed in as a person: with the platform token `volcano login` " +
+	"stores, or another platform token that expires. It applies to the repository their " +
 	"GitHub account can push to. Any of the owner's credentials turns it off."
 
 // UngatedWorkflowsDisclosure is what settings set prints before it allows

@@ -9402,6 +9402,16 @@ paths:
         LavaFlow sends this project's logs
         and source code to an AI service that Volcano operates.
 
+        Turning LavaFlow on, from off, also starts runs for up to 5 open issues
+        with `exception: true` and an `event_count` of at least 2, last seen in
+        the past 7 days, most recently seen first, leaving out any issue
+        LavaFlow already ran; runs LavaFlow queued on its own and hasn't
+        started count toward the 5. They start like any run LavaFlow starts on
+        its own, one at a time per project. Only the owner's save with a
+        `volcano login` token whose sign-in is live, or a platform token that
+        expires, starts them; any other save turns LavaFlow on without them. A save while LavaFlow is on starts none, and neither
+        does LavaFlow becoming available to the project.
+
         Only the project's owner can save, with a platform token, while their
         account is active. A full-scope project access token, its save that
         turns skill learning off included, or a request made through MCP,
@@ -9430,7 +9440,7 @@ paths:
         `review` or `auto` or from `review` to `auto`, lets what LavaFlow
         learns steer later runs with less review. Only the owner can make
         these changes, with a
-        credential of their own that expires: a sign-in session, a `volcano
+        credential of their own that expires: a `volcano
         login` token whose sign-in is live, or a platform token with an
         expiry. The owner's GitHub account must also be able to push to the
         project's repository. A project access token, MCP, a platform token
@@ -9487,7 +9497,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: 'Code `person_required` means a full-scope project access token or MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy`, `custom_context` or `system_prompt` while `autonomy` is or becomes `merge`, `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge, and `skill_learning` turned up from `off` or from `review`. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
+          description: 'Code `person_required` means a full-scope project access token or MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy`, `custom_context` or `system_prompt` while `autonomy` is or becomes `merge`, `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge, and `skill_learning` turned up from `off` or from `review`. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
           content:
             application/json:
               schema:
@@ -9563,6 +9573,16 @@ paths:
         LavaFlow sends this project's logs and source code to an AI service
         that Volcano operates.
 
+        Turning LavaFlow on, from off, also starts runs for up to 5 open issues
+        with `exception: true` and an `event_count` of at least 2, last seen in
+        the past 7 days, most recently seen first, leaving out any issue
+        LavaFlow already ran; runs LavaFlow queued on its own and hasn't
+        started count toward the 5. They start like any run LavaFlow starts on
+        its own, one at a time per project. Only the owner's save with a
+        `volcano login` token whose sign-in is live, or a platform token that
+        expires, starts them; any other save turns LavaFlow on without them. A save while LavaFlow is on starts none, and neither
+        does LavaFlow becoming available to the project.
+
         Only the project's owner can save, with a platform token, while their
         account is active. A full-scope project access token can only turn
         settings off: a body with `project_id` and one or both of
@@ -9608,7 +9628,7 @@ paths:
         `skill_learning` up, from `off` to `review` or `auto` or from `review`
         to `auto`, lets what LavaFlow learns steer later runs with less
         review. Only the owner can make these changes, with a credential of
-        their own that expires: a sign-in session, a `volcano login` token
+        their own that expires: a `volcano login` token
         whose sign-in is live, or a platform token with an expiry. The owner's
         GitHub account must also be able to push to the project's repository.
         A project access token, MCP, a platform token that never expires, a
@@ -9666,7 +9686,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: 'Code `person_required` means a full-scope project access token made any save but turning Code Quality or skill learning off, MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy`, `custom_context` or `system_prompt` while `autonomy` is or becomes `merge`, `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge, and `skill_learning` turned up from `off` or from `review`. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow, or allows no Code Quality findings for a save that turns `code_quality` on. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
+          description: 'Code `person_required` means a full-scope project access token made any save but turning Code Quality or skill learning off, MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy`, `custom_context` or `system_prompt` while `autonomy` is or becomes `merge`, `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge, and `skill_learning` turned up from `off` or from `review`. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow, or allows no Code Quality findings for a save that turns `code_quality` on. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
           content:
             application/json:
               schema:
@@ -10310,7 +10330,7 @@ paths:
         `held_workflows` lists no job opens the same way.
 
         Only the project's owner can open a fix, as a person, while their
-        account is active: with a sign-in session, a `volcano login` token
+        account is active: with a `volcano login` token
         whose sign-in is live, or a platform token that expires. Their GitHub
         account must be able to push to the project's repository. A project
         access token, a request made through MCP, a platform token that never
@@ -10507,7 +10527,7 @@ paths:
         member by member: an omitted member keeps its value, and a list you
         send replaces it, so `[]` clears it. Citations can't be changed.
         A skill is a standing instruction to LavaFlow, so only the project's
-        owner changes one, signed in as a person: with a sign-in session, a
+        owner changes one, signed in as a person: with a
         `volcano login` token whose sign-in is live, or a platform token with
         an expiry. A change other than retiring also needs the owner's GitHub
         account to be able to push to the project's repository. A project
@@ -10617,7 +10637,7 @@ paths:
       description: |
         Deletes a skill and every version of its text. A record that it
         existed stays, without its text. Only the project's owner deletes a
-        skill, signed in as a person: with a sign-in session, a `volcano
+        skill, signed in as a person: with a `volcano
         login` token whose sign-in is live, or a platform token with an
         expiry. A project access token, MCP, a platform token that never
         expires, and a sign-in that ended get `403` with code
@@ -31380,7 +31400,7 @@ components:
           $ref: '#/components/schemas/LavaflowCodeQualitySettings'
         allow_ungated_workflows:
           type: boolean
-          description: 'Whether LavaFlow opens a fix''s pull request even where a workflow could run it, or put its text into a command, with the repository''s secrets before a person approves it. Off by default; while off, such a fix stays on its run and no pull request opens. Only the project''s owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. It applies to the repository their GitHub account can push to. Connecting the project to another repository, or disconnecting it, turns it off, and connecting the first one again doesn''t turn it back on. Workflows in the repository may then run LavaFlow''s pull requests, or put their text into commands, with the repository''s secrets before a person reviews them. LavaFlow writes those changes from the project''s error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer.'
+          description: 'Whether LavaFlow opens a fix''s pull request even where a workflow could run it, or put its text into a command, with the repository''s secrets before a person approves it. Off by default; while off, such a fix stays on its run and no pull request opens. Only the project''s owner turns it on, signed in as a person: with the platform token `volcano login` stores, or another platform token that expires. It applies to the repository their GitHub account can push to. Connecting the project to another repository, or disconnecting it, turns it off, and connecting the first one again doesn''t turn it back on. Workflows in the repository may then run LavaFlow''s pull requests, or put their text into commands, with the repository''s secrets before a person reviews them. LavaFlow writes those changes from the project''s error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer.'
         updated_at:
           type: string
           format: date-time
@@ -31437,7 +31457,7 @@ components:
         skill_learning:
           allOf:
             - $ref: '#/components/schemas/LavaflowSkillLearning'
-          description: 'Only the project''s owner turns learning up, from `off` to `review` or `auto` or from `review` to `auto`, signed in as a person: with a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, and with a GitHub account that can push to the project''s repository. Any other credential gets `403` with code `person_required`. Turning it down or off, or sending the saved value, needs no check. A project access token may send `off` with `project_id`, alone or with `code_quality` turned off, and nothing else; any other save it makes gets `403` with code `person_required`.'
+          description: 'Only the project''s owner turns learning up, from `off` to `review` or `auto` or from `review` to `auto`, signed in as a person: with a `volcano login` token whose sign-in is live, or a platform token with an expiry, and with a GitHub account that can push to the project''s repository. Any other credential gets `403` with code `person_required`. Turning it down or off, or sending the saved value, needs no check. A project access token may send `off` with `project_id`, alone or with `code_quality` turned off, and nothing else; any other save it makes gets `403` with code `person_required`.'
         custom_context:
           type: string
           maxLength: 4000
@@ -31448,7 +31468,7 @@ components:
           $ref: '#/components/schemas/LavaflowCodeQualityUpdate'
         allow_ungated_workflows:
           type: boolean
-          description: 'Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project''s owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner''s credentials turns it off. Workflows in the repository may then run LavaFlow''s pull requests, or put their text into commands, with the repository''s secrets before a person reviews them. LavaFlow writes those changes from the project''s error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`, `skill_learning: off` or both.'
+          description: 'Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project''s owner turns it on, signed in as a person: with the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner''s credentials turns it off. Workflows in the repository may then run LavaFlow''s pull requests, or put their text into commands, with the repository''s secrets before a person reviews them. LavaFlow writes those changes from the project''s error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`, `skill_learning: off` or both.'
       required:
         - project_id
     LavaflowRunCreate:
