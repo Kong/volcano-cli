@@ -435,6 +435,30 @@ A reason your CLI doesn't know shows as `Other` with its code. When no
 reviewer could run, the review reads `Review: error; no reviewer could run`,
 followed by `Review stopped:` with the reason.
 
+A review that didn't pass the fix lists, in the reviewer's words, the
+findings it left open and what it leaves to you to decide before the fix
+merges:
+
+```text
+Review: blocked after 3 round(s)
+Review stopped: The last review round still found problems.
+Open findings:
+  - major, src/cart.ts:42: An empty cart still reaches chargeCustomer, which reads cart.total before the new guard runs.
+  - minor: LavaFlow left this explanation out because it may contain a credential
+For you to decide:
+  - billing: The fix skips the charge for an empty cart. Is that intended?
+  - trust boundary: LavaFlow left this question out because it may contain a credential
+```
+
+Each finding gives its severity (`nit`, `minor`, `major` or `critical`) and
+the file and line it points to. A finding about no file names none, and
+`path not shown` marks a file whose path Volcano doesn't show. Each decision
+names what it's about: `irreversible`, `trust boundary`, `breaks a contract`,
+`billing`, `unexplained` or `not reviewable`. A kind your CLI doesn't know
+shows as the API gives it. Volcano replaces an explanation or question that may
+contain a credential with the sentence shown above. A review with nothing to
+list prints neither heading.
+
 The `Source:` line gives the commit's short SHA and where it came from:
 
 | Shown | Meaning |

@@ -24,7 +24,7 @@ tags:
   - name: Issues
     description: 'Preview, not generally available: runtime errors grouped into issues, LavaFlow Code Quality findings, and problems reported for a project. Where issues are not available, every endpoint answers `404` with code `feature_unavailable`.'
   - name: LavaFlow
-    description: 'Preview, not generally available: LavaFlow diagnoses a project''s issues and opens pull requests that fix them. It merges a fix only under `autonomy: merge`, where the project''s `lavaflow.merge` capability is available, once the fix passes review and its required checks and nothing holds it. LavaFlow sends this project''s logs and source code to an AI service that Volcano operates. Every endpoint names one project with `project_id`. Where LavaFlow is not available, every endpoint refuses a project that has no LavaFlow records: `404` with code `feature_unavailable` while LavaFlow is not offered to the project, and `403` with code `plan_required` when it is but the owner''s plan does not include it. A project with records keeps reading them and can still turn LavaFlow off.'
+    description: 'Preview, not generally available: LavaFlow diagnoses a project''s issues and opens pull requests that fix them. It merges a fix only under `autonomy: merge`, where the project''s `lavaflow.merge` capability is available, once the fix passes review and its required checks and nothing holds it. LavaFlow sends this project''s logs and source code to an AI service that Volcano operates. Every endpoint names one project with `project_id`. Where LavaFlow is not available, every endpoint refuses a project that has no LavaFlow records: `404` with code `feature_unavailable` while LavaFlow is not offered to the project, and `403` with code `plan_required` when it is but the owner''s plan does not include it. A project with records keeps reading them and can still turn LavaFlow and skill learning off.'
   - name: Functions
     description: Function deployment and management
   - name: Durable Functions
@@ -5947,7 +5947,7 @@ paths:
                   description: |
                     The name of the function to invoke. Defaults to "handler" if not specified.
                     Your code must export/define a function with this name:
-                    - Node.js: exports.handler (in index.js)
+                    - Node.js: exports.handler (in index.js, index.mjs or index.cjs, or in TypeScript in index.ts, index.mts or index.cts, which the build compiles without type-checking)
                     - Python: def handler() (in main.py)
                     - Ruby: def handler() (in main.rb)
                   default: handler
@@ -6024,7 +6024,10 @@ paths:
             by a durable function — a function cannot change kind — or the
             redeploy would take a function with Frontend Function routes out
             of `public` or out of HTTP invocation mode. The request is refused
-            before the deploy starts, so nothing is deployed.
+            before the deploy starts, so nothing is deployed. The message
+            `project variables changed during the upload; retry` means
+            `NODE_PATH` was created or deleted while the upload was processed;
+            send the same request again.
           content:
             application/json:
               schema:
@@ -7278,7 +7281,10 @@ paths:
           description: |
             A name in the batch is held by a function of the other kind — a
             function cannot change kind — or the project's source is managed by
-            Git, where deploys come from a push to the production branch.
+            Git, where deploys come from a push to the production branch. The
+            message `project variables changed during the upload; retry` means
+            `NODE_PATH` was created or deleted while the upload was processed;
+            nothing was deployed, so send the same request again.
           content:
             application/json:
               schema:
@@ -7886,7 +7892,9 @@ paths:
           description: |
             Name is held by a standard function, or a deletion is queued or
             running. The request is refused before the deploy starts, so
-            nothing is deployed.
+            nothing is deployed. The message `project variables changed during
+            the upload; retry` means `NODE_PATH` was created or deleted while
+            the upload was processed; send the same request again.
           content:
             application/json:
               schema:
@@ -9395,10 +9403,11 @@ paths:
         and source code to an AI service that Volcano operates.
 
         Only the project's owner can save, with a platform token, while their
-        account is active. A full-scope project access token, or a request
-        made through MCP, gets `403` with code `person_required`; a read-only
-        project access token is refused as read-only first, without a code,
-        and so is the owner of a read-only account.
+        account is active. A full-scope project access token, its save that
+        turns skill learning off included, or a request made through MCP,
+        gets `403` with code `person_required`; a token sends that save with
+        `PATCH`. A read-only project access token is refused as read-only
+        first, without a code, and so is the owner of a read-only account.
 
         `autonomy: merge` needs the project's `lavaflow.merge` capability.
         Without it, a save that sets `autonomy` to `merge`, or changes
@@ -9417,7 +9426,10 @@ paths:
         is `merge`, lets them merge, so it needs the same check. Turning
         `allow_ungated_workflows` on lets LavaFlow open a fix
         where a workflow could run it with the repository's secrets before a
-        person approves it. Only the owner can make these changes, with a
+        person approves it. Turning `skill_learning` up, from `off` to
+        `review` or `auto` or from `review` to `auto`, lets what LavaFlow
+        learns steer later runs with less review. Only the owner can make
+        these changes, with a
         credential of their own that expires: a sign-in session, a `volcano
         login` token whose sign-in is live, or a platform token with an
         expiry. The owner's GitHub account must also be able to push to the
@@ -9425,17 +9437,23 @@ paths:
         that never expires, a sign-in that ended, an owner who can't push, and
         a project with no repository get `403` with code `person_required`,
         and nothing is saved. Turning LavaFlow or `allow_ungated_workflows`
-        off needs no check.
+        off, and turning `skill_learning` down or off, needs no check.
         Nothing is saved either when the push check can't be answered (`429`
         or `503`, with `Retry-After`). When the project points at another
-        repository, or at none, `autonomy` changes from `merge` to `open_pr`;
-        pointing back doesn't change it back.
+        repository, reaches its repository through another Volcano GitHub App
+        installation, or points at none, `autonomy` changes from `merge` to
+        `open_pr`; pointing back doesn't change it back. Reconnecting after a
+        reinstall of the App counts as another installation.
 
         Turning LavaFlow on needs a plan that includes it (`403`, code
         `plan_required`). LavaFlow is available where the project's
         `lavaflow` capability is, which includes the owner's plan. Where it is
-        not, a project with LavaFlow records can still turn LavaFlow off,
-        sending `enabled: false` and nothing else to change. Any other save,
+        not, a project with LavaFlow records can still turn LavaFlow, Code
+        Quality or skill learning off, or several of them: a save that sends
+        `enabled: false`, `code_quality: {enabled: false}`,
+        `skill_learning: off` or several of them, and otherwise only
+        `allow_ungated_workflows: false` sent with `enabled` or
+        `skill_learning`. Any other save,
         and any save for a project without records, answers `404` with code
         `feature_unavailable` while LavaFlow is not offered to the project, and
         `403` with code `plan_required` when it is but the owner's plan does
@@ -9457,7 +9475,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/LavaflowSettings'
         '400':
-          description: 'The body is invalid: `project_id` missing or not a UUID, no field to change, an unknown field or autonomy, a `human_review_paths` pattern that is not relative to the repository root or holds a NUL character, or `custom_context` or `system_prompt` over 4000 characters. Code `feature_unavailable` means the save sets `autonomy: merge` or changes `merge_policy` without the project''s `lavaflow.merge` capability.'
+          description: 'The body is invalid: `project_id` missing or not a UUID, no field to change, an unknown field or autonomy, a `human_review_paths` pattern that is not relative to the repository root or holds a NUL character, or `custom_context` or `system_prompt` over 4000 characters. Code `feature_unavailable` means the save sets `autonomy: merge` or changes `merge_policy` without the project''s `lavaflow.merge` capability, or turns `skill_learning` up without the project''s `lavaflow.skills` capability.'
           content:
             application/json:
               schema:
@@ -9469,13 +9487,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: 'Code `person_required` means a full-scope project access token or MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy`, `custom_context` or `system_prompt` while `autonomy` is or becomes `merge`, and `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
+          description: 'Code `person_required` means a full-scope project access token or MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy`, `custom_context` or `system_prompt` while `autonomy` is or becomes `merge`, `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge, and `skill_learning` turned up from `off` or from `review`. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and the save does not only turn LavaFlow off on a project with LavaFlow records.
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and the save does more than turn LavaFlow, Code Quality or skill learning off on a project with LavaFlow records.
           content:
             application/json:
               schema:
@@ -9497,9 +9515,9 @@ paths:
             The save turns on `code_quality`, `allow_ungated_workflows` or
             `autonomy: merge`, turns `enabled` on under `merge`, changes
             `merge_policy`, `custom_context` or `system_prompt` under `merge`,
-            or lets the runs LavaFlow starts on its own merge again, and the
-            project, or its owner across their projects, used up the hour's
-            checks of the owner's GitHub push access.
+            lets the runs LavaFlow starts on its own merge again, or turns
+            `skill_learning` up, and the project, or its owner across their
+            projects, used up the hour's checks of the owner's GitHub push access.
             Nothing was saved. Try again after `Retry-After`.
           headers:
             Retry-After:
@@ -9515,8 +9533,9 @@ paths:
             The save turns on `code_quality`, `allow_ungated_workflows` or
             `autonomy: merge`, turns `enabled` on under `merge`, changes
             `merge_policy`, `custom_context` or `system_prompt` under `merge`,
-            or lets the runs LavaFlow starts on its own merge again, and the
-            owner's GitHub push access could not be checked now.
+            lets the runs LavaFlow starts on its own merge again, or turns
+            `skill_learning` up, and the owner's GitHub push access could not be
+            checked now.
             Nothing was saved. Try again after `Retry-After`.
           headers:
             Retry-After:
@@ -9545,13 +9564,15 @@ paths:
         that Volcano operates.
 
         Only the project's owner can save, with a platform token, while their
-        account is active. A full-scope project access token can make one
-        save: `{"project_id": "…", "code_quality": {"enabled": false}}`,
-        exactly, which turns Code Quality off. Any other body from a project
-        access token, including one that adds a field, sends `null`, or names
-        a field the schema doesn't have, gets `403` with code
-        `person_required`, as does a request made through MCP. A read-only
-        project access token is refused as read-only first, without a code,
+        account is active. A full-scope project access token can only turn
+        settings off: a body with `project_id` and one or both of
+        `"code_quality": {"enabled": false}` and `"skill_learning": "off"`,
+        each field spelled exactly and sent once, and nothing else. Any other
+        body from a project access token, including one that turns a setting
+        on, adds a field, sends `null`, or names a field the schema doesn't
+        have, gets `403` with code `person_required`, as does a request made
+        through MCP. A read-only project access token is refused as read-only
+        first, without a code,
         and so is the owner of a read-only account.
 
         `code_quality.enabled: true` turns on LavaFlow Code Quality, which
@@ -9582,26 +9603,35 @@ paths:
         is `merge`, lets them merge, so it needs the same check. Turning
         `allow_ungated_workflows` on lets LavaFlow open a fix
         where a workflow could run it with the repository's secrets before a
-        person approves it, and turning `code_quality` on starts work on every
-        frontend production deploy with no incident behind it. Only the owner
-        can make these changes, with a credential of their own that expires: a
-        sign-in session, a `volcano login` token whose sign-in is live, or a
-        platform token with an expiry. The owner's GitHub account must also be
-        able to push to the project's repository. A project access token, MCP,
-        a platform token that never expires, a sign-in that ended, an owner who
-        can't push, and a project with no repository get `403` with code
-        `person_required`, and nothing is saved. Turning LavaFlow,
-        `allow_ungated_workflows` or `code_quality` off needs no check.
+        person approves it. Turning `code_quality` on starts work on every
+        frontend production deploy with no incident behind it, and turning
+        `skill_learning` up, from `off` to `review` or `auto` or from `review`
+        to `auto`, lets what LavaFlow learns steer later runs with less
+        review. Only the owner can make these changes, with a credential of
+        their own that expires: a sign-in session, a `volcano login` token
+        whose sign-in is live, or a platform token with an expiry. The owner's
+        GitHub account must also be able to push to the project's repository.
+        A project access token, MCP, a platform token that never expires, a
+        sign-in that ended, an owner who can't push, and a project with no
+        repository get `403` with code `person_required`, and nothing is
+        saved. Turning LavaFlow, `allow_ungated_workflows` or `code_quality`
+        off, and turning `skill_learning` down or off, needs no check.
         Nothing is saved either when the push check can't be answered (`429`
         or `503`, with `Retry-After`). When the project points at another
-        repository, or at none, `autonomy` changes from `merge` to `open_pr`;
-        pointing back doesn't change it back.
+        repository, reaches its repository through another Volcano GitHub App
+        installation, or points at none, `autonomy` changes from `merge` to
+        `open_pr`; pointing back doesn't change it back. Reconnecting after a
+        reinstall of the App counts as another installation.
 
         Turning LavaFlow on needs a plan that includes it (`403`, code
         `plan_required`). LavaFlow is available where the project's
         `lavaflow` capability is, which includes the owner's plan. Where it is
-        not, a project with LavaFlow records can still turn LavaFlow off,
-        sending `enabled: false` and nothing else to change. Any other save,
+        not, a project with LavaFlow records can still turn LavaFlow, Code
+        Quality or skill learning off, or several of them: a save that sends
+        `enabled: false`, `code_quality: {enabled: false}`,
+        `skill_learning: off` or several of them, and otherwise only
+        `allow_ungated_workflows: false` sent with `enabled` or
+        `skill_learning`. Any other save,
         and any save for a project without records, answers `404` with code
         `feature_unavailable` while LavaFlow is not offered to the project, and
         `403` with code `plan_required` when it is but the owner's plan does
@@ -9624,7 +9654,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/LavaflowSettings'
         '400':
-          description: 'The body is invalid: `project_id` missing or not a UUID, no field to change, an unknown field or autonomy, a `human_review_paths` pattern that is not relative to the repository root or holds a NUL character, or `custom_context` or `system_prompt` over 4000 characters. Code `feature_unavailable` means the save sets `autonomy: merge` or changes `merge_policy` without the project''s `lavaflow.merge` capability, or turns `code_quality` on while Code Quality isn''t released.'
+          description: 'The body is invalid: `project_id` missing or not a UUID, no field to change, an unknown field or autonomy, a `human_review_paths` pattern that is not relative to the repository root or holds a NUL character, or `custom_context` or `system_prompt` over 4000 characters. Code `feature_unavailable` means the save sets `autonomy: merge` or changes `merge_policy` without the project''s `lavaflow.merge` capability, turns `code_quality` on while Code Quality isn''t released, or turns `skill_learning` up without the project''s `lavaflow.skills` capability.'
           content:
             application/json:
               schema:
@@ -9636,13 +9666,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: 'Code `person_required` means a full-scope project access token made any save but turning Code Quality off, MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy`, `custom_context` or `system_prompt` while `autonomy` is or becomes `merge`, and `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow, or allows no Code Quality findings for a save that turns `code_quality` on. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
+          description: 'Code `person_required` means a full-scope project access token made any save but turning Code Quality or skill learning off, MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy`, `custom_context` or `system_prompt` while `autonomy` is or becomes `merge`, `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge, and `skill_learning` turned up from `off` or from `review`. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow, or allows no Code Quality findings for a save that turns `code_quality` on. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and the save does not only turn LavaFlow off on a project with LavaFlow records.
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and the save does more than turn LavaFlow, Code Quality or skill learning off on a project with LavaFlow records.
           content:
             application/json:
               schema:
@@ -9664,9 +9694,9 @@ paths:
             The save turns on `code_quality`, `allow_ungated_workflows` or
             `autonomy: merge`, turns `enabled` on under `merge`, changes
             `merge_policy`, `custom_context` or `system_prompt` under `merge`,
-            or lets the runs LavaFlow starts on its own merge again, and the
-            project, or its owner across their projects, used up the hour's
-            checks of the owner's GitHub push access.
+            lets the runs LavaFlow starts on its own merge again, or turns
+            `skill_learning` up, and the project, or its owner across their
+            projects, used up the hour's checks of the owner's GitHub push access.
             Nothing was saved. Try again after `Retry-After`.
           headers:
             Retry-After:
@@ -9682,8 +9712,9 @@ paths:
             The save turns on `code_quality`, `allow_ungated_workflows` or
             `autonomy: merge`, turns `enabled` on under `merge`, changes
             `merge_policy`, `custom_context` or `system_prompt` under `merge`,
-            or lets the runs LavaFlow starts on its own merge again, and the
-            owner's GitHub push access could not be checked now.
+            lets the runs LavaFlow starts on its own merge again, or turns
+            `skill_learning` up, and the owner's GitHub push access could not be
+            checked now.
             Nothing was saved. Try again after `Retry-After`.
           headers:
             Retry-After:
@@ -10194,9 +10225,11 @@ paths:
       summary: Get a LavaFlow run
       description: |
         Returns a run, with its diagnosis, the log lines it cites, its diff and
-        its review. The run's project authorizes the read, so `project_id` is
-        optional. The text holds the project's logs and source code, so this
-        endpoint takes the same access as the project's log endpoints.
+        its review, including the findings the review left open and what it
+        asks a person to decide. The run's project authorizes the read, so
+        `project_id` is optional. The text holds the project's logs and source
+        code, so this endpoint takes the same access as the project's log
+        endpoints.
 
         A run held because the repository's workflows could run its fix with
         the repository's secrets before a person approves it
@@ -10356,6 +10389,377 @@ paths:
               description: Seconds to wait before trying again.
               schema:
                 type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /lavaflow/skills:
+    get:
+      tags:
+        - LavaFlow
+      summary: List LavaFlow skills
+      description: |
+        Lists the project's skills, newest first: short, cited notes on how
+        the project wants something done, with each one's active version,
+        counts and source. A project skill belongs to its project and never
+        leaves it. Filter by `status`. The list holds at most 350 skills, so
+        it has no pages.
+
+        LavaFlow doesn't yet learn skills from corrections to its fixes or
+        load them into runs; both come in a later release.
+
+        Project access tokens can list skills, including read-only ones.
+        Skills stay readable while the project's `lavaflow.skills` capability
+        is unavailable.
+      operationId: listLavaflowSkills
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdQuery'
+        - $ref: '#/components/parameters/LavaflowSkillStatusFilter'
+      responses:
+        '200':
+          description: The project's skills
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowSkillList'
+        '400':
+          description: '`project_id` is missing or not a UUID, or `status` is unknown.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Code `plan_required` means the owner's plan does not include LavaFlow and the project has no LavaFlow records. Without a code, the owner's plan could not be read; retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /lavaflow/skills/{skill_id}:
+    get:
+      tags:
+        - LavaFlow
+      summary: Get a LavaFlow skill
+      description: |
+        Returns one of a project's skills with its active version. The skill's
+        project authorizes the read, so `project_id` is optional. Project
+        access tokens can read skills, including read-only ones.
+      operationId: getLavaflowSkill
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/LavaflowSkillId'
+        - $ref: '#/components/parameters/ItemProjectIdQuery'
+      responses:
+        '200':
+          description: The skill
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowSkill'
+        '400':
+          description: '`project_id` is given and not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Code `plan_required` means the owner's plan does not include LavaFlow and the project has no LavaFlow records. Without a code, the owner's plan could not be read; retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. A skill of a project the caller can't read, or of a project being deleted, answers exactly like one that doesn't exist, and so does a skill of another project than a given `project_id`. Code `feature_unavailable` means LavaFlow is not available for the project and it has no LavaFlow records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - LavaFlow
+      summary: Change a LavaFlow skill
+      description: |
+        Changes only the fields you send: a skill's `description`, `body` or
+        `applies_to`, or its `status`: `active` activates a proposed skill or
+        restores a retired one, and `retired` retires it. `applies_to` merges
+        member by member: an omitted member keeps its value, and a list you
+        send replaces it, so `[]` clears it. Citations can't be changed.
+        A skill is a standing instruction to LavaFlow, so only the project's
+        owner changes one, signed in as a person: with a sign-in session, a
+        `volcano login` token whose sign-in is live, or a platform token with
+        an expiry. A change other than retiring also needs the owner's GitHub
+        account to be able to push to the project's repository. A project
+        access token, MCP, a platform token that never expires, a sign-in
+        that ended, an owner who can't push, and a project with no repository
+        get `403` with code `person_required`, and nothing is saved. Retiring
+        needs no repository. Nothing is saved either when the push check
+        can't be answered (`429` or `503`, with `Retry-After`).
+
+        A project keeps its 200 most recently retired skills: retiring
+        another deletes the oldest retired skill and its versions.
+
+        Every change but retiring passes the skill check. Only a change to
+        the text adds a version; activating or restoring doesn't. Text that
+        holds a credential, a project secret value, an email address, a link
+        or a host name, an invisible or control character, a CI-skip
+        directive, or an instruction to skip or weaken tests, CI or
+        LavaFlow's rules answers `400` with code `skill_refused` and the
+        `rules` it failed; nothing is saved, and the text is not kept. When
+        the check can't run, the change answers `503` with code
+        `scan_unavailable` and `Retry-After`.
+
+        Retiring works while the project's `lavaflow.skills` capability is
+        unavailable. Any other change answers `400` with code
+        `feature_unavailable` then.
+      operationId: updateLavaflowSkill
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/LavaflowSkillId'
+        - $ref: '#/components/parameters/ItemProjectIdQuery'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LavaflowSkillUpdate'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowSkill'
+        '400':
+          description: 'The body is invalid: no field to change, an unknown field, or a field past its size. Code `skill_refused` means the check refused the text, and `rules` names why. Code `feature_unavailable` means the change does more than retire the skill while the project''s `lavaflow.skills` capability is unavailable.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowSkillError'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 'Code `person_required` means the change was not made by the project''s owner signed in as a person: a full-scope project access token, MCP, a platform token that never expires, or a `volcano login` token whose sign-in ended made it. For a change other than retiring, it also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Without a code: a read-only project access token made it, the owner''s account is read-only, or the owner''s plan could not be read; retry later.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found, as the read answers. Code `feature_unavailable` means LavaFlow is not available for the project and it has no LavaFlow records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Code `skill_limit_reached` means the change would take the project past a cap: 100 active or 50 proposed skills, or 1 MiB of skill text across every version the project keeps. Without a code, another change to the skill landed first, or the project now points at another repository than the push check admitted; read the skill and send the change again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request body exceeds 65,536 bytes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: The project made more than 10 skill changes in the last minute, its changes used the day's 200 checks, or the owner's GitHub push access was checked too often. Nothing was saved. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds to wait before changing a skill again.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Code `scan_unavailable` means the check could not run. Without a code, the owner's GitHub push access could not be checked. Either way nothing was saved. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds to wait before changing the skill again.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - LavaFlow
+      summary: Delete a LavaFlow skill
+      description: |
+        Deletes a skill and every version of its text. A record that it
+        existed stays, without its text. Only the project's owner deletes a
+        skill, signed in as a person: with a sign-in session, a `volcano
+        login` token whose sign-in is live, or a platform token with an
+        expiry. A project access token, MCP, a platform token that never
+        expires, and a sign-in that ended get `403` with code
+        `person_required`. Deleting needs no repository, and works while the
+        project's `lavaflow.skills` capability is unavailable.
+      operationId: deleteLavaflowSkill
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/LavaflowSkillId'
+        - $ref: '#/components/parameters/ItemProjectIdQuery'
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          description: '`project_id` is given and not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 'Code `person_required` means the project''s owner, signed in as a person, did not make the request: a full-scope project access token, MCP, a platform token that never expires, or a `volcano login` token whose sign-in ended made it. Without a code: a read-only project access token made it, the owner''s account is read-only, or the owner''s plan could not be read; retry later.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found, as the read answers. Code `feature_unavailable` means LavaFlow is not available for the project and it has no LavaFlow records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: The project made more than 10 skill changes in the last minute. Nothing was deleted. Try again after `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds to wait before changing a skill again.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /lavaflow/skill-versions:
+    get:
+      tags:
+        - LavaFlow
+      summary: List a LavaFlow skill's versions
+      description: |
+        Lists a skill's versions, newest first, each with its text, source and
+        content hash. A skill keeps its 20 newest versions and its active one.
+        Project access tokens can list them, including read-only ones.
+      operationId: listLavaflowSkillVersions
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdQuery'
+        - $ref: '#/components/parameters/LavaflowSkillIdQuery'
+      responses:
+        '200':
+          description: The skill's versions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowSkillVersionList'
+        '400':
+          description: '`project_id` or `skill_id` is missing or not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Code `plan_required` means the owner's plan does not include LavaFlow and the project has no LavaFlow records. Without a code, the owner's plan could not be read; retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and a skill of another project answers like an unknown one. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /lavaflow/global-skills:
+    get:
+      tags:
+        - LavaFlow
+      summary: List Volcano's global skills
+      description: |
+        Lists the skills Volcano wrote for every project. Volcano writes and
+        reviews each one, and none holds customer content. They belong to no
+        project, so items carry `scope` and no `project_id`; `project_id`
+        authorizes the caller. While the project's `lavaflow.skills`
+        capability is unavailable, the list is empty.
+
+        Project access tokens can list them, including read-only ones.
+      operationId: listLavaflowGlobalSkills
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200':
+          description: Volcano's global skills
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaflowGlobalSkillList'
+        '400':
+          description: '`project_id` is missing or not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Code `plan_required` means the owner's plan does not include LavaFlow and the project has no LavaFlow records. Without a code, the owner's plan could not be read; retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found. A project the caller can't read answers exactly like one that doesn't exist, and so does one being deleted. Code `feature_unavailable` means LavaFlow is not available for this project and it has no LavaFlow records.
           content:
             application/json:
               schema:
@@ -22158,6 +22562,29 @@ components:
       schema:
         $ref: '#/components/schemas/LavaflowRunStatus'
       description: Only runs in this status.
+    LavaflowSkillId:
+      name: skill_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: LavaFlow skill ID
+    LavaflowSkillIdQuery:
+      name: skill_id
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The skill whose versions to list.
+    LavaflowSkillStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/LavaflowSkillStatus'
+      description: Only skills in this status.
     SlackRedirect:
       name: redirect
       in: query
@@ -30821,7 +31248,7 @@ components:
       properties:
         code:
           type: string
-          description: 'Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can''t tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files, a YAML or JSON file that declares a resource, a YAML template that mentions `apiVersion` or `kind`, a file in a Helm chart or Kustomize directory, or, in a repository too large to read in full, any file no other path reason holds. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent''s instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don''t vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix''s branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn''t check, such as required signatures. `commit_convention`: no title can meet the repository''s commit convention. `ungated_workflows`: the fix opened past workflows that can run it with the repository''s secrets before a person approves it, as the project''s owner allowed, or LavaFlow couldn''t check its workflows, so LavaFlow never starts its CI or merges it. `lineage_undoes_parent`: the fix follows up an earlier LavaFlow fix and deletes or changes lines that fix added, which could undo it. `lineage_cap`: the fix''s lineage opened as many pull requests as it may. `lineage_held`: an earlier pull request in the fix''s lineage was held, stopped or closed. `recent_regressions`: fixes LavaFlow merged in the project recently caused new errors. Other codes name a concern LavaFlow''s reviewers raised. New codes may appear.'
+          description: 'Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can''t tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files, a YAML or JSON file that declares a resource, a YAML template that mentions `apiVersion` or `kind`, a file in a Helm chart or Kustomize directory, or, in a repository too large to read in full, any file no other path reason holds. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent''s instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don''t vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix''s branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn''t check, such as required signatures. `commit_convention`: no title can meet the repository''s commit convention. `ungated_workflows`: the fix opened past workflows that can run it with the repository''s secrets before a person approves it, as the project''s owner allowed, or LavaFlow couldn''t check its workflows, or, when LavaFlow was about to start its CI or add it to a merge queue, a workflow could run it with those secrets before a person approves it or couldn''t be read, so LavaFlow takes it no further and never merges it. `ci_outside_actions`: when LavaFlow was about to start the fix''s CI, the repository could run CI, a build or a preview outside GitHub Actions: the root of the fix''s tree or its base branch''s holds another service''s configuration, such as `.travis.yml`, `.circleci/` or `netlify.toml`, which `paths` names, another app reported checks or statuses on the base branch, or LavaFlow couldn''t read them in full. LavaFlow starts CI only when it finds no sign of CI outside GitHub Actions, so it never starts this fix''s CI or merges it. `lineage_undoes_parent`: the fix follows up an earlier LavaFlow fix and deletes or changes lines that fix added, which could undo it. `lineage_cap`: the fix''s lineage opened as many pull requests as it may. `lineage_held`: an earlier pull request in the fix''s lineage was held, stopped or closed. `recent_regressions`: fixes LavaFlow merged in the project recently caused new errors. Other codes name a concern LavaFlow''s reviewers raised. New codes may appear.'
         question:
           type: string
           description: What a person decides before merging the fix, written to show as given.
@@ -30829,7 +31256,7 @@ components:
           type: array
           items:
             type: string
-          description: The changed paths that matched, for a path code.
+          description: The changed paths that matched, for a path code. For `ci_outside_actions`, the entries at the repository's root that another CI or preview service reads, whether or not the fix changes them.
       required:
         - code
         - question
@@ -30939,6 +31366,8 @@ components:
           $ref: '#/components/schemas/LavaflowAutonomy'
         merge_policy:
           $ref: '#/components/schemas/LavaflowMergePolicy'
+        skill_learning:
+          $ref: '#/components/schemas/LavaflowSkillLearning'
         custom_context:
           type: string
           maxLength: 4000
@@ -30960,7 +31389,7 @@ components:
         updated_by:
           type: string
           nullable: true
-          description: The user ID of the person who last saved the settings.
+          description: The user ID of the person who made the last save; null when no person made it, such as a project access token.
         can_update:
           type: boolean
           description: 'Whether the caller can save the settings: true only for the project''s owner with a platform token while the owner''s account is active; false for any project access token and for a read-only account.'
@@ -30979,6 +31408,7 @@ components:
         - enabled
         - autonomy
         - merge_policy
+        - skill_learning
         - custom_context
         - system_prompt
         - code_quality
@@ -31004,6 +31434,10 @@ components:
           $ref: '#/components/schemas/LavaflowAutonomy'
         merge_policy:
           $ref: '#/components/schemas/LavaflowMergePolicyUpdate'
+        skill_learning:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowSkillLearning'
+          description: 'Only the project''s owner turns learning up, from `off` to `review` or `auto` or from `review` to `auto`, signed in as a person: with a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, and with a GitHub account that can push to the project''s repository. Any other credential gets `403` with code `person_required`. Turning it down or off, or sending the saved value, needs no check. A project access token may send `off` with `project_id`, alone or with `code_quality` turned off, and nothing else; any other save it makes gets `403` with code `person_required`.'
         custom_context:
           type: string
           maxLength: 4000
@@ -31014,7 +31448,7 @@ components:
           $ref: '#/components/schemas/LavaflowCodeQualityUpdate'
         allow_ungated_workflows:
           type: boolean
-          description: 'Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project''s owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner''s credentials turns it off. Workflows in the repository may then run LavaFlow''s pull requests, or put their text into commands, with the repository''s secrets before a person reviews them. LavaFlow writes those changes from the project''s error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`.'
+          description: 'Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project''s owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner''s credentials turns it off. Workflows in the repository may then run LavaFlow''s pull requests, or put their text into commands, with the repository''s secrets before a person reviews them. LavaFlow writes those changes from the project''s error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`, `skill_learning: off` or both.'
       required:
         - project_id
     LavaflowRunCreate:
@@ -31381,6 +31815,16 @@ components:
             - $ref: '#/components/schemas/LavaflowSkipReason'
           nullable: true
           description: Why a finished run opened no pull request. A `completed` run without `pull_request` always has one; it is `diagnose_only` when the project's `autonomy` stopped the run at its diagnosis. Null when the run opened a pull request, while it is queued or runs, and when it failed or was cancelled.
+        lineage:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowLineage'
+          nullable: true
+          description: The fix lineage the run belongs to. Null for a run in no lineage.
+        fix_outcome:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowFixOutcome'
+          nullable: true
+          description: How the run's merged fix fared once it went live. Null until a merged fix goes live with the `lavaflow.lineage` capability on.
       required:
         - id
         - project_id
@@ -31398,6 +31842,8 @@ components:
         - issue
         - progress
         - pull_request_skipped
+        - lineage
+        - fix_outcome
     LavaflowLogLine:
       type: object
       properties:
@@ -31453,10 +31899,66 @@ components:
             - $ref: '#/components/schemas/LavaflowReviewStop'
           nullable: true
           description: Why the review ended without passing the fix, null when it passed the fix or when the run saved no fix.
+        open_findings:
+          type: array
+          x-go-type-skip-optional-pointer: true
+          items:
+            $ref: '#/components/schemas/LavaflowReviewFinding'
+          description: The findings the review saved with the fix left open. Absent when the review passed the fix, left none open, or the run saved no fix.
+        person_reasons:
+          type: array
+          x-go-type-skip-optional-pointer: true
+          items:
+            $ref: '#/components/schemas/LavaflowReviewPersonReason'
+          description: What the review saved with the fix asks a person to decide before the fix merges. Absent when it asks nothing or the run saved no fix.
       required:
         - verdict
         - rounds
         - stopped
+    LavaflowReviewFinding:
+      type: object
+      description: A finding the review left open, in the reviewer's words. `explanation` reads `LavaFlow left this explanation out because it may contain a credential` when it may contain a credential, holds one of the project's secret values, or is over 4,000 characters; when the run is held with `possible_credential`; and when `diff` withholds the changes to its file, even past a truncated diff's cut, the run saved no `diff` and the finding has a `file`, or `file` is `""`.
+      properties:
+        severity:
+          type: string
+          enum:
+            - nit
+            - minor
+            - major
+            - critical
+          x-enum-varnames:
+            - LavaflowReviewFindingSeverityNit
+            - LavaflowReviewFindingSeverityMinor
+            - LavaflowReviewFindingSeverityMajor
+            - LavaflowReviewFindingSeverityCritical
+        file:
+          type: string
+          nullable: true
+          description: The file the finding is about, null when it is about no file. `""` when the path itself may contain a credential, holds a project secret value, or is over 4,000 characters.
+        line:
+          type: integer
+          nullable: true
+          description: The line of `file` the finding is about, null when it is about no one line.
+        explanation:
+          type: string
+      required:
+        - severity
+        - file
+        - line
+        - explanation
+    LavaflowReviewPersonReason:
+      type: object
+      description: One decision the review leaves to a person. `question` reads `LavaFlow left this question out because it may contain a credential` when it may contain a credential, holds one of the project's secret values, or is over 4,000 characters, and when the run is held with `possible_credential`.
+      properties:
+        kind:
+          type: string
+          description: '`irreversible`: the fix deletes or migrates data, or does what a revert can''t undo. `trust_boundary`: it changes authentication, authorization, secrets, or who can reach what. `breaks_contract`: it changes an interface other code or users depend on. `billing`: it touches payments, pricing, metering, or charges. `unexplained`: it changes behavior its context doesn''t explain. `not_reviewable`: it couldn''t be reviewed closely. New kinds may appear.'
+        question:
+          type: string
+          description: What the person decides, written to show as given.
+      required:
+        - kind
+        - question
     LavaflowReviewStop:
       type: string
       enum:
@@ -31565,6 +32067,11 @@ components:
               items:
                 $ref: '#/components/schemas/LavaflowAllowedWorkflow'
               description: The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none or when the run opened no pull request. Null when there is no record of the workflows its pull request opened past, as for pull requests opened before LavaFlow recorded them. Under the merge stage, LavaFlow holds such a fix as unchecked, with `ungated_workflows`.
+            lineage_evidence:
+              allOf:
+                - $ref: '#/components/schemas/LavaflowLineageEvidence'
+              nullable: true
+              description: What tied the run's issue to a recent LavaFlow fix's deploy. Null when nothing did, and for a recurrence, whose issue came back after the fix.
             held_workflows:
               allOf:
                 - $ref: '#/components/schemas/LavaflowHeldWorkflows'
@@ -31582,6 +32089,7 @@ components:
             - failure
             - changed_files
             - ungated_workflows
+            - lineage_evidence
             - held_workflows
     LavaflowAllowedWorkflow:
       type: object
@@ -31667,6 +32175,388 @@ components:
         - data
         - limit
         - has_more
+    LavaflowSkillStatus:
+      type: string
+      enum:
+        - proposed
+        - active
+        - retired
+      description: '`proposed` waits for the owner to activate it. `active` is in force. `retired` is set aside and can be restored.'
+    LavaflowSkillRetiredReason:
+      type: string
+      enum:
+        - harmful
+        - unused
+        - stale
+        - repository_changed
+        - gate
+        - owner
+      description: 'Why a skill retired. `repository_changed`: the project points at another repository, or none. `owner`: the owner retired it. `harmful`, `unused`, `stale` and `gate` are reserved for retirement LavaFlow does on its own, which comes in a later release.'
+    LavaflowSkillScope:
+      type: string
+      enum:
+        - project
+        - volcano
+      x-enum-varnames:
+        - LavaflowSkillScopeProject
+        - LavaflowSkillScopeVolcano
+      description: '`project` skills belong to this project and never leave it. `volcano` skills are written by Volcano for every project.'
+    LavaflowSkillAppliesTo:
+      type: object
+      description: Where a skill applies. Empty lists apply it to the whole project.
+      properties:
+        resource_ids:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            format: uuid
+          description: Functions, durable functions and frontends it applies to.
+        paths:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+            maxLength: 512
+          description: Repository path globs it applies to, relative to the repository root.
+      required:
+        - resource_ids
+        - paths
+    LavaflowSkillCitation:
+      type: object
+      description: 'Repository code a skill rests on: a path and a string the file holds.'
+      properties:
+        path:
+          type: string
+        anchor:
+          type: string
+          maxLength: 128
+      required:
+        - path
+        - anchor
+    LavaflowSkillSource:
+      type: object
+      description: 'Where a version came from: a writer''s act on a fix''s pull request, or the owner''s edit.'
+      properties:
+        kind:
+          type: string
+          enum:
+            - run
+            - person
+        run_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The run whose pull request taught it, for `run`.
+        pull_request:
+          type: integer
+          format: int64
+          nullable: true
+          description: That run's pull request number.
+        act:
+          type: string
+          enum:
+            - commit
+            - review
+            - comment
+          nullable: true
+          description: The writer's act it came from, for `run`.
+        user_id:
+          type: string
+          nullable: true
+          description: The person who edited it, for `person`.
+      required:
+        - kind
+        - run_id
+        - pull_request
+        - act
+        - user_id
+    LavaflowSkillCounts:
+      type: object
+      properties:
+        helpful:
+          type: integer
+          format: int64
+          description: Fixes that used the skill and merged as LavaFlow left them.
+        harmful:
+          type: integer
+          format: int64
+          description: Fixes that used the skill and a writer corrected or closed, or whose issue came back.
+        used:
+          type: integer
+          format: int64
+          description: Runs that loaded the skill's body.
+      required:
+        - helpful
+        - harmful
+        - used
+    LavaflowSkill:
+      type: object
+      description: A project skill with its active version.
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        scope:
+          $ref: '#/components/schemas/LavaflowSkillScope'
+        name:
+          type: string
+          description: Unique in the project.
+        status:
+          $ref: '#/components/schemas/LavaflowSkillStatus'
+        retired_reason:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowSkillRetiredReason'
+          nullable: true
+          description: Why it retired, null unless `status` is `retired`.
+        version:
+          type: integer
+          format: int64
+          description: The active version.
+        description:
+          type: string
+          description: When the skill applies.
+        body:
+          type: string
+          description: Markdown, at most 2 KiB.
+        applies_to:
+          $ref: '#/components/schemas/LavaflowSkillAppliesTo'
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowSkillCitation'
+        content_sha256:
+          type: string
+          description: The hash of the active version's text, as a run records it.
+        source:
+          $ref: '#/components/schemas/LavaflowSkillSource'
+        counts:
+          $ref: '#/components/schemas/LavaflowSkillCounts'
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_renewed_at:
+          type: string
+          format: date-time
+          description: When the skill was created, or last renewed by the owner's edit, activation or restore.
+        retired_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - scope
+        - name
+        - status
+        - retired_reason
+        - version
+        - description
+        - body
+        - applies_to
+        - citations
+        - content_sha256
+        - source
+        - counts
+        - last_used_at
+        - last_renewed_at
+        - retired_at
+        - created_at
+        - updated_at
+    LavaflowSkillList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowSkill'
+      required:
+        - data
+    LavaflowSkillVersion:
+      type: object
+      properties:
+        skill_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+        description:
+          type: string
+        body:
+          type: string
+        applies_to:
+          $ref: '#/components/schemas/LavaflowSkillAppliesTo'
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowSkillCitation'
+        content_sha256:
+          type: string
+        source:
+          $ref: '#/components/schemas/LavaflowSkillSource'
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - skill_id
+        - project_id
+        - version
+        - description
+        - body
+        - applies_to
+        - citations
+        - content_sha256
+        - source
+        - created_at
+    LavaflowSkillVersionList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowSkillVersion'
+      required:
+        - data
+    LavaflowSkillAppliesToUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: The members of `applies_to` to change. An omitted member keeps its value, and a list you send replaces it, so `[]` clears it.
+      properties:
+        resource_ids:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            format: uuid
+          description: Functions, durable functions and frontends it applies to.
+        paths:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+            maxLength: 512
+          description: Repository path globs it applies to, relative to the repository root.
+    LavaflowSkillUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: The fields to change. An omitted field keeps its value.
+      properties:
+        description:
+          type: string
+          minLength: 1
+          maxLength: 300
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        applies_to:
+          $ref: '#/components/schemas/LavaflowSkillAppliesToUpdate'
+        status:
+          type: string
+          enum:
+            - active
+            - retired
+          description: '`active` activates a proposed skill or restores a retired one. `retired` retires it.'
+    LavaflowSkillError:
+      type: object
+      description: An error, with the rules a refused skill failed.
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          description: '`skill_refused` means the skill check refused the text. `feature_unavailable` means the change needs the project''s `lavaflow.skills` capability.'
+        rules:
+          type: array
+          items:
+            type: string
+            enum:
+              - characters
+              - shape
+              - credential_scan
+              - sanitizer
+              - credential
+              - secret
+              - read_value
+              - email
+              - link
+              - directive
+              - policy
+          description: With `skill_refused`, the rules the text failed. The answer never repeats the text.
+      required:
+        - error
+    LavaflowGlobalSkillAppliesTo:
+      type: object
+      description: Where a global skill applies. Empty lists apply it to every project.
+      properties:
+        runtimes:
+          type: array
+          items:
+            type: string
+        frameworks:
+          type: array
+          items:
+            type: string
+        resource_types:
+          type: array
+          items:
+            type: string
+      required:
+        - runtimes
+        - frameworks
+        - resource_types
+    LavaflowGlobalSkill:
+      type: object
+      description: A skill Volcano wrote for every project. It holds no customer content.
+      properties:
+        scope:
+          $ref: '#/components/schemas/LavaflowSkillScope'
+        name:
+          type: string
+          description: Runs list it as `volcano:<name>`.
+        description:
+          type: string
+        body:
+          type: string
+        applies_to:
+          $ref: '#/components/schemas/LavaflowGlobalSkillAppliesTo'
+        content_sha256:
+          type: string
+          description: The hash of the skill's file, which identifies its version.
+      required:
+        - scope
+        - name
+        - description
+        - body
+        - applies_to
+        - content_sha256
+    LavaflowGlobalSkillList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaflowGlobalSkill'
+      required:
+        - data
     LavaflowRunProgress:
       type: object
       description: 'How far an active run has come. The steps are `queued`, `diagnosing`, `fixing`, `reviewing`, `waiting_for_checks` and `merge_queued`, in that order, and a run takes as many as its autonomy when it was queued allows: 2 for `diagnose_only`, 4 for `open_pr` (opening the pull request ends it), 6 for `merge` (the merge ends it).'
@@ -35581,6 +36471,135 @@ components:
       required:
         - type
       additionalProperties: false
+    LavaflowSkillLearning:
+      type: string
+      enum:
+        - auto
+        - review
+        - 'off'
+      description: What LavaFlow will do with a skill it learns from a writer's correction of one of its fixes, once learning ships in a later release. `auto`, the default, activates it at once. `review` keeps it `proposed` until the owner activates it. `off` learns none and loads no project skill; the project's skills stay readable and deletable. A writer of the repository can steer LavaFlow through what it learns, outside the repository's history and branch protection, so a repository that protects its guidance, or relays CI output through a bot account with write access, should use `review`. Turning learning up needs the project's `lavaflow.skills` capability.
+    LavaflowRunReference:
+      type: object
+      description: Another LavaFlow run of the same project.
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          nullable: true
+          description: The run's title, as `LavaflowRunSummary.title` gives it.
+      required:
+        - id
+        - title
+    LavaflowLineage:
+      type: object
+      description: 'A chain of LavaFlow fixes: a merged fix, and the runs that followed up an issue traced to it or to a fix after it.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The lineage's root run.
+        depth:
+          type: integer
+          format: int64
+          description: 0 for the root fix.
+        relation:
+          type: string
+          enum:
+            - regression
+            - recurrence
+          nullable: true
+          description: '`regression` for an issue traced to the parent''s deploy, `recurrence` for an issue that came back after the parent went live. Null for the root.'
+        confidence:
+          type: string
+          enum:
+            - strong
+            - weak
+          nullable: true
+          description: 'Null for the root, and otherwise `strong`. `weak` is reserved: nothing writes it.'
+        parent:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowRunReference'
+          nullable: true
+          description: The fix this run follows up. Null for the root.
+        covered_by:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowRunReference'
+          nullable: true
+          description: The run whose fix also covers this issue, so this run opened nothing.
+        remedy:
+          type: string
+          enum:
+            - fix
+            - revert
+            - none
+          x-enum-varnames:
+            - LavaflowLineageRemedyFix
+            - LavaflowLineageRemedyRevert
+            - LavaflowLineageRemedyNone
+          description: 'How the run follows up its parent. Currently always `fix`: a regression gets a follow-up fix. `revert` and `none` are reserved.'
+        state:
+          type: string
+          enum:
+            - active
+            - settled
+            - held
+        hold_reason:
+          type: string
+          nullable: true
+          description: 'Why the lineage holds: `lineage_cap`, `lineage_held` or `repository_changed`. New values may appear. Null unless `state` is `held`.'
+        pull_requests_opened:
+          type: integer
+          format: int64
+          description: Pull requests the lineage opened, counting the root's.
+        pull_request_cap:
+          type: integer
+          format: int64
+          description: The most pull requests a lineage opens before it holds.
+      required:
+        - id
+        - depth
+        - relation
+        - confidence
+        - parent
+        - covered_by
+        - remedy
+        - state
+        - hold_reason
+        - pull_requests_opened
+        - pull_request_cap
+    LavaflowFixOutcome:
+      type: object
+      description: How a merged LavaFlow fix fared once it went live.
+      properties:
+        state:
+          type: string
+          enum:
+            - awaiting_deploy
+            - watching
+            - effective
+            - ineffective
+            - regressed
+            - reverted
+          description: '`watching` for 14 days after the fix goes live, then `effective` unless its issue came back (`ineffective`) or a new issue was traced to its deploy (`regressed`). An outcome never moves back. `reverted` is reserved and not produced yet.'
+        live_at:
+          type: string
+          format: date-time
+          nullable: true
+        watch_until:
+          type: string
+          format: date-time
+          nullable: true
+        follow_ups:
+          type: integer
+          format: int64
+          description: Runs linked to this fix.
+      required:
+        - state
+        - live_at
+        - watch_until
+        - follow_ups
     LavaflowCommitOrigin:
       type: string
       enum:
@@ -35609,6 +36628,61 @@ components:
       required:
         - sha
         - origin
+    LavaflowLineageEvidence:
+      type: object
+      description: What tied the run's issue to a recent LavaFlow fix. A `display` link rests on less than a strong one and joins no lineage.
+      properties:
+        confidence:
+          type: string
+          enum:
+            - strong
+            - weak
+            - display
+          description: '`strong` or `display`. `weak` is reserved: nothing writes it.'
+        parent:
+          allOf:
+            - $ref: '#/components/schemas/LavaflowRunReference'
+          description: The fix the issue was traced to.
+        deployment:
+          type: object
+          properties:
+            commit_sha:
+              type: string
+              description: The commit of the deployment that served the occurrence attribution judged (`opened_at`).
+            commit_origin:
+              type: string
+              description: '`push` for a commit Volcano built from a push, `client_reported` for one the deploy client reported. New values may appear.'
+          required:
+            - commit_sha
+            - commit_origin
+        previous_commit_sha:
+          type: string
+          nullable: true
+          description: The commit of the deployment before it.
+        fix_live_at:
+          type: string
+          format: date-time
+        opened_at:
+          type: string
+          format: date-time
+          description: The occurrence attribution judged.
+        overlapping_functions:
+          type: array
+          items:
+            type: string
+        overlapping_files:
+          type: array
+          items:
+            type: string
+      required:
+        - confidence
+        - parent
+        - deployment
+        - previous_commit_sha
+        - fix_live_at
+        - opened_at
+        - overlapping_functions
+        - overlapping_files
     IssueFinding:
       type: object
       description: The LavaFlow Code Quality finding behind a `code_quality` issue.

@@ -215,6 +215,8 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 		if run.Review.Stopped != nil {
 			kv(w, on, "Review stopped", "%s", lavaflowReviewStopped(*run.Review.Stopped))
 		}
+		lavaflowOpenFindings(w, on, run.Review.OpenFindings)
+		lavaflowPersonReasons(w, on, run.Review.PersonReasons)
 	}
 	if checks := run.RepositoryChecks; checks != nil {
 		kv(w, on, "Checks", "%s", lavaflowRepositoryChecks(checks))
@@ -288,6 +290,96 @@ func lavaflowReviewStopped(stopped apiclient.LavaflowReviewStop) string {
 		return "A retried run couldn't read the review saved with its fix, so a person must review it."
 	default:
 		return "Other (" + clean(strings.ReplaceAll(string(stopped), "_", " ")) + ")."
+	}
+}
+
+// lavaflowOpenFindings lists the findings the review left open, in the order
+// the API sends them. The file and explanation are the reviewer's words, and
+// a sentence Volcano put in place of withheld text prints as given.
+func lavaflowOpenFindings(w io.Writer, on bool, findings []apiclient.LavaflowReviewFinding) {
+	if len(findings) == 0 {
+		return
+	}
+	fmt.Fprintln(w, theme.Dim("Open findings:", on))
+	for _, finding := range findings {
+		head := clean(string(finding.Severity))
+		if place := lavaflowFindingPlace(finding); place != "" {
+			head += ", " + place
+		}
+		reviewItem(w, head, finding.Explanation)
+	}
+}
+
+// lavaflowFindingPlace is where a finding points: its file and line, or ""
+// for a finding about no file. An empty file is a path Volcano doesn't show.
+func lavaflowFindingPlace(finding apiclient.LavaflowReviewFinding) string {
+	var place string
+	switch {
+	case finding.File == nil:
+		if finding.Line != nil {
+			place = fmt.Sprintf("line %d", *finding.Line)
+		}
+	case *finding.File == "":
+		place = "path not shown"
+		if finding.Line != nil {
+			place += fmt.Sprintf(", line %d", *finding.Line)
+		}
+	default:
+		place = clean(*finding.File)
+		if finding.Line != nil {
+			place += fmt.Sprintf(":%d", *finding.Line)
+		}
+	}
+	return place
+}
+
+// lavaflowPersonReasons lists what the review leaves to a person to decide
+// before the fix merges, in the order the API sends them.
+func lavaflowPersonReasons(w io.Writer, on bool, reasons []apiclient.LavaflowReviewPersonReason) {
+	if len(reasons) == 0 {
+		return
+	}
+	fmt.Fprintln(w, theme.Dim("For you to decide:", on))
+	for _, reason := range reasons {
+		reviewItem(w, lavaflowPersonReasonKind(reason.Kind), reason.Question)
+	}
+}
+
+// lavaflowPersonReasonKind names what a decision is about. The API may add
+// kinds, and one the CLI doesn't know prints as the API gives it.
+func lavaflowPersonReasonKind(kind string) string {
+	switch kind {
+	case "trust_boundary":
+		return "trust boundary"
+	case "breaks_contract":
+		return "breaks a contract"
+	case "not_reviewable":
+		return "not reviewable"
+	default:
+		return clean(kind)
+	}
+}
+
+// reviewItem writes one "  - head: text" line of the review's lists. Text on
+// more than one line continues indented under it.
+func reviewItem(w io.Writer, head, text string) {
+	var lines []string
+	if strings.TrimSpace(text) != "" {
+		lines = strings.Split(strings.TrimRight(text, "\n"), "\n")
+	}
+	switch {
+	case len(lines) == 0 && head == "":
+		return
+	case len(lines) == 0:
+		fmt.Fprintf(w, "  - %s\n", head)
+		return
+	case head == "":
+		fmt.Fprintf(w, "  - %s\n", clean(lines[0]))
+	default:
+		fmt.Fprintf(w, "  - %s: %s\n", head, clean(lines[0]))
+	}
+	for _, line := range lines[1:] {
+		fmt.Fprintf(w, "    %s\n", clean(line))
 	}
 }
 
