@@ -2742,6 +2742,198 @@ func (e LavaflowScanStatus) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowSkillErrorRules.
+const (
+	Characters     LavaflowSkillErrorRules = "characters"
+	Credential     LavaflowSkillErrorRules = "credential"
+	CredentialScan LavaflowSkillErrorRules = "credential_scan"
+	Directive      LavaflowSkillErrorRules = "directive"
+	Email          LavaflowSkillErrorRules = "email"
+	Link           LavaflowSkillErrorRules = "link"
+	Policy         LavaflowSkillErrorRules = "policy"
+	ReadValue      LavaflowSkillErrorRules = "read_value"
+	Sanitizer      LavaflowSkillErrorRules = "sanitizer"
+	Secret         LavaflowSkillErrorRules = "secret"
+	Shape          LavaflowSkillErrorRules = "shape"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillErrorRules enum.
+func (e LavaflowSkillErrorRules) Valid() bool {
+	switch e {
+	case Characters:
+		return true
+	case Credential:
+		return true
+	case CredentialScan:
+		return true
+	case Directive:
+		return true
+	case Email:
+		return true
+	case Link:
+		return true
+	case Policy:
+		return true
+	case ReadValue:
+		return true
+	case Sanitizer:
+		return true
+	case Secret:
+		return true
+	case Shape:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillLearning.
+const (
+	LavaflowSkillLearningAuto   LavaflowSkillLearning = "auto"
+	LavaflowSkillLearningOff    LavaflowSkillLearning = "off"
+	LavaflowSkillLearningReview LavaflowSkillLearning = "review"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillLearning enum.
+func (e LavaflowSkillLearning) Valid() bool {
+	switch e {
+	case LavaflowSkillLearningAuto:
+		return true
+	case LavaflowSkillLearningOff:
+		return true
+	case LavaflowSkillLearningReview:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillRetiredReason.
+const (
+	LavaflowSkillRetiredReasonGate              LavaflowSkillRetiredReason = "gate"
+	LavaflowSkillRetiredReasonHarmful           LavaflowSkillRetiredReason = "harmful"
+	LavaflowSkillRetiredReasonOwner             LavaflowSkillRetiredReason = "owner"
+	LavaflowSkillRetiredReasonRepositoryChanged LavaflowSkillRetiredReason = "repository_changed"
+	LavaflowSkillRetiredReasonStale             LavaflowSkillRetiredReason = "stale"
+	LavaflowSkillRetiredReasonUnused            LavaflowSkillRetiredReason = "unused"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillRetiredReason enum.
+func (e LavaflowSkillRetiredReason) Valid() bool {
+	switch e {
+	case LavaflowSkillRetiredReasonGate:
+		return true
+	case LavaflowSkillRetiredReasonHarmful:
+		return true
+	case LavaflowSkillRetiredReasonOwner:
+		return true
+	case LavaflowSkillRetiredReasonRepositoryChanged:
+		return true
+	case LavaflowSkillRetiredReasonStale:
+		return true
+	case LavaflowSkillRetiredReasonUnused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillScope.
+const (
+	LavaflowSkillScopeProject LavaflowSkillScope = "project"
+	LavaflowSkillScopeVolcano LavaflowSkillScope = "volcano"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillScope enum.
+func (e LavaflowSkillScope) Valid() bool {
+	switch e {
+	case LavaflowSkillScopeProject:
+		return true
+	case LavaflowSkillScopeVolcano:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillSourceAct.
+const (
+	LavaflowSkillSourceActComment LavaflowSkillSourceAct = "comment"
+	LavaflowSkillSourceActCommit  LavaflowSkillSourceAct = "commit"
+	LavaflowSkillSourceActReview  LavaflowSkillSourceAct = "review"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillSourceAct enum.
+func (e LavaflowSkillSourceAct) Valid() bool {
+	switch e {
+	case LavaflowSkillSourceActComment:
+		return true
+	case LavaflowSkillSourceActCommit:
+		return true
+	case LavaflowSkillSourceActReview:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillSourceKind.
+const (
+	Person LavaflowSkillSourceKind = "person"
+	Run    LavaflowSkillSourceKind = "run"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillSourceKind enum.
+func (e LavaflowSkillSourceKind) Valid() bool {
+	switch e {
+	case Person:
+		return true
+	case Run:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillStatus.
+const (
+	LavaflowSkillStatusActive   LavaflowSkillStatus = "active"
+	LavaflowSkillStatusProposed LavaflowSkillStatus = "proposed"
+	LavaflowSkillStatusRetired  LavaflowSkillStatus = "retired"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillStatus enum.
+func (e LavaflowSkillStatus) Valid() bool {
+	switch e {
+	case LavaflowSkillStatusActive:
+		return true
+	case LavaflowSkillStatusProposed:
+		return true
+	case LavaflowSkillStatusRetired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillUpdateStatus.
+const (
+	LavaflowSkillUpdateStatusActive  LavaflowSkillUpdateStatus = "active"
+	LavaflowSkillUpdateStatusRetired LavaflowSkillUpdateStatus = "retired"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillUpdateStatus enum.
+func (e LavaflowSkillUpdateStatus) Valid() bool {
+	switch e {
+	case LavaflowSkillUpdateStatusActive:
+		return true
+	case LavaflowSkillUpdateStatusRetired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowSkipReason.
 const (
 	LavaflowSkipReasonConventionUnsatisfiable LavaflowSkipReason = "convention_unsatisfiable"
@@ -3935,19 +4127,19 @@ func (e ProjectImportTarget) Valid() bool {
 
 // Defines values for ProjectMetricsDataStatus.
 const (
-	ProjectMetricsDataStatusComplete ProjectMetricsDataStatus = "complete"
-	ProjectMetricsDataStatusNoData   ProjectMetricsDataStatus = "no_data"
-	ProjectMetricsDataStatusPartial  ProjectMetricsDataStatus = "partial"
+	Complete ProjectMetricsDataStatus = "complete"
+	NoData   ProjectMetricsDataStatus = "no_data"
+	Partial  ProjectMetricsDataStatus = "partial"
 )
 
 // Valid indicates whether the value is a known member of the ProjectMetricsDataStatus enum.
 func (e ProjectMetricsDataStatus) Valid() bool {
 	switch e {
-	case ProjectMetricsDataStatusComplete:
+	case Complete:
 		return true
-	case ProjectMetricsDataStatusNoData:
+	case NoData:
 		return true
-	case ProjectMetricsDataStatusPartial:
+	case Partial:
 		return true
 	default:
 		return false
@@ -10185,6 +10377,35 @@ type LavaflowFailure struct {
 	Message string `json:"message"`
 }
 
+// LavaflowGlobalSkill A skill Volcano wrote for every project. It holds no customer content.
+type LavaflowGlobalSkill struct {
+	// AppliesTo Where a global skill applies. Empty lists apply it to every project.
+	AppliesTo LavaflowGlobalSkillAppliesTo `json:"applies_to"`
+	Body      string                       `json:"body"`
+
+	// ContentSha256 The hash of the skill's file, which identifies its version.
+	ContentSha256 string `json:"content_sha256"`
+	Description   string `json:"description"`
+
+	// Name Runs list it as `volcano:<name>`.
+	Name string `json:"name"`
+
+	// Scope `project` skills belong to this project and never leave it. `volcano` skills are written by Volcano for every project.
+	Scope LavaflowSkillScope `json:"scope"`
+}
+
+// LavaflowGlobalSkillAppliesTo Where a global skill applies. Empty lists apply it to every project.
+type LavaflowGlobalSkillAppliesTo struct {
+	Frameworks    []string `json:"frameworks"`
+	ResourceTypes []string `json:"resource_types"`
+	Runtimes      []string `json:"runtimes"`
+}
+
+// LavaflowGlobalSkillList defines model for LavaflowGlobalSkillList.
+type LavaflowGlobalSkillList struct {
+	Data []LavaflowGlobalSkill `json:"data"`
+}
+
 // LavaflowHeldFixOpen The project, the run, and the diff and jobs of the held fix you read, by the digests the run served them with.
 type LavaflowHeldFixOpen struct {
 	// DiffSha256 The run's `diff_sha256`, as it served it.
@@ -10704,19 +10925,22 @@ type LavaflowSettings struct {
 	// Repository The GitHub repository the project is linked to, as `GET /projects/{id}/git-connection` reports it. LavaFlow opens fix pull requests there, against `production_branch`. Null when the project has none.
 	Repository *ProjectGitConnectionSummary `json:"repository"`
 
+	// SkillLearning What LavaFlow will do with a skill it learns from a writer's correction of one of its fixes, once learning ships in a later release. `auto`, the default, activates it at once. `review` keeps it `proposed` until the owner activates it. `off` learns none and loads no project skill; the project's skills stay readable and deletable. A writer of the repository can steer LavaFlow through what it learns, outside the repository's history and branch protection, so a repository that protects its guidance, or relays CI output through a bot account with write access, should use `review`. Turning learning up needs the project's `lavaflow.skills` capability.
+	SkillLearning LavaflowSkillLearning `json:"skill_learning"`
+
 	// SystemPrompt Instructions for LavaFlow's runs, to follow after LavaFlow's own, which take precedence. Empty when unset. Saved, but runs do not use it yet.
 	SystemPrompt string `json:"system_prompt"`
 
 	// UpdatedAt When the settings were last saved, or last changed by connecting a repository. Null until they first are.
 	UpdatedAt *time.Time `json:"updated_at"`
 
-	// UpdatedBy The user ID of the person who last saved the settings.
+	// UpdatedBy The user ID of the person who made the last save; null when no person made it, such as a project access token.
 	UpdatedBy *string `json:"updated_by"`
 }
 
 // LavaflowSettingsUpdate The project, and at least one field to change. An omitted field keeps its saved value.
 type LavaflowSettingsUpdate struct {
-	// AllowUngatedWorkflows Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner's credentials turns it off. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`.
+	// AllowUngatedWorkflows Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner's credentials turns it off. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`, `skill_learning: off` or both.
 	AllowUngatedWorkflows *bool `json:"allow_ungated_workflows,omitempty"`
 
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
@@ -10731,8 +10955,179 @@ type LavaflowSettingsUpdate struct {
 	MergePolicy *LavaflowMergePolicyUpdate `json:"merge_policy,omitempty"`
 
 	// ProjectId The project whose settings to change.
-	ProjectId    openapi_types.UUID `json:"project_id"`
-	SystemPrompt *string            `json:"system_prompt,omitempty"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// SkillLearning Only the project's owner turns learning up, from `off` to `review` or `auto` or from `review` to `auto`, signed in as a person: with a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, and with a GitHub account that can push to the project's repository. Any other credential gets `403` with code `person_required`. Turning it down or off, or sending the saved value, needs no check. A project access token may send `off` with `project_id`, alone or with `code_quality` turned off, and nothing else; any other save it makes gets `403` with code `person_required`.
+	SkillLearning *LavaflowSkillLearning `json:"skill_learning,omitempty"`
+	SystemPrompt  *string                `json:"system_prompt,omitempty"`
+}
+
+// LavaflowSkill A project skill with its active version.
+type LavaflowSkill struct {
+	// AppliesTo Where a skill applies. Empty lists apply it to the whole project.
+	AppliesTo LavaflowSkillAppliesTo `json:"applies_to"`
+
+	// Body Markdown, at most 2 KiB.
+	Body      string                  `json:"body"`
+	Citations []LavaflowSkillCitation `json:"citations"`
+
+	// ContentSha256 The hash of the active version's text, as a run records it.
+	ContentSha256 string              `json:"content_sha256"`
+	Counts        LavaflowSkillCounts `json:"counts"`
+	CreatedAt     time.Time           `json:"created_at"`
+
+	// Description When the skill applies.
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// LastRenewedAt When the skill was created, or last renewed by the owner's edit, activation or restore.
+	LastRenewedAt time.Time  `json:"last_renewed_at"`
+	LastUsedAt    *time.Time `json:"last_used_at"`
+
+	// Name Unique in the project.
+	Name      string             `json:"name"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	RetiredAt *time.Time         `json:"retired_at"`
+
+	// RetiredReason Why it retired, null unless `status` is `retired`.
+	RetiredReason *LavaflowSkillRetiredReason `json:"retired_reason"`
+
+	// Scope `project` skills belong to this project and never leave it. `volcano` skills are written by Volcano for every project.
+	Scope LavaflowSkillScope `json:"scope"`
+
+	// Source Where a version came from: a writer's act on a fix's pull request, or the owner's edit.
+	Source LavaflowSkillSource `json:"source"`
+
+	// Status `proposed` waits for the owner to activate it. `active` is in force. `retired` is set aside and can be restored.
+	Status    LavaflowSkillStatus `json:"status"`
+	UpdatedAt time.Time           `json:"updated_at"`
+
+	// Version The active version.
+	Version int64 `json:"version"`
+}
+
+// LavaflowSkillAppliesTo Where a skill applies. Empty lists apply it to the whole project.
+type LavaflowSkillAppliesTo struct {
+	// Paths Repository path globs it applies to, relative to the repository root.
+	Paths []string `json:"paths"`
+
+	// ResourceIds Functions, durable functions and frontends it applies to.
+	ResourceIds []openapi_types.UUID `json:"resource_ids"`
+}
+
+// LavaflowSkillAppliesToUpdate The members of `applies_to` to change. An omitted member keeps its value, and a list you send replaces it, so `[]` clears it.
+type LavaflowSkillAppliesToUpdate struct {
+	// Paths Repository path globs it applies to, relative to the repository root.
+	Paths *[]string `json:"paths,omitempty"`
+
+	// ResourceIds Functions, durable functions and frontends it applies to.
+	ResourceIds *[]openapi_types.UUID `json:"resource_ids,omitempty"`
+}
+
+// LavaflowSkillCitation Repository code a skill rests on: a path and a string the file holds.
+type LavaflowSkillCitation struct {
+	Anchor string `json:"anchor"`
+	Path   string `json:"path"`
+}
+
+// LavaflowSkillCounts defines model for LavaflowSkillCounts.
+type LavaflowSkillCounts struct {
+	// Harmful Fixes that used the skill and a writer corrected or closed, or whose issue came back.
+	Harmful int64 `json:"harmful"`
+
+	// Helpful Fixes that used the skill and merged as LavaFlow left them.
+	Helpful int64 `json:"helpful"`
+
+	// Used Runs that loaded the skill's body.
+	Used int64 `json:"used"`
+}
+
+// LavaflowSkillError An error, with the rules a refused skill failed.
+type LavaflowSkillError struct {
+	// Code `skill_refused` means the skill check refused the text. `feature_unavailable` means the change needs the project's `lavaflow.skills` capability.
+	Code  *string `json:"code,omitempty"`
+	Error string  `json:"error"`
+
+	// Rules With `skill_refused`, the rules the text failed. The answer never repeats the text.
+	Rules *[]LavaflowSkillErrorRules `json:"rules,omitempty"`
+}
+
+// LavaflowSkillErrorRules defines model for LavaflowSkillError.Rules.
+type LavaflowSkillErrorRules string
+
+// LavaflowSkillLearning What LavaFlow will do with a skill it learns from a writer's correction of one of its fixes, once learning ships in a later release. `auto`, the default, activates it at once. `review` keeps it `proposed` until the owner activates it. `off` learns none and loads no project skill; the project's skills stay readable and deletable. A writer of the repository can steer LavaFlow through what it learns, outside the repository's history and branch protection, so a repository that protects its guidance, or relays CI output through a bot account with write access, should use `review`. Turning learning up needs the project's `lavaflow.skills` capability.
+type LavaflowSkillLearning string
+
+// LavaflowSkillList defines model for LavaflowSkillList.
+type LavaflowSkillList struct {
+	Data []LavaflowSkill `json:"data"`
+}
+
+// LavaflowSkillRetiredReason Why a skill retired. `repository_changed`: the project points at another repository, or none. `owner`: the owner retired it. `harmful`, `unused`, `stale` and `gate` are reserved for retirement LavaFlow does on its own, which comes in a later release.
+type LavaflowSkillRetiredReason string
+
+// LavaflowSkillScope `project` skills belong to this project and never leave it. `volcano` skills are written by Volcano for every project.
+type LavaflowSkillScope string
+
+// LavaflowSkillSource Where a version came from: a writer's act on a fix's pull request, or the owner's edit.
+type LavaflowSkillSource struct {
+	// Act The writer's act it came from, for `run`.
+	Act  *LavaflowSkillSourceAct `json:"act"`
+	Kind LavaflowSkillSourceKind `json:"kind"`
+
+	// PullRequest That run's pull request number.
+	PullRequest *int64 `json:"pull_request"`
+
+	// RunId The run whose pull request taught it, for `run`.
+	RunId *openapi_types.UUID `json:"run_id"`
+
+	// UserId The person who edited it, for `person`.
+	UserId *string `json:"user_id"`
+}
+
+// LavaflowSkillSourceAct The writer's act it came from, for `run`.
+type LavaflowSkillSourceAct string
+
+// LavaflowSkillSourceKind defines model for LavaflowSkillSource.Kind.
+type LavaflowSkillSourceKind string
+
+// LavaflowSkillStatus `proposed` waits for the owner to activate it. `active` is in force. `retired` is set aside and can be restored.
+type LavaflowSkillStatus string
+
+// LavaflowSkillUpdate The fields to change. An omitted field keeps its value.
+type LavaflowSkillUpdate struct {
+	// AppliesTo The members of `applies_to` to change. An omitted member keeps its value, and a list you send replaces it, so `[]` clears it.
+	AppliesTo   *LavaflowSkillAppliesToUpdate `json:"applies_to,omitempty"`
+	Body        *string                       `json:"body,omitempty"`
+	Description *string                       `json:"description,omitempty"`
+
+	// Status `active` activates a proposed skill or restores a retired one. `retired` retires it.
+	Status *LavaflowSkillUpdateStatus `json:"status,omitempty"`
+}
+
+// LavaflowSkillUpdateStatus `active` activates a proposed skill or restores a retired one. `retired` retires it.
+type LavaflowSkillUpdateStatus string
+
+// LavaflowSkillVersion defines model for LavaflowSkillVersion.
+type LavaflowSkillVersion struct {
+	// AppliesTo Where a skill applies. Empty lists apply it to the whole project.
+	AppliesTo     LavaflowSkillAppliesTo  `json:"applies_to"`
+	Body          string                  `json:"body"`
+	Citations     []LavaflowSkillCitation `json:"citations"`
+	ContentSha256 string                  `json:"content_sha256"`
+	CreatedAt     time.Time               `json:"created_at"`
+	Description   string                  `json:"description"`
+	ProjectId     openapi_types.UUID      `json:"project_id"`
+	SkillId       openapi_types.UUID      `json:"skill_id"`
+
+	// Source Where a version came from: a writer's act on a fix's pull request, or the owner's edit.
+	Source  LavaflowSkillSource `json:"source"`
+	Version int64               `json:"version"`
+}
+
+// LavaflowSkillVersionList defines model for LavaflowSkillVersionList.
+type LavaflowSkillVersionList struct {
+	Data []LavaflowSkillVersion `json:"data"`
 }
 
 // LavaflowSkipReason Why a finished run opened no pull request, with what you can do next. `diagnose_only`: the project's `autonomy` was `diagnose_only` when the run was queued, or became it before the pull request opened, so LavaFlow only diagnosed the issue; read the diagnosis, and set `autonomy` to `open_pr` or `merge` for later runs to open pull requests. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `convention_unsatisfiable`: LavaFlow would merge the fix, but no title can meet the repository's commit convention, so it kept the fix on the run; apply the fix yourself, or relax the convention. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit, or the production branch no longer holds it; check the project's repository connection and that the commit exists on that branch. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. `lineage_cap`: LavaFlow opened as many pull requests in this fix's lineage as it may; review the lineage's pull requests and fix the rest yourself. `lineage_held`: an earlier pull request in this fix's lineage was held, stopped or closed, so LavaFlow opens no more in it; apply the fix yourself from the diagnosis. `review_unresolved`: LavaFlow's review didn't pass a Code Quality fix; read the diagnosis. `duplicate_in_repository`: another project on the repository has the open Code Quality pull request for the same finding. `security_finding`: the finding has security impact and the repository isn't private, so the fix would disclose it; fix it yourself. New reasons may appear.
@@ -15000,6 +15395,15 @@ type LavaflowRunStatusFilter = LavaflowRunStatus
 // LavaflowScanLimit defines model for LavaflowScanLimit.
 type LavaflowScanLimit = int
 
+// LavaflowSkillId defines model for LavaflowSkillId.
+type LavaflowSkillId = openapi_types.UUID
+
+// LavaflowSkillIdQuery defines model for LavaflowSkillIdQuery.
+type LavaflowSkillIdQuery = openapi_types.UUID
+
+// LavaflowSkillStatusFilter `proposed` waits for the owner to activate it. `active` is in force. `retired` is set aside and can be restored.
+type LavaflowSkillStatusFilter = LavaflowSkillStatus
+
 // Limit defines model for Limit.
 type Limit = int
 
@@ -15777,6 +16181,12 @@ type ListImportSourcesParams struct {
 	ConnectionId openapi_types.UUID `form:"connection_id" json:"connection_id"`
 }
 
+// ListLavaflowGlobalSkillsParams defines parameters for ListLavaflowGlobalSkills.
+type ListLavaflowGlobalSkillsParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+}
+
 // ListLavaflowResourcesParams defines parameters for ListLavaflowResources.
 type ListLavaflowResourcesParams struct {
 	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
@@ -15869,6 +16279,42 @@ type ListLavaflowScansParams struct {
 type GetLavaflowSettingsParams struct {
 	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
 	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+}
+
+// ListLavaflowSkillVersionsParams defines parameters for ListLavaflowSkillVersions.
+type ListLavaflowSkillVersionsParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+
+	// SkillId The skill whose versions to list.
+	SkillId LavaflowSkillIdQuery `form:"skill_id" json:"skill_id"`
+}
+
+// ListLavaflowSkillsParams defines parameters for ListLavaflowSkills.
+type ListLavaflowSkillsParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+
+	// Status Only skills in this status.
+	Status *LavaflowSkillStatusFilter `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// DeleteLavaflowSkillParams defines parameters for DeleteLavaflowSkill.
+type DeleteLavaflowSkillParams struct {
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// GetLavaflowSkillParams defines parameters for GetLavaflowSkill.
+type GetLavaflowSkillParams struct {
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// UpdateLavaflowSkillParams defines parameters for UpdateLavaflowSkill.
+type UpdateLavaflowSkillParams struct {
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
 // ListLavaflowSlackChannelsParams defines parameters for ListLavaflowSlackChannels.
@@ -16852,7 +17298,7 @@ type CreateFunctionMultipartBody struct {
 
 	// Handler The name of the function to invoke. Defaults to "handler" if not specified.
 	// Your code must export/define a function with this name:
-	// - Node.js: exports.handler (in index.js)
+	// - Node.js: exports.handler (in index.js, index.mjs or index.cjs, or in TypeScript in index.ts, index.mts or index.cts, which the build compiles without type-checking)
 	// - Python: def handler() (in main.py)
 	// - Ruby: def handler() (in main.rb)
 	Handler *string `json:"handler,omitempty"`
@@ -17689,6 +18135,9 @@ type PatchLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
 
 // UpdateLavaflowSettingsJSONRequestBody defines body for UpdateLavaflowSettings for application/json ContentType.
 type UpdateLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
+
+// UpdateLavaflowSkillJSONRequestBody defines body for UpdateLavaflowSkill for application/json ContentType.
+type UpdateLavaflowSkillJSONRequestBody = LavaflowSkillUpdate
 
 // BindLavaflowSlackChannelJSONRequestBody defines body for BindLavaflowSlackChannel for application/json ContentType.
 type BindLavaflowSlackChannelJSONRequestBody = LavaflowSlackChannelBinding
@@ -19697,6 +20146,9 @@ type ClientInterface interface {
 	// ListImportSources request
 	ListImportSources(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListLavaflowGlobalSkills request
+	ListLavaflowGlobalSkills(ctx context.Context, params *ListLavaflowGlobalSkillsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateLavaflowHeldFixOpenWithBody request with any body
 	CreateLavaflowHeldFixOpenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -19731,6 +20183,23 @@ type ClientInterface interface {
 	UpdateLavaflowSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateLavaflowSettings(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLavaflowSkillVersions request
+	ListLavaflowSkillVersions(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLavaflowSkills request
+	ListLavaflowSkills(ctx context.Context, params *ListLavaflowSkillsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteLavaflowSkill request
+	DeleteLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *DeleteLavaflowSkillParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLavaflowSkill request
+	GetLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *GetLavaflowSkillParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateLavaflowSkillWithBody request with any body
+	UpdateLavaflowSkillWithBody(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, body UpdateLavaflowSkillJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLavaflowSlackChannels request
 	ListLavaflowSlackChannels(ctx context.Context, params *ListLavaflowSlackChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -22223,6 +22692,18 @@ func (c *Client) ListImportSources(ctx context.Context, provider ImportProvider,
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListLavaflowGlobalSkills(ctx context.Context, params *ListLavaflowGlobalSkillsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaflowGlobalSkillsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) CreateLavaflowHeldFixOpenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateLavaflowHeldFixOpenRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -22369,6 +22850,78 @@ func (c *Client) UpdateLavaflowSettingsWithBody(ctx context.Context, contentType
 
 func (c *Client) UpdateLavaflowSettings(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateLavaflowSettingsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLavaflowSkillVersions(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaflowSkillVersionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLavaflowSkills(ctx context.Context, params *ListLavaflowSkillsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaflowSkillsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *DeleteLavaflowSkillParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLavaflowSkillRequest(c.Server, skillId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *GetLavaflowSkillParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLavaflowSkillRequest(c.Server, skillId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateLavaflowSkillWithBody(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLavaflowSkillRequestWithBody(c.Server, skillId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, body UpdateLavaflowSkillJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLavaflowSkillRequest(c.Server, skillId, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -31003,6 +31556,56 @@ func NewListImportSourcesRequest(server string, provider ImportProvider, params 
 	return req, nil
 }
 
+// NewListLavaflowGlobalSkillsRequest generates requests for ListLavaflowGlobalSkills
+func NewListLavaflowGlobalSkillsRequest(server string, params *ListLavaflowGlobalSkillsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/global-skills")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewCreateLavaflowHeldFixOpenRequest calls the generic CreateLavaflowHeldFixOpen builder with application/json body
 func NewCreateLavaflowHeldFixOpenRequest(server string, body CreateLavaflowHeldFixOpenJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -31595,6 +32198,322 @@ func NewUpdateLavaflowSettingsRequestWithBody(server string, contentType string,
 	}
 
 	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListLavaflowSkillVersionsRequest generates requests for ListLavaflowSkillVersions
+func NewListLavaflowSkillVersionsRequest(server string, params *ListLavaflowSkillVersionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/skill-versions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "skill_id", params.SkillId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListLavaflowSkillsRequest generates requests for ListLavaflowSkills
+func NewListLavaflowSkillsRequest(server string, params *ListLavaflowSkillsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/skills")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteLavaflowSkillRequest generates requests for DeleteLavaflowSkill
+func NewDeleteLavaflowSkillRequest(server string, skillId LavaflowSkillId, params *DeleteLavaflowSkillParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "skill_id", skillId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/skills/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLavaflowSkillRequest generates requests for GetLavaflowSkill
+func NewGetLavaflowSkillRequest(server string, skillId LavaflowSkillId, params *GetLavaflowSkillParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "skill_id", skillId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/skills/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateLavaflowSkillRequest calls the generic UpdateLavaflowSkill builder with application/json body
+func NewUpdateLavaflowSkillRequest(server string, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, body UpdateLavaflowSkillJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateLavaflowSkillRequestWithBody(server, skillId, params, "application/json", bodyReader)
+}
+
+// NewUpdateLavaflowSkillRequestWithBody generates requests for UpdateLavaflowSkill with any type of body
+func NewUpdateLavaflowSkillRequestWithBody(server string, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "skill_id", skillId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/skills/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -48166,6 +49085,9 @@ type ClientWithResponsesInterface interface {
 	// ListImportSourcesWithResponse request
 	ListImportSourcesWithResponse(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*ListImportSourcesClientResponse, error)
 
+	// ListLavaflowGlobalSkillsWithResponse request
+	ListLavaflowGlobalSkillsWithResponse(ctx context.Context, params *ListLavaflowGlobalSkillsParams, reqEditors ...RequestEditorFn) (*ListLavaflowGlobalSkillsClientResponse, error)
+
 	// CreateLavaflowHeldFixOpenWithBodyWithResponse request with any body
 	CreateLavaflowHeldFixOpenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowHeldFixOpenClientResponse, error)
 
@@ -48200,6 +49122,23 @@ type ClientWithResponsesInterface interface {
 	UpdateLavaflowSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
 
 	UpdateLavaflowSettingsWithResponse(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
+
+	// ListLavaflowSkillVersionsWithResponse request
+	ListLavaflowSkillVersionsWithResponse(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillVersionsClientResponse, error)
+
+	// ListLavaflowSkillsWithResponse request
+	ListLavaflowSkillsWithResponse(ctx context.Context, params *ListLavaflowSkillsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillsClientResponse, error)
+
+	// DeleteLavaflowSkillWithResponse request
+	DeleteLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *DeleteLavaflowSkillParams, reqEditors ...RequestEditorFn) (*DeleteLavaflowSkillClientResponse, error)
+
+	// GetLavaflowSkillWithResponse request
+	GetLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *GetLavaflowSkillParams, reqEditors ...RequestEditorFn) (*GetLavaflowSkillClientResponse, error)
+
+	// UpdateLavaflowSkillWithBodyWithResponse request with any body
+	UpdateLavaflowSkillWithBodyWithResponse(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSkillClientResponse, error)
+
+	UpdateLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, body UpdateLavaflowSkillJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSkillClientResponse, error)
 
 	// ListLavaflowSlackChannelsWithResponse request
 	ListLavaflowSlackChannelsWithResponse(ctx context.Context, params *ListLavaflowSlackChannelsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSlackChannelsClientResponse, error)
@@ -51954,6 +52893,40 @@ func (r ListImportSourcesClientResponse) ContentType() string {
 	return ""
 }
 
+type ListLavaflowGlobalSkillsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowGlobalSkillList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLavaflowGlobalSkillsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLavaflowGlobalSkillsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLavaflowGlobalSkillsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type CreateLavaflowHeldFixOpenClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -52269,6 +53242,180 @@ func (r UpdateLavaflowSettingsClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateLavaflowSettingsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListLavaflowSkillVersionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSkillVersionList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLavaflowSkillVersionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLavaflowSkillVersionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLavaflowSkillVersionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListLavaflowSkillsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSkillList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLavaflowSkillsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLavaflowSkillsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLavaflowSkillsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteLavaflowSkillClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteLavaflowSkillClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteLavaflowSkillClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteLavaflowSkillClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetLavaflowSkillClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSkill
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLavaflowSkillClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLavaflowSkillClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetLavaflowSkillClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateLavaflowSkillClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSkill
+	JSON400      *LavaflowSkillError
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateLavaflowSkillClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateLavaflowSkillClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateLavaflowSkillClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -63174,6 +64321,15 @@ func (c *ClientWithResponses) ListImportSourcesWithResponse(ctx context.Context,
 	return ParseListImportSourcesClientResponse(rsp)
 }
 
+// ListLavaflowGlobalSkillsWithResponse request returning *ListLavaflowGlobalSkillsClientResponse
+func (c *ClientWithResponses) ListLavaflowGlobalSkillsWithResponse(ctx context.Context, params *ListLavaflowGlobalSkillsParams, reqEditors ...RequestEditorFn) (*ListLavaflowGlobalSkillsClientResponse, error) {
+	rsp, err := c.ListLavaflowGlobalSkills(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLavaflowGlobalSkillsClientResponse(rsp)
+}
+
 // CreateLavaflowHeldFixOpenWithBodyWithResponse request with arbitrary body returning *CreateLavaflowHeldFixOpenClientResponse
 func (c *ClientWithResponses) CreateLavaflowHeldFixOpenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowHeldFixOpenClientResponse, error) {
 	rsp, err := c.CreateLavaflowHeldFixOpenWithBody(ctx, contentType, body, reqEditors...)
@@ -63285,6 +64441,59 @@ func (c *ClientWithResponses) UpdateLavaflowSettingsWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseUpdateLavaflowSettingsClientResponse(rsp)
+}
+
+// ListLavaflowSkillVersionsWithResponse request returning *ListLavaflowSkillVersionsClientResponse
+func (c *ClientWithResponses) ListLavaflowSkillVersionsWithResponse(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillVersionsClientResponse, error) {
+	rsp, err := c.ListLavaflowSkillVersions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLavaflowSkillVersionsClientResponse(rsp)
+}
+
+// ListLavaflowSkillsWithResponse request returning *ListLavaflowSkillsClientResponse
+func (c *ClientWithResponses) ListLavaflowSkillsWithResponse(ctx context.Context, params *ListLavaflowSkillsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillsClientResponse, error) {
+	rsp, err := c.ListLavaflowSkills(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLavaflowSkillsClientResponse(rsp)
+}
+
+// DeleteLavaflowSkillWithResponse request returning *DeleteLavaflowSkillClientResponse
+func (c *ClientWithResponses) DeleteLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *DeleteLavaflowSkillParams, reqEditors ...RequestEditorFn) (*DeleteLavaflowSkillClientResponse, error) {
+	rsp, err := c.DeleteLavaflowSkill(ctx, skillId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteLavaflowSkillClientResponse(rsp)
+}
+
+// GetLavaflowSkillWithResponse request returning *GetLavaflowSkillClientResponse
+func (c *ClientWithResponses) GetLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *GetLavaflowSkillParams, reqEditors ...RequestEditorFn) (*GetLavaflowSkillClientResponse, error) {
+	rsp, err := c.GetLavaflowSkill(ctx, skillId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLavaflowSkillClientResponse(rsp)
+}
+
+// UpdateLavaflowSkillWithBodyWithResponse request with arbitrary body returning *UpdateLavaflowSkillClientResponse
+func (c *ClientWithResponses) UpdateLavaflowSkillWithBodyWithResponse(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSkillClientResponse, error) {
+	rsp, err := c.UpdateLavaflowSkillWithBody(ctx, skillId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLavaflowSkillClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, body UpdateLavaflowSkillJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSkillClientResponse, error) {
+	rsp, err := c.UpdateLavaflowSkill(ctx, skillId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLavaflowSkillClientResponse(rsp)
 }
 
 // ListLavaflowSlackChannelsWithResponse request returning *ListLavaflowSlackChannelsClientResponse
@@ -70631,6 +71840,60 @@ func ParseListImportSourcesClientResponse(rsp *http.Response) (*ListImportSource
 	return response, nil
 }
 
+// ParseListLavaflowGlobalSkillsClientResponse parses an HTTP response from a ListLavaflowGlobalSkillsWithResponse call
+func ParseListLavaflowGlobalSkillsClientResponse(rsp *http.Response) (*ListLavaflowGlobalSkillsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLavaflowGlobalSkillsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowGlobalSkillList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCreateLavaflowHeldFixOpenClientResponse parses an HTTP response from a CreateLavaflowHeldFixOpenWithResponse call
 func ParseCreateLavaflowHeldFixOpenClientResponse(rsp *http.Response) (*CreateLavaflowHeldFixOpenClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -71163,6 +72426,304 @@ func ParseUpdateLavaflowSettingsClientResponse(rsp *http.Response) (*UpdateLavaf
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLavaflowSkillVersionsClientResponse parses an HTTP response from a ListLavaflowSkillVersionsWithResponse call
+func ParseListLavaflowSkillVersionsClientResponse(rsp *http.Response) (*ListLavaflowSkillVersionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLavaflowSkillVersionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSkillVersionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLavaflowSkillsClientResponse parses an HTTP response from a ListLavaflowSkillsWithResponse call
+func ParseListLavaflowSkillsClientResponse(rsp *http.Response) (*ListLavaflowSkillsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLavaflowSkillsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSkillList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteLavaflowSkillClientResponse parses an HTTP response from a DeleteLavaflowSkillWithResponse call
+func ParseDeleteLavaflowSkillClientResponse(rsp *http.Response) (*DeleteLavaflowSkillClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteLavaflowSkillClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLavaflowSkillClientResponse parses an HTTP response from a GetLavaflowSkillWithResponse call
+func ParseGetLavaflowSkillClientResponse(rsp *http.Response) (*GetLavaflowSkillClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLavaflowSkillClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSkill
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateLavaflowSkillClientResponse parses an HTTP response from a UpdateLavaflowSkillWithResponse call
+func ParseUpdateLavaflowSkillClientResponse(rsp *http.Response) (*UpdateLavaflowSkillClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateLavaflowSkillClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSkill
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest LavaflowSkillError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

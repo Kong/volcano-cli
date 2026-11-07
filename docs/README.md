@@ -29,6 +29,7 @@ account (auth)
     ├── variables ............. env vars / secrets             → variables.md
     ├── frontends ............. deployed sites, custom domains → frontends.md
     ├── git connection ........ push-to-deploy from GitHub     → git.md
+    ├── share and fork ........ one-click copies of a project  → share.md
     ├── access tokens ......... project-scoped CI credentials  → access-tokens.md
     ├── notifications ......... alerts when schedulers fail    → notifications.md
     ├── LavaFlow .............. diagnoses errors, opens fix PRs → lavaflow.md
@@ -114,6 +115,7 @@ enable`. Turn it off on its own with `volcano feedback disable`. See
 | Notifications | alert by email or webhook when schedulers fail, rotate the webhook secret, send a test | `notifications …`, `cloud notifications …` | [notifications.md](notifications.md) |
 | LavaFlow | turn on or off, set how far it goes, start runs, see stats and runs with their diagnoses | `cloud lavaflow …` | [lavaflow.md](lavaflow.md) |
 | Frontends | deploy, inspect, custom domains, function and Frontend routes | `frontends …`, `cloud frontends …` | [frontends.md](frontends.md) |
+| Share and fork | share the project, see and stop the share, list releases, fork a shared project | `share …`, `fork` | [share.md](share.md) |
 | Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](project-configuration.md) |
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
 | Coding agents | install Volcano skills/plugins, keep them current | `setup` | [setup.md](setup.md) |
@@ -153,6 +155,9 @@ volcano projects create my-board --template trellini
 volcano projects create my-pixels --template pixel-board
 volcano projects create my-pad --template collab-pad
 ```
+
+To create a project as a copy of a shared project, use `--from`, or
+`volcano fork`; see [share.md](share.md).
 
 The supported templates are `trellini`, `pixel-board`, and `collab-pad`.
 An account token is required. Hosting creates a fresh database and deploys the

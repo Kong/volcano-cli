@@ -14,12 +14,14 @@ import (
 	connectcmd "github.com/Kong/volcano-cli/internal/cmd/connect"
 	docscmd "github.com/Kong/volcano-cli/internal/cmd/docs"
 	feedbackcmd "github.com/Kong/volcano-cli/internal/cmd/feedback"
+	forkcmd "github.com/Kong/volcano-cli/internal/cmd/fork"
 	gitcmd "github.com/Kong/volcano-cli/internal/cmd/git"
 	initcmd "github.com/Kong/volcano-cli/internal/cmd/init"
 	localcmd "github.com/Kong/volcano-cli/internal/cmd/local"
 	localmodecmd "github.com/Kong/volcano-cli/internal/cmd/localmode"
 	projectcmd "github.com/Kong/volcano-cli/internal/cmd/project"
 	setupcmd "github.com/Kong/volcano-cli/internal/cmd/setup"
+	sharecmd "github.com/Kong/volcano-cli/internal/cmd/share"
 	telemetrycmd "github.com/Kong/volcano-cli/internal/cmd/telemetry"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -64,6 +66,8 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	root.AddCommand(projectcmd.NewProjects(deps))
 	root.AddCommand(projectcmd.NewUse(deps))
 	root.AddCommand(gitcmd.New(deps))
+	root.AddCommand(sharecmd.New(deps))
+	root.AddCommand(forkcmd.New(deps))
 	root.AddCommand(localmodecmd.NewDoctor(deps))
 	root.AddCommand(localmodecmd.NewStart(deps))
 	root.AddCommand(localmodecmd.NewStatus(deps))

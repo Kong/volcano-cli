@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -23,11 +24,14 @@ var ErrNotFound = errors.New("project not found")
 // Service performs authenticated Volcano project workflows.
 type Service struct {
 	sessions clisession.Factory
+	// sleep waits before a fork asks again about an earlier attempt that is
+	// still settling.
+	sleep func(context.Context, time.Duration) error
 }
 
 // NewService returns a project service.
 func NewService(deps cliruntime.Deps) Service {
-	return Service{sessions: clisession.NewFactory(deps)}
+	return Service{sessions: clisession.NewFactory(deps), sleep: sleepContext}
 }
 
 // List returns the authenticated config and one visible project page.

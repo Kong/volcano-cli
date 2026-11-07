@@ -758,6 +758,12 @@ func refuseNameForLink(opts options, wd string) error {
 		displayDir(wd, link.Dir), projectLabel(link.Project))
 }
 
+// BadLinkError says that the link in bad can't be used and how to link the
+// directory again, as connect says it.
+func BadLinkError(wd string, bad *config.LinkError) error {
+	return badLinkError(wd, bad)
+}
+
 func badLinkError(wd string, bad *config.LinkError) error {
 	shown := displayDir(wd, bad.Dir)
 	return fmt.Errorf("%w. To link %s to its project again, run: volcano connect %s --project <project-id>. "+
@@ -836,6 +842,11 @@ var unsafeNameChars = regexp.MustCompile(`[^a-z0-9-]+`)
 // defaultProjectName is dir's name made safe for a project name.
 func defaultProjectName(dir string) string {
 	return dirName(filepath.Base(dir))
+}
+
+// DefaultProjectName is the name connect gives a new project for dir.
+func DefaultProjectName(dir string) string {
+	return defaultProjectName(dir)
 }
 
 // dirName makes name safe as a project name and a directory name: lowercase
