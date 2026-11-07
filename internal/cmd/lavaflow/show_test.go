@@ -816,3 +816,25 @@ func TestShowPrintsNoReviewListsTheAPILeavesOut(t *testing.T) {
 		})
 	}
 }
+
+// A bidirectional embedding or isolate in review text prints as a visible
+// escape, so the text shows in the order it was written.
+func TestShowPrintsBidirectionalControlsAsEscapes(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["review"] = map[string]any{
+			"verdict": "blocked", "rounds": 3, "stopped": "rounds",
+			"open_findings": []any{map[string]any{
+				"severity": "major", "file": "a.ts", "line": 1,
+				"explanation": "Checks \u202bthe admin\u202c role and \u2066the owner\u2069 role.",
+			}},
+		}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, `  - major, a.ts:1: Checks \u202bthe admin\u202c role and \u2066the owner\u2069 role.`+"\n")
+	for _, raw := range []string{"\u202b", "\u202c", "\u2066", "\u2069"} {
+		assert.NotContains(t, out, raw)
+	}
+}
