@@ -23,7 +23,8 @@ func newShow(deps cliruntime.Deps) *cobra.Command {
 		Use:   "show <run-id>",
 		Short: "Show one LavaFlow run",
 		Long: `Show one LavaFlow run: the commit it read the code at, the diagnosis, root
-cause and the evidence behind it, its review, and what happened to its fix.
+cause and the evidence behind it, its review, whether the repository's tests
+ran on its fix, and what happened to the fix.
 The Fix block gives the pull request, its state and where its merge is, or
 why the run opened none. A fix LavaFlow held or stopped lists why, and a
 failed run says why, in the API's words. --json prints the run as the API

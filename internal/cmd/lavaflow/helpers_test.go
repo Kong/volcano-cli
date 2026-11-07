@@ -323,6 +323,16 @@ func checkoutResource() map[string]any {
 	return map[string]any{"id": lavaflowResourceID, "type": "function", "name": "checkout"}
 }
 
+// lavaflowChecksMessage is the API's text for checks it didn't run on a fix
+// with a pull request.
+const lavaflowChecksMessage = "LavaFlow didn't run the repository's tests before opening this pull request."
+
+// checksNotRun is repository_checks as the API sends it for every run with a
+// fix: LavaFlow can't run a repository's checks yet.
+func checksNotRun() map[string]any {
+	return map[string]any{"status": "not_run", "reason": "sandbox_unavailable", "message": lavaflowChecksMessage}
+}
+
 // fixedRun is a run that diagnosed its issue and opened a pull request that
 // passed review.
 func fixedRun() map[string]any {
@@ -346,6 +356,7 @@ func fixedRun() map[string]any {
 			}},
 		},
 		"review":            map[string]any{"verdict": "passed", "rounds": 2},
+		"repository_checks": checksNotRun(),
 		"diff":              "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
 		"ungated_workflows": []any{},
 		"source_commit":     map[string]any{"sha": lavaflowSourceSHA, "origin": "push"},

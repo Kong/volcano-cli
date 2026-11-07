@@ -2529,6 +2529,42 @@ func (e LavaflowReviewVerdict) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowReviewStop.
+const (
+	LavaflowReviewStopBudgetExhausted LavaflowReviewStop = "budget_exhausted"
+	LavaflowReviewStopContextLimit    LavaflowReviewStop = "context_limit"
+	LavaflowReviewStopNoRevision      LavaflowReviewStop = "no_revision"
+	LavaflowReviewStopReviewersFailed LavaflowReviewStop = "reviewers_failed"
+	LavaflowReviewStopRounds          LavaflowReviewStop = "rounds"
+	LavaflowReviewStopTimedOut        LavaflowReviewStop = "timed_out"
+	LavaflowReviewStopTooFewReviewers LavaflowReviewStop = "too_few_reviewers"
+	LavaflowReviewStopUnreadable      LavaflowReviewStop = "unreadable"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowReviewStop enum.
+func (e LavaflowReviewStop) Valid() bool {
+	switch e {
+	case LavaflowReviewStopBudgetExhausted:
+		return true
+	case LavaflowReviewStopContextLimit:
+		return true
+	case LavaflowReviewStopNoRevision:
+		return true
+	case LavaflowReviewStopReviewersFailed:
+		return true
+	case LavaflowReviewStopRounds:
+		return true
+	case LavaflowReviewStopTimedOut:
+		return true
+	case LavaflowReviewStopTooFewReviewers:
+		return true
+	case LavaflowReviewStopUnreadable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowRunCategory.
 const (
 	LavaflowRunCategoryBug           LavaflowRunCategory = "bug"
@@ -2574,6 +2610,36 @@ func (e LavaflowRunMode) Valid() bool {
 	case LavaflowRunModeCodeQuality:
 		return true
 	case LavaflowRunModeLive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowRunProgressStage.
+const (
+	LavaflowRunProgressStageDiagnosing       LavaflowRunProgressStage = "diagnosing"
+	LavaflowRunProgressStageFixing           LavaflowRunProgressStage = "fixing"
+	LavaflowRunProgressStageMergeQueued      LavaflowRunProgressStage = "merge_queued"
+	LavaflowRunProgressStageQueued           LavaflowRunProgressStage = "queued"
+	LavaflowRunProgressStageReviewing        LavaflowRunProgressStage = "reviewing"
+	LavaflowRunProgressStageWaitingForChecks LavaflowRunProgressStage = "waiting_for_checks"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowRunProgressStage enum.
+func (e LavaflowRunProgressStage) Valid() bool {
+	switch e {
+	case LavaflowRunProgressStageDiagnosing:
+		return true
+	case LavaflowRunProgressStageFixing:
+		return true
+	case LavaflowRunProgressStageMergeQueued:
+		return true
+	case LavaflowRunProgressStageQueued:
+		return true
+	case LavaflowRunProgressStageReviewing:
+		return true
+	case LavaflowRunProgressStageWaitingForChecks:
 		return true
 	default:
 		return false
@@ -2679,6 +2745,7 @@ func (e LavaflowScanStatus) Valid() bool {
 // Defines values for LavaflowSkipReason.
 const (
 	LavaflowSkipReasonConventionUnsatisfiable LavaflowSkipReason = "convention_unsatisfiable"
+	LavaflowSkipReasonDiagnoseOnly            LavaflowSkipReason = "diagnose_only"
 	LavaflowSkipReasonDuplicateInRepository   LavaflowSkipReason = "duplicate_in_repository"
 	LavaflowSkipReasonLineageCap              LavaflowSkipReason = "lineage_cap"
 	LavaflowSkipReasonLineageHeld             LavaflowSkipReason = "lineage_held"
@@ -2701,6 +2768,8 @@ const (
 func (e LavaflowSkipReason) Valid() bool {
 	switch e {
 	case LavaflowSkipReasonConventionUnsatisfiable:
+		return true
+	case LavaflowSkipReasonDiagnoseOnly:
 		return true
 	case LavaflowSkipReasonDuplicateInRepository:
 		return true
@@ -4200,6 +4269,27 @@ func (e SandboxFileEntryType) Valid() bool {
 	case Other:
 		return true
 	case Symlink:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxLimitsApplied.
+const (
+	SandboxLimitsEnforced    SandboxLimitsApplied = "enforced"
+	SandboxLimitsNotEnforced SandboxLimitsApplied = "not_enforced"
+	SandboxLimitsUnknown     SandboxLimitsApplied = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SandboxLimitsApplied enum.
+func (e SandboxLimitsApplied) Valid() bool {
+	switch e {
+	case SandboxLimitsEnforced:
+		return true
+	case SandboxLimitsNotEnforced:
+		return true
+	case SandboxLimitsUnknown:
 		return true
 	default:
 		return false
@@ -7209,6 +7299,10 @@ type CreateSandboxSessionRequest struct {
 	// Executions How the session's command executions are kept. Fixed when the session is created.
 	Executions *SandboxSessionExecutions `json:"executions,omitempty"`
 
+	// Limits Caps the session's code runs under, enforced inside the session. Each
+	// cap is an upper bound; the session's own size still bounds both.
+	Limits *SandboxSessionLimits `json:"limits,omitempty"`
+
 	// MaxDurationSeconds Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime.
 	MaxDurationSeconds *int `json:"max_duration_seconds,omitempty"`
 
@@ -10209,7 +10303,7 @@ type LavaflowMergePolicyUpdate struct {
 	HumanReviewPaths *[]string `json:"human_review_paths,omitempty"`
 }
 
-// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `branch_behind`: the base branch requires the fix to be up to date with it, and LavaFlow doesn't update fix branches. `removed_from_queue`: the fix isn't in the merge queue, and LavaFlow can't tell why, for example because its checks failed there or someone removed it. `reads_failed`: LavaFlow failed to read the pull request for about an hour while the fix may have been queued, so it took the fix out of the merge queue, when it could still reach it, and stopped, or failed to read the project's settings or repository for about a day while merging was paused. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `request_rejected`: GitHub refused LavaFlow's request to start the checks on the fix. `ci_start_commit_mismatch`: GitHub reports a different commit from the one LavaFlow made to start the checks. `queue_carries_ci_skip`: the repository's merge queue could carry an instruction to skip checks, from the fix's commits or its pull request's title or description, into the base branch. `merge_carries_ci_skip`: merging would carry an instruction to skip checks into the base branch, for example because the repository allows no squash merge. Each of these four hands the fix to you for good. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused, and the merge waits. LavaFlow takes a queued fix out of the merge queue, so it shows `waiting_for_checks`, and queues it again when merging resumes. `paused_too_long`: merging stayed paused for more than 7 days. `cancelled`: the project is being deleted, so LavaFlow stopped waiting on the merge. New reasons may appear.
+// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `branch_behind`: the base branch requires the fix to be up to date with it, and LavaFlow doesn't update fix branches. `removed_from_queue`: the fix isn't in the merge queue, and LavaFlow can't tell why, for example because its checks failed there or someone removed it. `reads_failed`: LavaFlow failed to read the pull request for about an hour while the fix may have been queued, so it took the fix out of the merge queue, when it could still reach it, and stopped, or failed to read the project's settings or repository for about a day while merging was paused. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `request_rejected`: GitHub refused LavaFlow's request to start the checks on the fix. `ci_start_commit_mismatch`: GitHub reports a different commit from the one LavaFlow made to start the checks. `branch_refused`: LavaFlow starts checks only on a LavaFlow branch of an open pull request it opened, never the default or production branch, so it didn't start them on this one. `head_unverified`: GitHub doesn't report the fix's head as the signed commit LavaFlow pushed, so LavaFlow didn't start its checks. `checks_not_started`: LavaFlow couldn't give the fix a commit message that runs CI. `queue_carries_ci_skip`: the repository's merge queue could carry an instruction to skip checks, from the fix's commits or its pull request's title or description, into the base branch. `merge_carries_ci_skip`: merging would carry an instruction to skip checks into the base branch, for example because the repository allows no squash merge. Each of these seven hands the fix to you for good. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused, and the merge waits. LavaFlow takes a queued fix out of the merge queue, so it shows `waiting_for_checks`, and queues it again when merging resumes. `paused_too_long`: merging stayed paused for more than 7 days. `cancelled`: the project is being deleted, so LavaFlow stopped waiting on the merge. New reasons may appear.
 type LavaflowMergeReason = string
 
 // LavaflowMergeStatus `waiting_for_checks`: LavaFlow waits for the checks on the fix's commit. `queued`: the fix is in the repository's merge queue. `merged`: the pull request merged. `held`: something in `hold_reasons` needs a person. LavaFlow commented on the pull request once and never merges, pushes to, rebases or dequeues it again; review it and merge it yourself if you want it. `stopped`: LavaFlow left the pull request open for you, for `reason`.
@@ -10217,12 +10311,18 @@ type LavaflowMergeStatus string
 
 // LavaflowPullRequest defines model for LavaflowPullRequest.
 type LavaflowPullRequest struct {
+	// DeployedAt When the merged fix went live: the first live deployment of the issue's resource that includes it finished. When more than 20 deployments went live between the merge and the one LavaFlow found the fix in, LavaFlow can't tell which first included it, and this is the merge time. Null until LavaFlow finds the fix live, and for a pull request that didn't merge. LavaFlow watches the resource's deployments for a week after the merge.
+	DeployedAt *time.Time `json:"deployed_at"`
+
 	// Draft Whether the pull request is a draft, as GitHub last reported it to LavaFlow. Null for one opened before LavaFlow recorded it.
 	Draft *bool `json:"draft"`
 
 	// DraftReason Why the pull request is a draft, null unless `draft` is true.
 	DraftReason *LavaflowDraftReason `json:"draft_reason"`
-	Number      int64                `json:"number"`
+
+	// MergedAt When the pull request merged; null unless `state` is `merged`.
+	MergedAt *time.Time `json:"merged_at"`
+	Number   int64      `json:"number"`
 
 	// OpenedAt When the run opened the pull request, null for one opened before LavaFlow recorded the time.
 	OpenedAt *time.Time               `json:"opened_at"`
@@ -10239,6 +10339,18 @@ type LavaflowPullRequestStateCounts struct {
 	Merged int64 `json:"merged"`
 	None   int64 `json:"none"`
 	Open   int64 `json:"open"`
+}
+
+// LavaflowRepositoryChecks Whether LavaFlow ran the repository's own checks, such as its tests, on a fix itself, before it opened a pull request or held the fix. CI that runs on the pull request afterwards is the repository's own.
+type LavaflowRepositoryChecks struct {
+	// Message Text to show for the status and reason. It names the pull request when one opened.
+	Message string `json:"message"`
+
+	// Reason Stable code for why the checks did not run. `sandbox_unavailable`: LavaFlow cannot run a repository's checks itself yet.
+	Reason string `json:"reason"`
+
+	// Status `not_run`: LavaFlow did not run the repository's checks on the fix, for the reason `reason` names. Treat a status you don't know as `not_run`.
+	Status string `json:"status"`
 }
 
 // LavaflowResource defines model for LavaflowResource.
@@ -10278,21 +10390,28 @@ type LavaflowResourceReferenceType string
 
 // LavaflowReview defines model for LavaflowReview.
 type LavaflowReview struct {
+	// Rounds The review rounds that ran, 0 when no reviewer could run.
 	Rounds int `json:"rounds"`
 
-	// Verdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding.
+	// Stopped Why the review ended without passing the fix, null when it passed the fix or when the run saved no fix.
+	Stopped *LavaflowReviewStop `json:"stopped"`
+
+	// Verdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding, or no reviewer could run.
 	Verdict LavaflowReviewVerdict `json:"verdict"`
 }
 
-// LavaflowReviewVerdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding.
+// LavaflowReviewVerdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding, or no reviewer could run.
 type LavaflowReviewVerdict string
+
+// LavaflowReviewStop Why a run's review ended without passing its fix. `rounds`: the last review round still found problems. `no_revision`: LavaFlow gave no revised fix. `budget_exhausted`: the run used its token budget before LavaFlow could revise the fix; this is the run's own budget, not the project's daily spend limit. `context_limit`: the fix's conversation grew too long for the model before LavaFlow could revise it. `timed_out`: the run's time for review ran out. `reviewers_failed`: no reviewer of the last round finished. `too_few_reviewers`: fewer reviewers could run than a round needs to pass the fix. `unreadable`: a retried run could not read the review saved with its fix, so a person must review it. More values may be added: treat a value you don't know as other.
+type LavaflowReviewStop string
 
 // LavaflowRun defines model for LavaflowRun.
 type LavaflowRun struct {
 	// Category A Code Quality run carries its finding's from the start. Any other run's is null until LavaFlow records a diagnosis. Runs from before categories get one when their diagnosis names one or their saved fix's paths imply one, and stay null only when neither does.
 	Category *LavaflowRunCategory `json:"category"`
 
-	// ChangedFiles Repository paths the fix changes, sorted; empty without a fix. A path that may itself hold a credential is listed as "", as `diff_withheld` lists it.
+	// ChangedFiles Repository paths the fix changes, sorted; empty without a fix. A path that may itself hold a credential is listed as "", as `diff_withheld` lists it, and so is every path when `diff` can't tell the fix's files apart. A file past a truncated `diff`'s cut is listed.
 	ChangedFiles []string           `json:"changed_files"`
 	CreatedAt    time.Time          `json:"created_at"`
 	Diagnosis    *LavaflowDiagnosis `json:"diagnosis"`
@@ -10325,19 +10444,27 @@ type LavaflowRun struct {
 	// Mode What the run works on: `live` for an issue seen in the project's logs, `code_quality` for a Code Quality finding.
 	Mode LavaflowRunMode `json:"mode"`
 
+	// Progress Where a run LavaFlow is still working on stands; null once it has nothing left to do.
+	Progress *LavaflowRunProgress `json:"progress"`
+
 	// ProjectId The project the run belongs to.
 	ProjectId   openapi_types.UUID   `json:"project_id"`
 	PullRequest *LavaflowPullRequest `json:"pull_request"`
 
-	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
+	// PullRequestSkipped Why a finished run opened no pull request. A `completed` run without `pull_request` always has one; it is `diagnose_only` when the project's `autonomy` stopped the run at its diagnosis. Null when the run opened a pull request, while it is queued or runs, and when it failed or was cancelled.
 	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
+
+	// RepositoryChecks Whether LavaFlow ran the repository's own checks on the fix itself. Null for a run with no fix.
+	RepositoryChecks *LavaflowRepositoryChecks `json:"repository_checks"`
 
 	// Resource A function, durable function or frontend in the project, or the project of a user-reported problem.
 	Resource LavaflowResourceReference `json:"resource"`
 
 	// Resources Every resource the run involves: the issue's first, then by name. A run without a recorded diagnosis lists only the issue's. For a run whose report came from what it saved rather than its source, such as one from before involved resources were recorded, the list may leave out frontends and the functions involved through shared code or the build root's dependency files.
 	Resources []LavaflowInvolvedResource `json:"resources"`
-	Review    *LavaflowReview            `json:"review"`
+
+	// Review The review of the run's fix. When no reviewer could run, it still says why in `stopped`. Null when no review ran.
+	Review *LavaflowReview `json:"review"`
 
 	// SourceCommit The commit the run read the code at. Null when it read none, as for a run that diagnosed from the logs alone.
 	SourceCommit *LavaflowSourceCommit `json:"source_commit"`
@@ -10383,6 +10510,21 @@ type LavaflowRunCreate struct {
 // LavaflowRunMode What the run works on: `live` for an issue seen in the project's logs, `code_quality` for a Code Quality finding.
 type LavaflowRunMode string
 
+// LavaflowRunProgress How far an active run has come. The steps are `queued`, `diagnosing`, `fixing`, `reviewing`, `waiting_for_checks` and `merge_queued`, in that order, and a run takes as many as its autonomy when it was queued allows: 2 for `diagnose_only`, 4 for `open_pr` (opening the pull request ends it), 6 for `merge` (the merge ends it).
+type LavaflowRunProgress struct {
+	// Stage New stages may appear.
+	Stage LavaflowRunProgressStage `json:"stage"`
+
+	// Step The stage's place among the run's steps, from 1.
+	Step int `json:"step"`
+
+	// Steps How many steps the run takes.
+	Steps int `json:"steps"`
+}
+
+// LavaflowRunProgressStage New stages may appear.
+type LavaflowRunProgressStage string
+
 // LavaflowRunStatus Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 type LavaflowRunStatus string
 
@@ -10414,11 +10556,14 @@ type LavaflowRunSummary struct {
 	// Mode What the run works on: `live` for an issue seen in the project's logs, `code_quality` for a Code Quality finding.
 	Mode LavaflowRunMode `json:"mode"`
 
+	// Progress Where a run LavaFlow is still working on stands; null once it has nothing left to do.
+	Progress *LavaflowRunProgress `json:"progress"`
+
 	// ProjectId The project the run belongs to.
 	ProjectId   openapi_types.UUID   `json:"project_id"`
 	PullRequest *LavaflowPullRequest `json:"pull_request"`
 
-	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
+	// PullRequestSkipped Why a finished run opened no pull request. A `completed` run without `pull_request` always has one; it is `diagnose_only` when the project's `autonomy` stopped the run at its diagnosis. Null when the run opened a pull request, while it is queued or runs, and when it failed or was cancelled.
 	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
 
 	// Resource A function, durable function or frontend in the project, or the project of a user-reported problem.
@@ -10590,8 +10735,42 @@ type LavaflowSettingsUpdate struct {
 	SystemPrompt *string            `json:"system_prompt,omitempty"`
 }
 
-// LavaflowSkipReason Why a run that may open a pull request opened none, with what you can do next. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `convention_unsatisfiable`: LavaFlow would merge the fix, but no title can meet the repository's commit convention, so it kept the fix on the run; apply the fix yourself, or relax the convention. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit, or the production branch no longer holds it; check the project's repository connection and that the commit exists on that branch. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. `lineage_cap`: LavaFlow opened as many pull requests in this fix's lineage as it may; review the lineage's pull requests and fix the rest yourself. `lineage_held`: an earlier pull request in this fix's lineage was held, stopped or closed, so LavaFlow opens no more in it; apply the fix yourself from the diagnosis. `review_unresolved`: LavaFlow's review didn't pass a Code Quality fix; read the diagnosis. `duplicate_in_repository`: another project on the repository has the open Code Quality pull request for the same finding. `security_finding`: the finding has security impact and the repository isn't private, so the fix would disclose it; fix it yourself. New reasons may appear.
+// LavaflowSkipReason Why a finished run opened no pull request, with what you can do next. `diagnose_only`: the project's `autonomy` was `diagnose_only` when the run was queued, or became it before the pull request opened, so LavaFlow only diagnosed the issue; read the diagnosis, and set `autonomy` to `open_pr` or `merge` for later runs to open pull requests. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `convention_unsatisfiable`: LavaFlow would merge the fix, but no title can meet the repository's commit convention, so it kept the fix on the run; apply the fix yourself, or relax the convention. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit, or the production branch no longer holds it; check the project's repository connection and that the commit exists on that branch. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. `lineage_cap`: LavaFlow opened as many pull requests in this fix's lineage as it may; review the lineage's pull requests and fix the rest yourself. `lineage_held`: an earlier pull request in this fix's lineage was held, stopped or closed, so LavaFlow opens no more in it; apply the fix yourself from the diagnosis. `review_unresolved`: LavaFlow's review didn't pass a Code Quality fix; read the diagnosis. `duplicate_in_repository`: another project on the repository has the open Code Quality pull request for the same finding. `security_finding`: the finding has security impact and the repository isn't private, so the fix would disclose it; fix it yourself. New reasons may appear.
 type LavaflowSkipReason string
+
+// LavaflowSlackChannel A Slack channel that reports problems to LavaFlow for a project.
+type LavaflowSlackChannel struct {
+	// ChannelId A Slack channel ID, such as `C0123ABCD`.
+	ChannelId SlackChannelId `json:"channel_id"`
+	CreatedAt time.Time      `json:"created_at"`
+
+	// Id The binding's ID, which removing it takes.
+	Id        openapi_types.UUID `json:"id"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// TeamId A Slack workspace ID, such as `T0123ABCD`.
+	TeamId SlackTeamId `json:"team_id"`
+
+	// TeamName The workspace's name, or empty while the Volcano app is not installed in it.
+	TeamName string `json:"team_name"`
+}
+
+// LavaflowSlackChannelBinding defines model for LavaflowSlackChannelBinding.
+type LavaflowSlackChannelBinding struct {
+	// ChannelId A Slack channel ID, such as `C0123ABCD`.
+	ChannelId SlackChannelId `json:"channel_id"`
+
+	// ProjectId The project the channel reports for.
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// TeamId A Slack workspace ID, such as `T0123ABCD`.
+	TeamId SlackTeamId `json:"team_id"`
+}
+
+// LavaflowSlackChannelsResponse defines model for LavaflowSlackChannelsResponse.
+type LavaflowSlackChannelsResponse struct {
+	Channels []LavaflowSlackChannel `json:"channels"`
+}
 
 // LavaflowSourceCommit The commit a run read its source at.
 type LavaflowSourceCommit struct {
@@ -13407,6 +13586,12 @@ type SandboxFileWriteRequest struct {
 	Path string `json:"path"`
 }
 
+// SandboxLimitsApplied `enforced` when every requested cap is enforced, `not_enforced` when the
+// session could not enforce them, and `unknown` until the session reports.
+// Terminate a session that reports anything but `enforced` if you rely on
+// the caps.
+type SandboxLimitsApplied string
+
 // SandboxPagination defines model for SandboxPagination.
 type SandboxPagination struct {
 	HasMore    bool    `json:"has_more"`
@@ -13444,11 +13629,16 @@ type SandboxSession struct {
 	Id        openapi_types.UUID `json:"id"`
 
 	// LastErrorCode Last recorded lifecycle reason, such as sandbox_run_hook_timeout or sandbox_authority_or_expiry. Historical information, not a current error; use state for the current session state. Retained when later observations supply no reason, including after termination or recovery. Omitted when no reason is known. Values may be added; this field does not imply whether a command ran or whether it can be retried.
-	LastErrorCode *string               `json:"last_error_code,omitempty"`
-	MemoryMb      int                   `json:"memory_mb"`
-	Network       SandboxSessionNetwork `json:"network"`
-	ProjectId     openapi_types.UUID    `json:"project_id"`
-	Region        string                `json:"region"`
+	LastErrorCode *string `json:"last_error_code,omitempty"`
+
+	// Limits The caps the session enforces, as the session reports them. Present only
+	// when the session was created with `limits`. The session stays
+	// `starting` until `applied` is known.
+	Limits    *SandboxSessionAppliedLimits `json:"limits,omitempty"`
+	MemoryMb  int                          `json:"memory_mb"`
+	Network   SandboxSessionNetwork        `json:"network"`
+	ProjectId openapi_types.UUID           `json:"project_id"`
+	Region    string                       `json:"region"`
 
 	// SandboxId Explicit template used to create the session. Null when created directly from a preset.
 	SandboxId *openapi_types.UUID `json:"sandbox_id"`
@@ -13462,10 +13652,43 @@ type SandboxSessionDesiredState string
 // SandboxSessionState defines model for SandboxSession.State.
 type SandboxSessionState string
 
+// SandboxSessionAppliedLimits The caps the session enforces, as the session reports them. Present only
+// when the session was created with `limits`. The session stays
+// `starting` until `applied` is known.
+type SandboxSessionAppliedLimits struct {
+	// Applied `enforced` when every requested cap is enforced, `not_enforced` when the
+	// session could not enforce them, and `unknown` until the session reports.
+	// Terminate a session that reports anything but `enforced` if you rely on
+	// the caps.
+	Applied SandboxLimitsApplied `json:"applied"`
+
+	// DiskMib Enforced disk cap in MiB. Never higher than requested; lower when the session's disk has less free space.
+	DiskMib *int `json:"disk_mib,omitempty"`
+
+	// Vcpus Enforced vCPU cap. Never higher than requested; lower when the session has fewer vCPUs.
+	Vcpus *int `json:"vcpus,omitempty"`
+}
+
 // SandboxSessionExecutions How the session's command executions are kept. Fixed when the session is created.
 type SandboxSessionExecutions struct {
 	// KeepOutput When false, every command in the session keeps no output. stdout and stderr are returned once in the command's response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with empty streams. A command in such a session that sets `keep_output` to true is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
 	KeepOutput bool `json:"keep_output"`
+}
+
+// SandboxSessionLimits Caps the session's code runs under, enforced inside the session. Each
+// cap is an upper bound; the session's own size still bounds both.
+type SandboxSessionLimits struct {
+	// DiskMib Space the session can write beyond its image's contents, in MiB.
+	// It covers every path commands and the template service can write,
+	// including `/workspace` and `/tmp`. A write past it fails with
+	// `ENOSPC`. `/dev/shm` is memory, capped separately at 64 MiB.
+	DiskMib *int `json:"disk_mib,omitempty"`
+
+	// Vcpus CPU time the session's commands and template service may use
+	// together, in vCPUs. A 1024 MiB session has 2 vCPUs and a 2048 MiB
+	// session has 4; asking for more answers 400 with code
+	// `sandbox_limits_exceed_session`.
+	Vcpus *int `json:"vcpus,omitempty"`
 }
 
 // SandboxSessionNetwork defines model for SandboxSessionNetwork.
@@ -13925,6 +14148,54 @@ type ShareVariable struct {
 type SharesResponse struct {
 	Shares []Share `json:"shares"`
 }
+
+// SlackAuthorizationResponse defines model for SlackAuthorizationResponse.
+type SlackAuthorizationResponse struct {
+	// AuthorizationUrl The Slack page to send the browser to.
+	AuthorizationUrl string `json:"authorization_url"`
+}
+
+// SlackChannel defines model for SlackChannel.
+type SlackChannel struct {
+	// Id A Slack channel ID, such as `C0123ABCD`.
+	Id        SlackChannelId `json:"id"`
+	IsPrivate bool           `json:"is_private"`
+	Name      string         `json:"name"`
+}
+
+// SlackChannelId A Slack channel ID, such as `C0123ABCD`.
+type SlackChannelId = string
+
+// SlackChannelsResponse defines model for SlackChannelsResponse.
+type SlackChannelsResponse struct {
+	Channels []SlackChannel `json:"channels"`
+}
+
+// SlackConnection A Slack identity connected to the caller's Volcano account.
+type SlackConnection struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Installed Whether the Volcano app is installed in the workspace.
+	Installed bool `json:"installed"`
+
+	// SlackUserId The Slack user ID Slack verified.
+	SlackUserId string `json:"slack_user_id"`
+
+	// TeamId A Slack workspace ID, such as `T0123ABCD`.
+	TeamId SlackTeamId `json:"team_id"`
+
+	// TeamName The workspace's name, or empty until the Volcano app is installed in it.
+	TeamName string `json:"team_name"`
+}
+
+// SlackConnectionsResponse defines model for SlackConnectionsResponse.
+type SlackConnectionsResponse struct {
+	Connections []SlackConnection `json:"connections"`
+}
+
+// SlackTeamId A Slack workspace ID, such as `T0123ABCD`.
+type SlackTeamId = string
 
 // StorageBucket A named container for files within a project.
 // Public access is controlled at the file level via is_public on StorageObject.
@@ -14795,6 +15066,9 @@ type ShareIdQuery = string
 // ShareReleaseCursor defines model for ShareReleaseCursor.
 type ShareReleaseCursor = string
 
+// SlackRedirect defines model for SlackRedirect.
+type SlackRedirect = string
+
 // TokenId defines model for TokenId.
 type TokenId = openapi_types.UUID
 
@@ -15573,7 +15847,7 @@ type ListLavaflowRunsParamsInclude string
 
 // GetLavaflowRunParams defines parameters for GetLavaflowRun.
 type GetLavaflowRunParams struct {
-	// ProjectId Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
 	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
@@ -15595,6 +15869,18 @@ type ListLavaflowScansParams struct {
 type GetLavaflowSettingsParams struct {
 	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
 	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+}
+
+// ListLavaflowSlackChannelsParams defines parameters for ListLavaflowSlackChannels.
+type ListLavaflowSlackChannelsParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+}
+
+// UnbindLavaflowSlackChannelParams defines parameters for UnbindLavaflowSlackChannel.
+type UnbindLavaflowSlackChannelParams struct {
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
 // GetLavaflowStatsParams defines parameters for GetLavaflowStats.
@@ -17055,7 +17341,7 @@ type GetShareReleaseDraftParams struct {
 	// ShareId The share to read. The share's own project authorizes the read; a share the caller can't read answers like one that doesn't exist.
 	ShareId ShareIdQuery `form:"share_id" json:"share_id"`
 
-	// ProjectId Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
 	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
@@ -17064,7 +17350,7 @@ type ListShareReleasesParams struct {
 	// ShareId The share to read. The share's own project authorizes the read; a share the caller can't read answers like one that doesn't exist.
 	ShareId ShareIdQuery `form:"share_id" json:"share_id"`
 
-	// ProjectId Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
 	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
 
 	// Limit Number of items per page (max 100)
@@ -17080,7 +17366,7 @@ type GetShareStatsParams struct {
 	// ShareId The share to read. The share's own project authorizes the read; a share the caller can't read answers like one that doesn't exist.
 	ShareId ShareIdQuery `form:"share_id" json:"share_id"`
 
-	// ProjectId Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
 	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
 
 	// Days How many days back to count. Defaults to 30.
@@ -17095,20 +17381,32 @@ type ListSharesParams struct {
 
 // DeleteShareParams defines parameters for DeleteShare.
 type DeleteShareParams struct {
-	// ProjectId Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
 	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
 // GetShareParams defines parameters for GetShare.
 type GetShareParams struct {
-	// ProjectId Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
 	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
 // UpdateShareParams defines parameters for UpdateShare.
 type UpdateShareParams struct {
-	// ProjectId Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
 	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// SlackCallbackParams defines parameters for SlackCallback.
+type SlackCallbackParams struct {
+	// Code Slack's authorization code
+	Code *string `form:"code,omitempty" json:"code,omitempty"`
+
+	// State The signed state the flow's start returned
+	State string `form:"state" json:"state"`
+
+	// Error Slack's error, such as `access_denied`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
 // ListStorageObjectsParams defines parameters for ListStorageObjects.
@@ -17238,6 +17536,24 @@ type ListAccountSessionsParamsSort string
 
 // ListAccountSessionsParamsStatus defines parameters for ListAccountSessions.
 type ListAccountSessionsParamsStatus string
+
+// ListSlackChannelsParams defines parameters for ListSlackChannels.
+type ListSlackChannelsParams struct {
+	// TeamId The Slack workspace. The app must be installed in it, and one of the caller's connected Slack identities must belong to it.
+	TeamId SlackTeamId `form:"team_id" json:"team_id"`
+}
+
+// StartSlackConnectParams defines parameters for StartSlackConnect.
+type StartSlackConnectParams struct {
+	// Redirect Where to send the browser after Slack's callback. It must be on the Volcano dashboard's origin, or `http` to `127.0.0.1` or `[::1]` with a port.
+	Redirect *SlackRedirect `form:"redirect,omitempty" json:"redirect,omitempty"`
+}
+
+// StartSlackInstallParams defines parameters for StartSlackInstall.
+type StartSlackInstallParams struct {
+	// Redirect Where to send the browser after Slack's callback. It must be on the Volcano dashboard's origin, or `http` to `127.0.0.1` or `[::1]` with a port.
+	Redirect *SlackRedirect `form:"redirect,omitempty" json:"redirect,omitempty"`
+}
 
 // AuthConfirmEmailJSONRequestBody defines body for AuthConfirmEmail for application/json ContentType.
 type AuthConfirmEmailJSONRequestBody AuthConfirmEmailJSONBody
@@ -17373,6 +17689,9 @@ type PatchLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
 
 // UpdateLavaflowSettingsJSONRequestBody defines body for UpdateLavaflowSettings for application/json ContentType.
 type UpdateLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
+
+// BindLavaflowSlackChannelJSONRequestBody defines body for BindLavaflowSlackChannel for application/json ContentType.
+type BindLavaflowSlackChannelJSONRequestBody = LavaflowSlackChannelBinding
 
 // RenewProjectLockJSONRequestBody defines body for RenewProjectLock for application/json ContentType.
 type RenewProjectLockJSONRequestBody = ProjectLockLeaseRequest
@@ -17743,6 +18062,13 @@ func (t CreateSandboxSessionRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	if t.Limits != nil {
+		object["limits"], err = json.Marshal(t.Limits)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'limits': %w", err)
+		}
+	}
+
 	if t.MaxDurationSeconds != nil {
 		object["max_duration_seconds"], err = json.Marshal(t.MaxDurationSeconds)
 		if err != nil {
@@ -17801,6 +18127,13 @@ func (t *CreateSandboxSessionRequest) UnmarshalJSON(b []byte) error {
 		err = json.Unmarshal(raw, &t.Executions)
 		if err != nil {
 			return fmt.Errorf("error reading 'executions': %w", err)
+		}
+	}
+
+	if raw, found := object["limits"]; found {
+		err = json.Unmarshal(raw, &t.Limits)
+		if err != nil {
+			return fmt.Errorf("error reading 'limits': %w", err)
 		}
 	}
 
@@ -19399,6 +19732,17 @@ type ClientInterface interface {
 
 	UpdateLavaflowSettings(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListLavaflowSlackChannels request
+	ListLavaflowSlackChannels(ctx context.Context, params *ListLavaflowSlackChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// BindLavaflowSlackChannelWithBody request with any body
+	BindLavaflowSlackChannelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	BindLavaflowSlackChannel(ctx context.Context, body BindLavaflowSlackChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnbindLavaflowSlackChannel request
+	UnbindLavaflowSlackChannel(ctx context.Context, bindingId openapi_types.UUID, params *UnbindLavaflowSlackChannelParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetLavaflowStats request
 	GetLavaflowStats(ctx context.Context, params *GetLavaflowStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -20365,6 +20709,9 @@ type ClientInterface interface {
 
 	UpdateShare(ctx context.Context, shareId ShareId, params *UpdateShareParams, body UpdateShareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SlackCallback request
+	SlackCallback(ctx context.Context, params *SlackCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListStorageObjects request
 	ListStorageObjects(ctx context.Context, bucketName BucketName, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -20440,6 +20787,21 @@ type ClientInterface interface {
 
 	// RevokeAccountSession request
 	RevokeAccountSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSlackChannels request
+	ListSlackChannels(ctx context.Context, params *ListSlackChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSlackConnections request
+	ListSlackConnections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartSlackConnect request
+	StartSlackConnect(ctx context.Context, params *StartSlackConnectParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteSlackConnection request
+	DeleteSlackConnection(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartSlackInstall request
+	StartSlackInstall(ctx context.Context, params *StartSlackInstallParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RevokeCurrentUserToken request
 	RevokeCurrentUserToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -22007,6 +22369,54 @@ func (c *Client) UpdateLavaflowSettingsWithBody(ctx context.Context, contentType
 
 func (c *Client) UpdateLavaflowSettings(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateLavaflowSettingsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLavaflowSlackChannels(ctx context.Context, params *ListLavaflowSlackChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaflowSlackChannelsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) BindLavaflowSlackChannelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBindLavaflowSlackChannelRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) BindLavaflowSlackChannel(ctx context.Context, body BindLavaflowSlackChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBindLavaflowSlackChannelRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UnbindLavaflowSlackChannel(ctx context.Context, bindingId openapi_types.UUID, params *UnbindLavaflowSlackChannelParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnbindLavaflowSlackChannelRequest(c.Server, bindingId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -26217,6 +26627,18 @@ func (c *Client) UpdateShare(ctx context.Context, shareId ShareId, params *Updat
 	return c.Client.Do(req)
 }
 
+func (c *Client) SlackCallback(ctx context.Context, params *SlackCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSlackCallbackRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListStorageObjects(ctx context.Context, bucketName BucketName, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListStorageObjectsRequest(c.Server, bucketName, params)
 	if err != nil {
@@ -26531,6 +26953,66 @@ func (c *Client) ListAccountSessions(ctx context.Context, params *ListAccountSes
 
 func (c *Client) RevokeAccountSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRevokeAccountSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSlackChannels(ctx context.Context, params *ListSlackChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSlackChannelsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSlackConnections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSlackConnectionsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartSlackConnect(ctx context.Context, params *StartSlackConnectParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartSlackConnectRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteSlackConnection(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSlackConnectionRequest(c.Server, connectionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartSlackInstall(ctx context.Context, params *StartSlackInstallParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartSlackInstallRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -31118,6 +31600,157 @@ func NewUpdateLavaflowSettingsRequestWithBody(server string, contentType string,
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListLavaflowSlackChannelsRequest generates requests for ListLavaflowSlackChannels
+func NewListLavaflowSlackChannelsRequest(server string, params *ListLavaflowSlackChannelsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/slack-channels")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewBindLavaflowSlackChannelRequest calls the generic BindLavaflowSlackChannel builder with application/json body
+func NewBindLavaflowSlackChannelRequest(server string, body BindLavaflowSlackChannelJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewBindLavaflowSlackChannelRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewBindLavaflowSlackChannelRequestWithBody generates requests for BindLavaflowSlackChannel with any type of body
+func NewBindLavaflowSlackChannelRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/slack-channels")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUnbindLavaflowSlackChannelRequest generates requests for UnbindLavaflowSlackChannel
+func NewUnbindLavaflowSlackChannelRequest(server string, bindingId openapi_types.UUID, params *UnbindLavaflowSlackChannelParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "binding_id", bindingId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/slack-channels/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -45715,6 +46348,80 @@ func NewUpdateShareRequestWithBody(server string, shareId ShareId, params *Updat
 	return req, nil
 }
 
+// NewSlackCallbackRequest generates requests for SlackCallback
+func NewSlackCallbackRequest(server string, params *SlackCallbackParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/slack/callback")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Code != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "code", *params.Code, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Error != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "error", *params.Error, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListStorageObjectsRequest generates requests for ListStorageObjects
 func NewListStorageObjectsRequest(server string, bucketName BucketName, params *ListStorageObjectsParams) (*http.Request, error) {
 	var err error
@@ -46857,6 +47564,225 @@ func NewRevokeAccountSessionRequest(server string, sessionId string) (*http.Requ
 	return req, nil
 }
 
+// NewListSlackChannelsRequest generates requests for ListSlackChannels
+func NewListSlackChannelsRequest(server string, params *ListSlackChannelsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/slack/channels")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "team_id", params.TeamId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListSlackConnectionsRequest generates requests for ListSlackConnections
+func NewListSlackConnectionsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/slack/connections")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartSlackConnectRequest generates requests for StartSlackConnect
+func NewStartSlackConnectRequest(server string, params *StartSlackConnectParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/slack/connections")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Redirect != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "redirect", *params.Redirect, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteSlackConnectionRequest generates requests for DeleteSlackConnection
+func NewDeleteSlackConnectionRequest(server string, connectionId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "connectionId", connectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/slack/connections/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartSlackInstallRequest generates requests for StartSlackInstall
+func NewStartSlackInstallRequest(server string, params *StartSlackInstallParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/slack/installations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Redirect != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "redirect", *params.Redirect, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewRevokeCurrentUserTokenRequest generates requests for RevokeCurrentUserToken
 func NewRevokeCurrentUserTokenRequest(server string) (*http.Request, error) {
 	var err error
@@ -47274,6 +48200,17 @@ type ClientWithResponsesInterface interface {
 	UpdateLavaflowSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
 
 	UpdateLavaflowSettingsWithResponse(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
+
+	// ListLavaflowSlackChannelsWithResponse request
+	ListLavaflowSlackChannelsWithResponse(ctx context.Context, params *ListLavaflowSlackChannelsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSlackChannelsClientResponse, error)
+
+	// BindLavaflowSlackChannelWithBodyWithResponse request with any body
+	BindLavaflowSlackChannelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BindLavaflowSlackChannelClientResponse, error)
+
+	BindLavaflowSlackChannelWithResponse(ctx context.Context, body BindLavaflowSlackChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*BindLavaflowSlackChannelClientResponse, error)
+
+	// UnbindLavaflowSlackChannelWithResponse request
+	UnbindLavaflowSlackChannelWithResponse(ctx context.Context, bindingId openapi_types.UUID, params *UnbindLavaflowSlackChannelParams, reqEditors ...RequestEditorFn) (*UnbindLavaflowSlackChannelClientResponse, error)
 
 	// GetLavaflowStatsWithResponse request
 	GetLavaflowStatsWithResponse(ctx context.Context, params *GetLavaflowStatsParams, reqEditors ...RequestEditorFn) (*GetLavaflowStatsClientResponse, error)
@@ -48241,6 +49178,9 @@ type ClientWithResponsesInterface interface {
 
 	UpdateShareWithResponse(ctx context.Context, shareId ShareId, params *UpdateShareParams, body UpdateShareJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateShareClientResponse, error)
 
+	// SlackCallbackWithResponse request
+	SlackCallbackWithResponse(ctx context.Context, params *SlackCallbackParams, reqEditors ...RequestEditorFn) (*SlackCallbackClientResponse, error)
+
 	// ListStorageObjectsWithResponse request
 	ListStorageObjectsWithResponse(ctx context.Context, bucketName BucketName, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*ListStorageObjectsClientResponse, error)
 
@@ -48316,6 +49256,21 @@ type ClientWithResponsesInterface interface {
 
 	// RevokeAccountSessionWithResponse request
 	RevokeAccountSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*RevokeAccountSessionClientResponse, error)
+
+	// ListSlackChannelsWithResponse request
+	ListSlackChannelsWithResponse(ctx context.Context, params *ListSlackChannelsParams, reqEditors ...RequestEditorFn) (*ListSlackChannelsClientResponse, error)
+
+	// ListSlackConnectionsWithResponse request
+	ListSlackConnectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSlackConnectionsClientResponse, error)
+
+	// StartSlackConnectWithResponse request
+	StartSlackConnectWithResponse(ctx context.Context, params *StartSlackConnectParams, reqEditors ...RequestEditorFn) (*StartSlackConnectClientResponse, error)
+
+	// DeleteSlackConnectionWithResponse request
+	DeleteSlackConnectionWithResponse(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSlackConnectionClientResponse, error)
+
+	// StartSlackInstallWithResponse request
+	StartSlackInstallWithResponse(ctx context.Context, params *StartSlackInstallParams, reqEditors ...RequestEditorFn) (*StartSlackInstallClientResponse, error)
 
 	// RevokeCurrentUserTokenWithResponse request
 	RevokeCurrentUserTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RevokeCurrentUserTokenClientResponse, error)
@@ -51314,6 +52269,108 @@ func (r UpdateLavaflowSettingsClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateLavaflowSettingsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListLavaflowSlackChannelsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSlackChannelsResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLavaflowSlackChannelsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLavaflowSlackChannelsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLavaflowSlackChannelsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type BindLavaflowSlackChannelClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSlackChannel
+	JSON201      *LavaflowSlackChannel
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON502      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r BindLavaflowSlackChannelClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r BindLavaflowSlackChannelClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r BindLavaflowSlackChannelClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UnbindLavaflowSlackChannelClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UnbindLavaflowSlackChannelClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnbindLavaflowSlackChannelClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnbindLavaflowSlackChannelClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -60143,6 +61200,38 @@ func (r UpdateShareClientResponse) ContentType() string {
 	return ""
 }
 
+type SlackCallbackClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON404      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SlackCallbackClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SlackCallbackClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SlackCallbackClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListStorageObjectsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -60862,6 +61951,169 @@ func (r RevokeAccountSessionClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RevokeAccountSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSlackChannelsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SlackChannelsResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+	JSON502      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSlackChannelsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSlackChannelsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSlackChannelsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSlackConnectionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SlackConnectionsResponse
+	JSON401      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSlackConnectionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSlackConnectionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSlackConnectionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartSlackConnectClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SlackAuthorizationResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StartSlackConnectClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartSlackConnectClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartSlackConnectClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteSlackConnectionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSlackConnectionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSlackConnectionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteSlackConnectionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartSlackInstallClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SlackAuthorizationResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StartSlackInstallClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartSlackInstallClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartSlackInstallClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -62033,6 +63285,41 @@ func (c *ClientWithResponses) UpdateLavaflowSettingsWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseUpdateLavaflowSettingsClientResponse(rsp)
+}
+
+// ListLavaflowSlackChannelsWithResponse request returning *ListLavaflowSlackChannelsClientResponse
+func (c *ClientWithResponses) ListLavaflowSlackChannelsWithResponse(ctx context.Context, params *ListLavaflowSlackChannelsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSlackChannelsClientResponse, error) {
+	rsp, err := c.ListLavaflowSlackChannels(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLavaflowSlackChannelsClientResponse(rsp)
+}
+
+// BindLavaflowSlackChannelWithBodyWithResponse request with arbitrary body returning *BindLavaflowSlackChannelClientResponse
+func (c *ClientWithResponses) BindLavaflowSlackChannelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BindLavaflowSlackChannelClientResponse, error) {
+	rsp, err := c.BindLavaflowSlackChannelWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBindLavaflowSlackChannelClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) BindLavaflowSlackChannelWithResponse(ctx context.Context, body BindLavaflowSlackChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*BindLavaflowSlackChannelClientResponse, error) {
+	rsp, err := c.BindLavaflowSlackChannel(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBindLavaflowSlackChannelClientResponse(rsp)
+}
+
+// UnbindLavaflowSlackChannelWithResponse request returning *UnbindLavaflowSlackChannelClientResponse
+func (c *ClientWithResponses) UnbindLavaflowSlackChannelWithResponse(ctx context.Context, bindingId openapi_types.UUID, params *UnbindLavaflowSlackChannelParams, reqEditors ...RequestEditorFn) (*UnbindLavaflowSlackChannelClientResponse, error) {
+	rsp, err := c.UnbindLavaflowSlackChannel(ctx, bindingId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnbindLavaflowSlackChannelClientResponse(rsp)
 }
 
 // GetLavaflowStatsWithResponse request returning *GetLavaflowStatsClientResponse
@@ -65101,6 +66388,15 @@ func (c *ClientWithResponses) UpdateShareWithResponse(ctx context.Context, share
 	return ParseUpdateShareClientResponse(rsp)
 }
 
+// SlackCallbackWithResponse request returning *SlackCallbackClientResponse
+func (c *ClientWithResponses) SlackCallbackWithResponse(ctx context.Context, params *SlackCallbackParams, reqEditors ...RequestEditorFn) (*SlackCallbackClientResponse, error) {
+	rsp, err := c.SlackCallback(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSlackCallbackClientResponse(rsp)
+}
+
 // ListStorageObjectsWithResponse request returning *ListStorageObjectsClientResponse
 func (c *ClientWithResponses) ListStorageObjectsWithResponse(ctx context.Context, bucketName BucketName, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*ListStorageObjectsClientResponse, error) {
 	rsp, err := c.ListStorageObjects(ctx, bucketName, params, reqEditors...)
@@ -65337,6 +66633,51 @@ func (c *ClientWithResponses) RevokeAccountSessionWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseRevokeAccountSessionClientResponse(rsp)
+}
+
+// ListSlackChannelsWithResponse request returning *ListSlackChannelsClientResponse
+func (c *ClientWithResponses) ListSlackChannelsWithResponse(ctx context.Context, params *ListSlackChannelsParams, reqEditors ...RequestEditorFn) (*ListSlackChannelsClientResponse, error) {
+	rsp, err := c.ListSlackChannels(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSlackChannelsClientResponse(rsp)
+}
+
+// ListSlackConnectionsWithResponse request returning *ListSlackConnectionsClientResponse
+func (c *ClientWithResponses) ListSlackConnectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSlackConnectionsClientResponse, error) {
+	rsp, err := c.ListSlackConnections(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSlackConnectionsClientResponse(rsp)
+}
+
+// StartSlackConnectWithResponse request returning *StartSlackConnectClientResponse
+func (c *ClientWithResponses) StartSlackConnectWithResponse(ctx context.Context, params *StartSlackConnectParams, reqEditors ...RequestEditorFn) (*StartSlackConnectClientResponse, error) {
+	rsp, err := c.StartSlackConnect(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartSlackConnectClientResponse(rsp)
+}
+
+// DeleteSlackConnectionWithResponse request returning *DeleteSlackConnectionClientResponse
+func (c *ClientWithResponses) DeleteSlackConnectionWithResponse(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSlackConnectionClientResponse, error) {
+	rsp, err := c.DeleteSlackConnection(ctx, connectionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSlackConnectionClientResponse(rsp)
+}
+
+// StartSlackInstallWithResponse request returning *StartSlackInstallClientResponse
+func (c *ClientWithResponses) StartSlackInstallWithResponse(ctx context.Context, params *StartSlackInstallParams, reqEditors ...RequestEditorFn) (*StartSlackInstallClientResponse, error) {
+	rsp, err := c.StartSlackInstall(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartSlackInstallClientResponse(rsp)
 }
 
 // RevokeCurrentUserTokenWithResponse request returning *RevokeCurrentUserTokenClientResponse
@@ -69875,6 +71216,168 @@ func ParseUpdateLavaflowSettingsClientResponse(rsp *http.Response) (*UpdateLavaf
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLavaflowSlackChannelsClientResponse parses an HTTP response from a ListLavaflowSlackChannelsWithResponse call
+func ParseListLavaflowSlackChannelsClientResponse(rsp *http.Response) (*ListLavaflowSlackChannelsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLavaflowSlackChannelsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSlackChannelsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseBindLavaflowSlackChannelClientResponse parses an HTTP response from a BindLavaflowSlackChannelWithResponse call
+func ParseBindLavaflowSlackChannelClientResponse(rsp *http.Response) (*BindLavaflowSlackChannelClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &BindLavaflowSlackChannelClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSlackChannel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest LavaflowSlackChannel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUnbindLavaflowSlackChannelClientResponse parses an HTTP response from a UnbindLavaflowSlackChannelWithResponse call
+func ParseUnbindLavaflowSlackChannelClientResponse(rsp *http.Response) (*UnbindLavaflowSlackChannelClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnbindLavaflowSlackChannelClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
@@ -82008,6 +83511,46 @@ func ParseUpdateShareClientResponse(rsp *http.Response) (*UpdateShareClientRespo
 	return response, nil
 }
 
+// ParseSlackCallbackClientResponse parses an HTTP response from a SlackCallbackWithResponse call
+func ParseSlackCallbackClientResponse(rsp *http.Response) (*SlackCallbackClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SlackCallbackClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListStorageObjectsClientResponse parses an HTTP response from a ListStorageObjectsWithResponse call
 func ParseListStorageObjectsClientResponse(rsp *http.Response) (*ListStorageObjectsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -83032,6 +84575,227 @@ func ParseRevokeAccountSessionClientResponse(rsp *http.Response) (*RevokeAccount
 			return nil, err
 		}
 		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSlackChannelsClientResponse parses an HTTP response from a ListSlackChannelsWithResponse call
+func ParseListSlackChannelsClientResponse(rsp *http.Response) (*ListSlackChannelsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSlackChannelsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SlackChannelsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSlackConnectionsClientResponse parses an HTTP response from a ListSlackConnectionsWithResponse call
+func ParseListSlackConnectionsClientResponse(rsp *http.Response) (*ListSlackConnectionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSlackConnectionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SlackConnectionsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartSlackConnectClientResponse parses an HTTP response from a StartSlackConnectWithResponse call
+func ParseStartSlackConnectClientResponse(rsp *http.Response) (*StartSlackConnectClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartSlackConnectClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SlackAuthorizationResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteSlackConnectionClientResponse parses an HTTP response from a DeleteSlackConnectionWithResponse call
+func ParseDeleteSlackConnectionClientResponse(rsp *http.Response) (*DeleteSlackConnectionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSlackConnectionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartSlackInstallClientResponse parses an HTTP response from a StartSlackInstallWithResponse call
+func ParseStartSlackInstallClientResponse(rsp *http.Response) (*StartSlackInstallClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartSlackInstallClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SlackAuthorizationResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
