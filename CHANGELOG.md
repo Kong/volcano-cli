@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.0](https://github.com/Kong/volcano-cli/compare/v0.74.0...v0.75.0) (2026-11-07)
+
+
+### Features
+
+* **share:** volcano share and volcano fork on the /shares and /forks API ([#355](https://github.com/Kong/volcano-cli/issues/355)) ([6d65c70](https://github.com/Kong/volcano-cli/commit/6d65c70fe25a18c8d830fa810ce913252dd1e871))
+
 ## [0.74.0](https://github.com/Kong/volcano-cli/compare/v0.73.0...v0.74.0) (2026-11-07)
 
 
