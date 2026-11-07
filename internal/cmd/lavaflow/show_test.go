@@ -654,3 +654,187 @@ func TestShowSaysWhenNoReviewerCouldRun(t *testing.T) {
 	assert.Contains(t, out, "Review: error; no reviewer could run\nReview stopped: ")
 	assert.NotContains(t, out, "0 round(s)")
 }
+
+// The sentences Volcano serves in place of review text it withholds.
+const (
+	findingWithheld  = "LavaFlow left this explanation out because it may contain a credential"
+	questionWithheld = "LavaFlow left this question out because it may contain a credential"
+)
+
+// blockedReview is a review that left findings open and asks a person to
+// decide, as the API serves it, withheld text included.
+func blockedReview() map[string]any {
+	return map[string]any{
+		"verdict": "blocked",
+		"rounds":  3,
+		"stopped": "rounds",
+		"open_findings": []any{
+			map[string]any{
+				"severity": "major", "file": "src/cart.ts", "line": 42,
+				"explanation": "An empty cart still reaches chargeCustomer, which reads cart.total before the new guard runs.",
+			},
+			map[string]any{"severity": "minor", "file": nil, "line": nil, "explanation": findingWithheld},
+		},
+		"person_reasons": []any{
+			map[string]any{"kind": "billing", "question": "The fix skips the charge for an empty cart. Is that intended?"},
+			map[string]any{"kind": "trust_boundary", "question": questionWithheld},
+		},
+	}
+}
+
+// show lists the findings a review left open and what it leaves to a person,
+// under the review, in the order the API sends them. Withheld text prints as
+// Volcano's sentence, and --json keeps both lists as sent.
+func TestShowListsTheReviewsOpenFindingsAndQuestions(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.runs[0]["review"] = blockedReview() })
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Review: blocked after 3 round(s)\n"+
+		"Review stopped: The last review round still found problems.\n"+
+		"Open findings:\n"+
+		"  - major, src/cart.ts:42: An empty cart still reaches chargeCustomer, which reads cart.total before the new guard runs.\n"+
+		"  - minor: "+findingWithheld+"\n"+
+		"For you to decide:\n"+
+		"  - billing: The fix skips the charge for an empty cart. Is that intended?\n"+
+		"  - trust boundary: "+questionWithheld+"\n"+
+		"Checks: ")
+	assertLavaFlowWording(t, out)
+
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+	require.NoError(t, err)
+	assert.Equal(t, asJSON(t, blockedReview()), decodeJSON(t, out)["review"], "--json keeps the review as sent")
+}
+
+// Each finding says where it points: a file and line, a file with no one
+// line, a path Volcano doesn't show, or nothing for a finding about no file.
+func TestShowSaysWhereEachOpenFindingPoints(t *testing.T) {
+	for name, tc := range map[string]struct {
+		file, line any
+		want       string
+	}{
+		"file and line":         {"src/cart.ts", 42, "  - major, src/cart.ts:42: Explained.\n"},
+		"no line":               {"src/cart.ts", nil, "  - major, src/cart.ts: Explained.\n"},
+		"no file":               {nil, nil, "  - major: Explained.\n"},
+		"path not shown":        {"", nil, "  - major, path not shown: Explained.\n"},
+		"path not shown, line":  {"", 7, "  - major, path not shown, line 7: Explained.\n"},
+		"line without a file":   {nil, 7, "  - major, line 7: Explained.\n"},
+		"control chars in path": {"src/\x1b[2Jcart.ts", 3, "  - major, src/\\x1b[2Jcart.ts:3: Explained.\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.runs[0]["review"] = map[string]any{
+					"verdict": "blocked", "rounds": 3, "stopped": "rounds",
+					"open_findings": []any{map[string]any{"severity": "major", "file": tc.file, "line": tc.line, "explanation": "Explained."}},
+				}
+			})
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Open findings:\n"+tc.want+"Checks: ")
+			assert.NotContains(t, out, "\x1b")
+		})
+	}
+}
+
+// A finding's explanation and a question are the reviewer's words: a control
+// character prints as a visible escape, and text on more than one line
+// continues indented under its item.
+func TestShowPrintsReviewTextAsPlainText(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["review"] = map[string]any{
+			"verdict": "blocked", "rounds": 3, "stopped": "rounds",
+			"open_findings": []any{map[string]any{
+				"severity": "critical", "file": "a.ts", "line": 1,
+				"explanation": "\x1b[31mred\x1b[0m \x1b]8;;https://example.com\x1b\\link\x1b]8;;\x1b\\\rover\u009b2J\nsecond line\n",
+			}},
+			"person_reasons": []any{map[string]any{"kind": "billing\x1b]0;title\x07", "question": "Charge\x1b[2J twice?"}},
+		}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Open findings:\n"+
+		`  - critical, a.ts:1: \x1b[31mred\x1b[0m \x1b]8;;https://example.com\x1b\link\x1b]8;;\x1b\\x0dover\u009b2J`+"\n"+
+		"    second line\n"+
+		"For you to decide:\n"+
+		`  - billing\x1b]0;title\x07: Charge\x1b[2J twice?`+"\n")
+	for _, raw := range []string{"\x1b", "\r", "\x07", "\u009b"} {
+		assert.NotContains(t, out, raw)
+	}
+}
+
+// Each kind of decision reads as words; a kind the CLI doesn't know prints as
+// the API gives it.
+func TestShowNamesWhatEachDecisionIsAbout(t *testing.T) {
+	for kind, want := range map[string]string{
+		"irreversible":    "irreversible",
+		"trust_boundary":  "trust boundary",
+		"breaks_contract": "breaks a contract",
+		"billing":         "billing",
+		"unexplained":     "unexplained",
+		"not_reviewable":  "not reviewable",
+		"data_residency":  "data_residency",
+	} {
+		t.Run(kind, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.runs[0]["review"] = map[string]any{
+					"verdict": "blocked", "rounds": 3, "stopped": "rounds",
+					"person_reasons": []any{map[string]any{"kind": kind, "question": "Is that intended?"}},
+				}
+			})
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Review stopped: The last review round still found problems.\n"+
+				"For you to decide:\n  - "+want+": Is that intended?\nChecks: ")
+			assert.NotContains(t, out, "Open findings")
+		})
+	}
+}
+
+// A review that lists no findings or questions, absent or empty, prints no
+// heading for them.
+func TestShowPrintsNoReviewListsTheAPILeavesOut(t *testing.T) {
+	for name, review := range map[string]map[string]any{
+		"absent": {"verdict": "passed", "rounds": 2},
+		"empty":  {"verdict": "passed", "rounds": 2, "open_findings": []any{}, "person_reasons": []any{}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) { s.runs[0]["review"] = review })
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Review: passed after 2 round(s)\nChecks: ")
+			assert.NotContains(t, out, "Open findings")
+			assert.NotContains(t, out, "For you to decide")
+		})
+	}
+}
+
+// A bidirectional embedding or isolate in review text prints as a visible
+// escape, so the text shows in the order it was written.
+func TestShowPrintsBidirectionalControlsAsEscapes(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["review"] = map[string]any{
+			"verdict": "blocked", "rounds": 3, "stopped": "rounds",
+			"open_findings": []any{map[string]any{
+				"severity": "major", "file": "a.ts", "line": 1,
+				"explanation": "Checks \u202bthe admin\u202c role and \u2066the owner\u2069 role.",
+			}},
+		}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, `  - major, a.ts:1: Checks \u202bthe admin\u202c role and \u2066the owner\u2069 role.`+"\n")
+	for _, raw := range []string{"\u202b", "\u202c", "\u2066", "\u2069"} {
+		assert.NotContains(t, out, raw)
+	}
+}
