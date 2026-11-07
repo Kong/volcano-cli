@@ -49,8 +49,8 @@ func newConnect(deps cliruntime.Deps) *cobra.Command {
 
 With no argument, the repository is read from this directory's Git config:
 wherever "git push" sends this branch, then the only remote, then "origin".
-In a fork or triangular checkout that is not origin, and the CLI says which
-setting decided it. Pass a repository URL to name one explicitly, or use
+In a fork or triangular checkout, that may not be origin; the CLI says which
+setting it used. Pass a repository URL to name one explicitly, or use
 --remote to pick a remote by name.
 
 Connecting only binds the project. Nothing is created on GitHub, nothing is
