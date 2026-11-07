@@ -82,7 +82,7 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 		t.Fatalf("settings did not read back what was saved: %+v", saved)
 	}
 
-	env.runCloudCLI(t, "lavaflow", "stats", "--days", "7").requireSuccess(t, "0 issue(s) opened and 0 fix pull request(s) opened")
+	env.runCloudCLI(t, "lavaflow", "stats", "--days", "7").requireSuccess(t, "0 issues and 0 fix pull requests opened")
 	env.runCloudCLI(t, "lavaflow", "resources").requireSuccess(t)
 	env.runCloudCLI(t, "lavaflow", "list").requireSuccess(t, "No runs")
 	requireAPIE2ELavaFlowStartNeedsALiveSignIn(t, env)

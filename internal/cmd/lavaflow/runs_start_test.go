@@ -21,7 +21,7 @@ func TestRunStartSaysWhichRunStarted(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "LavaFlow run started")
 	assert.Contains(t, out, "Run: "+startedRunID+"\n")
-	assert.Contains(t, out, "Status: queued\n")
+	assert.Contains(t, out, "Status: Queued: waiting to start\n")
 	assert.Contains(t, out, "Follow it with volcano cloud lavaflow show "+startedRunID+"\n")
 	assertLavaFlowWording(t, out)
 	fake.set(func(s *lavaflowServer) {
@@ -89,7 +89,8 @@ func TestRunStartSaysWhatToDoAboutARefusal(t *testing.T) {
 			http.StatusNotFound, "LavaFlow is not available", "feature_unavailable", lavaflowNotAvailable,
 		},
 		"unknown issue": {
-			http.StatusNotFound, "issue not found", "issue_not_found", "the project has no issue " + lavaflowIssueID,
+			http.StatusNotFound, "issue not found", "issue_not_found", "the project has no issue " + lavaflowIssueID +
+				". Use the Issue that 'volcano cloud lavaflow show <run-id>' prints for one of its runs, or an issue ID from the project's issues",
 		},
 		"off": {
 			http.StatusConflict, "LavaFlow is off for this project; turn it on to start runs", "lavaflow_disabled",

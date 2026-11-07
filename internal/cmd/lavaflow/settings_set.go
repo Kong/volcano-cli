@@ -43,7 +43,8 @@ project access token is refused.
 
 --autonomy decides how far LavaFlow goes: %[1]s diagnoses issues and leaves
 any fix to a person; %[2]s also opens fix pull requests for review; %[4]s
-is for a project where merging is available. %[5]s
+also merges a fix once its review and the base branch's required checks pass,
+where '%[10]s' shows merging available. %[5]s
 --autonomy %[4]s prints that and asks first; --yes skips the question.
 
 --human-review-path names a path whose changes always hold a fix for a
@@ -60,10 +61,10 @@ one.
 
 %[7]s
 It prints that and asks first; --yes skips the question. false turns it off
-without asking. While LavaFlow isn't available for the project, Volcano turns
-it off only together with LavaFlow, so false turns LavaFlow off too.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength, apiclient.Merge,
+without asking. If LavaFlow is no longer available to the project,
+--allow-ungated-workflows false also turns LavaFlow off.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength, apiclient.Merge,
 			clilavaflow.MergeDisclosure, clilavaflow.MaxHumanReviewPaths, ungatedWorkflowsDisclosure,
-			clilavaflow.UngatedWorkflowsSetting, clilavaflow.UngatedWorkflowsRules),
+			clilavaflow.UngatedWorkflowsSetting, clilavaflow.UngatedWorkflowsRules, cliruntime.CommandPath(deps, "lavaflow status")),
 		Example: "  " + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy diagnose_only") + "\n" +
 			"  " + cliruntime.CommandPath(deps, "lavaflow settings set --custom-context-file lavaflow-context.md"),
 		Args: cobra.NoArgs,

@@ -88,7 +88,9 @@ func confirmChange(yes bool, in io.Reader, errOut io.Writer, disclosure, questio
 		return nil
 	}
 	if !confirm.CanPrompt(in) {
-		return fmt.Errorf("%s\n\nstdin is not a terminal: confirmation required; pass --yes", disclosure)
+		// The disclosure is information, not the error: nothing failed.
+		fmt.Fprintln(errOut, disclosure)
+		return confirm.ErrCannotPrompt
 	}
 	confirmed, err := confirm.Action(in, errOut, disclosure, question)
 	if err != nil {

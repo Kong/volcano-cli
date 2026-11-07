@@ -24,8 +24,9 @@ func newList(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List LavaFlow's runs",
-		Long: `List LavaFlow's runs in the current project, newest first: what each worked on,
-where it got to, and the fix pull request it opened. Show one with
+		Long: `List LavaFlow's runs in the current project, newest first: where each got to,
+what came of it, the fix pull request it opened or why it opened none, what it
+worked on, when it was queued, in UTC, and its title. Show one with
 '` + cliruntime.CommandPath(deps, "lavaflow show <run-id>") + `'.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

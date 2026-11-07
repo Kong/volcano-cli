@@ -26,9 +26,10 @@ func newShow(deps cliruntime.Deps) *cobra.Command {
 cause and the evidence behind it, its review, whether the repository's tests
 ran on its fix, and what happened to the fix. A review that didn't pass the
 fix lists the findings it left open and what it leaves to you to decide.
-The Fix block gives the pull request, its state and where its merge is, or
-why the run opened none. A fix LavaFlow held or stopped lists why, and a
-failed run says why, in the API's words. The Checks line lists each command
+The Fix block gives the pull request, its state, where its merge is and when
+the merged fix went live, or why the run opened none and what to do next. A
+fix LavaFlow held or stopped says why, and a failed or cancelled run says why
+in the API's words. Times are in UTC. The Checks line lists each command
 the repository's checks ran and how it ended, with the output of one that
 failed or timed out indented under it. --json prints the run as the API
 returned it.`,
@@ -51,6 +52,10 @@ func runShow(ctx context.Context, opts showOptions, runID string) error {
 	if opts.jsonOutput {
 		return writeAPIJSON(opts.out, body)
 	}
-	output.LavaflowRun(opts.out, run)
+	output.LavaflowRun(opts.out, run, output.LavaflowRunCommands{
+		StartRun:    cliruntime.CommandPath(opts.deps, "lavaflow runs start "+run.IssueId.String()),
+		SettingsSet: cliruntime.CommandPath(opts.deps, "lavaflow settings set"),
+		List:        cliruntime.CommandPath(opts.deps, "lavaflow list"),
+	})
 	return nil
 }

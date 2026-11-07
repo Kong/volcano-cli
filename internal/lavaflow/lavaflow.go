@@ -650,6 +650,17 @@ func (s Service) GetRun(ctx context.Context, runID string) (*apiclient.LavaflowR
 	}
 	run, body, err := authenticated.API.GetLavaflowRun(ctx, authenticated.ProjectID, id)
 	if err != nil {
+		// A 404 without a code is a run the project doesn't have. One with a
+		// code, or the router's own, says LavaFlow isn't available, which
+		// unavailable words.
+		if api.Status(err) == http.StatusNotFound && api.Code(err) == "" && !api.RouteMissing(err) {
+			why := api.Message(err)
+			if why == "" {
+				why = "not found"
+			}
+			return nil, nil, api.WithCause(fmt.Errorf("failed to get LavaFlow run %s: %s. List the project's runs with '%s'",
+				runID, why, cliruntime.CommandPath(s.deps, "lavaflow list")), err)
+		}
 		return nil, nil, unavailable(fmt.Errorf("failed to get LavaFlow run %s: %w", runID, err))
 	}
 	return run, body, nil

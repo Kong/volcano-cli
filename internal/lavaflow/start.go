@@ -79,7 +79,8 @@ func (s Service) startRefused(ctx context.Context, authenticated *clisession.Pro
 	case codePersonRequired:
 		return liveSignIn(authenticated.Config, err)
 	case codeIssueNotFound:
-		return api.WithCause(fmt.Errorf("the project has no issue %s", issueID), err)
+		return api.WithCause(fmt.Errorf("the project has no issue %s. Use the Issue that '%s' prints for one of its runs, "+
+			"or an issue ID from the project's issues", issueID, cliruntime.CommandPath(s.deps, "lavaflow show <run-id>")), err)
 	case codeLavaflowDisabled:
 		return api.WithCause(fmt.Errorf("LavaFlow is off for this project. Turn it on with '%s', then run this again",
 			cliruntime.CommandPath(s.deps, "lavaflow enable")), err)

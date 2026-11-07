@@ -159,9 +159,9 @@ func TestEnableWithoutATerminalNeedsYes(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = stdin.Close() })
 
-	_, _, err = executeLavaflowCommandSplit(t, New(deps), stdin, "enable")
-	require.Error(t, err)
-	assert.Equal(t, clilavaflow.EnableDisclosure+"\n\nstdin is not a terminal: confirmation required; pass --yes", err.Error())
+	_, errOut, err := executeLavaflowCommandSplit(t, New(deps), stdin, "enable")
+	require.EqualError(t, err, "stdin is not a terminal: confirmation required; pass --yes")
+	assert.True(t, strings.HasPrefix(errOut, clilavaflow.EnableDisclosure+"\n"), "the disclosure prints as itself, not as the error: %q", errOut)
 	assert.Empty(t, fake.updates)
 }
 

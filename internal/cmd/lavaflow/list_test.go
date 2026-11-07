@@ -2,23 +2,93 @@ package lavaflow
 
 import (
 	"net/url"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// list shows each run newest first: its status, what came of it, the
+// resource, when it was queued in UTC, and its whole title, last, so titles
+// that start alike still read apart.
 func TestListShowsEachRunNewestFirst(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 
 	out, err := executeLavaflowCommand(t, New(deps), "list")
 	require.NoError(t, err)
 	assert.Equal(t, url.Values{"limit": {"25"}}, fake.lastQuery(t, "/runs"))
-	assert.Regexp(t, lavaflowRunID+`\s+PR open\s+checkout\s+TypeError: Cannot read prop\.\.\.\s+\S+ \S+\s+#42 open\n`, out)
-	assert.Regexp(t, lavaflowFailedID+`\s+failed\s+checkout\s+-\s+\S+ \S+\s+-\n`, out)
-	assert.Contains(t, out, "Showing 2 run(s)")
-	assert.NotContains(t, out, "--cursor", "the last page names no next one")
+	assert.Equal(t, ""+
+		"ID                                    Status                           Outcome                         Resource                  Queued             Title\n"+
+		strings.Repeat("-", 160)+"\n"+
+		"44444444-4444-4444-8444-444444444444  PR open                          #42 open                        checkout                  2026-10-30 09:00Z  TypeError: Cannot read properties of undefined (reading <str>)\n"+
+		"55555555-5555-4555-8555-555555555555  Failed                           -                               checkout                  2026-10-29 09:00Z  -\n"+
+		"\n"+
+		"Showing 2 run(s)\n", out)
 	assertLavaFlowWording(t, out)
+}
+
+// Two titles that start alike both print whole.
+func TestListKeepsTitlesThatStartAlikeApart(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["title"] = "Downgraded accounts stuck as Pro after the billing webhook fails"
+		s.runs[1]["title"] = "Downgraded accounts stuck as Pro when the worker retries a cancelled plan"
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "  Downgraded accounts stuck as Pro after the billing webhook fails\n")
+	assert.Contains(t, out, "  Downgraded accounts stuck as Pro when the worker retries a cancelled plan\n")
+	assert.NotContains(t, out, "...")
+}
+
+// The Outcome column says what came of each finished run: its pull request
+// and that request's state, or why it opened none, for every reason the API
+// documents. A reason the CLI doesn't know prints as given.
+func TestListSaysWhatCameOfEachRun(t *testing.T) {
+	for reason, want := range map[any]string{
+		"diagnose_only":            "Diagnosed only",
+		"not_fixable":              "No PR: no fix in the code",
+		"low_confidence":           "No PR: not confident",
+		"no_patch":                 "No PR: no change found",
+		"possible_credential":      "No PR: possible credential",
+		"possible_personal_data":   "No PR: adds an email address",
+		"ungated_workflows":        "No PR: ungated workflows",
+		"convention_unsatisfiable": "No PR: commit convention",
+		"pull_request_open":        "No PR: another was open",
+		"source_unavailable":       "No PR: couldn't read source",
+		"permission_missing":       "No PR: permission missing",
+		"repository_changed":       "No PR: repository changed",
+		"publish_failed":           "No PR: opening it failed",
+		"lineage_cap":              "No PR: follow-up limit",
+		"lineage_held":             "No PR: earlier fix held",
+		"review_unresolved":        "No PR: review didn't pass",
+		"duplicate_in_repository":  "No PR: another project has it",
+		"security_finding":         "No PR: security finding",
+		"new_reason":               "No PR: new_reason",
+		nil:                        "-",
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) { s.openNoPullRequest(reason) })
+
+		out, err := executeLavaflowCommand(t, New(deps), "list")
+		require.NoError(t, err, reason)
+		assert.Regexp(t, lavaflowRunID+`  Finished\s+`+regexp.QuoteMeta(want)+`\s+checkout  `, out, reason)
+	}
+
+	for state, want := range map[string]string{"merged": "#42 merged", "closed": "#42 closed"} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.runs[0]["status"] = "completed"
+			s.runs[0]["pull_request"].(map[string]any)["state"] = state
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "list")
+		require.NoError(t, err, state)
+		assert.Regexp(t, lavaflowRunID+`  Finished\s+`+want+`\s+checkout  `, out, state)
+	}
 }
 
 // The filters reach the API, and the next page keeps them.
@@ -67,12 +137,14 @@ func TestListSaysWhenThereAreNoRuns(t *testing.T) {
 // status the CLI doesn't know prints as the API gives it.
 func TestARunsStatusSaysWhatItIsDoing(t *testing.T) {
 	for status, want := range map[string]string{
-		"queued":       "queued",
+		"queued":       "Queued: waiting to start",
 		"diagnosing":   "Running: finding the root cause",
 		"fixing":       "Running: writing the fix",
 		"reviewing":    "Running: reviewing the fix",
 		"pr_open":      "PR open",
-		"completed":    "completed",
+		"completed":    "Finished",
+		"failed":       "Failed",
+		"cancelled":    "Cancelled",
 		"waiting_room": "waiting_room",
 	} {
 		fake, deps := newLavaflowServer(t)
@@ -127,7 +199,7 @@ func TestListStopsMarkingAFixOnceItsPullRequestCloses(t *testing.T) {
 			out, err := executeLavaflowCommand(t, New(deps), "list")
 			require.NoError(t, err, status+"/"+state)
 			assert.NotContains(t, out, "yours to merge", status+"/"+state)
-			assert.Contains(t, out, lavaflowRunID+"  completed ", status+"/"+state)
+			assert.Contains(t, out, lavaflowRunID+"  Finished ", status+"/"+state)
 		}
 	}
 }

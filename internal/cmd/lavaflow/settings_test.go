@@ -24,7 +24,7 @@ func TestSettingsShowsTheTextInFull(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "settings")
 	require.NoError(t, err)
 	assert.Contains(t, out, "LavaFlow: off")
-	assert.Contains(t, out, "Ungated workflows: not allowed\n")
+	assert.Contains(t, out, ungatedNotAllowed)
 	assert.Contains(t, out, "Custom context\n  Checkout runs on Fridays only.\n  Ignore the legacy cart.\n")
 	assert.Contains(t, out, "System prompt\n  (not set)\n")
 	assertLavaFlowWording(t, out)
@@ -115,6 +115,8 @@ func TestSettingsReadsOnlyTheSettings(t *testing.T) {
 // capabilities don't list merging. --json stays the settings alone.
 func TestSettingsSaysWhetherLavaFlowCanMerge(t *testing.T) {
 	paused := "Merging: paused; waiting fixes resume when it's back, new fixes open as pull requests for review\n"
+	mergingOff := "Merging: available for this project, but off at this autonomy, which never merges; " +
+		"merging also needs the base branch to require a check\n"
 	notAvailable := "Merging: not available for this project\n"
 	for _, tc := range []struct {
 		name       string
@@ -124,7 +126,9 @@ func TestSettingsSaysWhetherLavaFlowCanMerge(t *testing.T) {
 		capability string
 		want       string
 	}{
-		{"available", true, "open_pr", "available", "available", "Merging: available\n"},
+		{"available", true, "merge", "available", "available", "Merging: available; LavaFlow holds every fix unless the base branch requires a check\n"},
+		{"available at open_pr", true, "open_pr", "available", "available", mergingOff},
+		{"available at diagnose_only", true, "diagnose_only", "available", "available", mergingOff},
 		{"open_pr", true, "open_pr", "available", "unavailable", notAvailable},
 		{"merge", true, "merge", "available", "unavailable", paused},
 		{"merge, LavaFlow off", false, "merge", "available", "unavailable", notAvailable},
@@ -177,7 +181,8 @@ func TestSettingsSetHelpSaysWhatMergingDoes(t *testing.T) {
 
 	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--help")
 	require.NoError(t, err)
-	assert.Contains(t, out, "merge\nis for a project where merging is available. "+clilavaflow.MergeDisclosure+
+	assert.Contains(t, out, "merge\nalso merges a fix once its review and the base branch's required checks pass,\n"+
+		"where 'volcano cloud lavaflow status' shows merging available. "+clilavaflow.MergeDisclosure+
 		"\n--autonomy merge prints that and asks first; --yes skips the question.")
 	assert.Contains(t, out, "--human-review-path names a path whose changes always hold a fix for a")
 	merging, _, _ := strings.Cut(out, "\n--allow-ungated-workflows")
@@ -230,8 +235,9 @@ func TestSettingsSetMergingWithoutATerminalNeedsYes(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = stdin.Close() })
 
-	_, _, err = executeLavaflowCommandSplit(t, New(deps), stdin, "settings", "set", "--autonomy", "merge")
-	require.EqualError(t, err, clilavaflow.MergeDisclosure+"\n\nstdin is not a terminal: confirmation required; pass --yes")
+	_, errOut, err := executeLavaflowCommandSplit(t, New(deps), stdin, "settings", "set", "--autonomy", "merge")
+	require.EqualError(t, err, "stdin is not a terminal: confirmation required; pass --yes")
+	assert.True(t, strings.HasPrefix(errOut, clilavaflow.MergeDisclosure+"\n"), "the disclosure prints as itself, not as the error: %q", errOut)
 	assert.Empty(t, fake.updates)
 }
 
@@ -545,7 +551,7 @@ func TestSettingsSetAllowsUngatedWorkflowsOnlyAfterAsking(t *testing.T) {
 			continue
 		}
 		assert.Equal(t, map[string]any{"allow_ungated_workflows": true}, fake.lastUpdate(t))
-		assert.Contains(t, out, "Ungated workflows: allowed for the connected repository\n")
+		assert.Contains(t, out, ungatedAllowed)
 	}
 
 	fake, deps := newLavaflowServer(t)
@@ -571,11 +577,11 @@ func TestSettingsSetAllowsUngatedWorkflowsOnlyAfterAsking(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, errOut, "turning it off asks nothing")
 	assert.Equal(t, map[string]any{"allow_ungated_workflows": false}, fake.lastUpdate(t))
-	assert.Contains(t, out, "Ungated workflows: not allowed\n")
+	assert.Contains(t, out, ungatedNotAllowed)
 
 	out, err = executeLavaflowCommand(t, New(deps), "settings")
 	require.NoError(t, err)
-	assert.Contains(t, out, "Ungated workflows: not allowed\n")
+	assert.Contains(t, out, ungatedNotAllowed+"Updated: 2026-10-30 12:00Z\n")
 }
 
 // While LavaFlow isn't available, Volcano turns ungated workflows off only
@@ -647,3 +653,11 @@ func TestSettingsSetAsksAboutUngatedWorkflowsOnlyTheOwner(t *testing.T) {
 	assert.NotContains(t, errOut, "Allow ungated workflows?")
 	assert.Empty(t, fake.updates)
 }
+
+// What the settings say about ungated workflows, in full.
+const (
+	ungatedNotAllowed = "Ungated workflows: not allowed: LavaFlow holds a fix that a workflow could run with the " +
+		"repository's secrets before a person approves it\n"
+	ungatedAllowed = "Ungated workflows: allowed for the connected repository: LavaFlow opens a fix even when a " +
+		"workflow could run it with the repository's secrets before a person approves it\n"
+)

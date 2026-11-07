@@ -18,7 +18,8 @@ import (
 const groupShort = "Diagnose and fix the project's runtime errors"
 
 var groupLong = clilavaflow.OnDescription + ` It covers every function, frontend
-and durable function in the project, and turning it on is the whole setup.
+and durable function in the project. With a connected repository, turning it
+on is the whole setup.
 
 A project access token can read LavaFlow, but only the owner's own session
 can turn it on or off, change its settings and start runs.`

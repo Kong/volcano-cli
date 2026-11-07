@@ -19,7 +19,7 @@ func TestStatusOffSaysWhatLavaFlowDoesAndHowToTurnItOn(t *testing.T) {
 	assert.Contains(t, out, "LavaFlow: off")
 	assert.Contains(t, out, "Autonomy: open fix pull requests")
 	assert.Contains(t, out, "Repository: "+lavaflowRepo)
-	assert.Contains(t, out, "Ungated workflows: not allowed\n")
+	assert.Contains(t, out, ungatedNotAllowed)
 	assert.Contains(t, out, "Custom context: not set")
 	assert.Contains(t, out, "Updated: not saved yet")
 	assert.Contains(t, out, clilavaflow.OnDescription)
@@ -37,7 +37,7 @@ func TestStatusSaysWhetherUngatedWorkflowsAreAllowed(t *testing.T) {
 
 	out, err := executeLavaflowCommand(t, New(deps), "status")
 	require.NoError(t, err)
-	assert.Contains(t, out, "Ungated workflows: allowed for the connected repository\n")
+	assert.Contains(t, out, ungatedAllowed)
 }
 
 // LavaFlow opens fix pull requests at open_pr and at merge, so both ask for a
@@ -141,7 +141,8 @@ func TestStatusSaysWhetherLavaFlowCanMerge(t *testing.T) {
 		require.NoError(t, err, "%q", capability)
 		switch want {
 		case true:
-			assert.Contains(t, out, "Merging: available\n", "%q", capability)
+			assert.Contains(t, out, "Merging: available for this project, but off at this autonomy, which never merges; "+
+				"merging also needs the base branch to require a check\n", "%q", capability)
 		case false:
 			assert.Contains(t, out, "Merging: not available for this project\n", "%q", capability)
 		default:
@@ -154,6 +155,28 @@ func TestStatusSaysWhetherLavaFlowCanMerge(t *testing.T) {
 		got, listed := decodeJSON(t, out)["merge_available"]
 		assert.Equal(t, want != nil, listed, "%q", capability)
 		assert.Equal(t, want, got, "%q", capability)
+	}
+}
+
+// Available merging says what it needs at autonomy merge: the API doesn't say
+// whether the base branch requires a check, and without one LavaFlow holds
+// every fix. Below merge, it says merging is off.
+func TestStatusSaysWhatAvailableMergingNeeds(t *testing.T) {
+	for autonomy, want := range map[string]string{
+		"merge": "Merging: available; LavaFlow holds every fix unless the base branch requires a check\n",
+		"open_pr": "Merging: available for this project, but off at this autonomy, which never merges; " +
+			"merging also needs the base branch to require a check\n",
+		"diagnose_only": "Merging: available for this project, but off at this autonomy, which never merges; " +
+			"merging also needs the base branch to require a check\n",
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.settings["enabled"], s.settings["autonomy"], s.mergeCapability = true, autonomy, "available"
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "status")
+		require.NoError(t, err, autonomy)
+		assert.Contains(t, out, want, autonomy)
 	}
 }
 
