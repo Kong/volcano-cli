@@ -599,8 +599,8 @@ func TestShareProjectChangedStopsUnderYes(t *testing.T) {
 	assert.Equal(t, 1, fake.publishes)
 }
 
-// A fresh build with nothing the owner did not already confirm is published
-// once with its own draft id, without asking again.
+// Under --yes, a fresh build with nothing --yes did not already confirm is
+// published once with its own draft id.
 func TestShareProjectChangedRetriesOnceWithWhatWasConfirmed(t *testing.T) {
 	setTestHome(t)
 	fake, server := newFakeAPI(t)
@@ -620,7 +620,7 @@ func TestShareProjectChangedRetriesOnceWithWhatWasConfirmed(t *testing.T) {
 	require.Len(t, fake.bodies["POST "+releasesPath], 2)
 	assert.Equal(t, "draft-1", fake.bodies["POST "+releasesPath][0]["draft_id"])
 	assert.Equal(t, "draft-2", fake.bodies["POST "+releasesPath][1]["draft_id"])
-	assert.Contains(t, out.String(), "Its new build has the variables and service key functions you confirmed")
+	assert.Contains(t, out.String(), "Its new build has the variables and service key functions --yes confirmed")
 	assert.Contains(t, out.String(), "Shared. Anyone can fork it from")
 }
 
@@ -639,6 +639,48 @@ func TestShareProjectChangedTwiceStopsUnderYes(t *testing.T) {
 
 	require.ErrorContains(t, run(t.Context(), opts), "nothing was shared, because the project changed")
 	assert.Equal(t, 2, fake.publishes)
+}
+
+// At a terminal, a fresh build is shown and confirmed again even when its
+// variables and service key functions did not change: its code may have.
+func TestShareProjectChangedAsksAgainAtATerminalWithTheSameNames(t *testing.T) {
+	setTestHome(t)
+	interactive(t)
+	fake, server := newFakeAPI(t)
+	fake.publish = func(call int, _ map[string]any) (int, any) {
+		if call == 1 {
+			return http.StatusConflict, map[string]any{
+				"error": "The project changed since the draft was reviewed.", "code": "draft_changed",
+				"draft": draftPayloadWithID("draft-2", "admin"),
+			}
+		}
+		return http.StatusCreated, releasePayload()
+	}
+	opts, out := testOptions(t, server, "y\ny\ny\ny\n", directory{}, false, &steps{})
+
+	require.NoError(t, run(t.Context(), opts))
+	require.Len(t, fake.bodies["POST "+releasesPath], 2)
+	assert.Equal(t, "draft-2", fake.bodies["POST "+releasesPath][1]["draft_id"])
+	assert.Equal(t, 2, strings.Count(out.String(), "Share it?"))
+	assert.NotContains(t, out.String(), "so it is shared instead")
+}
+
+// A fresh build the owner declines at a terminal is not published.
+func TestShareProjectChangedDeclinedAtATerminal(t *testing.T) {
+	setTestHome(t)
+	interactive(t)
+	fake, server := newFakeAPI(t)
+	fake.publish = func(int, map[string]any) (int, any) {
+		return http.StatusConflict, map[string]any{
+			"error": "The project changed since the draft was reviewed.", "code": "draft_changed",
+			"draft": draftPayloadWithID("draft-2", "admin"),
+		}
+	}
+	opts, out := testOptions(t, server, "y\ny\ny\nn\n", directory{}, false, &steps{})
+
+	require.NoError(t, run(t.Context(), opts))
+	assert.Equal(t, 1, fake.publishes)
+	assert.Equal(t, 2, strings.Count(out.String(), "Share it?"))
 }
 
 // At a terminal, a fresh build that gives the service key to a new function is

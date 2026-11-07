@@ -277,9 +277,9 @@ func finishShare(
 
 // publish shows what sharing publishes, has the owner confirm it and the
 // service key functions, and publishes it with every variable the draft lists.
-// When the project changes in between and the fresh build asks for more than
-// the owner confirmed, nothing is published: at a terminal the owner sees the
-// fresh build and is asked again; with --yes the command stops.
+// When the project changes in between, nothing is published: at a terminal the
+// owner sees the fresh build and is asked again; with --yes the command stops,
+// unless the fresh build asks for nothing more than --yes confirmed.
 func publish(
 	ctx context.Context, opts options, service sharing.Service, shareID string,
 	draft *apiclient.ShareReleaseDraft, ask bool,
@@ -294,7 +294,7 @@ func publish(
 		if err := confirmShare(opts, draft, ask); err != nil {
 			return nil, err
 		}
-		release, err := publishConfirmed(ctx, opts, service, shareID, draft)
+		release, err := publishConfirmed(ctx, opts, service, shareID, draft, ask)
 		if err == nil {
 			return release, nil
 		}
@@ -316,19 +316,22 @@ func publish(
 
 // publishConfirmed publishes the draft the owner confirmed. A fresh build that
 // is not that draft, because the project was redeployed or changed since, is
-// refused with the fresh draft. When that draft has no variable or service key
-// function the owner did not already confirm, it is published once, without
-// asking again; otherwise the refusal is returned for the owner to review.
+// refused with the fresh draft. At a terminal the refusal is returned, so the
+// owner reviews the fresh build: its code and settings may have changed even
+// when its variables and service key functions did not. Under --yes nothing
+// was reviewed, so a fresh draft with no variable or service key function that
+// --yes did not already confirm is published once, without stopping.
 func publishConfirmed(
-	ctx context.Context, opts options, service sharing.Service, shareID string, draft *apiclient.ShareReleaseDraft,
+	ctx context.Context, opts options, service sharing.Service, shareID string,
+	draft *apiclient.ShareReleaseDraft, ask bool,
 ) (*apiclient.ShareRelease, error) {
 	release, err := service.Publish(ctx, shareID, draft)
 	changed, ok := errors.AsType[*api.DraftChangedError](err)
-	if !ok || !confirmedAlready(draft, &changed.Draft) {
+	if !ok || ask || !confirmedAlready(draft, &changed.Draft) {
 		return release, err
 	}
 	fmt.Fprintf(opts.out, "\nThe project changed while it was being shared (%s). Its new build has the variables and "+
-		"service key functions you confirmed, so it is shared instead.\n", theme.StripControl(changed.Err.Message))
+		"service key functions --yes confirmed, so it is shared instead.\n", theme.StripControl(changed.Err.Message))
 	return service.Publish(ctx, shareID, &changed.Draft)
 }
 

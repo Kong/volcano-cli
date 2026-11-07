@@ -35,7 +35,9 @@ variables.
 
 Run `volcano share` in your project directory, the one that holds `volcano/`
 or is linked to the cloud project. In a subdirectory of a linked project it
-deploys nothing and stops, unless you pass `--no-deploy`.
+refuses to deploy and stops, unless you pass `--no-deploy`. A project that
+deploys from its Git repository is never deployed directly, so it is shared
+from a subdirectory too.
 
 ```bash
 volcano share --description "Ask a question, get a checked answer."
@@ -86,10 +88,10 @@ Run `volcano share` again whenever you want people to fork what you have then.
 
 The release is the build you confirmed. If the project changes before it is
 published, for example because a deploy finished in between, nothing is
-published. When the new build has no variable or service key function you did
-not already confirm, `volcano share` publishes it once without asking again.
-Otherwise it shows the new build: at a terminal it asks you again, and with
-`--yes` it stops, so a function never gets the service key without your
+published. At a terminal, `volcano share` shows the new build and asks you
+again. With `--yes`, it publishes the new build once when it has no variable or
+service key function that `--yes` did not already confirm, and otherwise shows
+it and stops, so a function never gets the service key without your
 confirmation.
 
 ### Limits
