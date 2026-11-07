@@ -2,15 +2,15 @@ package api
 
 import "testing"
 
-// TestAPIE2EFork checks that a share link nobody issued is refused with the
+// TestAPIE2ECloudFork checks that a share link nobody issued is refused with the
 // unavailable message and creates nothing, through volcano fork and through
 // projects create --from. Forking a real share needs a published release,
 // which needs a project with deployed source that the harness does not set up
 // here. The same message answers a link that was switched off, has no release,
 // or comes from a copy whose source stopped re-sharing. Where the gate is
 // closed, the refusal says the feature is off instead.
-func TestAPIE2EFork(t *testing.T) {
-	env := setupAPIE2E(t, "fork")
+func TestAPIE2ECloudFork(t *testing.T) {
+	env := setupAPIE2E(t, "cloud-fork")
 	env.loginAndUse(t)
 
 	const unknownID = "aaaaaaaaaaaa"

@@ -30,12 +30,13 @@ func sharesAvailable(t *testing.T, env *apiE2E) bool {
 	return false
 }
 
-// TestAPIE2EShare walks volcano share on a fresh project, run outside a project
-// directory so nothing is deployed. A fresh project has nothing deployed, so
-// sharing it is refused for having nothing to share, but the share now exists: status reports it, and off switches it off. Where the gate is
-// closed, sharing is refused as unavailable.
-func TestAPIE2EShare(t *testing.T) {
-	env := setupAPIE2E(t, "share")
+// TestAPIE2ECloudShare walks volcano share on a fresh project, run outside a
+// project directory so nothing is deployed. A fresh project has nothing
+// deployed, so sharing it is refused for having nothing to share, but the
+// share now exists: status reports it, and off switches it off. Where the gate
+// is closed, sharing is refused as unavailable.
+func TestAPIE2ECloudShare(t *testing.T) {
+	env := setupAPIE2E(t, "cloud-share")
 	env.loginAndUse(t)
 
 	env.runCLI(t, "share", "status").requireFailure(t, "this project is not shared yet")
