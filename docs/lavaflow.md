@@ -463,6 +463,24 @@ The `Fix:` block always says what happened to the run's fix:
   `No fix pull request was opened. LavaFlow didn't record why.`
 - While the run is queued or working: `No fix yet: LavaFlow is still working on this run.`
 
+When LavaFlow read no code because it couldn't read the deployment that served
+the error, the `Fix:` block says why, names that deployment, and says what to
+do:
+
+```text
+Fix:
+  No fix pull request was opened. LavaFlow read no code: the deployment that served this error (7c2e5a1f-3b8d-4e6a-9f0c-1d2e3f4a5b6c) had uncommitted changes.
+  Deploy from a clean checkout of a commit pushed to the production branch, or deploy with a Git push. See https://docs.volcano.dev/platform/guides/lavaflow#deploy-code-lavaflow-can-read
+```
+
+The reason comes from the run's `source_unavailable`; see
+[Why LavaFlow read no code](/platform/guides/lavaflow#why-lavaflow-read-no-code).
+A reason your CLI doesn't know prints as the API gives it. A cloud deploy
+warns about such a deployment as it happens: see
+[LavaFlow warning](deploy.md#lavaflow-warning). A run without the reason, such
+as one recorded before Volcano kept it, says
+`LavaFlow couldn't read the repository at the deployed commit.`
+
 ```bash
 volcano cloud lavaflow show 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
 ```

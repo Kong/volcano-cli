@@ -455,6 +455,9 @@ func lavaflowFix(w io.Writer, on bool, run *apiclient.LavaflowRun) {
 	pr := run.PullRequest
 	if pr == nil {
 		fmt.Fprintf(w, "  %s\n", lavaflowNoFix(run))
+		if remedy := lavaflowSourceRemedy(run); remedy != "" {
+			fmt.Fprintf(w, "  %s\n", remedy)
+		}
 		return
 	}
 	fixKV(w, on, "Pull request", "#%d %s", pr.Number, clean(pr.Url))
@@ -531,6 +534,9 @@ func lavaflowNoFix(run *apiclient.LavaflowRun) string {
 		case apiclient.LavaflowSkipReasonPullRequestOpen:
 			return none + ": another LavaFlow pull request for this issue is open. Review or close it first."
 		case apiclient.LavaflowSkipReasonSourceUnavailable:
+			if run.SourceUnavailable != nil {
+				return none + ". LavaFlow read no code: " + lavaflowSourceUnavailable(run.SourceUnavailable) + "."
+			}
 			return none + ": LavaFlow couldn't read the repository at the deployed commit. Check the project's repository connection and that the commit exists."
 		case apiclient.LavaflowSkipReasonPermissionMissing:
 			return none + ": the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs. Grant the App's requested permissions, and make sure the owner can push to the repository."
@@ -557,6 +563,74 @@ func lavaflowNoFix(run *apiclient.LavaflowRun) string {
 	default:
 		return none + "."
 	}
+}
+
+// The public guide's sections on what LavaFlow can read, which the remedy
+// for a run that read no code points to.
+const (
+	lavaflowReadableDocs = "https://docs.volcano.dev/platform/guides/lavaflow#deploy-code-lavaflow-can-read"
+	lavaflowNoCodeDocs   = "https://docs.volcano.dev/platform/guides/lavaflow#why-lavaflow-read-no-code"
+)
+
+// lavaflowSourceUnavailable says why LavaFlow read no code, naming the
+// deployment that served the error when the API does. A reason the CLI
+// doesn't know prints as given.
+func lavaflowSourceUnavailable(source *apiclient.LavaflowSourceUnavailable) string {
+	deployment := "the deployment that served this error"
+	id := ""
+	if source.DeploymentId != nil {
+		id = source.DeploymentId.String()
+		deployment += " (" + id + ")"
+	}
+	switch source.Reason {
+	case apiclient.LavaflowSourceUnavailableReasonNoRepository:
+		return "it isn't on for any repository"
+	case apiclient.LavaflowSourceUnavailableReasonNoCommit:
+		if id == "" {
+			return "no deployment was serving when the error happened"
+		}
+		return deployment + " recorded no commit"
+	case apiclient.LavaflowSourceUnavailableReasonUncommittedChanges:
+		return deployment + " had uncommitted changes"
+	case apiclient.LavaflowSourceUnavailableReasonUnverifiedCommit:
+		return "Volcano couldn't verify the commit of " + deployment +
+			" against the linked repository, for example because the production branch doesn't hold it"
+	case apiclient.LavaflowSourceUnavailableReasonOtherRepository:
+		return "the commit of " + deployment + " is from another repository than the one LavaFlow is on for"
+	case apiclient.LavaflowSourceUnavailableReasonRepositoryUnreadable:
+		return "it couldn't read the repository at the commit, for example because the Volcano GitHub App lost access to it"
+	case apiclient.LavaflowSourceUnavailableReasonCommitNotOnProductionBranch:
+		return "the production branch no longer holds the commit the fix is on"
+	}
+	text := clean(string(source.Reason))
+	if id != "" {
+		text += " (deployment " + id + ")"
+	}
+	return text
+}
+
+// lavaflowSourceRemedy says what to do about a run that read no code, for a
+// run whose reason the API gave; "" for any other run. A reason about the
+// deployed code gets the advice the deploy warning gives.
+func lavaflowSourceRemedy(run *apiclient.LavaflowRun) string {
+	if run.PullRequestSkipped == nil || *run.PullRequestSkipped != apiclient.LavaflowSkipReasonSourceUnavailable ||
+		run.SourceUnavailable == nil {
+		return ""
+	}
+	switch run.SourceUnavailable.Reason {
+	case apiclient.LavaflowSourceUnavailableReasonNoCommit,
+		apiclient.LavaflowSourceUnavailableReasonUncommittedChanges,
+		apiclient.LavaflowSourceUnavailableReasonUnverifiedCommit,
+		apiclient.LavaflowSourceUnavailableReasonOtherRepository,
+		apiclient.LavaflowSourceUnavailableReasonCommitNotOnProductionBranch:
+		return "Deploy from a clean checkout of a commit pushed to the production branch, or deploy with a Git push. See " +
+			lavaflowReadableDocs
+	case apiclient.LavaflowSourceUnavailableReasonNoRepository:
+		return "Link a repository with volcano git connect <git-url>. See " + lavaflowNoCodeDocs
+	case apiclient.LavaflowSourceUnavailableReasonRepositoryUnreadable:
+		return "Check the project's repository link and the Volcano GitHub App's access to it. See " + lavaflowNoCodeDocs
+	}
+	return "See " + lavaflowNoCodeDocs
 }
 
 // lavaflowDiagnosisShown is whether show prints a diagnosis for a run to

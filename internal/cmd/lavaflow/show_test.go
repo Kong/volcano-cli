@@ -1,6 +1,7 @@
 package lavaflow
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -653,4 +654,101 @@ func TestShowSaysWhenNoReviewerCouldRun(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "Review: error; no reviewer could run\nReview stopped: ")
 	assert.NotContains(t, out, "0 round(s)")
+}
+
+// lavaflowDeploymentID is the deployment that served a run's error.
+const lavaflowDeploymentID = "7c2e5a1f-3b8d-4e6a-9f0c-1d2e3f4a5b6c"
+
+// A run that read no code says why, names the deployment that served the
+// error when the API does, and says what to do: for a reason about the
+// deployed code, what the deploy warning says. An unknown reason prints as
+// given. --json keeps the field as the API sent it.
+func TestShowSaysWhyLavaFlowReadNoCode(t *testing.T) {
+	const (
+		none     = "No fix pull request was opened. LavaFlow read no code: "
+		redeploy = "Deploy from a clean checkout of a commit pushed to the production branch, or deploy with a Git push. " +
+			"See https://docs.volcano.dev/platform/guides/lavaflow#deploy-code-lavaflow-can-read"
+		why        = "See https://docs.volcano.dev/platform/guides/lavaflow#why-lavaflow-read-no-code"
+		deployment = "the deployment that served this error (" + lavaflowDeploymentID + ")"
+	)
+	for _, tc := range []struct {
+		reason     string
+		deployment any
+		want       string
+	}{
+		{"no_repository", nil, none + "it isn't on for any repository.\n  " +
+			"Link a repository with volcano git connect <git-url>. " + why},
+		{"no_commit", lavaflowDeploymentID, none + deployment + " recorded no commit.\n  " + redeploy},
+		{"no_commit", nil, none + "no deployment was serving when the error happened.\n  " + redeploy},
+		{"uncommitted_changes", lavaflowDeploymentID, none + deployment + " had uncommitted changes.\n  " + redeploy},
+		{"unverified_commit", lavaflowDeploymentID, none + "Volcano couldn't verify the commit of " + deployment +
+			" against the linked repository, for example because the production branch doesn't hold it.\n  " + redeploy},
+		{"other_repository", lavaflowDeploymentID, none + "the commit of " + deployment +
+			" is from another repository than the one LavaFlow is on for.\n  " + redeploy},
+		{"repository_unreadable", nil, none + "it couldn't read the repository at the commit, " +
+			"for example because the Volcano GitHub App lost access to it.\n  " +
+			"Check the project's repository link and the Volcano GitHub App's access to it. " + why},
+		{"commit_not_on_production_branch", nil, none +
+			"the production branch no longer holds the commit the fix is on.\n  " + redeploy},
+		{"new_reason\x1b[2J", lavaflowDeploymentID, none + "new_reason\\x1b[2J (deployment " + lavaflowDeploymentID + ").\n  " + why},
+		{"new_reason", nil, none + "new_reason.\n  " + why},
+	} {
+		name := fmt.Sprintf("%s %v", tc.reason, tc.deployment)
+		sent := map[string]any{"reason": tc.reason, "deployment_id": tc.deployment}
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.openNoPullRequest("source_unavailable")
+			s.runs[0]["diagnosis"] = nil
+			s.runs[0]["source_unavailable"] = sent
+		})
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, name)
+		assert.Contains(t, out, "Fix:\n  "+tc.want+"\n", name)
+		assert.NotContains(t, out, "\x1b", name)
+		assertLavaFlowWording(t, out)
+
+		out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+		require.NoError(t, err, name)
+		assert.Equal(t, sent, decodeJSON(t, out)["source_unavailable"], name)
+	}
+}
+
+// Without the reason, as from a server older than it, a run recorded before
+// Volcano kept it, or one where LavaFlow couldn't tell why, show says what it
+// always has. A reason sent beside another skip changes nothing.
+func TestShowReadsASourceUnavailableSkipWithoutItsReason(t *testing.T) {
+	const want = "Fix:\n  No fix pull request was opened: LavaFlow couldn't read the repository at the deployed commit. " +
+		"Check the project's repository connection and that the commit exists.\n\n"
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.openNoPullRequest("source_unavailable")
+		s.runs[0]["diagnosis"] = nil
+		s.runs[0]["source_unavailable"] = nil
+	})
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, want, "null")
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+	require.NoError(t, err)
+	reason, sent := decodeJSON(t, out)["source_unavailable"]
+	assert.True(t, sent, "null")
+	assert.Nil(t, reason, "null")
+
+	fake.set(func(s *lavaflowServer) { delete(s.runs[0], "source_unavailable") })
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, want, "absent")
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+	require.NoError(t, err)
+	assert.NotContains(t, decodeJSON(t, out), "source_unavailable", "absent")
+
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["pull_request_skipped"] = "no_patch"
+		s.runs[0]["source_unavailable"] = map[string]any{"reason": "no_commit", "deployment_id": lavaflowDeploymentID}
+	})
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Fix:\n  No fix pull request was opened: LavaFlow proposed no change.\n\n", "another skip")
+	assert.NotContains(t, out, "read no code", "another skip")
 }

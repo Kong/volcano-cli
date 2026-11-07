@@ -26,9 +26,10 @@ func newShow(deps cliruntime.Deps) *cobra.Command {
 cause and the evidence behind it, its review, whether the repository's tests
 ran on its fix, and what happened to the fix.
 The Fix block gives the pull request, its state and where its merge is, or
-why the run opened none. A fix LavaFlow held or stopped lists why, and a
-failed run says why, in the API's words. --json prints the run as the API
-returned it.`,
+why the run opened none. A run that read no code names the deployment that
+served the error when it can, and says how to deploy code LavaFlow can read.
+A fix LavaFlow held or stopped lists why, and a failed run says why, in the
+API's words. --json prints the run as the API returned it.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.deps = deps

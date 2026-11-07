@@ -3000,6 +3000,39 @@ func (e LavaflowSkipReason) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowSourceUnavailableReason.
+const (
+	LavaflowSourceUnavailableReasonCommitNotOnProductionBranch LavaflowSourceUnavailableReason = "commit_not_on_production_branch"
+	LavaflowSourceUnavailableReasonNoCommit                    LavaflowSourceUnavailableReason = "no_commit"
+	LavaflowSourceUnavailableReasonNoRepository                LavaflowSourceUnavailableReason = "no_repository"
+	LavaflowSourceUnavailableReasonOtherRepository             LavaflowSourceUnavailableReason = "other_repository"
+	LavaflowSourceUnavailableReasonRepositoryUnreadable        LavaflowSourceUnavailableReason = "repository_unreadable"
+	LavaflowSourceUnavailableReasonUncommittedChanges          LavaflowSourceUnavailableReason = "uncommitted_changes"
+	LavaflowSourceUnavailableReasonUnverifiedCommit            LavaflowSourceUnavailableReason = "unverified_commit"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSourceUnavailableReason enum.
+func (e LavaflowSourceUnavailableReason) Valid() bool {
+	switch e {
+	case LavaflowSourceUnavailableReasonCommitNotOnProductionBranch:
+		return true
+	case LavaflowSourceUnavailableReasonNoCommit:
+		return true
+	case LavaflowSourceUnavailableReasonNoRepository:
+		return true
+	case LavaflowSourceUnavailableReasonOtherRepository:
+		return true
+	case LavaflowSourceUnavailableReasonRepositoryUnreadable:
+		return true
+	case LavaflowSourceUnavailableReasonUncommittedChanges:
+		return true
+	case LavaflowSourceUnavailableReasonUnverifiedCommit:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LiveLogLevel.
 const (
 	LiveLogLevelDebug LiveLogLevel = "debug"
@@ -10690,6 +10723,9 @@ type LavaflowRun struct {
 	// SourceCommit The commit the run read the code at. Null when it read none, as for a run that diagnosed from the logs alone.
 	SourceCommit *LavaflowSourceCommit `json:"source_commit"`
 
+	// SourceUnavailable For a run whose `pull_request_skipped` is `source_unavailable`, why LavaFlow couldn't read, or open a fix on, the code that served the error. Null for any other run, for a run recorded before LavaFlow kept the reason, and when LavaFlow couldn't tell why.
+	SourceUnavailable *LavaflowSourceUnavailable `json:"source_unavailable"`
+
 	// Status Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 	Status LavaflowRunStatus `json:"status"`
 
@@ -11130,7 +11166,7 @@ type LavaflowSkillVersionList struct {
 	Data []LavaflowSkillVersion `json:"data"`
 }
 
-// LavaflowSkipReason Why a finished run opened no pull request, with what you can do next. `diagnose_only`: the project's `autonomy` was `diagnose_only` when the run was queued, or became it before the pull request opened, so LavaFlow only diagnosed the issue; read the diagnosis, and set `autonomy` to `open_pr` or `merge` for later runs to open pull requests. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `convention_unsatisfiable`: LavaFlow would merge the fix, but no title can meet the repository's commit convention, so it kept the fix on the run; apply the fix yourself, or relax the convention. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit, or the production branch no longer holds it; check the project's repository connection and that the commit exists on that branch. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. `lineage_cap`: LavaFlow opened as many pull requests in this fix's lineage as it may; review the lineage's pull requests and fix the rest yourself. `lineage_held`: an earlier pull request in this fix's lineage was held, stopped or closed, so LavaFlow opens no more in it; apply the fix yourself from the diagnosis. `review_unresolved`: LavaFlow's review didn't pass a Code Quality fix; read the diagnosis. `duplicate_in_repository`: another project on the repository has the open Code Quality pull request for the same finding. `security_finding`: the finding has security impact and the repository isn't private, so the fix would disclose it; fix it yourself. New reasons may appear.
+// LavaflowSkipReason Why a finished run opened no pull request, with what you can do next. `diagnose_only`: the project's `autonomy` was `diagnose_only` when the run was queued, or became it before the pull request opened, so LavaFlow only diagnosed the issue; read the diagnosis, and set `autonomy` to `open_pr` or `merge` for later runs to open pull requests. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `convention_unsatisfiable`: LavaFlow would merge the fix, but no title can meet the repository's commit convention, so it kept the fix on the run; apply the fix yourself, or relax the convention. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read, or open a fix on, the code that served the error; the run's `source_unavailable` says why and what to do. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. `lineage_cap`: LavaFlow opened as many pull requests in this fix's lineage as it may; review the lineage's pull requests and fix the rest yourself. `lineage_held`: an earlier pull request in this fix's lineage was held, stopped or closed, so LavaFlow opens no more in it; apply the fix yourself from the diagnosis. `review_unresolved`: LavaFlow's review didn't pass a Code Quality fix; read the diagnosis. `duplicate_in_repository`: another project on the repository has the open Code Quality pull request for the same finding. `security_finding`: the finding has security impact and the repository isn't private, so the fix would disclose it; fix it yourself. New reasons may appear.
 type LavaflowSkipReason string
 
 // LavaflowSlackChannel A Slack channel that reports problems to LavaFlow for a project.
@@ -11175,6 +11211,18 @@ type LavaflowSourceCommit struct {
 	// Sha The commit's full SHA.
 	Sha string `json:"sha"`
 }
+
+// LavaflowSourceUnavailable Why LavaFlow couldn't read, or open a fix on, the code that served a run's error, so the run opened no pull request.
+type LavaflowSourceUnavailable struct {
+	// DeploymentId The deployment of the run's `resource` that served the error, for `no_commit`, `uncommitted_changes`, `unverified_commit` and `other_repository`. Null for any other reason, and when no deployment was serving.
+	DeploymentId *openapi_types.UUID `json:"deployment_id"`
+
+	// Reason Why LavaFlow couldn't read, or open a fix on, the code that served the error, with what you can do. LavaFlow reads the deployment that served the error, so once you deploy code it can read, it starts a new run when the error happens again. `no_repository`: LavaFlow is on for no repository; link one. `no_commit`: the deployment recorded no commit, nor did the build a redeploy serves, or no deployment was serving; deploy by pushing to the linked repository's production branch, or with the CLI from a clean checkout of a commit on that branch. `uncommitted_changes`: the deployment's files differ from its commit (`dirty: true`), as when the checkout had uncommitted changes; commit and push them, then deploy from the clean checkout. `unverified_commit`: Volcano couldn't verify the deployment's commit against the linked repository (`verification: none`), for example because the commit isn't on the production branch, or the deployment is a function redeploy, which doesn't carry its upload's `verification: repository` commit; push the commit to the production branch and deploy it again. `other_repository`: the deployment's commit is from a repository other than the one LavaFlow is on for, Volcano checked it under an earlier repository link, or the project no longer links that repository; deploy again from the linked repository. `repository_unreadable`: LavaFlow couldn't read the repository at the commit, for example because the Volcano GitHub App lost access to it; check the project's repository link and the App's access. `commit_not_on_production_branch`: the production branch no longer holds the commit the fix is on, so LavaFlow opened no pull request; deploy from the production branch. New reasons may appear.
+	Reason LavaflowSourceUnavailableReason `json:"reason"`
+}
+
+// LavaflowSourceUnavailableReason Why LavaFlow couldn't read, or open a fix on, the code that served the error, with what you can do. LavaFlow reads the deployment that served the error, so once you deploy code it can read, it starts a new run when the error happens again. `no_repository`: LavaFlow is on for no repository; link one. `no_commit`: the deployment recorded no commit, nor did the build a redeploy serves, or no deployment was serving; deploy by pushing to the linked repository's production branch, or with the CLI from a clean checkout of a commit on that branch. `uncommitted_changes`: the deployment's files differ from its commit (`dirty: true`), as when the checkout had uncommitted changes; commit and push them, then deploy from the clean checkout. `unverified_commit`: Volcano couldn't verify the deployment's commit against the linked repository (`verification: none`), for example because the commit isn't on the production branch, or the deployment is a function redeploy, which doesn't carry its upload's `verification: repository` commit; push the commit to the production branch and deploy it again. `other_repository`: the deployment's commit is from a repository other than the one LavaFlow is on for, Volcano checked it under an earlier repository link, or the project no longer links that repository; deploy again from the linked repository. `repository_unreadable`: LavaFlow couldn't read the repository at the commit, for example because the Volcano GitHub App lost access to it; check the project's repository link and the App's access. `commit_not_on_production_branch`: the production branch no longer holds the commit the fix is on, so LavaFlow opened no pull request; deploy from the production branch. New reasons may appear.
+type LavaflowSourceUnavailableReason string
 
 // LavaflowStats defines model for LavaflowStats.
 type LavaflowStats struct {
