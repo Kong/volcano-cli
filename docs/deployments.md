@@ -48,8 +48,8 @@ When more deployments match than `--limit` allows, the listing says so; with
 ## Inspect a deployment
 
 `deployments get` shows one deployment by ID: the resource, status, trigger,
-start and finish times, each build phase, any error, and the command that
-prints its build logs.
+the commit its deploy reported, start and finish times, each build phase, any
+error, and the command that prints its build logs.
 
 ```bash
 volcano cloud deployments get 8f0c2a1e-5b7d-4c6e-9a3f-2d1b0e4c7a91
@@ -61,6 +61,7 @@ Resource: function checkout (33333333-3333-4333-8333-333333333333)
 Operation: deploy
 Status: failed
 Trigger: cli
+Commit: acme/app@4f1c2b7 (verification: repository)
 Created: 2026-10-30T09:00:00Z
 Completed: 2026-10-30T09:01:32Z
 Duration: 1m32s
@@ -72,6 +73,13 @@ build           failed        1m20s
 
 Build logs: volcano cloud functions logs checkout 8f0c2a1e-5b7d-4c6e-9a3f-2d1b0e4c7a91 --type build
 ```
+
+`Commit` is the repository and short commit ID the deploy reported, with what
+Volcano confirmed about it. `verification` is `files` when a frontend's
+uploaded files are the commit's, `repository` when a function's commit is on
+the connected repository's production branch, and `none` otherwise. `dirty`
+means the uploaded files differ from the commit. A deployment that reported no
+commit, such as any deploy in local mode, has no `Commit` line.
 
 Durable function deployments, and deletes, show no build-log command. Read a
 durable function's current build output with `volcano cloud durable logs <name>
