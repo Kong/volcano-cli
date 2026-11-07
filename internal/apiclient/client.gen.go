@@ -2412,6 +2412,36 @@ func (e LavaflowDraftReason) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowFixOutcomeState.
+const (
+	AwaitingDeploy LavaflowFixOutcomeState = "awaiting_deploy"
+	Effective      LavaflowFixOutcomeState = "effective"
+	Ineffective    LavaflowFixOutcomeState = "ineffective"
+	Regressed      LavaflowFixOutcomeState = "regressed"
+	Reverted       LavaflowFixOutcomeState = "reverted"
+	Watching       LavaflowFixOutcomeState = "watching"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowFixOutcomeState enum.
+func (e LavaflowFixOutcomeState) Valid() bool {
+	switch e {
+	case AwaitingDeploy:
+		return true
+	case Effective:
+		return true
+	case Ineffective:
+		return true
+	case Regressed:
+		return true
+	case Reverted:
+		return true
+	case Watching:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowInvolvedResourceRoles.
 const (
 	LavaflowInvolvedResourceRolesCause LavaflowInvolvedResourceRoles = "cause"
@@ -2427,6 +2457,105 @@ func (e LavaflowInvolvedResourceRoles) Valid() bool {
 	case LavaflowInvolvedResourceRolesFix:
 		return true
 	case LavaflowInvolvedResourceRolesIssue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowLineageConfidence.
+const (
+	LavaflowLineageConfidenceStrong LavaflowLineageConfidence = "strong"
+	LavaflowLineageConfidenceWeak   LavaflowLineageConfidence = "weak"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowLineageConfidence enum.
+func (e LavaflowLineageConfidence) Valid() bool {
+	switch e {
+	case LavaflowLineageConfidenceStrong:
+		return true
+	case LavaflowLineageConfidenceWeak:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowLineageRelation.
+const (
+	Recurrence LavaflowLineageRelation = "recurrence"
+	Regression LavaflowLineageRelation = "regression"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowLineageRelation enum.
+func (e LavaflowLineageRelation) Valid() bool {
+	switch e {
+	case Recurrence:
+		return true
+	case Regression:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowLineageRemedy.
+const (
+	LavaflowLineageRemedyFix    LavaflowLineageRemedy = "fix"
+	LavaflowLineageRemedyNone   LavaflowLineageRemedy = "none"
+	LavaflowLineageRemedyRevert LavaflowLineageRemedy = "revert"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowLineageRemedy enum.
+func (e LavaflowLineageRemedy) Valid() bool {
+	switch e {
+	case LavaflowLineageRemedyFix:
+		return true
+	case LavaflowLineageRemedyNone:
+		return true
+	case LavaflowLineageRemedyRevert:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowLineageState.
+const (
+	LavaflowLineageStateActive  LavaflowLineageState = "active"
+	LavaflowLineageStateHeld    LavaflowLineageState = "held"
+	LavaflowLineageStateSettled LavaflowLineageState = "settled"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowLineageState enum.
+func (e LavaflowLineageState) Valid() bool {
+	switch e {
+	case LavaflowLineageStateActive:
+		return true
+	case LavaflowLineageStateHeld:
+		return true
+	case LavaflowLineageStateSettled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowLineageEvidenceConfidence.
+const (
+	LavaflowLineageEvidenceConfidenceDisplay LavaflowLineageEvidenceConfidence = "display"
+	LavaflowLineageEvidenceConfidenceStrong  LavaflowLineageEvidenceConfidence = "strong"
+	LavaflowLineageEvidenceConfidenceWeak    LavaflowLineageEvidenceConfidence = "weak"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowLineageEvidenceConfidence enum.
+func (e LavaflowLineageEvidenceConfidence) Valid() bool {
+	switch e {
+	case LavaflowLineageEvidenceConfidenceDisplay:
+		return true
+	case LavaflowLineageEvidenceConfidenceStrong:
+		return true
+	case LavaflowLineageEvidenceConfidenceWeak:
 		return true
 	default:
 		return false
@@ -2523,6 +2652,30 @@ func (e LavaflowReviewVerdict) Valid() bool {
 	case LavaflowReviewVerdictError:
 		return true
 	case LavaflowReviewVerdictPassed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowReviewFindingSeverity.
+const (
+	LavaflowReviewFindingSeverityCritical LavaflowReviewFindingSeverity = "critical"
+	LavaflowReviewFindingSeverityMajor    LavaflowReviewFindingSeverity = "major"
+	LavaflowReviewFindingSeverityMinor    LavaflowReviewFindingSeverity = "minor"
+	LavaflowReviewFindingSeverityNit      LavaflowReviewFindingSeverity = "nit"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowReviewFindingSeverity enum.
+func (e LavaflowReviewFindingSeverity) Valid() bool {
+	switch e {
+	case LavaflowReviewFindingSeverityCritical:
+		return true
+	case LavaflowReviewFindingSeverityMajor:
+		return true
+	case LavaflowReviewFindingSeverityMinor:
+		return true
+	case LavaflowReviewFindingSeverityNit:
 		return true
 	default:
 		return false
@@ -10377,6 +10530,20 @@ type LavaflowFailure struct {
 	Message string `json:"message"`
 }
 
+// LavaflowFixOutcome How a merged LavaFlow fix fared once it went live.
+type LavaflowFixOutcome struct {
+	// FollowUps Runs linked to this fix.
+	FollowUps int64      `json:"follow_ups"`
+	LiveAt    *time.Time `json:"live_at"`
+
+	// State `watching` for 14 days after the fix goes live, then `effective` unless its issue came back (`ineffective`) or a new issue was traced to its deploy (`regressed`). An outcome never moves back. `reverted` is reserved and not produced yet.
+	State      LavaflowFixOutcomeState `json:"state"`
+	WatchUntil *time.Time              `json:"watch_until"`
+}
+
+// LavaflowFixOutcomeState `watching` for 14 days after the fix goes live, then `effective` unless its issue came back (`ineffective`) or a new issue was traced to its deploy (`regressed`). An outcome never moves back. `reverted` is reserved and not produced yet.
+type LavaflowFixOutcomeState string
+
 // LavaflowGlobalSkill A skill Volcano wrote for every project. It holds no customer content.
 type LavaflowGlobalSkill struct {
 	// AppliesTo Where a global skill applies. Empty lists apply it to every project.
@@ -10435,10 +10602,10 @@ type LavaflowHeldWorkflows struct {
 
 // LavaflowHoldReason One reason LavaFlow holds the fix for a person.
 type LavaflowHoldReason struct {
-	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files, a YAML or JSON file that declares a resource, a YAML template that mentions `apiVersion` or `kind`, a file in a Helm chart or Kustomize directory, or, in a repository too large to read in full, any file no other path reason holds. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent's instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `commit_convention`: no title can meet the repository's commit convention. `ungated_workflows`: the fix opened past workflows that can run it with the repository's secrets before a person approves it, as the project's owner allowed, or LavaFlow couldn't check its workflows, so LavaFlow never starts its CI or merges it. `lineage_undoes_parent`: the fix follows up an earlier LavaFlow fix and deletes or changes lines that fix added, which could undo it. `lineage_cap`: the fix's lineage opened as many pull requests as it may. `lineage_held`: an earlier pull request in the fix's lineage was held, stopped or closed. `recent_regressions`: fixes LavaFlow merged in the project recently caused new errors. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
+	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files, a YAML or JSON file that declares a resource, a YAML template that mentions `apiVersion` or `kind`, a file in a Helm chart or Kustomize directory, or, in a repository too large to read in full, any file no other path reason holds. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent's instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `commit_convention`: no title can meet the repository's commit convention. `ungated_workflows`: the fix opened past workflows that can run it with the repository's secrets before a person approves it, as the project's owner allowed, or LavaFlow couldn't check its workflows, or, when LavaFlow was about to start its CI or add it to a merge queue, a workflow could run it with those secrets before a person approves it or couldn't be read, so LavaFlow takes it no further and never merges it. `ci_outside_actions`: when LavaFlow was about to start the fix's CI, the repository could run CI, a build or a preview outside GitHub Actions: the root of the fix's tree or its base branch's holds another service's configuration, such as `.travis.yml`, `.circleci/` or `netlify.toml`, which `paths` names, another app reported checks or statuses on the base branch, or LavaFlow couldn't read them in full. LavaFlow starts CI only when it finds no sign of CI outside GitHub Actions, so it never starts this fix's CI or merges it. `lineage_undoes_parent`: the fix follows up an earlier LavaFlow fix and deletes or changes lines that fix added, which could undo it. `lineage_cap`: the fix's lineage opened as many pull requests as it may. `lineage_held`: an earlier pull request in the fix's lineage was held, stopped or closed. `recent_regressions`: fixes LavaFlow merged in the project recently caused new errors. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
 	Code string `json:"code"`
 
-	// Paths The changed paths that matched, for a path code.
+	// Paths The changed paths that matched, for a path code. For `ci_outside_actions`, the entries at the repository's root that another CI or preview service reads, whether or not the fix changes them.
 	Paths []string `json:"paths"`
 
 	// Question What a person decides before merging the fix, written to show as given.
@@ -10492,6 +10659,80 @@ type LavaflowIssueSummary struct {
 	// Title The issue's title: the error type and message, a Code Quality finding's title, or a reported problem's title.
 	Title string `json:"title"`
 }
+
+// LavaflowLineage A chain of LavaFlow fixes: a merged fix, and the runs that followed up an issue traced to it or to a fix after it.
+type LavaflowLineage struct {
+	// Confidence Null for the root, and otherwise `strong`. `weak` is reserved: nothing writes it.
+	Confidence *LavaflowLineageConfidence `json:"confidence"`
+
+	// CoveredBy The run whose fix also covers this issue, so this run opened nothing.
+	CoveredBy *LavaflowRunReference `json:"covered_by"`
+
+	// Depth 0 for the root fix.
+	Depth int64 `json:"depth"`
+
+	// HoldReason Why the lineage holds: `lineage_cap`, `lineage_held` or `repository_changed`. New values may appear. Null unless `state` is `held`.
+	HoldReason *string `json:"hold_reason"`
+
+	// Id The lineage's root run.
+	Id openapi_types.UUID `json:"id"`
+
+	// Parent The fix this run follows up. Null for the root.
+	Parent *LavaflowRunReference `json:"parent"`
+
+	// PullRequestCap The most pull requests a lineage opens before it holds.
+	PullRequestCap int64 `json:"pull_request_cap"`
+
+	// PullRequestsOpened Pull requests the lineage opened, counting the root's.
+	PullRequestsOpened int64 `json:"pull_requests_opened"`
+
+	// Relation `regression` for an issue traced to the parent's deploy, `recurrence` for an issue that came back after the parent went live. Null for the root.
+	Relation *LavaflowLineageRelation `json:"relation"`
+
+	// Remedy How the run follows up its parent. Currently always `fix`: a regression gets a follow-up fix. `revert` and `none` are reserved.
+	Remedy LavaflowLineageRemedy `json:"remedy"`
+	State  LavaflowLineageState  `json:"state"`
+}
+
+// LavaflowLineageConfidence Null for the root, and otherwise `strong`. `weak` is reserved: nothing writes it.
+type LavaflowLineageConfidence string
+
+// LavaflowLineageRelation `regression` for an issue traced to the parent's deploy, `recurrence` for an issue that came back after the parent went live. Null for the root.
+type LavaflowLineageRelation string
+
+// LavaflowLineageRemedy How the run follows up its parent. Currently always `fix`: a regression gets a follow-up fix. `revert` and `none` are reserved.
+type LavaflowLineageRemedy string
+
+// LavaflowLineageState defines model for LavaflowLineage.State.
+type LavaflowLineageState string
+
+// LavaflowLineageEvidence What tied the run's issue to a recent LavaFlow fix. A `display` link rests on less than a strong one and joins no lineage.
+type LavaflowLineageEvidence struct {
+	// Confidence `strong` or `display`. `weak` is reserved: nothing writes it.
+	Confidence LavaflowLineageEvidenceConfidence `json:"confidence"`
+	Deployment struct {
+		// CommitOrigin `push` for a commit Volcano built from a push, `client_reported` for one the deploy client reported. New values may appear.
+		CommitOrigin string `json:"commit_origin"`
+
+		// CommitSha The commit of the deployment that served the occurrence attribution judged (`opened_at`).
+		CommitSha string `json:"commit_sha"`
+	} `json:"deployment"`
+	FixLiveAt time.Time `json:"fix_live_at"`
+
+	// OpenedAt The occurrence attribution judged.
+	OpenedAt             time.Time `json:"opened_at"`
+	OverlappingFiles     []string  `json:"overlapping_files"`
+	OverlappingFunctions []string  `json:"overlapping_functions"`
+
+	// Parent The fix the issue was traced to.
+	Parent LavaflowRunReference `json:"parent"`
+
+	// PreviousCommitSha The commit of the deployment before it.
+	PreviousCommitSha *string `json:"previous_commit_sha"`
+}
+
+// LavaflowLineageEvidenceConfidence `strong` or `display`. `weak` is reserved: nothing writes it.
+type LavaflowLineageEvidenceConfidence string
 
 // LavaflowLogLine defines model for LavaflowLogLine.
 type LavaflowLogLine struct {
@@ -10562,15 +10803,36 @@ type LavaflowPullRequestStateCounts struct {
 	Open   int64 `json:"open"`
 }
 
-// LavaflowRepositoryChecks Whether LavaFlow ran the repository's own checks, such as its tests, on a fix itself, before it opened a pull request or held the fix. CI that runs on the pull request afterwards is the repository's own.
+// LavaflowRepositoryCheckCommand One command the repository's checks ran. `command` and `output` are the repository's own text, served as LavaFlow recorded it. `command` reads `LavaFlow left this command out because it may contain a credential`, and `output` reads `LavaFlow left this output out because it may contain a credential`, when that text may contain a credential, holds one of the project's secret values, or is over 4,000 characters, and when the run is held with `possible_credential`.
+type LavaflowRepositoryCheckCommand struct {
+	// Command The command as LavaFlow ran it.
+	Command string `json:"command"`
+
+	// ExitCode The code the command exited with, null when it gave none, as a command that timed out may not.
+	ExitCode *int `json:"exit_code"`
+
+	// Output The end of what the command printed, present only when `status` is `failed` or `timed_out` and LavaFlow kept it; `""` when it printed nothing.
+	Output *string `json:"output,omitempty"`
+
+	// Status `passed`: the command succeeded. `failed`: it exited with an error. `timed_out`: it ran past its time limit, and LavaFlow stopped it. Treat a status you don't know as `failed`.
+	Status string `json:"status"`
+}
+
+// LavaflowRepositoryChecks Whether LavaFlow ran the repository's own checks, such as its tests, on a fix itself, before it opened a pull request or held the fix, and what they found. When LavaFlow ran them more than once, this is the latest attempt: the last one of the run's latest attempt. CI that runs on the pull request afterwards is the repository's own.
 type LavaflowRepositoryChecks struct {
+	// Commands The commands the checks ran, in order. Absent when LavaFlow recorded none, as for `no_checks_found` and `not_run`.
+	Commands []LavaflowRepositoryCheckCommand `json:"commands,omitempty"`
+
 	// Message Text to show for the status and reason. It names the pull request when one opened.
 	Message string `json:"message"`
 
-	// Reason Stable code for why the checks did not run. `sandbox_unavailable`: LavaFlow cannot run a repository's checks itself yet.
-	Reason string `json:"reason"`
+	// Reason Stable code for why the checks did not run, present only when `status` is `not_run`. `dependencies_changed`: the fix changes the repository's dependencies. `dependencies_not_installed`: LavaFlow couldn't install the repository's dependencies. `run_deadline`: the run reached its time limit. `sandbox_capacity`: no sandbox was free to run them. `sandbox_budget`: LavaFlow reached its sandbox budget. `sandbox_not_isolated`: LavaFlow couldn't confirm the sandbox was isolated. `sandbox_plan_limit`: LavaFlow couldn't start a sandbox large enough to run them. `sandbox_unavailable`: LavaFlow couldn't run them itself. `source_too_large`: the repository is too large to copy into a sandbox. `tool_unavailable`: a tool the checks need isn't available. New reasons may appear; treat one you don't know like any other `not_run`.
+	Reason *string `json:"reason,omitempty"`
 
-	// Status `not_run`: LavaFlow did not run the repository's checks on the fix, for the reason `reason` names. Treat a status you don't know as `not_run`.
+	// Revised Present and `true` only when `status` is `failed` and LavaFlow then revised the fix once without running the checks again. `status` and `commands` describe that earlier version, not the fix as saved, which the checks never ran on.
+	Revised bool `json:"revised,omitempty"`
+
+	// Status `passed`: every command the checks ran passed. `failed`: a command failed or timed out; `commands` shows which. `no_checks_found`: LavaFlow found no checks in the repository to run. `not_run`: LavaFlow did not run the repository's checks on the fix, for the reason `reason` names. Treat a status you don't know as `not_run`.
 	Status string `json:"status"`
 }
 
@@ -10611,6 +10873,12 @@ type LavaflowResourceReferenceType string
 
 // LavaflowReview defines model for LavaflowReview.
 type LavaflowReview struct {
+	// OpenFindings The findings the review saved with the fix left open. Absent when the review passed the fix, left none open, or the run saved no fix.
+	OpenFindings []LavaflowReviewFinding `json:"open_findings,omitempty"`
+
+	// PersonReasons What the review saved with the fix asks a person to decide before the fix merges. Absent when it asks nothing or the run saved no fix.
+	PersonReasons []LavaflowReviewPersonReason `json:"person_reasons,omitempty"`
+
 	// Rounds The review rounds that ran, 0 when no reviewer could run.
 	Rounds int `json:"rounds"`
 
@@ -10623,6 +10891,30 @@ type LavaflowReview struct {
 
 // LavaflowReviewVerdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding, or no reviewer could run.
 type LavaflowReviewVerdict string
+
+// LavaflowReviewFinding A finding the review left open, in the reviewer's words. `explanation` reads `LavaFlow left this explanation out because it may contain a credential` when it may contain a credential, holds one of the project's secret values, or is over 4,000 characters; when the run is held with `possible_credential`; and when `diff` withholds the changes to its file, even past a truncated diff's cut, the run saved no `diff` and the finding has a `file`, or `file` is `""`.
+type LavaflowReviewFinding struct {
+	Explanation string `json:"explanation"`
+
+	// File The file the finding is about, null when it is about no file. `""` when the path itself may contain a credential, holds a project secret value, or is over 4,000 characters.
+	File *string `json:"file"`
+
+	// Line The line of `file` the finding is about, null when it is about no one line.
+	Line     *int                          `json:"line"`
+	Severity LavaflowReviewFindingSeverity `json:"severity"`
+}
+
+// LavaflowReviewFindingSeverity defines model for LavaflowReviewFinding.Severity.
+type LavaflowReviewFindingSeverity string
+
+// LavaflowReviewPersonReason One decision the review leaves to a person. `question` reads `LavaFlow left this question out because it may contain a credential` when it may contain a credential, holds one of the project's secret values, or is over 4,000 characters, and when the run is held with `possible_credential`.
+type LavaflowReviewPersonReason struct {
+	// Kind `irreversible`: the fix deletes or migrates data, or does what a revert can't undo. `trust_boundary`: it changes authentication, authorization, secrets, or who can reach what. `breaks_contract`: it changes an interface other code or users depend on. `billing`: it touches payments, pricing, metering, or charges. `unexplained`: it changes behavior its context doesn't explain. `not_reviewable`: it couldn't be reviewed closely. New kinds may appear.
+	Kind string `json:"kind"`
+
+	// Question What the person decides, written to show as given.
+	Question string `json:"question"`
+}
 
 // LavaflowReviewStop Why a run's review ended without passing its fix. `rounds`: the last review round still found problems. `no_revision`: LavaFlow gave no revised fix. `budget_exhausted`: the run used its token budget before LavaFlow could revise the fix; this is the run's own budget, not the project's daily spend limit. `context_limit`: the fix's conversation grew too long for the model before LavaFlow could revise it. `timed_out`: the run's time for review ran out. `reviewers_failed`: no reviewer of the last round finished. `too_few_reviewers`: fewer reviewers could run than a round needs to pass the fix. `unreadable`: a retried run could not read the review saved with its fix, so a person must review it. More values may be added: treat a value you don't know as other.
 type LavaflowReviewStop string
@@ -10653,6 +10945,9 @@ type LavaflowRun struct {
 	Failure    *LavaflowFailure `json:"failure"`
 	FinishedAt *time.Time       `json:"finished_at"`
 
+	// FixOutcome How the run's merged fix fared once it went live. Null until a merged fix goes live with the `lavaflow.lineage` capability on.
+	FixOutcome *LavaflowFixOutcome `json:"fix_outcome"`
+
 	// HeldWorkflows For a run whose `pull_request_skipped` is `ungated_workflows`, every workflow job that held its fix. Null for any other run, and for a held run whose workflows LavaFlow couldn't read to the end, such as one with a workflow it couldn't parse, or more than 256 such jobs.
 	HeldWorkflows *LavaflowHeldWorkflows `json:"held_workflows"`
 	Id            openapi_types.UUID     `json:"id"`
@@ -10660,7 +10955,13 @@ type LavaflowRun struct {
 	// Issue Null only for a run that works on no issue.
 	Issue   *LavaflowIssueSummary `json:"issue"`
 	IssueId openapi_types.UUID    `json:"issue_id"`
-	Merge   *LavaflowMerge        `json:"merge"`
+
+	// Lineage The fix lineage the run belongs to. Null for a run in no lineage.
+	Lineage *LavaflowLineage `json:"lineage"`
+
+	// LineageEvidence What tied the run's issue to a recent LavaFlow fix's deploy. Null when nothing did, and for a recurrence, whose issue came back after the fix.
+	LineageEvidence *LavaflowLineageEvidence `json:"lineage_evidence"`
+	Merge           *LavaflowMerge           `json:"merge"`
 
 	// Mode What the run works on: `live` for an issue seen in the project's logs, `code_quality` for a Code Quality finding.
 	Mode LavaflowRunMode `json:"mode"`
@@ -10746,6 +11047,14 @@ type LavaflowRunProgress struct {
 // LavaflowRunProgressStage New stages may appear.
 type LavaflowRunProgressStage string
 
+// LavaflowRunReference Another LavaFlow run of the same project.
+type LavaflowRunReference struct {
+	Id openapi_types.UUID `json:"id"`
+
+	// Title The run's title, as `LavaflowRunSummary.title` gives it.
+	Title *string `json:"title"`
+}
+
 // LavaflowRunStatus Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 type LavaflowRunStatus string
 
@@ -10767,12 +11076,18 @@ type LavaflowRunSummary struct {
 	Category   *LavaflowRunCategory `json:"category"`
 	CreatedAt  time.Time            `json:"created_at"`
 	FinishedAt *time.Time           `json:"finished_at"`
-	Id         openapi_types.UUID   `json:"id"`
+
+	// FixOutcome How the run's merged fix fared once it went live. Null until a merged fix goes live with the `lavaflow.lineage` capability on.
+	FixOutcome *LavaflowFixOutcome `json:"fix_outcome"`
+	Id         openapi_types.UUID  `json:"id"`
 
 	// Issue Null only for a run that works on no issue.
 	Issue   *LavaflowIssueSummary `json:"issue"`
 	IssueId openapi_types.UUID    `json:"issue_id"`
-	Merge   *LavaflowMerge        `json:"merge"`
+
+	// Lineage The fix lineage the run belongs to. Null for a run in no lineage.
+	Lineage *LavaflowLineage `json:"lineage"`
+	Merge   *LavaflowMerge   `json:"merge"`
 
 	// Mode What the run works on: `live` for an issue seen in the project's logs, `code_quality` for a Code Quality finding.
 	Mode LavaflowRunMode `json:"mode"`
@@ -10895,7 +11210,7 @@ type LavaflowScanStatus string
 
 // LavaflowSettings A project's LavaFlow settings. LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
 type LavaflowSettings struct {
-	// AllowUngatedWorkflows Whether LavaFlow opens a fix's pull request even where a workflow could run it, or put its text into a command, with the repository's secrets before a person approves it. Off by default; while off, such a fix stays on its run and no pull request opens. Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. It applies to the repository their GitHub account can push to. Connecting the project to another repository, or disconnecting it, turns it off, and connecting the first one again doesn't turn it back on. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer.
+	// AllowUngatedWorkflows Whether LavaFlow opens a fix's pull request even where a workflow could run it, or put its text into a command, with the repository's secrets before a person approves it. Off by default; while off, such a fix stays on its run and no pull request opens. Only the project's owner turns it on, signed in as a person: with the platform token `volcano login` stores, or another platform token that expires. It applies to the repository their GitHub account can push to. Connecting the project to another repository, or disconnecting it, turns it off, and connecting the first one again doesn't turn it back on. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer.
 	AllowUngatedWorkflows bool `json:"allow_ungated_workflows"`
 
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
@@ -10940,7 +11255,7 @@ type LavaflowSettings struct {
 
 // LavaflowSettingsUpdate The project, and at least one field to change. An omitted field keeps its saved value.
 type LavaflowSettingsUpdate struct {
-	// AllowUngatedWorkflows Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner's credentials turns it off. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`, `skill_learning: off` or both.
+	// AllowUngatedWorkflows Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project's owner turns it on, signed in as a person: with the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner's credentials turns it off. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`, `skill_learning: off` or both.
 	AllowUngatedWorkflows *bool `json:"allow_ungated_workflows,omitempty"`
 
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
@@ -10957,7 +11272,7 @@ type LavaflowSettingsUpdate struct {
 	// ProjectId The project whose settings to change.
 	ProjectId openapi_types.UUID `json:"project_id"`
 
-	// SkillLearning Only the project's owner turns learning up, from `off` to `review` or `auto` or from `review` to `auto`, signed in as a person: with a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, and with a GitHub account that can push to the project's repository. Any other credential gets `403` with code `person_required`. Turning it down or off, or sending the saved value, needs no check. A project access token may send `off` with `project_id`, alone or with `code_quality` turned off, and nothing else; any other save it makes gets `403` with code `person_required`.
+	// SkillLearning Only the project's owner turns learning up, from `off` to `review` or `auto` or from `review` to `auto`, signed in as a person: with a `volcano login` token whose sign-in is live, or a platform token with an expiry, and with a GitHub account that can push to the project's repository. Any other credential gets `403` with code `person_required`. Turning it down or off, or sending the saved value, needs no check. A project access token may send `off` with `project_id`, alone or with `code_quality` turned off, and nothing else; any other save it makes gets `403` with code `person_required`.
 	SkillLearning *LavaflowSkillLearning `json:"skill_learning,omitempty"`
 	SystemPrompt  *string                `json:"system_prompt,omitempty"`
 }

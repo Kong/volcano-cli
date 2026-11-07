@@ -408,14 +408,43 @@ status the CLI doesn't know prints as the API gives it.
 and its diagnosis and root cause with the evidence behind them. A run that
 failed says why.
 
-A run with a fix has a `Checks:` line. LavaFlow doesn't run your repository's
-tests before it opens the pull request, so the line says they didn't run. Your
-repository's CI may still run on the pull request after it opens.
+A run with a fix has a `Checks:` line. It says, in Volcano's words, whether
+LavaFlow ran your repository's own checks, such as its tests, on the fix
+before it opened the pull request or held the fix, and what they found: they
+passed, they failed, LavaFlow found no checks to run, or they didn't run and
+why. Your repository's CI may still run on the pull request after it opens.
 
-The line reads
+When the checks ran, each command follows in the order it ran, with how it
+ended (`passed`, `failed` or `timed out`) and its exit code. A command that
+failed or timed out shows the end of what it printed, indented under
+`Output:`:
+
+```text
+Checks: LavaFlow ran the repository's checks before opening this pull request, and they failed.
+  - passed, exit code 0: npm run lint
+  - failed, exit code 1: npm test
+    Output:
+      FAIL src/cart.test.ts
+        charges nothing for an empty cart
+          Expected: 0
+          Received: 12.5
+  - timed out: npm run e2e
+    Output: (empty)
+```
+
+A command that ended without an exit code, as one that timed out may, shows
+none, and `Output: (empty)` marks one that printed nothing. A status your CLI
+doesn't know shows as `failed`. Volcano replaces a command or output that may
+contain a credential with a sentence saying it left it out. A control
+character in a command or its output prints as a visible escape such as
+`\x1b`.
+
+When the checks failed and LavaFlow then revised the fix once without running
+them again, the line says so, and the commands listed are the ones that ran on
+the earlier version.
+
+When the checks didn't run, the line says why, such as
 `LavaFlow didn't run the repository's tests before opening this pull request.`
-for a run that opened one, and `LavaFlow didn't run the repository's tests.`
-for a run that didn't.
 
 When the review ends without passing the fix, a `Review stopped:` line says
 why, in the words of the API's `review.stopped`:

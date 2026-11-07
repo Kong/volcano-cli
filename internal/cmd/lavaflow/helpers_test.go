@@ -327,8 +327,8 @@ func checkoutResource() map[string]any {
 // with a pull request.
 const lavaflowChecksMessage = "LavaFlow didn't run the repository's tests before opening this pull request."
 
-// checksNotRun is repository_checks as the API sends it for every run with a
-// fix: LavaFlow can't run a repository's checks yet.
+// checksNotRun is repository_checks as the API sends it for a fix whose
+// pull request opened without LavaFlow running the repository's checks.
 func checksNotRun() map[string]any {
 	return map[string]any{"status": "not_run", "reason": "sandbox_unavailable", "message": lavaflowChecksMessage}
 }

@@ -591,6 +591,262 @@ func TestShowJSONKeepsTheRepositoryChecks(t *testing.T) {
 	assert.Nil(t, got["repository_checks"])
 }
 
+// The API's words for the repository's checks on a fix that opened a pull
+// request, and the sentences Volcano serves in place of check text it
+// withholds.
+const (
+	checksPassedMessage  = "LavaFlow ran the repository's checks before opening this pull request, and they passed."
+	checksFailedMessage  = "LavaFlow ran the repository's checks before opening this pull request, and they failed."
+	checksNoneMessage    = "LavaFlow found no checks to run in the repository before opening this pull request."
+	checksRevisedMessage = "The repository's checks failed on an earlier version of this fix. LavaFlow revised the fix " +
+		"once and opened this pull request without running the checks again."
+	checkCommandWithheld = "LavaFlow left this command out because it may contain a credential"
+	checkOutputWithheld  = "LavaFlow left this output out because it may contain a credential"
+)
+
+// failedChecks is repository_checks for checks that failed, as the API serves
+// it: a command that passed, one that failed and printed, and one that timed
+// out with no exit code and printed nothing.
+func failedChecks() map[string]any {
+	return map[string]any{
+		"status": "failed", "message": checksFailedMessage,
+		"commands": []any{
+			map[string]any{"command": "npm run lint", "status": "passed", "exit_code": 0},
+			map[string]any{
+				"command": "npm test", "status": "failed", "exit_code": 1,
+				"output": "FAIL src/cart.test.ts\n  charges nothing for an empty cart\n    Expected: 0\n    Received: 12.5\n",
+			},
+			map[string]any{"command": "npm run e2e", "status": "timed_out", "exit_code": nil, "output": ""},
+		},
+	}
+}
+
+// failedChecksLines is how show lists failedChecks' commands.
+const failedChecksLines = "  - passed, exit code 0: npm run lint\n" +
+	"  - failed, exit code 1: npm test\n" +
+	"    Output:\n" +
+	"      FAIL src/cart.test.ts\n" +
+	"        charges nothing for an empty cart\n" +
+	"          Expected: 0\n" +
+	"          Received: 12.5\n" +
+	"  - timed out: npm run e2e\n" +
+	"    Output: (empty)\n"
+
+// show lists, under the Checks line, each command the repository's checks
+// ran, in the order the API sends them, with how it ended and its exit code,
+// and the output of one that failed or timed out indented under it. --json
+// keeps the checks as sent.
+func TestShowListsTheCommandsTheRepositorysChecksRan(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.runs[0]["repository_checks"] = failedChecks() })
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Review: passed after 2 round(s)\nChecks: "+checksFailedMessage+"\n"+failedChecksLines+"Fix:\n")
+	assert.NotContains(t, out, "timed_out")
+	assertLavaFlowWording(t, out)
+
+	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+	require.NoError(t, err)
+	assert.Equal(t, asJSON(t, failedChecks()), decodeJSON(t, out)["repository_checks"], "--json keeps the checks as sent")
+}
+
+// Each status prints the API's message and the commands it sent. A revised
+// fix's checks print as served, with nothing added: the message already says
+// the commands ran on an earlier version of the fix. A status the CLI doesn't
+// know prints its message too.
+func TestShowSaysWhatTheRepositorysChecksFound(t *testing.T) {
+	for name, tc := range map[string]struct {
+		checks map[string]any
+		want   string
+	}{
+		"passed": {
+			checks: map[string]any{"status": "passed", "message": checksPassedMessage, "commands": []any{
+				map[string]any{"command": "npm run lint", "status": "passed", "exit_code": 0},
+				map[string]any{"command": "npm test", "status": "passed", "exit_code": 0},
+			}},
+			want: "Checks: " + checksPassedMessage + "\n" +
+				"  - passed, exit code 0: npm run lint\n" +
+				"  - passed, exit code 0: npm test\n",
+		},
+		"failed": {checks: failedChecks(), want: "Checks: " + checksFailedMessage + "\n" + failedChecksLines},
+		"no checks found": {
+			checks: map[string]any{"status": "no_checks_found", "message": checksNoneMessage},
+			want:   "Checks: " + checksNoneMessage + "\n",
+		},
+		"not run": {checks: checksNotRun(), want: "Checks: " + lavaflowChecksMessage + "\n"},
+		"revised": {
+			checks: map[string]any{"status": "failed", "revised": true, "message": checksRevisedMessage, "commands": []any{
+				map[string]any{"command": "npm test", "status": "failed", "exit_code": 1, "output": "FAIL src/cart.test.ts\n"},
+			}},
+			want: "Checks: " + checksRevisedMessage + "\n" +
+				"  - failed, exit code 1: npm test\n" +
+				"    Output:\n" +
+				"      FAIL src/cart.test.ts\n",
+		},
+		"unknown status": {
+			checks: map[string]any{"status": "cancelled", "message": lavaflowChecksMessage},
+			want:   "Checks: " + lavaflowChecksMessage + "\n",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) { s.runs[0]["repository_checks"] = tc.checks })
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Review: passed after 2 round(s)\n"+tc.want+"Fix:\n")
+			for _, code := range []string{"no_checks_found", "not_run", "sandbox_unavailable", "cancelled"} {
+				assert.NotContains(t, out, code)
+			}
+			assertLavaFlowWording(t, out)
+		})
+	}
+}
+
+// Without the API's message, the Checks line says what the status means, and
+// reads a status the CLI doesn't know as not run. A revised fix's line says
+// the checks failed on an earlier version, not on the fix as saved.
+func TestShowSaysWhatTheRepositorysChecksFoundWithoutAMessage(t *testing.T) {
+	for name, tc := range map[string]struct {
+		checks map[string]any
+		want   string
+	}{
+		"passed":          {map[string]any{"status": "passed", "message": ""}, "The repository's checks passed."},
+		"failed":          {map[string]any{"status": "failed", "message": ""}, "The repository's checks failed."},
+		"revised":         {map[string]any{"status": "failed", "revised": true, "message": " "}, "The repository's checks failed on an earlier version of this fix."},
+		"no checks found": {map[string]any{"status": "no_checks_found", "message": ""}, "LavaFlow found no checks to run in the repository."},
+		"not run":         {map[string]any{"status": "not_run", "reason": "run_deadline", "message": ""}, "The repository's tests didn't run."},
+		"unknown status":  {map[string]any{"status": "cancelled", "message": ""}, "The repository's tests didn't run."},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) { s.runs[0]["repository_checks"] = tc.checks })
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "\nChecks: "+tc.want+"\nFix:\n")
+		})
+	}
+}
+
+// A command status the CLI doesn't know reads as failed, as the API asks, and
+// a command with no exit code shows none.
+func TestShowReadsACheckCommandStatusItDoesntKnowAsFailed(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["repository_checks"] = map[string]any{"status": "failed", "message": checksFailedMessage, "commands": []any{
+			map[string]any{"command": "npm test", "status": "skipped", "exit_code": nil},
+			map[string]any{"command": "npm run e2e", "status": "killed", "exit_code": 137, "output": "Killed\n"},
+		}}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Checks: "+checksFailedMessage+"\n"+
+		"  - failed: npm test\n"+
+		"  - failed, exit code 137: npm run e2e\n"+
+		"    Output:\n"+
+		"      Killed\n"+
+		"Fix:\n")
+	assert.NotContains(t, out, "skipped")
+	assert.NotContains(t, out, "killed")
+}
+
+// A command or output Volcano withheld prints as the sentence it serves in
+// its place.
+func TestShowPrintsWithheldCheckTextAsServed(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["repository_checks"] = map[string]any{"status": "failed", "message": checksFailedMessage, "commands": []any{
+			map[string]any{"command": checkCommandWithheld, "status": "passed", "exit_code": 0},
+			map[string]any{"command": "npm test", "status": "failed", "exit_code": 1, "output": checkOutputWithheld},
+			map[string]any{"command": checkCommandWithheld, "status": "timed_out", "exit_code": nil, "output": checkOutputWithheld},
+		}}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Checks: "+checksFailedMessage+"\n"+
+		"  - passed, exit code 0: "+checkCommandWithheld+"\n"+
+		"  - failed, exit code 1: npm test\n"+
+		"    Output:\n"+
+		"      "+checkOutputWithheld+"\n"+
+		"  - timed out: "+checkCommandWithheld+"\n"+
+		"    Output:\n"+
+		"      "+checkOutputWithheld+"\n"+
+		"Fix:\n")
+}
+
+// A command and its output are the repository's text: an escape sequence, such
+// as a color or a cursor movement, prints as a visible escape, a command stays
+// on one line, and each line of output is indented under the command, so none
+// of it can pass for the CLI's own lines.
+func TestShowPrintsCheckCommandsAndOutputAsPlainText(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs[0]["repository_checks"] = map[string]any{"status": "failed", "message": checksFailedMessage, "commands": []any{
+			map[string]any{
+				"command": "npm test -- \x1b[31m--color\x1b[0m \x1b[2J\x1b[H\x1b]0;title\x07\nChecks: " + checksPassedMessage,
+				"status":  "failed", "exit_code": 1,
+				"output": "\x1b[31mFAIL\x1b[0m src/cart.test.ts\n" +
+					"\x1b[1A\x1b[2Kall passed\rok\u009b2J\n" +
+					"Checks: " + checksPassedMessage + "\n" +
+					"Fix:\n",
+			},
+		}}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Checks: "+checksFailedMessage+"\n"+
+		`  - failed, exit code 1: npm test -- \x1b[31m--color\x1b[0m \x1b[2J\x1b[H\x1b]0;title\x07\x0aChecks: `+checksPassedMessage+"\n"+
+		"    Output:\n"+
+		`      \x1b[31mFAIL\x1b[0m src/cart.test.ts`+"\n"+
+		`      \x1b[1A\x1b[2Kall passed\x0dok\u009b2J`+"\n"+
+		"      Checks: "+checksPassedMessage+"\n"+
+		"      Fix:\n"+
+		"Fix:\n")
+	for _, raw := range []string{"\x1b", "\r", "\x07", "\u009b"} {
+		assert.NotContains(t, out, raw)
+	}
+	assert.NotContains(t, out, "\nChecks: "+checksPassedMessage)
+}
+
+// Checks with no commands, an empty list included, list none, and a command
+// with no output prints no Output line.
+func TestShowPrintsNoCheckCommandsTheAPILeavesOut(t *testing.T) {
+	for name, tc := range map[string]struct {
+		checks map[string]any
+		want   string
+	}{
+		"absent commands": {
+			checks: map[string]any{"status": "failed", "message": checksFailedMessage},
+			want:   "Checks: " + checksFailedMessage + "\nFix:\n",
+		},
+		"empty commands": {
+			checks: map[string]any{"status": "failed", "message": checksFailedMessage, "commands": []any{}},
+			want:   "Checks: " + checksFailedMessage + "\nFix:\n",
+		},
+		"absent output": {
+			checks: map[string]any{"status": "failed", "message": checksFailedMessage, "commands": []any{
+				map[string]any{"command": "npm test", "status": "failed", "exit_code": 1},
+			}},
+			want: "Checks: " + checksFailedMessage + "\n  - failed, exit code 1: npm test\nFix:\n",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) { s.runs[0]["repository_checks"] = tc.checks })
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Review: passed after 2 round(s)\n"+tc.want)
+			assert.NotContains(t, out, "Output")
+		})
+	}
+}
+
 // show says in plain words why a review ended without passing its fix. A
 // passed review has no reason and prints no line; a reason the CLI doesn't
 // know prints as other, with its code.
