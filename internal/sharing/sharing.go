@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -61,6 +62,29 @@ func (s Service) Create(ctx context.Context, request apiclient.ShareCreateReques
 		return nil, explain(opCreate, "create the share", err)
 	}
 	return share, nil
+}
+
+// sharesCapability is sharing's entry in the environment's capabilities.
+const sharesCapability = "shares"
+
+// CheckAvailable refuses when the environment's capabilities say sharing takes
+// no new work, so the command can stop before it changes anything. A failed
+// read is not a refusal: the share routes then say what refuses them.
+func (s Service) CheckAvailable(ctx context.Context) error {
+	authenticated, err := s.sessions.Authenticated()
+	if err != nil {
+		return err
+	}
+	capabilities, err := authenticated.API.ListCapabilities(ctx)
+	if err != nil {
+		return nil //nolint:nilerr // The share routes report a real refusal.
+	}
+	if slices.ContainsFunc(capabilities.Data, func(c apiclient.Capability) bool {
+		return c.Id == sharesCapability && c.Status == apiclient.CapabilityStatusAvailable
+	}) {
+		return nil
+	}
+	return &unavailableError{}
 }
 
 // Get returns one of the current project's shares.

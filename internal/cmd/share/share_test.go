@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -45,6 +47,8 @@ type fakeAPI struct {
 	// share answers a read of the share; nil answers an active one.
 	share func() map[string]any
 	patch func(body map[string]any) (int, any)
+	// capabilities answers the environment's capabilities.
+	capabilities func() (int, any)
 
 	calls      []string
 	queries    map[string][]string
@@ -103,6 +107,11 @@ func newFakeAPI(t *testing.T) (*fakeAPI, *httptest.Server) {
 			status, value = fake.publish(fake.publishes, body)
 		case "GET " + releasesPath:
 			status, value = http.StatusOK, map[string]any{"data": []any{releasePayload()}, "limit": 100, "has_more": false}
+		case "GET /capabilities":
+			status, value = http.StatusOK, map[string]any{"data": []any{}}
+			if fake.capabilities != nil {
+				status, value = fake.capabilities()
+			}
 		case "GET " + statsPath:
 			fake.statsCalls++
 			status, value = http.StatusOK, map[string]any{"since": "2026-09-20T00:00:00Z", "totals": []any{}, "daily": []any{}}
@@ -156,6 +165,7 @@ func testOptions(t *testing.T, server *httptest.Server, stdin string, dir direct
 		},
 		directory:      func() directory { return dir },
 		deploysFromGit: func(context.Context, options) bool { return fromGit },
+		checkAvailable: func(context.Context, options) error { return nil },
 	}, &out
 }
 
@@ -186,7 +196,8 @@ func TestShareOutsideAProjectSharesWhatTheProjectRuns(t *testing.T) {
 		"variables": []any{"NEXT_PUBLIC_TITLE", "OPENAI_API_KEY"}, "service_key_functions": []any{"admin"},
 	}}, fake.bodies["POST "+releasesPath])
 	for _, want := range []string{
-		"This shares", "Variables: NEXT_PUBLIC_TITLE (starts empty), OPENAI_API_KEY (starts empty, secret)",
+		"This shares", "Project: Beta (" + projectID + ")",
+		"Variables: NEXT_PUBLIC_TITLE (starts empty), OPENAI_API_KEY (starts empty, secret)",
 		"Each copy's service key, which bypasses row-level security, goes to: admin (confirmed by --yes).",
 		"Shared. Anyone can fork it from: https://volcano.dev/deploy/" + linkID,
 		"volcano fork https://volcano.dev/deploy/" + linkID,
@@ -288,14 +299,85 @@ func TestShareRefusesAProjectOverrideThatIsNotTheLinkedProject(t *testing.T) {
 	assert.Empty(t, fake.calls)
 }
 
+// Where the environment's capabilities say sharing is off, the command stops
+// before it creates a cloud project or deploys anything.
+func TestShareStopsBeforeDeployingWhereSharingIsUnavailable(t *testing.T) {
+	setTestHome(t)
+	fake, server := newFakeAPI(t)
+	fake.capabilities = func() (int, any) {
+		return http.StatusOK, map[string]any{"data": []any{map[string]any{"id": "shares", "status": "unavailable"}}}
+	}
+	record := &steps{}
+	opts, _ := testOptions(t, server, "", directory{path: "/work/shop"}, false, record)
+	opts.checkAvailable = checkAvailable
+	opts.yes = true
+
+	err := run(t.Context(), opts)
+	require.ErrorContains(t, err, "nothing was deployed or shared: Sharing projects is not available in this environment.")
+	assert.Zero(t, record.connected+record.deployed)
+	assert.Equal(t, []string{"GET /capabilities"}, fake.calls)
+}
+
+// Capabilities that list sharing as available, or that can't be read, let the
+// command go on: the share routes say what refuses them.
+func TestShareGoesOnWhereSharingIsAvailableOrUnknown(t *testing.T) {
+	for name, answer := range map[string]func() (int, any){
+		"available": func() (int, any) {
+			return http.StatusOK, map[string]any{"data": []any{map[string]any{"id": "shares", "status": "available"}}}
+		},
+		"unreadable": func() (int, any) { return http.StatusServiceUnavailable, map[string]any{"error": "down"} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			setTestHome(t)
+			fake, server := newFakeAPI(t)
+			fake.capabilities = answer
+			record := &steps{}
+			opts, _ := testOptions(t, server, "", linkedDir(), false, record)
+			opts.checkAvailable = checkAvailable
+			opts.yes = true
+
+			require.NoError(t, run(t.Context(), opts))
+			assert.Equal(t, 1, record.deployed)
+			assert.Equal(t, 1, fake.publishes)
+		})
+	}
+}
+
+// From a subdirectory of a linked project the deploy would find nothing to
+// deploy, so the command refuses instead of sharing what the project ran
+// before; --no-deploy still shares what it runs.
+func TestShareRefusesToDeployFromASubdirectoryOfTheProject(t *testing.T) {
+	setTestHome(t)
+	fake, server := newFakeAPI(t)
+	record := &steps{}
+	dir := linkedDir()
+	dir.subdirectory = true
+	opts, _ := testOptions(t, server, "", dir, false, record)
+	opts.yes = true
+
+	err := run(t.Context(), opts)
+	require.ErrorContains(t, err, "this is a subdirectory of /work/shop, the directory linked to Beta")
+	assert.Contains(t, err.Error(), "--no-deploy")
+	assert.Zero(t, record.deployed)
+	assert.Empty(t, fake.calls)
+
+	opts.noDeploy = true
+	require.NoError(t, run(t.Context(), opts))
+	assert.Zero(t, record.deployed)
+	assert.Equal(t, 1, fake.publishes)
+}
+
 // VOLCANO_PROJECT_ID spelling the linked project's ID in capitals is the same
 // project, so the directory is deployed and shared.
 func TestShareAcceptsAnOverrideSpellingTheLinkedProject(t *testing.T) {
 	setTestHome(t)
-	t.Setenv("VOLCANO_PROJECT_ID", strings.ToUpper(projectID))
+	lettered := "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+	t.Setenv("VOLCANO_PROJECT_ID", strings.ToUpper(lettered))
 	fake, server := newFakeAPI(t)
 	record := &steps{}
-	opts, _ := testOptions(t, server, "", linkedDir(), false, record)
+	dir := linkedDir()
+	dir.link.Project.ID = lettered
+	opts, _ := testOptions(t, server, "", dir, false, record)
 	opts.yes = true
 
 	require.NoError(t, run(t.Context(), opts))
@@ -858,4 +940,23 @@ func releasePayload() map[string]any {
 
 func TestConnectArgsNameTheConfirmedProject(t *testing.T) {
 	assert.Equal(t, []string{".", "--skip-skills", "--name", "shop"}, connectArgs(options{newProjectName: "shop"}))
+}
+
+// workingDirectory marks a directory below the linked one, and only that one,
+// as a subdirectory.
+func TestWorkingDirectoryMarksASubdirectoryOfTheLinkedProject(t *testing.T) {
+	setTestHome(t)
+	root := t.TempDir()
+	_, err := cliconfig.WriteLink(root, cliconfig.ProjectConfig{ID: projectID, Name: "Beta"})
+	require.NoError(t, err)
+	nested := filepath.Join(root, "frontend")
+	require.NoError(t, os.MkdirAll(nested, 0o755))
+
+	t.Chdir(root)
+	assert.False(t, workingDirectory().subdirectory)
+	t.Chdir(nested)
+	dir := workingDirectory()
+	assert.True(t, dir.subdirectory)
+	require.NotNil(t, dir.link)
+	assert.Equal(t, projectID, dir.link.Project.ID)
 }

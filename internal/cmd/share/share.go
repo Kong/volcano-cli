@@ -60,6 +60,11 @@ type options struct {
 	// deploysFromGit reports a cloud project whose source is its Git
 	// repository, which refuses direct deploys.
 	deploysFromGit func(ctx context.Context, opts options) bool
+	// checkAvailable refuses when the environment does not offer sharing,
+	// before anything is created or deployed.
+	checkAvailable func(ctx context.Context, opts options) error
+	// project names the project being shared, once it is on Volcano Cloud.
+	project string
 }
 
 // directory is what the working directory holds.
@@ -70,6 +75,10 @@ type directory struct {
 	link *config.Link
 	// badLink is a link that can't be used, nil when none.
 	badLink *config.LinkError
+	// subdirectory reports a working directory below the linked project's
+	// directory. A deploy runs from the working directory, so it would find
+	// nothing to deploy there.
+	subdirectory bool
 }
 
 func (d directory) project() bool { return d.path != "" }
@@ -143,6 +152,7 @@ for CI.`,
 			opts.deploy = runCloudDeploy
 			opts.directory = workingDirectory
 			opts.deploysFromGit = deploysFromGit
+			opts.checkAvailable = checkAvailable
 			return run(cmd.Context(), opts)
 		},
 	}
@@ -181,6 +191,9 @@ func run(ctx context.Context, opts options) error {
 		return errors.New("sharing a project needs your confirmation, and nothing can answer a prompt here: " +
 			"run it at a terminal, or pass --yes")
 	}
+	if err := opts.checkAvailable(ctx, opts); err != nil {
+		return fmt.Errorf("nothing was deployed or shared: %w", err)
+	}
 	err := putDirectoryOnCloud(ctx, opts, opts.directory(), ask)
 	if errors.Is(err, errDeclined) {
 		return nil
@@ -188,6 +201,7 @@ func run(ctx context.Context, opts options) error {
 	if err != nil {
 		return err
 	}
+	opts.project = sharedProject()
 
 	service := sharing.NewService(opts.deps)
 	share, created, err := prepareShare(ctx, opts, service)
@@ -273,6 +287,9 @@ func publish(
 	on := theme.On(opts.out)
 	for {
 		fmt.Fprintf(opts.out, "\n%s\n", theme.Title("This shares", on))
+		if opts.project != "" {
+			fmt.Fprintf(opts.out, "Project: %s\n", opts.project)
+		}
 		output.ShareReleaseDraft(opts.out, draft)
 		if err := confirmShare(opts, draft, ask); err != nil {
 			return nil, err
@@ -356,8 +373,12 @@ func confirmShare(opts options, draft *apiclient.ShareReleaseDraft, ask bool) er
 			return errDeclined
 		}
 	}
+	what := "what is listed above"
+	if opts.project != "" {
+		what = "what " + opts.project + " runs, listed above"
+	}
 	confirmed, err := confirm.Action(opts.in, opts.out,
-		"Anyone with the link can fork their own copy of what is listed above.", "Share it?")
+		"Anyone with the link can fork their own copy of "+what+".", "Share it?")
 	if err != nil {
 		return err
 	}
@@ -453,6 +474,12 @@ func putDirectoryOnCloud(ctx context.Context, opts options, dir directory, ask b
 		output.Warning(opts.out, "%s deploys from its Git repository, so this directory is not deployed: "+
 			"the share is what the project runs now. Push to its production branch to share newer code.", project)
 		return nil
+	}
+	if dir.subdirectory {
+		return fmt.Errorf("this is a subdirectory of %s, the directory linked to %s, and the deploy runs from the "+
+			"project's directory, so nothing was deployed or shared. Run %s in %s, or pass --no-deploy to share "+
+			"what %s runs now", theme.StripControl(dir.path), project, cliruntime.CommandPath(cliruntime.Deps{}, "share"),
+			theme.StripControl(dir.path), project)
 	}
 	if ask {
 		confirmed, err := confirm.Action(opts.in, opts.out,
@@ -555,7 +582,7 @@ func execute(ctx context.Context, cmd *cobra.Command, args []string, opts option
 func workingDirectory() directory {
 	link, err := config.FindLinkFromWorkingDir()
 	if err == nil && link != nil {
-		return directory{path: link.Dir, link: link}
+		return directory{path: link.Dir, link: link, subdirectory: !isWorkingDirectory(link.Dir)}
 	}
 	if bad, ok := errors.AsType[*config.LinkError](err); ok {
 		return directory{path: bad.Dir, badLink: bad}
@@ -568,6 +595,50 @@ func workingDirectory() directory {
 		return directory{}
 	}
 	return directory{path: wd}
+}
+
+// isWorkingDirectory reports whether dir is the working directory, following
+// symbolic links. An unreadable working directory counts as dir.
+func isWorkingDirectory(dir string) bool {
+	wd, err := os.Getwd()
+	if err != nil {
+		return true
+	}
+	if resolved, err := filepath.EvalSymlinks(wd); err == nil {
+		wd = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = resolved
+	}
+	return filepath.Clean(wd) == filepath.Clean(dir)
+}
+
+// checkAvailable refuses when the environment's capabilities say sharing is
+// off.
+func checkAvailable(ctx context.Context, opts options) error {
+	return sharing.NewService(opts.deps).CheckAvailable(ctx)
+}
+
+// sharedProject names the project the command shares, as "name (id)", or by
+// its ID alone when VOLCANO_PROJECT_ID selects a project the config has no
+// name for. Empty when the config can't be read.
+func sharedProject() string {
+	cfg, err := config.Load()
+	if err != nil {
+		return ""
+	}
+	selected := theme.StripControl(cfg.SelectedProjectID())
+	project := cfg.Project()
+	if project == nil || selected == "" {
+		return selected
+	}
+	if id, err := uuid.Parse(selected); err != nil || id.String() != project.ID {
+		return selected
+	}
+	if name := theme.StripControl(project.Name); name != "" {
+		return fmt.Sprintf("%s (%s)", name, selected)
+	}
+	return selected
 }
 
 // deploysFromGit reports a cloud project whose Git repository became its

@@ -33,7 +33,9 @@ variables.
 
 ## Share a project
 
-Run `volcano share` in your project directory:
+Run `volcano share` in your project directory, the one that holds `volcano/`
+or is linked to the cloud project. In a subdirectory of a linked project it
+deploys nothing and stops, unless you pass `--no-deploy`.
 
 ```bash
 volcano share --description "Ask a question, get a checked answer."
@@ -45,11 +47,11 @@ It shares what is in the directory:
    directory is linked to it, as `volcano connect .` links it.
 2. The directory is deployed to its cloud project, as `volcano cloud deploy`
    deploys it, and the command waits for the deploy.
-3. Volcano builds what the project runs and the command shows it: functions,
-   frontends, variables, the service key functions and what is left out. Once
-   you confirm, that build is published as the release, and the command prints
-   the link, a Markdown deploy button for a README, and the same button in
-   HTML.
+3. Volcano builds what the project runs and the command shows it: the project,
+   its functions, frontends, variables, the service key functions and what is
+   left out. Once you confirm, that build is published as the release, and the
+   command prints the link, a Markdown deploy button for a README, and the same
+   button in HTML.
 
 The deploy sends no env file, because `volcano/volcano.env` holds the local
 server's values. The cloud project's variables start empty. Pass
@@ -171,6 +173,7 @@ project, and `volcano projects get <project-id>` says why it failed.
 ## Where sharing is not available
 
 Sharing is not on in every environment, and never in local mode. Where it is
-off, `volcano share` and `volcano fork` say so, while `volcano share status`,
+off, `volcano share` and `volcano fork` say so before creating or deploying
+anything, while `volcano share status`,
 `volcano share releases` and `volcano share off` keep working for shares that
 exist.

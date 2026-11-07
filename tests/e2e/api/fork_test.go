@@ -27,7 +27,7 @@ func TestAPIE2EFork(t *testing.T) {
 	env.runCLI(t, "fork", "https://volcano.dev/projects/"+unknownID, "--yes").requireFailure(t, "invalid share link")
 	env.runCLI(t, "projects", "create", name, "--from", unknownID, "--template", "trellini").
 		requireFailure(t, "none of the others can be")
-	env.runCLI(t, "fork", unknownID, "--var", "NO_EQUALS", "--yes").requireFailure(t, "use --var NAME=value")
+	env.runCLI(t, "fork", unknownID, "--var", "NO_EQUALS", "--yes").requireFailure(t, "each one must be NAME=value")
 
 	listed := env.runCLI(t, "projects", "list")
 	listed.requireSuccess(t)
