@@ -618,6 +618,7 @@ func (b planBuilder) functions(present bool, manifestPath string, durableFollows
 			ManifestPath:   manifestPath,
 			Batch:          !r.opts.deps.LocalMode,
 			DurableFollows: durableFollows,
+			Uploads:        &r.uploads,
 			Out:            r.opts.out,
 			ErrOut:         r.opts.errOut,
 		})
@@ -646,6 +647,7 @@ func (b planBuilder) durable(names []string, manifestPath string) step {
 	s.run = func(ctx context.Context, r *runner) error {
 		started, err := durablecmd.DeployAll(ctx, r.opts.deps, durablecmd.DeployAllOptions{
 			ManifestPath: manifestPath,
+			Uploads:      &r.uploads,
 			Out:          r.opts.out,
 			ErrOut:       r.opts.errOut,
 		})
@@ -705,6 +707,7 @@ func (b planBuilder) frontends(frontends []clifrontend.LayoutFrontend, layoutFou
 		for _, opts := range deploys {
 			fmt.Fprintf(r.opts.out, "\nDeploying frontend %s\n", opts.Name)
 			opts.Out = r.opts.out
+			opts.Uploads = &r.uploads
 			deployed, err := frontendscmd.Deploy(ctx, r.opts.deps, opts)
 			if err != nil {
 				return fmt.Errorf("frontend %q: %w", opts.Name, err)

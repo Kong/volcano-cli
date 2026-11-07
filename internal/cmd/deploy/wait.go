@@ -11,6 +11,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/deploycommit"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
@@ -51,6 +52,9 @@ type startedDeployment struct {
 type runner struct {
 	opts    options
 	started []startedDeployment
+	// uploads records what each code upload reported, for the LavaFlow
+	// source warning.
+	uploads deploycommit.Uploads
 	// deferred are the functions whose schedulers the config step left out
 	// because the functions were not active yet.
 	deferred []startedDeployment

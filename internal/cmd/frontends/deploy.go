@@ -13,6 +13,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
+	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
 	"github.com/Kong/volcano-cli/internal/deploycommit"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -31,7 +32,10 @@ type deployOptions struct {
 	variables     []string
 	excludeFiles  []string
 	from          string
-	out           io.Writer
+	// uploads records the upload for the LavaFlow source warning.
+	uploads *deploycommit.Uploads
+	out     io.Writer
+	errOut  io.Writer
 }
 
 func newDeploy(deps cliruntime.Deps) *cobra.Command {
@@ -76,6 +80,7 @@ Usage:
 			local := opts
 			local.deps = deps
 			local.out = cmd.OutOrStdout()
+			local.errOut = cmd.ErrOrStderr()
 			// "volcano frontends deploy" once deployed to the cloud; scripts
 			// written then are told where this one went.
 			if deps.LocalMode {
@@ -108,6 +113,9 @@ type DeployOptions struct {
 	// ExcludeFiles are files to leave out of the upload, such as an env file
 	// the caller deployed from inside the frontend's directory.
 	ExcludeFiles []string
+	// Uploads, when set, records the upload for the caller's LavaFlow source
+	// warning.
+	Uploads *deploycommit.Uploads
 	// Out is required.
 	Out io.Writer
 }
@@ -123,11 +131,13 @@ func Deploy(ctx context.Context, deps cliruntime.Deps, opts DeployOptions) (*api
 		variableScope: opts.VariableScope,
 		variables:     opts.Variables,
 		excludeFiles:  opts.ExcludeFiles,
+		uploads:       opts.Uploads,
 		out:           opts.Out,
 	})
 }
 
 func runDeploy(ctx context.Context, opts deployOptions) error {
+	opts.uploads = &deploycommit.Uploads{}
 	deployed, err := deploy(ctx, opts)
 	if err != nil {
 		return err
@@ -135,6 +145,7 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	if opts.deps.LocalMode {
 		printLocalSiteURL(opts, deployed)
 	}
+	cmdutil.WarnUnreadableSource(ctx, opts.deps, opts.errOut, opts.uploads)
 	return nil
 }
 
@@ -230,6 +241,8 @@ func deploy(ctx context.Context, opts deployOptions) (*apiclient.Frontend, error
 	fmt.Fprintf(opts.out, "Archive size: %s\n", archive.FormatSize(pkg.Size))
 	fmt.Fprintln(opts.out, "Uploading archive...")
 
+	source := deploycommit.Detect(ctx, opts.deps, absPath)
+	commit := source.Commit(ctx, pkg.PackagingRoot, pkg.Files, pkg.LeftOutByRule)
 	deployed, err := clifrontend.NewService(opts.deps).Deploy(ctx, api.FrontendDeployInput{
 		Name:          name,
 		Framework:     framework,
@@ -237,11 +250,12 @@ func deploy(ctx context.Context, opts deployOptions) (*apiclient.Frontend, error
 		VariableScope: variableScope,
 		Variables:     opts.variables,
 		Archive:       pkg.Archive,
-		Commit:        deploycommit.Detect(ctx, opts.deps, absPath).Commit(ctx, pkg.PackagingRoot, pkg.Files, pkg.LeftOutByRule),
+		Commit:        commit,
 	})
 	if err != nil {
 		return nil, err
 	}
+	opts.uploads.AddFrontend(deployed.Name, pkg.PackagingRoot, source, commit)
 
 	output.Success(opts.out, "Frontend '%s' deployment started", deployed.Name)
 	return deployed, nil

@@ -326,6 +326,42 @@ To send nothing, set:
 export VOLCANO_DEPLOY_COMMIT=off
 ```
 
+### LavaFlow warning
+
+When [LavaFlow](lavaflow.md) is on for the project and the project has a
+connected repository, a cloud deploy checks whether LavaFlow can read the code
+it just uploaded. If it can't, the deploy prints one warning on stderr with the
+reason and what to do:
+
+```text
+Warning: LavaFlow can't read this deployment's code to fix errors it serves: the checkout has uncommitted changes (package.json, src/app.ts, src/db.ts and 2 more).
+Deploy from a clean checkout of a commit pushed to acme/app's main branch, or deploy with a Git push.
+```
+
+The reason is one of these. When it applies to only some of the resources a
+deploy uploaded, the warning names them.
+
+| Reason | What to do |
+| ------ | ---------- |
+| `the deploy didn't run in a Git checkout, so it sent no commit` | Deploy from a clone of the connected repository. |
+| `the checkout's origin remote isn't a GitHub repository, so the deploy sent no commit` | Point `origin` at the connected repository. |
+| `the checkout has no commit yet` | Commit and push. |
+| `VOLCANO_DEPLOY_COMMIT=off kept the deploy from sending its commit` | Unset `VOLCANO_DEPLOY_COMMIT`. |
+| `the checkout has uncommitted changes (...)` | Commit and push the files `git status` shows under the uploaded directory, or discard them. The warning names up to three. |
+| `the uploaded files differ from commit <sha>` | The upload doesn't match its commit in a way `git status` doesn't show, such as a file git ignores. See [Frontend uploads](#frontend-uploads) and [Function uploads](#function-uploads). |
+| `commit <sha> is from <repository>, not the project's repository <repository>` | Deploy from a clone of the connected repository. |
+| `commit <sha> isn't on origin/<branch>` | Push the commit to the production branch, or merge it there, and deploy that. |
+
+The CLI checks the production branch against the checkout's copy of it,
+`origin/<branch>`, as of the last fetch. When the checkout has no such branch,
+or a shallow clone lacks the history to tell, it doesn't warn. A pull request
+workflow's checkout usually has no such branch, so it gets no warning, though
+LavaFlow can't read the merge commit it deploys.
+
+The check reads the project's LavaFlow settings once and gives up after a few
+seconds. It never changes what the deploy sends or its exit code, and local
+deploys never run it.
+
 ## Cloud projects that deploy from Git
 
 When a cloud project's code deploys from its connected repository, functions

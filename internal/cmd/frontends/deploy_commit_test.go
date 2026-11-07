@@ -1,6 +1,7 @@
 package frontends
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -143,4 +145,68 @@ func TestFrontendsDeploySendsTheRootOfASubdirectory(t *testing.T) {
 
 	write("site/app/page.tsx", "export default function Page() { return 1; }\n")
 	assert.JSONEq(t, want(true), deploy(), "an edit inside it")
+}
+
+// deployFrontendWithLavaFlow deploys apps/web of a monorepo against an API
+// whose project has LavaFlow on for acme/web's main branch. It returns what
+// the command printed on stderr and how many times it read LavaFlow's
+// settings.
+func deployFrontendWithLavaFlow(
+	t *testing.T, newCommand func(cliruntime.Deps) *cobra.Command, deps cliruntime.Deps, root string,
+) (stderr string, reads int) {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/lavaflow/settings":
+			reads++
+			writeFrontendCommandJSON(t, w, http.StatusOK, map[string]any{
+				"project_id": frontendProjectID, "enabled": true, "autonomy": "open_pr",
+				"repository": map[string]any{"repo_full_name": "acme/web", "production_branch": "main"},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/frontends":
+			writeFrontendCommandJSON(t, w, http.StatusCreated, frontendCommandPayload(frontendID, "web"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	deps.HTTPClient, deps.APIBaseURL = server.Client(), server.URL
+
+	cmd := newCommand(deps)
+	var stdout, errOut bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&errOut)
+	cmd.SetArgs([]string{"deploy", "--name", "web", "--path", filepath.Join(root, "apps", "web")})
+	require.NoError(t, cmd.Execute())
+	return errOut.String(), reads
+}
+
+// A deploy of a pushed commit gets no warning; an edit in the upload does,
+// and names the file.
+func TestFrontendsDeployWarnsWhenLavaFlowCantReadTheUpload(t *testing.T) {
+	setFrontendCommandTestHome(t)
+	saveFrontendCommandTestConfig(t)
+	root, sha := writeMonorepo(t)
+	deploycommittest.Git(t, root, "update-ref", "refs/remotes/origin/main", sha)
+
+	stderr, reads := deployFrontendWithLavaFlow(t, New, cliruntime.Deps{}, root)
+	assert.Empty(t, stderr)
+	assert.Equal(t, 1, reads)
+
+	require.NoError(t, os.WriteFile(filepath.Join(root, "packages", "ui", "src", "button.tsx"), []byte("export const Button = () => 1;\n"), 0o644))
+	stderr, _ = deployFrontendWithLavaFlow(t, New, cliruntime.Deps{}, root)
+	assert.Equal(t, "Warning: LavaFlow can't read this deployment's code to fix errors it serves: "+
+		"the checkout has uncommitted changes (packages/ui/src/button.tsx).\n"+
+		"Deploy from a clean checkout of a commit pushed to acme/web's main branch, or deploy with a Git push.\n", stderr)
+}
+
+func TestFrontendsDeployInLocalModeNeverAsksLavaFlow(t *testing.T) {
+	setFrontendCommandTestHome(t)
+	saveFrontendCommandTestConfig(t)
+	root, _ := writeMonorepo(t)
+	require.NoError(t, os.WriteFile(filepath.Join(root, "packages", "ui", "src", "button.tsx"), []byte("export const Button = () => 1;\n"), 0o644))
+
+	stderr, reads := deployFrontendWithLavaFlow(t, NewLocal, cliruntime.Deps{LocalMode: true}, root)
+	assert.NotContains(t, stderr, "Warning: LavaFlow")
+	assert.Zero(t, reads)
 }

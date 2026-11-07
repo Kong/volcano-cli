@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
 	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
@@ -34,8 +35,10 @@ type deployOptions struct {
 	// durableFollows drops the hint to deploy the skipped durable functions,
 	// for a caller that deploys them next.
 	durableFollows bool
-	out            io.Writer
-	errOut         io.Writer
+	// uploads records each started upload for the LavaFlow source warning.
+	uploads *deploycommit.Uploads
+	out     io.Writer
+	errOut  io.Writer
 }
 
 // DeployAllOptions configures DeployAll.
@@ -48,6 +51,9 @@ type DeployAllOptions struct {
 	// DurableFollows is set by a caller that deploys the durable functions
 	// itself, so the output does not tell the user to.
 	DurableFollows bool
+	// Uploads, when set, records each started upload for the caller's
+	// LavaFlow source warning.
+	Uploads *deploycommit.Uploads
 	// Out and ErrOut are required.
 	Out    io.Writer
 	ErrOut io.Writer
@@ -63,6 +69,7 @@ func DeployAll(ctx context.Context, deps cliruntime.Deps, opts DeployAllOptions)
 		batchAll:       opts.Batch,
 		manifest:       opts.ManifestPath,
 		durableFollows: opts.DurableFollows,
+		uploads:        opts.Uploads,
 		out:            opts.Out,
 		errOut:         opts.ErrOut,
 	})
@@ -108,8 +115,12 @@ archive to Volcano. Cloud deploy-all uploads are split into batches of up to
 }
 
 func runDeploy(ctx context.Context, opts deployOptions) error {
-	_, err := deploy(ctx, opts)
-	return err
+	opts.uploads = &deploycommit.Uploads{}
+	if _, err := deploy(ctx, opts); err != nil {
+		return err
+	}
+	cmdutil.WarnUnreadableSource(ctx, opts.deps, opts.errOut, opts.uploads)
+	return nil
 }
 
 func deploy(ctx context.Context, opts deployOptions) ([]apiclient.Function, error) {
@@ -185,9 +196,11 @@ func deploy(ctx context.Context, opts deployOptions) ([]apiclient.Function, erro
 	}
 
 	commits := deploycommit.Detect(ctx, opts.deps, baseDir)
+	sent := map[string]*api.FunctionCommit{}
 	prepare := func(pkg *clifunction.Package) {
 		applyVariableDeclaration(pkg, manifest.Declarations)
 		pkg.SetCommit(ctx, commits, manifest.Paths)
+		sent[pkg.Name] = pkg.Commit
 	}
 	report := newDeployReport(ctx, opts, service, manifest.Visibility)
 	if opts.all {
@@ -196,6 +209,9 @@ func deploy(ctx context.Context, opts deployOptions) ([]apiclient.Function, erro
 		err = runDeployOne(ctx, opts.out, service, baseDir, sources[0], prepare, report)
 	}
 	report.finish(opts.out, opts.errOut)
+	for _, fn := range report.started {
+		opts.uploads.AddFunction("function", fn.Name, baseDir, commits, sent[fn.Name])
+	}
 	return report.started, err
 }
 

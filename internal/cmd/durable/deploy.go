@@ -30,8 +30,10 @@ type deployOptions struct {
 	// manifest names the volcano-config.yaml to read; empty uses the default
 	// lookup.
 	manifest string
-	out      io.Writer
-	errOut   io.Writer
+	// uploads records each started upload for the LavaFlow source warning.
+	uploads *deploycommit.Uploads
+	out     io.Writer
+	errOut  io.Writer
 }
 
 // DeployAllOptions configures DeployAll.
@@ -39,6 +41,9 @@ type DeployAllOptions struct {
 	// ManifestPath names the volcano-config.yaml that declares the durable
 	// functions. Empty uses the default lookup.
 	ManifestPath string
+	// Uploads, when set, records each started upload for the caller's
+	// LavaFlow source warning.
+	Uploads *deploycommit.Uploads
 	// Out and ErrOut are required.
 	Out    io.Writer
 	ErrOut io.Writer
@@ -52,6 +57,7 @@ func DeployAll(ctx context.Context, deps cliruntime.Deps, opts DeployAllOptions)
 		deps:     deps,
 		all:      true,
 		manifest: opts.ManifestPath,
+		uploads:  opts.Uploads,
 		out:      opts.Out,
 		errOut:   opts.ErrOut,
 	})
@@ -110,8 +116,12 @@ keeps what the function has.`,
 }
 
 func runDeploy(ctx context.Context, opts *deployOptions) error {
-	_, err := deploy(ctx, opts)
-	return err
+	opts.uploads = &deploycommit.Uploads{}
+	if _, err := deploy(ctx, opts); err != nil {
+		return err
+	}
+	cmdutil.WarnUnreadableSource(ctx, opts.deps, opts.errOut, opts.uploads)
+	return nil
 }
 
 func deploy(ctx context.Context, opts *deployOptions) ([]apiclient.DurableFunction, error) {
@@ -158,7 +168,7 @@ func deploy(ctx context.Context, opts *deployOptions) ([]apiclient.DurableFuncti
 	for i, source := range sources {
 		fmt.Fprintf(opts.out, "\n[%d/%d] Deploying %s...\n", i+1, len(sources), source.Name)
 		deployed, created, err := deployOne(
-			ctx, opts.out, service, baseDir, source, visibility, manifest, commits,
+			ctx, opts, service, baseDir, source, visibility, manifest, commits,
 		)
 		if err != nil {
 			return started, err
@@ -199,7 +209,7 @@ func deploy(ctx context.Context, opts *deployOptions) ([]apiclient.DurableFuncti
 
 func deployOne(
 	ctx context.Context,
-	out io.Writer,
+	opts *deployOptions,
 	service clidurable.Service,
 	baseDir string,
 	source clifunction.SourceInfo,
@@ -207,6 +217,7 @@ func deployOne(
 	manifest projectconfig.FunctionDeployManifest,
 	commits *deploycommit.Source,
 ) (deployed *apiclient.DurableFunction, created bool, err error) {
+	out := opts.out
 	fmt.Fprintf(out, "  Runtime: %s\n", source.Runtime.Name)
 	fmt.Fprintf(out, "  Function code: %s\n", source.Path)
 	pkg, err := clifunction.PackageSource(source, baseDir)
@@ -224,6 +235,7 @@ func deployOne(
 	if err != nil {
 		return nil, false, err
 	}
+	opts.uploads.AddFunction("durable function", deployed.Name, baseDir, commits, pkg.Commit)
 	fmt.Fprintf(out, "  Deployed %s (%s)\n", deployed.Name, string(deployed.Status))
 	if deployed.Visibility != "" {
 		fmt.Fprintf(out, "  Visibility: %s\n", deployed.Visibility)

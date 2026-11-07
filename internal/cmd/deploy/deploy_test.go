@@ -930,6 +930,43 @@ func TestDeployNoWaitReturnsOnceStarted(t *testing.T) {
 	assert.Contains(t, out, "Deployments started; not waiting for them to finish")
 }
 
+// One warning covers the whole run: here every upload comes from a directory
+// outside any Git checkout, so none reported a commit.
+func TestDeployWarnsOnceWhenLavaFlowCantReadTheUploads(t *testing.T) {
+	setDeployCommandTestHome(t)
+	t.Setenv("VOLCANO_DEPLOY_COMMIT", "")
+	writeFullProject(t)
+	fake := newFakeVolcano(t)
+	fake.lavaflow = map[string]any{
+		"project_id": deployProjectID, "enabled": true, "autonomy": "open_pr",
+		"repository": map[string]any{"repo_full_name": "acme/app", "production_branch": "main"},
+	}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.NoError(t, err, out)
+
+	warning := "Warning: LavaFlow can't read these deployments' code to fix errors they serve: " +
+		"the deploy didn't run in a Git checkout, so it sent no commit.\n" +
+		"Deploy from a clean checkout of a commit pushed to acme/app's main branch, or deploy with a Git push.\n"
+	assert.Equal(t, 1, strings.Count(out, warning), out)
+	assert.Equal(t, 1, strings.Count(strings.Join(fake.reads, "\n"), "lavaflow settings"))
+}
+
+func TestDeployWithLavaFlowOffPrintsNoSourceWarning(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeFullProject(t)
+	fake := newFakeVolcano(t)
+	fake.lavaflow = map[string]any{"project_id": deployProjectID, "enabled": false, "autonomy": "open_pr"}
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.NoError(t, err, out)
+
+	assert.Contains(t, fake.reads, "lavaflow settings")
+	assert.NotContains(t, out, "Warning: LavaFlow")
+}
+
 // Local mode deploys functions one by one, has no deploy source to check, and
 // migrates the app database unless told otherwise.
 func TestLocalDeployTargetsTheLocalServer(t *testing.T) {
@@ -949,6 +986,7 @@ func TestLocalDeployTargetsTheLocalServer(t *testing.T) {
 		"config",
 	}, fake.recorded())
 	assert.NotContains(t, fake.reads, "source-export")
+	assert.NotContains(t, fake.reads, "lavaflow settings")
 	assert.Contains(t, out, `Deploying to local project "Beta"`)
 }
 

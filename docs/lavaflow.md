@@ -42,7 +42,9 @@ the same when the owner's plan couldn't be read.
   one, LavaFlow diagnoses issues and opens no pull requests. See
   [git.md](git.md).
 - Fixes code it can read at the commit that built it. See
-  [Source commit](deploy.md#source-commit).
+  [Source commit](deploy.md#source-commit). A cloud deploy warns when
+  LavaFlow can't read what it uploaded: see
+  [LavaFlow warning](deploy.md#lavaflow-warning).
 - Cloud only. LavaFlow runs on Volcano's cloud service, which local
   development doesn't run, so `volcano lavaflow` refuses and points to
   `volcano cloud lavaflow`.

@@ -114,6 +114,9 @@ type fakeVolcano struct {
 	// invalidSchedulers maps a function name to a scheduler error that both a
 	// dry run and a real apply of the config return, such as an invalid cron.
 	invalidSchedulers map[string]string
+	// lavaflow is the project's LavaFlow settings; nil answers 404, as for a
+	// project LavaFlow isn't available to.
+	lavaflow map[string]any
 
 	mu        sync.Mutex
 	calls     []string
@@ -322,6 +325,13 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && path == project+"/deployments":
 		f.reads = append(f.reads, "deployments")
 		f.writeJSON(w, http.StatusOK, f.feed())
+	case r.Method == http.MethodGet && path == "/lavaflow/settings" && r.URL.Query().Get("project_id") == deployProjectID:
+		f.reads = append(f.reads, "lavaflow settings")
+		if f.lavaflow == nil {
+			f.writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found", "code": "feature_unavailable"})
+			return
+		}
+		f.writeJSON(w, http.StatusOK, f.lavaflow)
 	default:
 		f.t.Errorf("unexpected request %s %s", r.Method, path)
 		http.NotFound(w, r)

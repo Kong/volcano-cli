@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/theme"
@@ -142,6 +143,7 @@ func runDeploy(ctx context.Context, opts options) error {
 		}
 		done = append(done, s.name)
 	}
+	cmdutil.WarnUnreadableSource(ctx, opts.deps, opts.errOut, &r.uploads)
 
 	if opts.noWait {
 		fmt.Fprintln(opts.out)
