@@ -113,9 +113,12 @@ func TestForkCreatesTheCopyWithNoValuesAndSelectsIt(t *testing.T) {
 	for _, want := range []string{
 		"Project ready: notes-app", "These variables start empty", "OPENAI_API_KEY",
 		"Now using project: notes-app (" + copyID + ")",
+		"Set them in an env file and run `volcano cloud variables deploy --file <env-file>`",
 	} {
 		assert.Contains(t, out, want)
 	}
+	assert.Less(t, strings.Index(out, "Now using project"), strings.Index(out, "These variables start empty"),
+		"the hint follows the selection it relies on")
 	cfg, err := cliconfig.Load()
 	require.NoError(t, err)
 	require.NotNil(t, cfg.CurrentProject)
@@ -147,6 +150,21 @@ func TestForkInALinkedDirectoryKeepsTheLink(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "This directory stays linked to shop.")
 	assert.NotContains(t, out, "Now using project")
+	assert.Contains(t, out, "select the copy with `volcano use "+copyID+"` outside a linked directory, "+
+		"then set them in an env file", "the variables hint must not deploy to the linked project")
+}
+
+// VOLCANO_PROJECT_ID outranks the selected copy, so the variables hint selects
+// the copy first rather than deploying to the project the variable names.
+func TestForkUnderAProjectOverrideDoesNotSendVariablesToIt(t *testing.T) {
+	setHome(t)
+	_, server := newServer(t)
+	t.Setenv("VOLCANO_PROJECT_ID", "44444444-4444-4444-8444-444444444444")
+
+	out, err := run(t, server, link, "--yes")
+	require.NoError(t, err)
+	assert.Contains(t, out, "VOLCANO_PROJECT_ID selects project 44444444-4444-4444-8444-444444444444")
+	assert.Contains(t, out, "select the copy with `volcano use "+copyID+"` outside a linked directory")
 }
 
 func TestForkJSONPrintsTheProject(t *testing.T) {

@@ -204,7 +204,8 @@ func TestCreateFromShowsTheReleaseAndDeploysItWithNoValues(t *testing.T) {
 		"Project ready: my-app", "Source: share " + fromLinkID + ", release " + releaseOne,
 		"volcano projects get " + projectBetaID, "volcano use " + projectBetaID,
 		"These variables start empty, so code that reads them may not work until you set them: OPENAI_API_KEY",
-		"volcano cloud variables deploy --file <env-file>",
+		"select the copy with `volcano use " + projectBetaID + "` outside a linked directory, " +
+			"then set them in an env file and run `volcano cloud variables deploy --file <env-file>`",
 	} {
 		assert.Contains(t, out, want)
 	}

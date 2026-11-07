@@ -126,38 +126,76 @@ func Run(ctx context.Context, opts Options) error {
 	return finish(ctx, opts, installed, preview)
 }
 
-// finish says which variables the copy starts with empty, selects it when
-// asked, and prints the JSON result.
+// finish selects the copy when asked, says which variables it starts with
+// empty and how to set them on the copy, and prints the JSON result.
 func finish(ctx context.Context, opts Options, project *apiclient.Project, preview *apiclient.SharePreview) error {
+	selected, err := selectCopy(ctx, opts, project)
+	emptyVariables(opts, project, preview, selected)
+	if err != nil {
+		return err
+	}
+	return printJSON(opts, project)
+}
+
+// selectCopy makes the copy the active project when asked, unless the working
+// directory is linked to another project. It reports whether the copy is now
+// the project cloud commands use.
+func selectCopy(ctx context.Context, opts Options, project *apiclient.Project) (bool, error) {
+	if !opts.Select {
+		return false, nil
+	}
+	if link, err := config.FindLinkFromWorkingDir(); err == nil && link != nil {
+		// Selecting here would relink the directory to the copy, and the
+		// directory's own project would then deploy to it.
+		fmt.Fprintf(opts.Out, "This directory stays linked to %s. Select the copy elsewhere with `%s`.\n",
+			projectName(link.Project), cliruntime.CommandPath(cliruntime.Deps{}, "use "+project.Id.String()))
+		return false, nil
+	}
+	result, err := cliproject.NewService(opts.Deps).Use(ctx, project.Id.String())
+	if err != nil {
+		return false, fmt.Errorf("the copy is created, but it could not be made the active project: %w. Select it with `%s`",
+			err, cliruntime.CommandPath(cliruntime.Deps{}, "use "+project.Id.String()))
+	}
+	output.Success(opts.Out, "Now using project: %s (%s)", result.Project.Name, result.Project.Id.String())
+	if result.EnvErr != nil {
+		output.Warning(opts.Out, "Could not update the anon key in %s for this project: %v.", result.EnvFile, result.EnvErr)
+	}
+	// VOLCANO_PROJECT_ID outranks the project use saves.
+	if cfg, err := config.Load(); err == nil {
+		if selected := cfg.SelectedProjectID(); selected != "" && !isProject(selected, project.Id) {
+			output.Warning(opts.Out, "VOLCANO_PROJECT_ID selects project %s, so cloud commands still use it. "+
+				"Unset it to use the copy.", theme.StripControl(selected))
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// isProject reports whether id, in any UUID spelling, names project.
+func isProject(id string, project uuid.UUID) bool {
+	parsed, err := uuid.Parse(id)
+	return err == nil && parsed == project
+}
+
+// emptyVariables lists the variables the copy starts with empty. cloud
+// variables deploy writes to the active project, so when the copy is not it,
+// the hint selects the copy first: following it must not change another
+// project's variables.
+func emptyVariables(opts Options, project *apiclient.Project, preview *apiclient.SharePreview, selected bool) {
 	var empty []string
 	for _, variable := range preview.Release.Variables {
 		if value, ok := ParseVarValue(opts.Vars, variable.Name); !ok || value == "" {
 			empty = append(empty, variable.Name)
 		}
 	}
-	output.EmptyVariables(opts.Out, empty, fmt.Sprintf(
-		"Set them in an env file and run `%s`, or in the dashboard.",
-		cliruntime.CommandPath(cliruntime.Deps{}, "cloud variables deploy --file <env-file>")))
-
-	if opts.Select {
-		if link, err := config.FindLinkFromWorkingDir(); err == nil && link != nil {
-			// Selecting here would relink the directory to the copy, and the
-			// directory's own project would then deploy to it.
-			fmt.Fprintf(opts.Out, "This directory stays linked to %s. Select the copy elsewhere with `%s`.\n",
-				projectName(link.Project), cliruntime.CommandPath(cliruntime.Deps{}, "use "+project.Id.String()))
-			return printJSON(opts, project)
-		}
-		result, err := cliproject.NewService(opts.Deps).Use(ctx, project.Id.String())
-		if err != nil {
-			return fmt.Errorf("the copy is created, but it could not be made the active project: %w. Select it with `%s`",
-				err, cliruntime.CommandPath(cliruntime.Deps{}, "use "+project.Id.String()))
-		}
-		output.Success(opts.Out, "Now using project: %s (%s)", result.Project.Name, result.Project.Id.String())
-		if result.EnvErr != nil {
-			output.Warning(opts.Out, "Could not update the anon key in %s for this project: %v.", result.EnvFile, result.EnvErr)
-		}
+	deploy := cliruntime.CommandPath(cliruntime.Deps{}, "cloud variables deploy --file <env-file>")
+	hint := fmt.Sprintf("Set them in an env file and run `%s`, or in the dashboard.", deploy)
+	if !selected {
+		hint = fmt.Sprintf("Set them in the dashboard, or select the copy with `%s` outside a linked directory, "+
+			"then set them in an env file and run `%s`.",
+			cliruntime.CommandPath(cliruntime.Deps{}, "use "+project.Id.String()), deploy)
 	}
-	return printJSON(opts, project)
+	output.EmptyVariables(opts.Out, empty, hint)
 }
 
 func printJSON(opts Options, project *apiclient.Project) error {

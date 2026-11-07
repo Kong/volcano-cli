@@ -74,7 +74,7 @@ selected cloud project as it runs.
 | --- | --- |
 | `--description` | What the project does, on the link's page. One line, up to 280 characters. |
 | `--allow-reshare` | Let people share their copies again. Off by default. |
-| `--no-allow-reshare` | Stop copies from being shared again, including copies already shared. |
+| `--no-allow-reshare` | Stop copies from being shared again, including copies already shared. On an existing share it takes effect before the release is built, so it holds even if you decline to publish. |
 | `--name` | The project name offered to people who fork it, for a new share. |
 | `--env-file` | Env file to deploy to your cloud project with the directory. |
 | `--no-deploy` | Share what the linked or selected cloud project runs now, without deploying or creating one. |
@@ -88,7 +88,7 @@ Run `volcano share` again whenever you want people to fork what you have then.
 
 The release is the build you confirmed. If the project changes before it is
 published, for example because a deploy finished in between, nothing is
-published. At a terminal, `volcano share` shows the new build and asks you
+published yet. At a terminal, `volcano share` shows the new build and asks you
 again. With `--yes`, it publishes the new build once when it has no variable or
 service key function that `--yes` did not already confirm, and otherwise shows
 it and stops, so a function never gets the service key without your
@@ -151,8 +151,11 @@ that link alone and tells you how to select the copy.
 
 No values are needed: the copy gets every variable empty, and the command lists
 them. Set them in an env file and run
-`volcano cloud variables deploy --file <env-file>`, or in the dashboard. To fill
-one in up front, pass `--var NAME=value`; repeat it for more.
+`volcano cloud variables deploy --file <env-file>`, or in the dashboard. That
+command writes to your active project, so when the copy is not it, for example
+inside a linked directory or after `volcano projects create --from`, first run
+`volcano use <project-id>` outside a linked directory. To fill one in up front,
+pass `--var NAME=value`; repeat it for more.
 
 If the owner shares a new release after you saw the preview, nothing is
 created. At a terminal the command shows what changed and asks again; with

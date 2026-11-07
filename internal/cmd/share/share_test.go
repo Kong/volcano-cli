@@ -541,6 +541,57 @@ func TestShareDeclinedLeavesTheDescriptionAndResharingAlone(t *testing.T) {
 	assert.NotContains(t, fake.calls, "PATCH "+sharePath)
 }
 
+// --no-allow-reshare only takes consent back, so it reaches an existing share
+// before the release is built, and holds when the owner declines to publish.
+func TestShareStopsResharingBeforePublishing(t *testing.T) {
+	setTestHome(t)
+	interactive(t)
+	fake, server := newFakeAPI(t)
+	fake.links = []map[string]any{linkPayload("active")}
+	opts, out := testOptions(t, server, "y\nn\n", directory{}, false, &steps{})
+	opts.allowReshare = new(false)
+
+	require.NoError(t, run(t.Context(), opts))
+	assert.Zero(t, fake.publishes)
+	assert.Equal(t, []map[string]any{{"allow_reshare": false}}, fake.bodies["PATCH "+sharePath])
+	assert.Less(t, indexOf(fake.calls, "PATCH "+sharePath), indexOf(fake.calls, "GET "+draftsPath))
+	assert.Contains(t, out.String(), "Copies of this share can no longer be shared again.")
+}
+
+// A failed build after --no-allow-reshare leaves re-sharing off.
+func TestShareStopsResharingWhenTheBuildFails(t *testing.T) {
+	setTestHome(t)
+	fake, server := newFakeAPI(t)
+	fake.links = []map[string]any{linkPayload("active")}
+	fake.draft = func(int) (int, any) {
+		return http.StatusServiceUnavailable, map[string]any{"error": "Release builds are busy.", "code": "builds_busy"}
+	}
+	opts, _ := testOptions(t, server, "", directory{}, false, &steps{})
+	opts.yes = true
+	opts.allowReshare = new(false)
+
+	require.Error(t, run(t.Context(), opts))
+	assert.Equal(t, []map[string]any{{"allow_reshare": false}}, fake.bodies["PATCH "+sharePath])
+}
+
+// A failed --no-allow-reshare stops before anything is built or published.
+func TestShareStopsWhenResharingCannotBeStopped(t *testing.T) {
+	setTestHome(t)
+	fake, server := newFakeAPI(t)
+	fake.links = []map[string]any{linkPayload("active")}
+	fake.patch = func(map[string]any) (int, any) {
+		return http.StatusInternalServerError, map[string]any{"error": "boom"}
+	}
+	opts, _ := testOptions(t, server, "", directory{}, false, &steps{})
+	opts.yes = true
+	opts.allowReshare = new(false)
+
+	err := run(t.Context(), opts)
+	require.ErrorContains(t, err, "copies can still be shared again")
+	assert.Zero(t, fake.drafts)
+	assert.Zero(t, fake.publishes)
+}
+
 func TestShareChangesDescriptionOnlyAfterPublishing(t *testing.T) {
 	setTestHome(t)
 	fake, server := newFakeAPI(t)

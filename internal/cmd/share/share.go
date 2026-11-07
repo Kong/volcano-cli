@@ -117,8 +117,8 @@ which bypasses row-level security, so the command asks you to confirm them.
 
 --description says what the project does, on the link's page. Copies cannot be
 shared again unless --allow-reshare lets them; --no-allow-reshare takes that
-back, and stops copies that are already shared. --yes confirms without asking,
-for CI.`,
+back, and stops copies that are already shared, before the release is built, so
+it holds even if you decline to publish. --yes confirms without asking, for CI.`,
 		Example: fmt.Sprintf("  %s\n  %s\n  %s",
 			cliruntime.CommandPath(deps, "share"),
 			cliruntime.CommandPath(deps, `share --description "Ask a question, get a checked answer."`),
@@ -208,6 +208,9 @@ func run(ctx context.Context, opts options) error {
 	if err != nil {
 		return err
 	}
+	if share, err = stopResharing(ctx, &opts, service, share, created); err != nil {
+		return err
+	}
 	draft, err := service.Draft(ctx, share.Id)
 	if err != nil {
 		return err
@@ -240,6 +243,24 @@ func prepareShare(ctx context.Context, opts options, service sharing.Service) (*
 		AllowReshare:  opts.allowReshare,
 	})
 	return share, err == nil, err
+}
+
+// stopResharing applies --no-allow-reshare to a share that existed before the
+// release is built. It only takes consent back, so it needs no release: it
+// holds even when the build fails or the owner declines to publish.
+func stopResharing(
+	ctx context.Context, opts *options, service sharing.Service, share *apiclient.Share, created bool,
+) (*apiclient.Share, error) {
+	if created || opts.allowReshare == nil || *opts.allowReshare {
+		return share, nil
+	}
+	updated, err := service.Update(ctx, share.Id, apiclient.ShareUpdateRequest{AllowReshare: opts.allowReshare})
+	if err != nil {
+		return nil, fmt.Errorf("%w\n\nNothing was published, and copies can still be shared again", err)
+	}
+	opts.allowReshare = nil
+	output.Success(opts.out, "Copies of this share can no longer be shared again.")
+	return updated, nil
 }
 
 // finishShare switches the share on and applies --description and
