@@ -218,6 +218,7 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	}
 	if checks := run.RepositoryChecks; checks != nil {
 		kv(w, on, "Checks", "%s", lavaflowRepositoryChecks(checks))
+		lavaflowCheckCommands(w, on, checks.Commands)
 	}
 	// The API lists only the first ungated job on each branch or commit it
 	// checked, so a count would understate the jobs that could run the change.
@@ -291,14 +292,67 @@ func lavaflowReviewStopped(stopped apiclient.LavaflowReviewStop) string {
 	}
 }
 
-// lavaflowRepositoryChecks says the repository's own checks didn't run on the
-// fix, in the API's words. The API has no status for checks that ran yet, and
-// asks clients to read a status they don't know as not_run.
+// lavaflowRepositoryChecks says whether the repository's own checks ran on
+// the fix and what they found, in the API's words. Without them, it says so
+// from the status, and reads a status it doesn't know as not_run, as the API
+// asks.
 func lavaflowRepositoryChecks(checks *apiclient.LavaflowRepositoryChecks) string {
 	if message := strings.TrimSpace(checks.Message); message != "" {
 		return clean(message)
 	}
-	return "The repository's tests didn't run."
+	switch checks.Status {
+	case "passed":
+		return "The repository's checks passed."
+	case "failed":
+		// A revised fix is not the version the checks ran on.
+		if checks.Revised {
+			return "The repository's checks failed on an earlier version of this fix."
+		}
+		return "The repository's checks failed."
+	case "no_checks_found":
+		return "LavaFlow found no checks to run in the repository."
+	default:
+		return "The repository's tests didn't run."
+	}
+}
+
+// lavaflowCheckCommands lists the commands the checks ran, in the order the
+// API sends them, each with how it ended and its exit code. A command's text
+// and output are the repository's, so the output is indented under the
+// command and marked as its output, and can't pass for the CLI's own lines.
+func lavaflowCheckCommands(w io.Writer, on bool, commands []apiclient.LavaflowRepositoryCheckCommand) {
+	for _, command := range commands {
+		head := lavaflowCheckCommandStatus(command.Status)
+		if command.ExitCode != nil {
+			head += fmt.Sprintf(", exit code %d", *command.ExitCode)
+		}
+		fmt.Fprintf(w, "  - %s: %s\n", head, clean(command.Command))
+		if command.Output == nil {
+			continue
+		}
+		output := strings.TrimRight(*command.Output, "\n")
+		if strings.TrimSpace(output) == "" {
+			fmt.Fprintf(w, "    %s %s\n", theme.Dim("Output:", on), theme.Dim("(empty)", on))
+			continue
+		}
+		fmt.Fprintf(w, "    %s\n", theme.Dim("Output:", on))
+		for line := range strings.SplitSeq(output, "\n") {
+			fmt.Fprintf(w, "      %s\n", clean(line))
+		}
+	}
+}
+
+// lavaflowCheckCommandStatus says how a check command ended. The API asks
+// clients to read a status they don't know as failed.
+func lavaflowCheckCommandStatus(status string) string {
+	switch status {
+	case "passed":
+		return "passed"
+	case "timed_out":
+		return "timed out"
+	default:
+		return "failed"
+	}
 }
 
 // lavaflowSourceCommit is the commit a run read the code at, short, with

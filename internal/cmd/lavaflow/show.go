@@ -27,7 +27,9 @@ cause and the evidence behind it, its review, whether the repository's tests
 ran on its fix, and what happened to the fix.
 The Fix block gives the pull request, its state and where its merge is, or
 why the run opened none. A fix LavaFlow held or stopped lists why, and a
-failed run says why, in the API's words. --json prints the run as the API
+failed run says why, in the API's words. The Checks line lists each command
+the repository's checks ran and how it ended, with the output of one that
+failed or timed out indented under it. --json prints the run as the API
 returned it.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
