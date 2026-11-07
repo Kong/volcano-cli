@@ -301,7 +301,7 @@ func durableSources(
 
 	sources := make([]clifunction.SourceInfo, 0, len(targets))
 	for _, target := range targets {
-		source, found := matchSource(scanned, target, baseDir)
+		source, found := clifunction.FindTarget(scanned, target, baseDir)
 		if !found {
 			return nil, "", fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s",
 				target, clifunction.FormatSourceNames(scanned))
@@ -407,13 +407,4 @@ func runtimeVersionParts(name string) []int {
 		parts = append(parts, number)
 	}
 	return parts
-}
-
-func matchSource(sources []clifunction.SourceInfo, target, baseDir string) (clifunction.SourceInfo, bool) {
-	for _, source := range sources {
-		if clifunction.MatchesTarget(source, target, baseDir) {
-			return source, true
-		}
-	}
-	return clifunction.SourceInfo{}, false
 }

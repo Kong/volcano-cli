@@ -90,7 +90,7 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read function file: %w", err)
 		}
-		entrypoint, err := safeArchivePath(info.Runtime.Deployment.Entrypoint)
+		entrypoint, err := safeArchivePath(singleFileEntrypoint(info))
 		if err != nil {
 			return nil, fmt.Errorf("unsafe function entrypoint %q: %w", info.Runtime.Deployment.Entrypoint, err)
 		}

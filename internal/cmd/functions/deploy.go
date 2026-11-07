@@ -157,11 +157,8 @@ func deploy(ctx context.Context, opts deployOptions) ([]apiclient.Function, erro
 
 	var sources []clifunction.SourceInfo
 	if !opts.all {
-		for _, source := range allSources {
-			if clifunction.MatchesTarget(source, opts.file, baseDir) {
-				sources = append(sources, source)
-				break
-			}
+		if source, found := clifunction.FindTarget(allSources, opts.file, baseDir); found {
+			sources = append(sources, source)
 		}
 		if len(sources) == 0 {
 			return nil, fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s", opts.file, clifunction.FormatSourceNames(allSources))
