@@ -409,9 +409,13 @@ and its diagnosis and root cause with the evidence behind them. A run that
 failed says why.
 
 A run with a fix has a `Checks:` line. LavaFlow doesn't run your repository's
-tests before the pull request opens, and the fix's commit skips CI, so the line
-says the tests didn't run. Push a commit to the pull request's branch to run
-them.
+tests before it opens the pull request, so the line says they didn't run. Your
+repository's CI may still run on the pull request after it opens.
+
+The line reads
+`LavaFlow didn't run the repository's tests before opening this pull request.`
+for a run that opened one, and `LavaFlow didn't run the repository's tests.`
+for a run that didn't.
 
 When the review ends without passing the fix, a `Review stopped:` line says
 why, in the words of the API's `review.stopped`:

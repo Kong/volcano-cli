@@ -213,7 +213,7 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 			kv(w, on, "Review", "%s after %d round(s)", verdict, run.Review.Rounds)
 		}
 		if run.Review.Stopped != nil {
-			kv(w, on, "Review stopped", "%s", lavaflowReviewStopped(string(*run.Review.Stopped)))
+			kv(w, on, "Review stopped", "%s", lavaflowReviewStopped(*run.Review.Stopped))
 		}
 	}
 	if checks := run.RepositoryChecks; checks != nil {
@@ -268,26 +268,26 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 
 // lavaflowReviewStopped says why a review ended without passing the fix. A
 // reason the CLI doesn't know reads as other, with its code.
-func lavaflowReviewStopped(stopped string) string {
+func lavaflowReviewStopped(stopped apiclient.LavaflowReviewStop) string {
 	switch stopped {
-	case "rounds":
+	case apiclient.LavaflowReviewStopRounds:
 		return "The last review round still found problems."
-	case "no_revision":
+	case apiclient.LavaflowReviewStopNoRevision:
 		return "LavaFlow gave no revised fix."
-	case "budget_exhausted":
+	case apiclient.LavaflowReviewStopBudgetExhausted:
 		return "The run used its token budget before LavaFlow could revise the fix, not the daily spend limit."
-	case "context_limit":
+	case apiclient.LavaflowReviewStopContextLimit:
 		return "The fix's conversation grew too long for LavaFlow before it could revise it."
-	case "timed_out":
+	case apiclient.LavaflowReviewStopTimedOut:
 		return "The run's time for review ran out."
-	case "reviewers_failed":
+	case apiclient.LavaflowReviewStopReviewersFailed:
 		return "No reviewer of the last round finished."
-	case "too_few_reviewers":
+	case apiclient.LavaflowReviewStopTooFewReviewers:
 		return "Fewer reviewers could run than a round needs to pass the fix."
-	case "unreadable":
+	case apiclient.LavaflowReviewStopUnreadable:
 		return "A retried run couldn't read the review saved with its fix, so a person must review it."
 	default:
-		return "Other (" + clean(strings.ReplaceAll(stopped, "_", " ")) + ")."
+		return "Other (" + clean(strings.ReplaceAll(string(stopped), "_", " ")) + ")."
 	}
 }
 

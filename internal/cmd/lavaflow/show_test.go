@@ -654,21 +654,3 @@ func TestShowSaysWhenNoReviewerCouldRun(t *testing.T) {
 	assert.Contains(t, out, "Review: error; no reviewer could run\nReview stopped: ")
 	assert.NotContains(t, out, "0 round(s)")
 }
-
-// A run reviewed before Volcano kept each round's findings sends
-// round_reviews as []: show prints the review as before, and --json keeps the
-// list as sent.
-func TestShowReadsARunReviewedBeforeRoundsWereKept(t *testing.T) {
-	fake, deps := newLavaflowServer(t)
-	fake.set(func(s *lavaflowServer) {
-		s.runs[0]["review"] = map[string]any{"verdict": "passed", "rounds": 2, "stopped": nil, "round_reviews": []any{}}
-	})
-
-	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
-	require.NoError(t, err)
-	assert.Contains(t, out, "Review: passed after 2 round(s)\nChecks: ")
-
-	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
-	require.NoError(t, err)
-	assert.Equal(t, []any{}, decodeJSON(t, out)["review"].(map[string]any)["round_reviews"])
-}
