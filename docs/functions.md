@@ -97,6 +97,8 @@ build compiles it.
 | Deployable regions | `volcano functions regions [--json]` |
 | Aliases | `volcano functions alias set\|list\|delete …` |
 | Schedulers | `volcano functions schedulers create\|list\|enable\|disable\|delete …` |
+| Previews | `volcano cloud functions preview create\|list\|get\|deploy\|delete\|promote …` |
+| What a function runs, roll back | `volcano cloud functions serving <name>`, `volcano cloud functions rollback <name> [--to-production]` |
 
 Prefix with `cloud` (e.g. `volcano cloud functions deploy`) to target cloud.
 Without the prefix, function commands always target local development.
@@ -196,3 +198,44 @@ volcano functions invoke hello
 failed, and the last error of a failing one. A run fails when Volcano cannot
 invoke the function; an error the function itself returns does not count. To be
 alerted when a scheduler keeps failing, see [notifications.md](notifications.md).
+
+## Previews
+
+A preview is a copy of an ordinary function deployed to its own Lambda and URL,
+so you can check a change with the function's real variables before it replaces
+what the function runs. Previews run in the cloud only; the local development
+server answers `feature_unavailable`.
+
+```bash
+# Deploy a preview of api from volcano/functions in the current project
+volcano cloud functions preview create api --name checkout-v2 --ttl 72h
+volcano cloud functions preview get api checkout-v2
+volcano cloud functions preview list api
+
+# Deploy a newer build to the same preview
+volcano cloud functions preview deploy api checkout-v2
+
+# Deploy the preview's exact image to api, check it, and undo it
+volcano cloud functions preview promote api checkout-v2
+volcano cloud functions serving api
+volcano cloud functions rollback api
+
+# Remove the preview
+volcano cloud functions preview delete api checkout-v2
+```
+
+A preview is private: invoke its URL with your project credentials. It gets
+none of the function's schedules or warmers. `--name` is required and unique
+within the function; `--ttl` deletes the preview after that long, at most 720
+hours. A function can have 20 live previews; durable functions have none.
+
+Promotion deploys the preview's built image to the function without
+rebuilding, so the function keeps its URL, visibility and schedules. It is
+refused while another deployment of the function runs, and when the preview was
+built with different variables, runtime or handler than the function has now.
+`promote` and `rollback` name the revision the CLI just read, so one that races
+another is refused instead of overwriting it. `rollback --to-production`
+returns to the function's own newest build. A preview the function runs cannot
+be deleted; roll back first. Creating, deploying to and promoting a preview are
+behind a release gate and answer `feature_unavailable` while it is off. See
+[Function previews](/platform/functions/previews).

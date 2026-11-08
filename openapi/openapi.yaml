@@ -7717,6 +7717,587 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{id}/functions/{functionId}/candidates:
+    get:
+      tags:
+        - Functions
+      summary: List a function's previews
+      description: |
+        Returns the function's previews (Candidates), oldest first, each with its latest deployment.
+        Reading never depends on the `functions.candidates` capability.
+      operationId: listFunctionCandidates
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FunctionId'
+      responses:
+        '200':
+          description: The function's previews
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionCandidateList'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Functions
+      summary: Create a function preview
+      description: |
+        Builds the uploaded source with the function's runtime, handler and variables, and deploys it to a
+        Lambda of its own in every region the function deploys to. The preview is invoked at
+        `https://<preview id>.<functions domain>` with the project's credentials, whatever the
+        function's own visibility, and gets none of the function's schedules or warmers. The response is
+        `202` while the first deployment runs. Answers `404` with code `feature_unavailable` while the `functions.candidates` capability is unavailable, including on the local development server.
+        A preview builds like any deploy and spends the project's build minutes. A function has at most 20
+        live previews; durable functions have none.
+      operationId: createFunctionCandidate
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FunctionId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - code
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  description: Names the preview within the function. Cannot be `production`.
+                ttl_seconds:
+                  type: integer
+                  minimum: 1
+                  maximum: 2592000
+                  description: Deletes the preview this many seconds after it is created, at most 30 days.
+                code:
+                  type: string
+                  format: binary
+                  description: The function's source archive, as for deploying the function. Built with the function's runtime and handler.
+      responses:
+        '202':
+          description: Preview created; its first deployment is running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionCandidate'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Function not found, or the capability is unavailable (code `feature_unavailable`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict. `code: durable_function_unsupported` - the function is durable. `code: deployment_in_progress` - a deployment of the preview, or for a promotion of the function, is running. `code: configuration_changed` - the function''s variables for that source changed since the preview was built. `code: candidate_not_ready`, `code: candidate_regions_changed`, `code: function_not_deployed`, `code: stale_revision`, `code: already_serving`, `code: nothing_to_roll_back`, `code: rollback_unavailable`, `code: candidate_in_use`, `code: candidate_not_deployable`, `code: candidate_name_taken`, `code: candidate_limit_reached`, `code: function_deleting` and `code: project_deleting` are described in the function previews guide.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests - the project's build minutes are used up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service unavailable - function deployments are not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/functions/{functionId}/candidates/{candidateId}:
+    get:
+      tags:
+        - Functions
+      summary: Get a function preview
+      description: |
+        Returns the preview with its latest deployment.
+      operationId: getFunctionCandidate
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FunctionId'
+        - $ref: '#/components/parameters/FunctionCandidateId'
+      responses:
+        '200':
+          description: The preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionCandidate'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Function or preview not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Functions
+      summary: Delete a function preview
+      description: |
+        Starts removing the preview's Lambda, DNS record and stored source; the preview reads `deleting`
+        until that finishes. A preview the function runs cannot be deleted (`409`, code
+        `candidate_in_use`); deleting one kept only for a rollback gives that rollback up. Never depends on
+        the `functions.candidates` capability.
+      operationId: deleteFunctionCandidate
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FunctionId'
+        - $ref: '#/components/parameters/FunctionCandidateId'
+      responses:
+        '202':
+          description: Deletion started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionCandidate'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Function or preview not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict. `code: durable_function_unsupported` - the function is durable. `code: deployment_in_progress` - a deployment of the preview, or for a promotion of the function, is running. `code: configuration_changed` - the function''s variables for that source changed since the preview was built. `code: candidate_not_ready`, `code: candidate_regions_changed`, `code: function_not_deployed`, `code: stale_revision`, `code: already_serving`, `code: nothing_to_roll_back`, `code: rollback_unavailable`, `code: candidate_in_use`, `code: candidate_not_deployable`, `code: candidate_name_taken`, `code: candidate_limit_reached`, `code: function_deleting` and `code: project_deleting` are described in the function previews guide.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/functions/{functionId}/candidates/{candidateId}/deployments:
+    get:
+      tags:
+        - Functions
+      summary: List a function preview's deployments
+      description: |
+        Returns the preview's deployments, newest first, at most 100.
+      operationId: listFunctionCandidateDeployments
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FunctionId'
+        - $ref: '#/components/parameters/FunctionCandidateId'
+      responses:
+        '200':
+          description: The preview's deployments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionCandidateDeploymentList'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Function or preview not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Functions
+      summary: Deploy new source to a function preview
+      description: |
+        Builds the uploaded source and deploys it to the preview, which keeps serving its previous
+        deployment until this one succeeds. A preview takes one deployment at a time, and one the function
+        runs, or keeps for a rollback, takes none. Answers `404` with code `feature_unavailable` while the `functions.candidates` capability is unavailable, including on the local development server.
+      operationId: redeployFunctionCandidate
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FunctionId'
+        - $ref: '#/components/parameters/FunctionCandidateId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  format: binary
+                  description: The function's source archive, as for deploying the function. Built with the function's runtime and handler.
+      responses:
+        '202':
+          description: The deployment is running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionCandidateDeployment'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Function or preview not found, or the capability is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict. `code: durable_function_unsupported` - the function is durable. `code: deployment_in_progress` - a deployment of the preview, or for a promotion of the function, is running. `code: configuration_changed` - the function''s variables for that source changed since the preview was built. `code: candidate_not_ready`, `code: candidate_regions_changed`, `code: function_not_deployed`, `code: stale_revision`, `code: already_serving`, `code: nothing_to_roll_back`, `code: rollback_unavailable`, `code: candidate_in_use`, `code: candidate_not_deployable`, `code: candidate_name_taken`, `code: candidate_limit_reached`, `code: function_deleting` and `code: project_deleting` are described in the function previews guide.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests - the project's build minutes are used up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/functions/{functionId}/candidates/{candidateId}/promote:
+    post:
+      tags:
+        - Functions
+      summary: Promote a function preview
+      description: |
+        Deploys the preview's exact image to the function's own Lambda through its ordinary deploy, so
+        nothing is rebuilt: the function keeps its name, URL, visibility, schedules and warmers. The
+        preview must be serving a successful deployment built with the variables the function would give
+        that source now, in every region the function deploys to, and the function must have a successful
+        deployment of its own to roll back to. It is refused while another deployment of the function runs.
+        With `expected_revision`, it is refused if what the function runs changed since that revision.
+        The response is `202` while the deployment runs; read the serving state for its outcome. Answers `404` with code `feature_unavailable` while the `functions.candidates` capability is unavailable, including on the local development server.
+      operationId: promoteFunctionCandidate
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FunctionId'
+        - $ref: '#/components/parameters/FunctionCandidateId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunctionActivationRequest'
+      responses:
+        '202':
+          description: The promotion is deploying
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionServing'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Function or preview not found, or the capability is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict. `code: durable_function_unsupported` - the function is durable. `code: deployment_in_progress` - a deployment of the preview, or for a promotion of the function, is running. `code: configuration_changed` - the function''s variables for that source changed since the preview was built. `code: candidate_not_ready`, `code: candidate_regions_changed`, `code: function_not_deployed`, `code: stale_revision`, `code: already_serving`, `code: nothing_to_roll_back`, `code: rollback_unavailable`, `code: candidate_in_use`, `code: candidate_not_deployable`, `code: candidate_name_taken`, `code: candidate_limit_reached`, `code: function_deleting` and `code: project_deleting` are described in the function previews guide.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/functions/{functionId}/serving:
+    get:
+      tags:
+        - Functions
+      summary: Get what a function runs
+      description: |
+        Returns whether the function runs its own build or a promoted preview's, and its latest promotion
+        or rollback.
+      operationId: getFunctionServing
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FunctionId'
+      responses:
+        '200':
+          description: What the function runs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionServing'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/functions/{functionId}/serving/rollback:
+    post:
+      tags:
+        - Functions
+      summary: Roll back what a function runs
+      description: |
+        Deploys the build the function ran before its last promotion or rollback, so a second rollback
+        undoes the first. With `to_production` it returns to the function's own newest build. Nothing is
+        rebuilt. A rollback that would run a preview's build again is a promotion, and is refused like one,
+        including while the capability is unavailable; a rollback to the function's own build never
+        depends on the capability.
+      operationId: rollbackFunctionServing
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FunctionId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunctionActivationRequest'
+      responses:
+        '202':
+          description: The rollback is deploying
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionServing'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict. `code: durable_function_unsupported` - the function is durable. `code: deployment_in_progress` - a deployment of the preview, or for a promotion of the function, is running. `code: configuration_changed` - the function''s variables for that source changed since the preview was built. `code: candidate_not_ready`, `code: candidate_regions_changed`, `code: function_not_deployed`, `code: stale_revision`, `code: already_serving`, `code: nothing_to_roll_back`, `code: rollback_unavailable`, `code: candidate_in_use`, `code: candidate_not_deployable`, `code: candidate_name_taken`, `code: candidate_limit_reached`, `code: function_deleting` and `code: project_deleting` are described in the function previews guide.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/durable-functions:
     get:
       tags:
@@ -22201,6 +22782,14 @@ components:
         type: string
         format: uuid
       description: Frontend ID
+    FunctionCandidateId:
+      name: candidateId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Function preview (Candidate) ID
     FrontendCandidateId:
       name: candidateId
       in: path
@@ -28237,6 +28826,237 @@ components:
         - frontend_routes
         - created_at
         - updated_at
+    FunctionCandidate:
+      type: object
+      additionalProperties: false
+      description: |
+        A copy of an ordinary function built from an uploaded source with the function's own variables,
+        run on a Lambda of its own and invoked at its own host with the project's credentials, so it can
+        be checked before its exact image is promoted. It has none of the function's schedules or warmers.
+      properties:
+        id:
+          type: string
+          format: uuid
+        function_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 128
+        slug:
+          type: string
+        status:
+          type: string
+          enum:
+            - creating
+            - ready
+            - deleting
+            - deleted
+            - error
+          description: |
+            `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while its
+            Lambda is removed, and `error` when its deletion gave up and needs an operator.
+        exposure:
+          type: string
+          enum:
+            - private
+          description: A function preview is always invoked with the project's credentials.
+        url:
+          type: string
+          format: uri
+          nullable: true
+          description: Where the preview is invoked. Null until its first deployment succeeds.
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_by:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        current_deployment_id:
+          type: string
+          format: uuid
+          nullable: true
+        configuration_status:
+          type: string
+          nullable: true
+          description: |
+            Present while the preview serves a deployment: `current` when it was built with the variables
+            the function would give that source now, else `changed`. Promotion refuses `changed`.
+        serving:
+          type: boolean
+          description: The function runs this preview's build.
+        kept_for_rollback:
+          type: boolean
+          description: A rollback of the function returns to this preview's build.
+        latest_deployment:
+          allOf:
+            - $ref: '#/components/schemas/FunctionCandidateDeployment'
+          nullable: true
+      required:
+        - id
+        - function_id
+        - name
+        - slug
+        - status
+        - exposure
+        - created_at
+        - updated_at
+        - serving
+        - kept_for_rollback
+    FunctionCandidateList:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FunctionCandidate'
+      required:
+        - data
+    FunctionCandidateDeployment:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - provisioning
+            - active
+            - failed
+        operation:
+          type: string
+          enum:
+            - deploy
+            - redeploy
+        image_uri:
+          type: string
+          nullable: true
+          description: The published image, one `region=uri@sha256:digest` entry per region. A promotion deploys exactly this.
+        configuration_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          description: Identifies the variables the build used without carrying any value.
+        regions:
+          type: array
+          items:
+            type: string
+        error_message:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - status
+        - operation
+        - configuration_digest
+        - regions
+        - created_at
+    FunctionCandidateDeploymentList:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FunctionCandidateDeployment'
+      required:
+        - data
+    FunctionServing:
+      type: object
+      additionalProperties: false
+      description: What a function runs, its own build or a promoted preview's.
+      properties:
+        revision:
+          type: integer
+          format: int64
+          description: Increases with every promotion, rollback and released rollback.
+        candidate_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The preview whose build the function runs; null for its own.
+        previous_candidate_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The preview a rollback returns to; null for the function's own build.
+        activation:
+          allOf:
+            - $ref: '#/components/schemas/FunctionServingActivation'
+          nullable: true
+      required:
+        - revision
+        - candidate_id
+        - previous_candidate_id
+        - activation
+    FunctionServingActivation:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - promotion
+            - rollback
+        status:
+          type: string
+          enum:
+            - applying
+            - applied
+            - failed
+        revision:
+          type: integer
+          format: int64
+        candidate_id:
+          type: string
+          format: uuid
+          nullable: true
+        image_uri:
+          type: string
+        deployment_id:
+          type: string
+          format: uuid
+          description: The function deployment that applies it.
+        error_message:
+          type: string
+          nullable: true
+      required:
+        - id
+        - kind
+        - status
+        - revision
+        - image_uri
+        - deployment_id
+    FunctionActivationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_revision:
+          type: integer
+          format: int64
+          description: Refuses the request with `stale_revision` unless what the function runs is still at this revision.
+        to_production:
+          type: boolean
+          description: For a rollback, return to the function's own newest build.
     FrontendCandidate:
       type: object
       additionalProperties: false
