@@ -959,7 +959,10 @@ func lavaflowSourceUnavailableNext(w io.Writer, on bool, source *apiclient.Lavaf
 		case apiclient.LavaflowSourceUnavailableReasonCommitNotOnProductionBranch:
 			next = "Deploy from the production branch: push to it, or run " + deploy + " from a clean checkout of it." + newRun
 		case lavaflowSourceDeploymentUnattributed:
-			next = "If the error happens again, LavaFlow tries once more on its own; if that run can't tell either, the next waits for a new deploy."
+			// The run doesn't say whether it already followed another like
+			// it, so this holds either way.
+			next = "If the error happens again, LavaFlow may start one more run on its own; " +
+				"if this run already followed another like it, the next run waits for a new deploy."
 		}
 	}
 	fmt.Fprintf(w, "  %s\n", next)

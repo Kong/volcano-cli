@@ -581,8 +581,8 @@ func TestShowSaysWhyLavaFlowReadNoCode(t *testing.T) {
 			source: map[string]any{"reason": "deployment_unattributed", "deployment_id": nil},
 			want: none + "a newer deployment was going live when the error happened, " +
 				"so LavaFlow couldn't tell which deployment served it.\n" +
-				"  If the error happens again, LavaFlow tries once more on its own; " +
-				"if that run can't tell either, the next waits for a new deploy.\n",
+				"  If the error happens again, LavaFlow may start one more run on its own; " +
+				"if this run already followed another like it, the next run waits for a new deploy.\n",
 		},
 		"no reason": {
 			source: nil,
