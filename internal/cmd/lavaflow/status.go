@@ -11,9 +11,13 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-// gitConnectCommand connects a repository. git is a top-level command in
-// both trees, so it never takes the cloud prefix.
-const gitConnectCommand = "volcano git connect"
+// gitConnectCommand connects a repository, and gitStatusCommand shows it.
+// git is a top-level command in both trees, so it never takes the cloud
+// prefix.
+const (
+	gitConnectCommand = "volcano git connect"
+	gitStatusCommand  = "volcano git status"
+)
 
 type statusOptions struct {
 	deps       cliruntime.Deps

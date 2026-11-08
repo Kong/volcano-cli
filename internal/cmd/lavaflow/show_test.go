@@ -469,8 +469,8 @@ func TestShowSaysWhyARunOpenedNoPullRequest(t *testing.T) {
 		"pull_request_open": none + ": another LavaFlow pull request for this issue was open when this run finished. Review or close it.\n" +
 			"  See the open ones with volcano cloud lavaflow list --status pr_open. If that pull request closed without merging, " +
 			"start a new run with " + startRun + ".\n",
-		"source_unavailable": none + ": LavaFlow couldn't read the repository at the deployed commit. " +
-			"Check the project's repository connection and that the commit exists.\n",
+		"source_unavailable": none + ": LavaFlow couldn't read, or open a fix on, the code that served the error.\n" +
+			"  See " + noCodeGuide + " for why LavaFlow reads no code and what to do.\n",
 		"permission_missing": none + ": the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs. " +
 			"Grant the App's requested permissions, and make sure the owner can push to the repository.\n",
 		"repository_changed": none + ": the project no longer deploys from the repository the run read. A new run uses the current one.\n",
@@ -497,6 +497,119 @@ func TestShowSaysWhyARunOpenedNoPullRequest(t *testing.T) {
 			assert.Contains(t, out, "Fix:\n"+want+"\nDiagnosis\n")
 			assert.NotContains(t, out, "Pull request:")
 			assert.NotContains(t, out, "\x1b")
+			assertLavaFlowWording(t, out)
+		})
+	}
+}
+
+// noCodeGuide is the public guide's section on why LavaFlow read no code.
+const noCodeGuide = "https://docs.volcano.dev/platform/guides/lavaflow#why-lavaflow-read-no-code"
+
+// A run that read no code says why for each reason the API documents, names
+// the deployment that served the error when the API does, and gives the next
+// step with the exact command where one exists. Without a reason, or with one
+// the CLI doesn't know, it names no cause and points to the guide.
+func TestShowSaysWhyLavaFlowReadNoCode(t *testing.T) {
+	const (
+		none       = "  No fix pull request was opened: "
+		deployment = "7c2e5a1f-3b8d-4e6a-9f0c-1d2e3f4a5b6c"
+		newRun     = " LavaFlow starts a new run when the error happens again after that deploy.\n"
+		startRun   = "volcano cloud lavaflow runs start " + lavaflowIssueID
+		guide      = "  See " + noCodeGuide + " for why LavaFlow reads no code and what to do.\n"
+	)
+	for name, tc := range map[string]struct {
+		source any
+		want   string
+	}{
+		"no_repository": {
+			source: map[string]any{"reason": "no_repository", "deployment_id": nil},
+			want: none + "LavaFlow is on for no repository, so it had no code to read.\n" +
+				"  Link one with volcano git connect <git-url>.\n",
+		},
+		"no_commit": {
+			source: map[string]any{"reason": "no_commit", "deployment_id": deployment},
+			want: none + "the deployment that served the error recorded no commit, so LavaFlow had no code to read.\n" +
+				"  Deployment: " + deployment + "\n" +
+				"  Deploy by pushing to the production branch, which volcano git status names, " +
+				"or run volcano cloud deploy from a clean checkout of a commit on that branch." + newRun,
+		},
+		"no_commit, none serving": {
+			source: map[string]any{"reason": "no_commit", "deployment_id": nil},
+			want: none + "no deployment was serving when the error happened, so LavaFlow had no code to read.\n" +
+				"  Deploy by pushing to the production branch, which volcano git status names, " +
+				"or run volcano cloud deploy from a clean checkout of a commit on that branch." + newRun,
+		},
+		"uncommitted_changes": {
+			source: map[string]any{"reason": "uncommitted_changes", "deployment_id": deployment},
+			want: none + "the files of the deployment that served the error differ from its commit, " +
+				"as when the checkout had uncommitted changes.\n" +
+				"  Deployment: " + deployment + "\n" +
+				"  Commit and push those changes, then run volcano cloud deploy from the clean checkout." + newRun,
+		},
+		"unverified_commit": {
+			source: map[string]any{"reason": "unverified_commit", "deployment_id": deployment},
+			want: none + "Volcano couldn't verify the commit of the deployment that served the error against the linked repository, " +
+				"for example because the production branch doesn't hold it, or the deployment is a function redeploy.\n" +
+				"  Deployment: " + deployment + "\n" +
+				"  Push the commit to the production branch, which volcano git status names, " +
+				"then run volcano cloud deploy from a clean checkout of it." + newRun,
+		},
+		"other_repository": {
+			source: map[string]any{"reason": "other_repository", "deployment_id": deployment},
+			want: none + "the commit LavaFlow would read is from a repository other than the one LavaFlow is on for, " +
+				"Volcano checked it under an earlier repository link, or the project no longer links that repository.\n" +
+				"  Deployment: " + deployment + "\n" +
+				"  For an error a deployment served, push to the linked repository's production branch, " +
+				"or run volcano cloud deploy from a clean checkout of it. " +
+				"LavaFlow starts a new run when the error happens again after that deploy. " +
+				"For a reported problem or a Code Quality finding, start a new run with " + startRun +
+				" while the project links the repository LavaFlow is on for.\n",
+		},
+		"repository_unreadable": {
+			source: map[string]any{"reason": "repository_unreadable", "deployment_id": nil},
+			want: none + "LavaFlow couldn't read the repository at the commit, " +
+				"for example because the Volcano GitHub App lost access to it.\n" +
+				"  Check the project's repository link with volcano git status and the Volcano GitHub App's access " +
+				"to the repository, then start a new run with " + startRun + ".\n",
+		},
+		"commit_not_on_production_branch": {
+			source: map[string]any{"reason": "commit_not_on_production_branch", "deployment_id": nil},
+			want: none + "the production branch no longer holds the commit the fix is on.\n" +
+				"  Deploy from the production branch: push to it, or run volcano cloud deploy from a clean checkout of it." + newRun,
+		},
+		"deployment_unattributed": {
+			source: map[string]any{"reason": "deployment_unattributed", "deployment_id": nil},
+			want: none + "a newer deployment was going live when the error happened, " +
+				"so LavaFlow couldn't tell which deployment served it.\n" +
+				"  If the error happens again, LavaFlow tries once more on its own; " +
+				"if that run can't tell either, the next waits for a new deploy.\n",
+		},
+		"no reason": {
+			source: nil,
+			want:   none + "LavaFlow couldn't read, or open a fix on, the code that served the error.\n" + guide,
+		},
+		"unknown reason": {
+			source: map[string]any{"reason": "new_reason\x1b[2J\u202e", "deployment_id": deployment},
+			want: none + "LavaFlow couldn't read, or open a fix on, the code that served the error. " +
+				`Its reason, new_reason\x1b[2J\u202e, is one this version of the CLI doesn't know.` + "\n" +
+				"  Deployment: " + deployment + "\n" + guide,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.openNoPullRequest("source_unavailable")
+				s.runs[0]["source_unavailable"] = tc.source
+			})
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Fix:\n"+tc.want+"\nDiagnosis\n")
+			assert.NotContains(t, out, "\x1b")
+			assert.NotContains(t, out, "\u202e")
+			if name == "no reason" || name == "unknown reason" {
+				assert.NotContains(t, out, "repository connection")
+			}
 			assertLavaFlowWording(t, out)
 		})
 	}

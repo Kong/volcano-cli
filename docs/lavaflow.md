@@ -592,9 +592,22 @@ The `Fix:` block always says what happened to the run's fix:
   that only diagnosed, or `list --status pr_open` when another LavaFlow pull
   request for the issue was open. A run that finished without a recorded
   reason says `No fix pull request was opened. LavaFlow didn't record why.`
+- With none because LavaFlow couldn't read the code that served the error:
+  the reason the API gives, the deployment that served the error when the API
+  names it, and the next step, such as committing and pushing changes and then
+  running `volcano cloud deploy` from a clean checkout. A reason your CLI
+  doesn't know names no cause and links
+  [Why LavaFlow read no code](/platform/guides/lavaflow#why-lavaflow-read-no-code).
 - For a run that failed or was cancelled: why, in Volcano's words. A
   cancelled run also gives the `runs start` command to try again.
 - While the run is queued or working: `No fix yet: LavaFlow is still working on this run.`
+
+```text
+Fix:
+  No fix pull request was opened: the files of the deployment that served the error differ from its commit, as when the checkout had uncommitted changes.
+  Deployment: 7c2e5a1f-3b8d-4e6a-9f0c-1d2e3f4a5b6c
+  Commit and push those changes, then run volcano cloud deploy from the clean checkout. LavaFlow starts a new run when the error happens again after that deploy.
+```
 
 ```text
 Fix:

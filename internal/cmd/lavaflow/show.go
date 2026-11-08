@@ -56,6 +56,9 @@ func runShow(ctx context.Context, opts showOptions, runID string) error {
 		StartRun:    cliruntime.CommandPath(opts.deps, "lavaflow runs start "+run.IssueId.String()),
 		SettingsSet: cliruntime.CommandPath(opts.deps, "lavaflow settings set"),
 		List:        cliruntime.CommandPath(opts.deps, "lavaflow list"),
+		Deploy:      cliruntime.CommandPath(opts.deps, "deploy"),
+		GitStatus:   gitStatusCommand,
+		GitConnect:  gitConnectCommand,
 	})
 	return nil
 }
