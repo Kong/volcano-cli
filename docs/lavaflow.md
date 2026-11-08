@@ -435,9 +435,11 @@ Checks: LavaFlow ran the repository's checks before opening this pull request, a
 A command that ended without an exit code, as one that timed out may, shows
 none, and `Output: (empty)` marks one that printed nothing. A status your CLI
 doesn't know shows as `failed`. Volcano replaces a command or output that may
-contain a credential with a sentence saying it left it out. A control
-character in a command or its output prints as a visible escape such as
-`\x1b`.
+contain a credential with a sentence saying it left it out. In `show`'s text
+output, a control character or a bidirectional text control in a command or
+its output prints as a visible escape such as `\x1b` or `\u202e`.
+`show --json` prints commands and their output as the API sent them, encoded
+as JSON strings.
 
 When the checks failed and LavaFlow then revised the fix once without running
 them again, the line says so, and the commands listed are the ones that ran on

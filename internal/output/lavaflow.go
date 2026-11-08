@@ -406,6 +406,8 @@ func block(w io.Writer, on bool, title, text string) {
 // as plain text: each control character other than tab, such as an escape,
 // a carriage return or a C1 code, prints as a visible escape like \x1b, so
 // the text can't move the cursor, change colors or set links or the title.
+// A bidirectional embedding, override or isolate prints as \u202e and the
+// like, so the text shows in the order it was written.
 // A newline is escaped too; block splits text into lines before this.
 func clean(text string) string {
 	var b strings.Builder
@@ -415,7 +417,9 @@ func clean(text string) string {
 			b.WriteRune(r)
 		case r < 0x20 || r == 0x7f:
 			fmt.Fprintf(&b, "\\x%02x", r)
-		case r >= 0x80 && r <= 0x9f:
+		case r >= 0x80 && r <= 0x9f,
+			r >= 0x202a && r <= 0x202e,
+			r >= 0x2066 && r <= 0x2069:
 			fmt.Fprintf(&b, "\\u%04x", r)
 		default:
 			b.WriteRune(r)

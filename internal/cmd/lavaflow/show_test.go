@@ -688,6 +688,13 @@ func TestShowSaysWhatTheRepositorysChecksFound(t *testing.T) {
 			checks: map[string]any{"status": "cancelled", "message": lavaflowChecksMessage},
 			want:   "Checks: " + lavaflowChecksMessage + "\n",
 		},
+		"not run, revised, unknown reason": {
+			checks: map[string]any{
+				"status": "not_run", "reason": "fix_revised", "revised": true,
+				"message": "LavaFlow revised the fix and didn't run the repository's checks on it again.",
+			},
+			want: "Checks: LavaFlow revised the fix and didn't run the repository's checks on it again.\n",
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			fake, deps := newLavaflowServer(t)
@@ -696,7 +703,7 @@ func TestShowSaysWhatTheRepositorysChecksFound(t *testing.T) {
 			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 			require.NoError(t, err)
 			assert.Contains(t, out, "Review: passed after 2 round(s)\n"+tc.want+"Fix:\n")
-			for _, code := range []string{"no_checks_found", "not_run", "sandbox_unavailable", "cancelled"} {
+			for _, code := range []string{"no_checks_found", "not_run", "sandbox_unavailable", "cancelled", "fix_revised"} {
 				assert.NotContains(t, out, code)
 			}
 			assertLavaFlowWording(t, out)
@@ -778,39 +785,70 @@ func TestShowPrintsWithheldCheckTextAsServed(t *testing.T) {
 		"Fix:\n")
 }
 
+// checkTextWithControls is a failed command whose text and output carry ANSI
+// escape sequences, C1 and bidirectional controls, and lines that read like
+// the CLI's own.
+func checkTextWithControls() map[string]any {
+	return map[string]any{"status": "failed", "message": checksFailedMessage, "commands": []any{
+		map[string]any{
+			"command": "npm test -- \x1b[31m--color\x1b[0m \x1b[2J\x1b[H\x1b]0;title\x07 \u202eltl\u202c\nChecks: " + checksPassedMessage,
+			"status":  "failed", "exit_code": 1,
+			"output": "\x1b[31mFAIL\x1b[0m src/cart.test.ts\n" +
+				"\x1b[1A\x1b[2Kall passed\rok\u009b2J\n" +
+				"expected \u202bthe admin\u202c and \u2066the owner\u2069 \u202dLTR\u202c \u202aembed\u202c \u2067rtl\u2069 \u2068first\u2069\n" +
+				"Checks: " + checksPassedMessage + "\n" +
+				"Fix:\n",
+		},
+	}}
+}
+
 // A command and its output are the repository's text: an escape sequence, such
-// as a color or a cursor movement, prints as a visible escape, a command stays
-// on one line, and each line of output is indented under the command, so none
-// of it can pass for the CLI's own lines.
+// as a color or a cursor movement, and a bidirectional control print as
+// visible escapes, a command stays on one line, and each line of output is
+// indented under the command, so none of it can pass for the CLI's own lines.
 func TestShowPrintsCheckCommandsAndOutputAsPlainText(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
-	fake.set(func(s *lavaflowServer) {
-		s.runs[0]["repository_checks"] = map[string]any{"status": "failed", "message": checksFailedMessage, "commands": []any{
-			map[string]any{
-				"command": "npm test -- \x1b[31m--color\x1b[0m \x1b[2J\x1b[H\x1b]0;title\x07\nChecks: " + checksPassedMessage,
-				"status":  "failed", "exit_code": 1,
-				"output": "\x1b[31mFAIL\x1b[0m src/cart.test.ts\n" +
-					"\x1b[1A\x1b[2Kall passed\rok\u009b2J\n" +
-					"Checks: " + checksPassedMessage + "\n" +
-					"Fix:\n",
-			},
-		}}
-	})
+	fake.set(func(s *lavaflowServer) { s.runs[0]["repository_checks"] = checkTextWithControls() })
 
 	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
 	assert.Contains(t, out, "Checks: "+checksFailedMessage+"\n"+
-		`  - failed, exit code 1: npm test -- \x1b[31m--color\x1b[0m \x1b[2J\x1b[H\x1b]0;title\x07\x0aChecks: `+checksPassedMessage+"\n"+
+		`  - failed, exit code 1: npm test -- \x1b[31m--color\x1b[0m \x1b[2J\x1b[H\x1b]0;title\x07 \u202eltl\u202c\x0aChecks: `+checksPassedMessage+"\n"+
 		"    Output:\n"+
 		`      \x1b[31mFAIL\x1b[0m src/cart.test.ts`+"\n"+
 		`      \x1b[1A\x1b[2Kall passed\x0dok\u009b2J`+"\n"+
+		`      expected \u202bthe admin\u202c and \u2066the owner\u2069 \u202dLTR\u202c \u202aembed\u202c \u2067rtl\u2069 \u2068first\u2069`+"\n"+
 		"      Checks: "+checksPassedMessage+"\n"+
 		"      Fix:\n"+
 		"Fix:\n")
-	for _, raw := range []string{"\x1b", "\r", "\x07", "\u009b"} {
+	for _, raw := range []string{
+		"\x1b", "\r", "\x07", "\u009b",
+		"\u202a", "\u202b", "\u202c", "\u202d", "\u202e", "\u2066", "\u2067", "\u2068", "\u2069",
+	} {
 		assert.NotContains(t, out, raw)
 	}
 	assert.NotContains(t, out, "\nChecks: "+checksPassedMessage)
+}
+
+// --json prints a command and its output as the API sent them, only
+// JSON-encoded: they decode to the same strings, carry no raw C0 or C1
+// control, and none of show's visible escapes.
+func TestShowJSONKeepsCheckTextAsSent(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.runs[0]["repository_checks"] = checkTextWithControls() })
+
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+	require.NoError(t, err)
+	got := decodeJSON(t, out)["repository_checks"].(map[string]any)["commands"].([]any)[0].(map[string]any)
+	sent := checkTextWithControls()["commands"].([]any)[0].(map[string]any)
+	assert.Equal(t, sent["command"], got["command"])
+	assert.Equal(t, sent["output"], got["output"])
+	for _, raw := range []string{"\x1b", "\r", "\x07", "\u009b"} {
+		assert.NotContains(t, out, raw)
+	}
+	for _, shown := range []string{`\\x1b`, `\\x0d`, `\\u202e`, `\\u2066`} {
+		assert.NotContains(t, out, shown)
+	}
 }
 
 // Checks with no commands, an empty list included, list none, and a command
