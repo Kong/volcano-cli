@@ -171,6 +171,8 @@ func TestShowListsTheHeldPathsOnlyWhenTheQuestionDoesnt(t *testing.T) {
 			holdReason("path", "Changes db/migrations/0042_orders.sql, which always needs a person.", "db/migrations/0042_orders.sql"),
 			holdReason("sensitive_path", "Changes volcano/auth.js, which touches authentication or authorization.",
 				"volcano/auth.js", "volcano/session.js"),
+			holdReason("path", "Changes src/cart.go, which needs review.", "src/cart.go", "cart.go"),
+			holdReason("path", "Changes src/settings.yaml.backup, which needs review.", "src/settings.yaml"),
 		)
 	})
 
@@ -178,7 +180,9 @@ func TestShowListsTheHeldPathsOnlyWhenTheQuestionDoesnt(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "  Merge: held\n"+
 		"    - Changes db/migrations/0042_orders.sql, which always needs a person.\n"+
-		"    - Changes volcano/auth.js, which touches authentication or authorization. (also volcano/session.js)\n")
+		"    - Changes volcano/auth.js, which touches authentication or authorization. (also volcano/session.js)\n"+
+		"    - Changes src/cart.go, which needs review. (also cart.go)\n"+
+		"    - Changes src/settings.yaml.backup, which needs review. (src/settings.yaml)\n")
 }
 
 // Each hold code the API documents reads as words when the API sends no

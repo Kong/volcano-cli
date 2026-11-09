@@ -5,6 +5,8 @@ import (
 	"io"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/theme"
@@ -1144,7 +1146,7 @@ func lavaflowHoldReason(reason apiclient.LavaflowHoldReason) string {
 	}
 	var unnamed []string
 	for _, path := range reason.Paths {
-		if !strings.Contains(reason.Question, path) {
+		if path != "" && !lavaflowQuestionNamesPath(reason.Question, path) {
 			unnamed = append(unnamed, path)
 		}
 	}
@@ -1156,6 +1158,30 @@ func lavaflowHoldReason(reason apiclient.LavaflowHoldReason) string {
 	default:
 		return line + " (also " + cleanList(unnamed) + ")"
 	}
+}
+
+// lavaflowQuestionNamesPath recognizes a complete path in prose. A path
+// inside another name still needs its own entry in the held-path list.
+func lavaflowQuestionNamesPath(question, path string) bool {
+	if path == "" {
+		return false
+	}
+	for from := 0; from < len(question); {
+		at := strings.Index(question[from:], path)
+		if at < 0 {
+			return false
+		}
+		start, end := from+at, from+at+len(path)
+		before := strings.TrimRight(question[:start], "`\"'([{")
+		after := strings.TrimLeft(question[end:], "`\"')]}.,;:!?")
+		previous, _ := utf8.DecodeLastRuneInString(before)
+		next, _ := utf8.DecodeRuneInString(after)
+		if (before == "" || unicode.IsSpace(previous)) && (after == "" || unicode.IsSpace(next)) {
+			return true
+		}
+		from = end
+	}
+	return false
 }
 
 // lavaflowHoldCode says what a hold reason's code means, for a reason the
