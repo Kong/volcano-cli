@@ -33,8 +33,8 @@ func newPreview(deps cliruntime.Deps) *cobra.Command {
 A preview builds the function's source from your project directory, runs with
 the function's current project variables, and is invoked at its own URL with
 your project credentials. It has none of the function's schedules or warmers.
-Promoting a preview deploys its exact image to the function without
-rebuilding, and 'functions rollback' undoes that.`,
+Promoting a preview points the function's traffic at the preview's Lambda
+without deploying anything, and 'functions rollback' undoes that.`,
 	}
 	cmd.AddCommand(newPreviewCreate(deps), newPreviewList(deps), newPreviewGet(deps),
 		newPreviewDeploy(deps), newPreviewDelete(deps), newPreviewPromote(deps))
@@ -63,11 +63,11 @@ func newRollback(deps cliruntime.Deps) *cobra.Command {
 	var toProduction bool
 	cmd := &cobra.Command{
 		Use:   "rollback <function>",
-		Short: "Roll a function back to the build it ran before",
-		Long: `Deploy the build a function ran before its last promotion or rollback, without rebuilding.
+		Short: "Roll a function back to what it ran before",
+		Long: `Point a function back at what served it before its last promotion or rollback.
 
 A second rollback undoes the first. With --to-production, return to the
-function's own newest build instead. While previews are unavailable, a rollback
+function's own Lambda instead. While previews are unavailable, a rollback
 that would run a preview's build again is refused; --to-production still works.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -76,7 +76,7 @@ that would run a preview's build again is refused; --to-production still works.`
 			if err != nil {
 				return err
 			}
-			output.Success(cmd.OutOrStdout(), "Function '%s' rollback is deploying", function.Name)
+			output.Success(cmd.OutOrStdout(), "Function '%s' rolled back", function.Name)
 			printServing(cmd.Context(), cmd.OutOrStdout(), service, function, serving)
 			return nil
 		},
@@ -233,20 +233,20 @@ preview kept only for 'functions rollback' gives that rollback up.`,
 func newPreviewPromote(deps cliruntime.Deps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "promote <function> <preview>",
-		Short: "Deploy a preview's exact image to the function",
-		Long: `Deploy a preview's built image to the function, without rebuilding.
+		Short: "Make a preview what the function runs",
+		Long: `Point the function's traffic at a preview's Lambda, without deploying or rebuilding.
 
-The preview must be ready, built with the function's current variables, runtime
-and handler, and in every region the function deploys to. The function keeps
-its URL, visibility, schedules and warmers. The promotion runs as a deployment
-of the function; 'functions serving' shows when it is applied.`,
+It takes effect at once. The preview must be ready, built with the function's
+current variables, runtime and handler, and in every region the function deploys
+to. The function keeps its URL, visibility, schedules, usage and logs.
+'functions rollback' points it back.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			preview, serving, err := clifunction.NewService(deps).PromoteCandidate(cmd.Context(), strings.TrimSpace(args[0]), strings.TrimSpace(args[1]))
 			if err != nil {
 				return err
 			}
-			output.Success(cmd.OutOrStdout(), "Promoting preview '%s'", preview.Name)
+			output.Success(cmd.OutOrStdout(), "Function now runs preview '%s'", preview.Name)
 			fmt.Fprintf(cmd.OutOrStdout(), "Revision: %d\n", serving.Revision)
 			return nil
 		},
@@ -335,10 +335,9 @@ func printServing(ctx context.Context, out io.Writer, service clifunction.Servic
 		fmt.Fprintf(out, "A rollback returns to preview '%s'\n", nameOrID(ctx, service, function, serving.PreviousCandidateId))
 	}
 	if activation := serving.Activation; activation != nil {
-		fmt.Fprintf(out, "Latest %s: %s (deployment %s)\n", activation.Kind, activation.Status, activation.DeploymentId)
-		fmt.Fprintf(out, "Image: %s\n", activation.ImageUri)
-		if activation.ErrorMessage != nil && *activation.ErrorMessage != "" {
-			fmt.Fprintf(out, "Error: %s\n", *activation.ErrorMessage)
+		fmt.Fprintf(out, "Latest %s: %s (revision %d)\n", activation.Kind, activation.Status, activation.Revision)
+		if activation.ImageUri != nil {
+			fmt.Fprintf(out, "Image: %s\n", *activation.ImageUri)
 		}
 	}
 }

@@ -87,11 +87,11 @@ func (p *functionPreviewServer) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		p.serving = map[string]any{"revision": 5, "candidate_id": functionPreviewID, "previous_candidate_id": nil, "activation": nil}
-		writeFunctionCommandJSON(p.t, w, http.StatusAccepted, p.serving)
+		writeFunctionCommandJSON(p.t, w, http.StatusOK, p.serving)
 	case r.Method == http.MethodPost && r.URL.Path == functionPreviewBasePath+"/serving/rollback":
 		p.rolled = p.readJSON(r)
 		p.serving = map[string]any{"revision": 6, "candidate_id": nil, "previous_candidate_id": functionPreviewID, "activation": nil}
-		writeFunctionCommandJSON(p.t, w, http.StatusAccepted, p.serving)
+		writeFunctionCommandJSON(p.t, w, http.StatusOK, p.serving)
 	case r.Method == http.MethodGet && r.URL.Path == functionPreviewBasePath+"/candidates/"+functionPreviewID:
 		writeFunctionCommandJSON(p.t, w, http.StatusOK, functionPreviewPayload("ready"))
 	default:
@@ -166,7 +166,7 @@ func TestFunctionPreviewPromoteNamesTheRevisionItRead(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.InDelta(t, 4, p.promoted["expected_revision"], 0)
-	assert.Contains(t, out, "Promoting preview 'checkout-v2'")
+	assert.Contains(t, out, "Function now runs preview 'checkout-v2'")
 	assert.Contains(t, out, "Revision: 5")
 }
 

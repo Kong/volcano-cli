@@ -91,19 +91,19 @@ func (c *Client) GetFunctionServing(ctx context.Context, projectID, functionID u
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
 }
 
-// PromoteFunctionCandidate deploys a Candidate's exact image to its function.
-// The revision is the one GetFunctionServing returned.
+// PromoteFunctionCandidate points a function's traffic at a Candidate's
+// Lambda. The revision is the one GetFunctionServing returned.
 func (c *Client) PromoteFunctionCandidate(ctx context.Context, projectID, functionID, candidateID uuid.UUID, expectedRevision int64) (*apiclient.FunctionServing, error) {
 	resp, err := c.client.PromoteFunctionCandidateWithResponse(ctx, projectID, functionID, candidateID,
 		apiclient.PromoteFunctionCandidateJSONRequestBody{ExpectedRevision: &expectedRevision})
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON202, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
-// RollbackFunctionServing returns a function to the build it ran before, or to
-// its own build when toProduction is set.
+// RollbackFunctionServing points a function back at what served it before, or
+// at its own Lambda when toProduction is set.
 func (c *Client) RollbackFunctionServing(ctx context.Context, projectID, functionID uuid.UUID, expectedRevision int64, toProduction bool) (*apiclient.FunctionServing, error) {
 	request := apiclient.RollbackFunctionServingJSONRequestBody{ExpectedRevision: &expectedRevision}
 	if toProduction {
@@ -113,7 +113,7 @@ func (c *Client) RollbackFunctionServing(ctx context.Context, projectID, functio
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON202, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
 func buildFunctionCandidateMultipart(input FunctionCandidateInput) (*bytes.Buffer, string, error) {

@@ -2258,19 +2258,13 @@ func (e FunctionServingActivationKind) Valid() bool {
 
 // Defines values for FunctionServingActivationStatus.
 const (
-	FunctionServingActivationStatusApplied  FunctionServingActivationStatus = "applied"
-	FunctionServingActivationStatusApplying FunctionServingActivationStatus = "applying"
-	FunctionServingActivationStatusFailed   FunctionServingActivationStatus = "failed"
+	Applied FunctionServingActivationStatus = "applied"
 )
 
 // Valid indicates whether the value is a known member of the FunctionServingActivationStatus enum.
 func (e FunctionServingActivationStatus) Valid() bool {
 	switch e {
-	case FunctionServingActivationStatusApplied:
-		return true
-	case FunctionServingActivationStatusApplying:
-		return true
-	case FunctionServingActivationStatusFailed:
+	case Applied:
 		return true
 	default:
 		return false
@@ -4706,16 +4700,16 @@ func (e SandboxSessionNetworkApplied) Valid() bool {
 
 // Defines values for SandboxSessionNetworkEgress.
 const (
-	Default SandboxSessionNetworkEgress = "default"
-	DenyAll SandboxSessionNetworkEgress = "deny_all"
+	SandboxSessionNetworkEgressDefault SandboxSessionNetworkEgress = "default"
+	SandboxSessionNetworkEgressDenyAll SandboxSessionNetworkEgress = "deny_all"
 )
 
 // Valid indicates whether the value is a known member of the SandboxSessionNetworkEgress enum.
 func (e SandboxSessionNetworkEgress) Valid() bool {
 	switch e {
-	case Default:
+	case SandboxSessionNetworkEgressDefault:
 		return true
-	case DenyAll:
+	case SandboxSessionNetworkEgressDenyAll:
 		return true
 	default:
 		return false
@@ -10218,24 +10212,25 @@ type FunctionServing struct {
 	Revision int64 `json:"revision"`
 }
 
-// FunctionServingActivation defines model for FunctionServingActivation.
+// FunctionServingActivation A promotion or rollback, which moves what serves the function's traffic at once.
 type FunctionServingActivation struct {
+	// CandidateId The preview now serving; null for the function's own Lambda.
 	CandidateId *openapi_types.UUID `json:"candidate_id,omitempty"`
+	Id          openapi_types.UUID  `json:"id"`
 
-	// DeploymentId The function deployment that applies it.
-	DeploymentId openapi_types.UUID              `json:"deployment_id"`
-	ErrorMessage *string                         `json:"error_message,omitempty"`
-	Id           openapi_types.UUID              `json:"id"`
-	ImageUri     string                          `json:"image_uri"`
-	Kind         FunctionServingActivationKind   `json:"kind"`
-	Revision     int64                           `json:"revision"`
-	Status       FunctionServingActivationStatus `json:"status"`
+	// ImageUri The serving preview's image; null for the function's own Lambda.
+	ImageUri *string                       `json:"image_uri,omitempty"`
+	Kind     FunctionServingActivationKind `json:"kind"`
+	Revision int64                         `json:"revision"`
+
+	// Status `applied`: a promotion or rollback takes effect in the request that makes it.
+	Status FunctionServingActivationStatus `json:"status"`
 }
 
 // FunctionServingActivationKind defines model for FunctionServingActivation.Kind.
 type FunctionServingActivationKind string
 
-// FunctionServingActivationStatus defines model for FunctionServingActivation.Status.
+// FunctionServingActivationStatus `applied`: a promotion or rollback takes effect in the request that makes it.
 type FunctionServingActivationStatus string
 
 // FunctionVisibility Who can invoke the function. Each level admits everything the one
@@ -59928,7 +59923,7 @@ func (r RedeployFunctionCandidateClientResponse) ContentType() string {
 type PromoteFunctionCandidateClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *FunctionServing
+	JSON200      *FunctionServing
 	JSON400      *Error
 	JSON401      *Error
 	JSON403      *Error
@@ -60187,7 +60182,7 @@ func (r GetFunctionServingClientResponse) ContentType() string {
 type RollbackFunctionServingClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *FunctionServing
+	JSON200      *FunctionServing
 	JSON400      *Error
 	JSON401      *Error
 	JSON403      *Error
@@ -82239,12 +82234,12 @@ func ParsePromoteFunctionCandidateClientResponse(rsp *http.Response) (*PromoteFu
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest FunctionServing
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON202 = &dest
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error
@@ -82580,12 +82575,12 @@ func ParseRollbackFunctionServingClientResponse(rsp *http.Response) (*RollbackFu
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest FunctionServing
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON202 = &dest
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error

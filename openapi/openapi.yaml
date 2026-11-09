@@ -8115,13 +8115,16 @@ paths:
         - Functions
       summary: Promote a function preview
       description: |
-        Deploys the preview's exact image to the function's own Lambda through its ordinary deploy, so
-        nothing is rebuilt: the function keeps its name, URL, visibility, schedules and warmers. The
-        preview must be serving a successful deployment built with the variables the function would give
-        that source now, in every region the function deploys to, and the function must have a successful
-        deployment of its own to roll back to. It is refused while another deployment of the function runs.
+        Points the function's traffic at the preview's Lambda. Nothing is deployed or rebuilt, so it
+        takes effect at once: every call to the function, through its own URL, the invoke route, a
+        schedule or a frontend route, runs the preview's code, while the function keeps its ID, URL,
+        visibility, schedules, metering and logs. The function's own Lambda is kept as it is for a
+        rollback. The preview must be serving a successful deployment built with the variables, runtime
+        and handler the function has now, in every region the function deploys to, and the function must
+        have a successful deployment of its own. It is refused while a deployment of the function runs.
         With `expected_revision`, it is refused if what the function runs changed since that revision.
-        The response is `202` while the deployment runs; read the serving state for its outcome. Answers `404` with code `feature_unavailable` while the `functions.candidates` capability is unavailable, including on the local development server.
+        Answers `404` with code `feature_unavailable` while the `functions.candidates` capability is
+        unavailable, including on the local development server.
       operationId: promoteFunctionCandidate
       security:
         - UserToken: []
@@ -8137,8 +8140,8 @@ paths:
             schema:
               $ref: '#/components/schemas/FunctionActivationRequest'
       responses:
-        '202':
-          description: The promotion is deploying
+        '200':
+          description: The function's traffic now runs on the preview
           content:
             application/json:
               schema:
@@ -8237,11 +8240,11 @@ paths:
         - Functions
       summary: Roll back what a function runs
       description: |
-        Deploys the build the function ran before its last promotion or rollback, so a second rollback
-        undoes the first. With `to_production` it returns to the function's own newest build. Nothing is
-        rebuilt. A rollback that would run a preview's build again is a promotion, and is refused like one,
-        including while the capability is unavailable; a rollback to the function's own build never
-        depends on the capability.
+        Points the function's traffic back at what served it before its last promotion or rollback, so a
+        second rollback undoes the first. With `to_production` it returns to the function's own Lambda.
+        Nothing is deployed, so it takes effect at once. A rollback that would make a preview serve again
+        is a promotion, and is refused like one, including while the capability is unavailable; a
+        rollback to the function's own Lambda never depends on the capability.
       operationId: rollbackFunctionServing
       security:
         - UserToken: []
@@ -8256,8 +8259,8 @@ paths:
             schema:
               $ref: '#/components/schemas/FunctionActivationRequest'
       responses:
-        '202':
-          description: The rollback is deploying
+        '200':
+          description: The function's traffic now runs on what served it before
           content:
             application/json:
               schema:
@@ -29008,6 +29011,7 @@ components:
     FunctionServingActivation:
       type: object
       additionalProperties: false
+      description: A promotion or rollback, which moves what serves the function's traffic at once.
       properties:
         id:
           type: string
@@ -29020,9 +29024,8 @@ components:
         status:
           type: string
           enum:
-            - applying
             - applied
-            - failed
+          description: '`applied`: a promotion or rollback takes effect in the request that makes it.'
         revision:
           type: integer
           format: int64
@@ -29030,22 +29033,16 @@ components:
           type: string
           format: uuid
           nullable: true
+          description: The preview now serving; null for the function's own Lambda.
         image_uri:
           type: string
-        deployment_id:
-          type: string
-          format: uuid
-          description: The function deployment that applies it.
-        error_message:
-          type: string
           nullable: true
+          description: The serving preview's image; null for the function's own Lambda.
       required:
         - id
         - kind
         - status
         - revision
-        - image_uri
-        - deployment_id
     FunctionActivationRequest:
       type: object
       additionalProperties: false
