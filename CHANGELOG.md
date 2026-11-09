@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.2](https://github.com/Kong/volcano-cli/compare/v0.75.1...v0.75.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* **deploy:** say the config step applies declared visibility instead of pointing at config deploy ([#469](https://github.com/Kong/volcano-cli/issues/469)) ([3687ef0](https://github.com/Kong/volcano-cli/commit/3687ef0ebe1273b592ffce40b8e570357a156309))
+
 ## [0.75.1](https://github.com/Kong/volcano-cli/compare/v0.75.0...v0.75.1) (2026-11-09)
 
 
