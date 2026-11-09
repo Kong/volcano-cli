@@ -30,8 +30,11 @@ type deployOptions struct {
 	// manifest names the volcano-config.yaml to read; empty uses the default
 	// lookup.
 	manifest string
-	out      io.Writer
-	errOut   io.Writer
+	// configFollows reports a visibility the manifest declares as applied by
+	// the caller's config step instead of pointing at config deploy.
+	configFollows bool
+	out           io.Writer
+	errOut        io.Writer
 }
 
 // DeployAllOptions configures DeployAll.
@@ -39,6 +42,9 @@ type DeployAllOptions struct {
 	// ManifestPath names the volcano-config.yaml that declares the durable
 	// functions. Empty uses the default lookup.
 	ManifestPath string
+	// ConfigFollows is set by a caller that applies volcano-config.yaml after
+	// the deploy, so the output does not tell the user to.
+	ConfigFollows bool
 	// Out and ErrOut are required.
 	Out    io.Writer
 	ErrOut io.Writer
@@ -49,11 +55,12 @@ type DeployAllOptions struct {
 // started. On error it still returns the ones started before the failure.
 func DeployAll(ctx context.Context, deps cliruntime.Deps, opts DeployAllOptions) ([]apiclient.DurableFunction, error) {
 	return deploy(ctx, &deployOptions{
-		deps:     deps,
-		all:      true,
-		manifest: opts.ManifestPath,
-		out:      opts.Out,
-		errOut:   opts.ErrOut,
+		deps:          deps,
+		all:           true,
+		manifest:      opts.ManifestPath,
+		configFollows: opts.ConfigFollows,
+		out:           opts.Out,
+		errOut:        opts.ErrOut,
 	})
 }
 
@@ -190,9 +197,10 @@ func deploy(ctx context.Context, opts *deployOptions) ([]apiclient.DurableFuncti
 		Open: func(name string) string {
 			return cliruntime.CommandPath(opts.deps, "durable deploy -f "+name+" --visibility authenticated")
 		},
-		ConfigDeploy: cliruntime.CommandPath(opts.deps, "config deploy"),
-		ConfigFirst:  true,
-		Declared:     manifest.Visibility,
+		ConfigDeploy:  cliruntime.CommandPath(opts.deps, "config deploy"),
+		ConfigFirst:   true,
+		Declared:      manifest.Visibility,
+		ConfigFollows: opts.configFollows,
 	}.Print(opts.out, newPrivate)
 	return started, nil
 }
