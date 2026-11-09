@@ -5,8 +5,6 @@ import (
 	"io"
 	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/theme"
@@ -1145,43 +1143,61 @@ func lavaflowHoldReason(reason apiclient.LavaflowHoldReason) string {
 		line = lavaflowHoldCode(reason.Code)
 	}
 	var unnamed []string
+	named := false
 	for _, path := range reason.Paths {
-		if path != "" && !lavaflowQuestionNamesPath(reason.Question, path) {
+		if path == "" {
+			continue
+		}
+		if lavaflowQuestionNamesPath(reason.Question, path, reason.Paths) {
+			named = true
+		} else {
 			unnamed = append(unnamed, path)
 		}
 	}
-	switch len(unnamed) {
-	case 0:
+	if len(unnamed) == 0 {
 		return line
-	case len(reason.Paths):
-		return line + " (" + cleanList(unnamed) + ")"
-	default:
+	}
+	if named {
 		return line + " (also " + cleanList(unnamed) + ")"
 	}
+	return line + " (" + cleanList(unnamed) + ")"
 }
 
-// lavaflowQuestionNamesPath recognizes a complete path in prose. A path
-// inside another name still needs its own entry in the held-path list.
-func lavaflowQuestionNamesPath(question, path string) bool {
+// Only whole-field equality or a whole literal quoted reference identifies a
+// path. Ambiguous prose and delimiters inside known filenames keep the entry.
+func lavaflowQuestionNamesPath(question, path string, paths []string) bool {
 	if path == "" {
 		return false
 	}
-	for from := 0; from < len(question); {
-		at := strings.Index(question[from:], path)
+	if question == path {
+		return true
+	}
+	if strings.Contains(question, "\\") {
+		return false
+	}
+	named := false
+	for question != "" {
+		at := strings.IndexAny(question, "`\"'")
 		if at < 0 {
+			return named
+		}
+		quote := question[at : at+1]
+		if strings.Contains(question, quote+quote) {
 			return false
 		}
-		start, end := from+at, from+at+len(path)
-		before := strings.TrimRight(question[:start], "`\"'([{")
-		after := strings.TrimLeft(question[end:], "`\"')]}.,;:!?")
-		previous, _ := utf8.DecodeLastRuneInString(before)
-		next, _ := utf8.DecodeRuneInString(after)
-		if (before == "" || unicode.IsSpace(previous)) && (after == "" || unicode.IsSpace(next)) {
-			return true
+		for _, known := range paths {
+			if strings.Contains(known, quote) {
+				return false
+			}
 		}
-		from = end
+		text, rest, closed := strings.Cut(question[at+1:], quote)
+		if !closed {
+			return false
+		}
+		named = named || text == path
+		question = rest
 	}
-	return false
+	return named
 }
 
 // lavaflowHoldCode says what a hold reason's code means, for a reason the

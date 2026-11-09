@@ -263,9 +263,11 @@ while such a fix's pull request is open and the API still reports
 or `held for you; LavaFlow records the hold once merging resumes` while merging
 is paused. `held` and `stopped` are final: LavaFlow doesn't touch the pull
 request again, and it's yours to review and merge on GitHub. A held fix lists
-each reason in Volcano's words, followed by the paths it names that the reason
-doesn't, after `also` when the reason names some of them. A path inside a
-longer filename or directory path still gets its own entry. While the pull
+each reason in Volcano's words, followed by its paths. A path is left out of
+that list only when the reason is exactly the path or names it as a complete,
+unambiguous quoted reference. Unquoted legacy wording may repeat a path;
+LavaFlow keeps the entry when the text could refer to a longer filename.
+`also` means the reason unambiguously names another visible path. While the pull
 request is open, the `Fix:` block ends with a line saying it's yours and what
 to do next, and both `list` and
 the `Status:` line of `show` read `Held: yours to merge` or

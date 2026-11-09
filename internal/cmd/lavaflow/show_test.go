@@ -162,8 +162,8 @@ func TestShowSaysWhyLavaFlowHoldsTheFix(t *testing.T) {
 	assert.NotContains(t, out, "person_commits")
 }
 
-// A question that already names each path it holds the fix for prints
-// without the paths again; one that names only some lists the rest.
+// Quoted path references deduplicate exact paths. Ambiguous prose keeps each
+// path visible, including filenames containing spaces or literal delimiters.
 func TestShowListsTheHeldPathsOnlyWhenTheQuestionDoesnt(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
@@ -173,16 +173,24 @@ func TestShowListsTheHeldPathsOnlyWhenTheQuestionDoesnt(t *testing.T) {
 				"volcano/auth.js", "volcano/session.js"),
 			holdReason("path", "Changes src/cart.go, which needs review.", "src/cart.go", "cart.go"),
 			holdReason("path", "Changes src/settings.yaml.backup, which needs review.", "src/settings.yaml"),
+			holdReason("path", "Changes `reports/daily totals.csv`, which needs review.", "reports/daily totals.csv", "totals.csv"),
+			holdReason("path", "Changes reports/daily totals.csv, which needs review.", "reports/daily totals.csv", "totals.csv"),
+			holdReason("path", "Changes reports/daily `totals.csv` backup, which needs review.", "reports/daily `totals.csv` backup", "totals.csv"),
+			holdReason("path", "Changes `src/cart.go`, which needs review.", "src/cart.go"),
 		)
 	})
 
 	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
 	assert.Contains(t, out, "  Merge: held\n"+
-		"    - Changes db/migrations/0042_orders.sql, which always needs a person.\n"+
-		"    - Changes volcano/auth.js, which touches authentication or authorization. (also volcano/session.js)\n"+
-		"    - Changes src/cart.go, which needs review. (also cart.go)\n"+
-		"    - Changes src/settings.yaml.backup, which needs review. (src/settings.yaml)\n")
+		"    - Changes db/migrations/0042_orders.sql, which always needs a person. (db/migrations/0042_orders.sql)\n"+
+		"    - Changes volcano/auth.js, which touches authentication or authorization. (volcano/auth.js, volcano/session.js)\n"+
+		"    - Changes src/cart.go, which needs review. (src/cart.go, cart.go)\n"+
+		"    - Changes src/settings.yaml.backup, which needs review. (src/settings.yaml)\n"+
+		"    - Changes `reports/daily totals.csv`, which needs review. (also totals.csv)\n"+
+		"    - Changes reports/daily totals.csv, which needs review. (reports/daily totals.csv, totals.csv)\n"+
+		"    - Changes reports/daily `totals.csv` backup, which needs review. (reports/daily `totals.csv` backup, totals.csv)\n"+
+		"    - Changes `src/cart.go`, which needs review.\n")
 }
 
 // Each hold code the API documents reads as words when the API sends no
