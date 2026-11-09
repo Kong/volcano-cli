@@ -170,6 +170,12 @@ func TestDockerComposeTemplateExposesLocalFrontendProxy(t *testing.T) {
 	assert.Contains(t, template, `"8080:8080"`)
 }
 
+func TestDockerComposeTemplateServesLocalFunctionHostnames(t *testing.T) {
+	template := string(dockerComposeTemplate)
+
+	assert.Contains(t, template, `FUNCTION_INVOCATION_DNS: "*.functions.localhost"`)
+}
+
 func TestDockerComposePersistencePreservesFunctionSource(t *testing.T) {
 	template := string(dockerComposePersistence)
 
