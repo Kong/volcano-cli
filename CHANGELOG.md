@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.1](https://github.com/Kong/volcano-cli/compare/v0.75.0...v0.75.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **localmode:** check for the Docker Compose plugin before start and restart ([#407](https://github.com/Kong/volcano-cli/issues/407)) ([21f9db8](https://github.com/Kong/volcano-cli/commit/21f9db8e936db6b92681458fb5096f849256a931))
+
 ## [0.75.0](https://github.com/Kong/volcano-cli/compare/v0.74.0...v0.75.0) (2026-11-07)
 
 
