@@ -241,14 +241,18 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 		data := make([]any, 0, len(items))
 		for _, item := range items {
 			f.calls = append(f.calls, "function "+item.Name)
-			data = append(data, f.deployed(item.Name))
+			payload := f.deployed(item.Name)
+			payload["visibility"] = "private"
+			data = append(data, payload)
 		}
 		f.writeJSON(w, http.StatusAccepted, map[string]any{"batch_id": uuid.NewString(), "data": data})
 	case r.Method == http.MethodPost && path == project+"/functions":
 		require.NoError(f.t, r.ParseMultipartForm(4<<20))
 		name := r.FormValue("name")
 		f.calls = append(f.calls, "function "+name)
-		f.writeJSON(w, http.StatusCreated, f.deployed(name))
+		payload := f.deployed(name)
+		payload["visibility"] = "private"
+		f.writeJSON(w, http.StatusCreated, payload)
 	case r.Method == http.MethodPost && path == project+"/durable-functions":
 		require.NoError(f.t, r.ParseMultipartForm(4<<20))
 		name := r.FormValue("name")

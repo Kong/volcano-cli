@@ -613,11 +613,13 @@ func (b planBuilder) functions(present bool, manifestPath string, durableFollows
 	if b.defaultKinds {
 		s.manual = []string{b.command("functions deploy --all")}
 	}
+	configFollows := b.configPlanned()
 	s.run = func(ctx context.Context, r *runner) error {
 		started, err := functionscmd.DeployAll(ctx, r.opts.deps, functionscmd.DeployAllOptions{
 			ManifestPath:   manifestPath,
 			Batch:          !r.opts.deps.LocalMode,
 			DurableFollows: durableFollows,
+			ConfigFollows:  configFollows,
 			Out:            r.opts.out,
 			ErrOut:         r.opts.errOut,
 		})
@@ -643,11 +645,13 @@ func (b planBuilder) durable(names []string, manifestPath string) step {
 	if b.defaultKinds {
 		s.manual = []string{b.command("durable deploy --all")}
 	}
+	configFollows := b.configPlanned()
 	s.run = func(ctx context.Context, r *runner) error {
 		started, err := durablecmd.DeployAll(ctx, r.opts.deps, durablecmd.DeployAllOptions{
-			ManifestPath: manifestPath,
-			Out:          r.opts.out,
-			ErrOut:       r.opts.errOut,
+			ManifestPath:  manifestPath,
+			ConfigFollows: configFollows,
+			Out:           r.opts.out,
+			ErrOut:        r.opts.errOut,
 		})
 		for _, fn := range started {
 			r.track(kindDurable, fn.Name, fn.Id, fn.CurrentDeploymentId, fn.PendingDeploymentId)
@@ -755,9 +759,15 @@ func (b planBuilder) frontendCommand(opts frontendscmd.DeployOptions) string {
 	return b.command(strings.Join(args, " "))
 }
 
+// configPlanned reports whether the config step runs, which applies the
+// visibility the first manifest declares for the functions deployed before it.
+func (b planBuilder) configPlanned() bool {
+	return len(b.manifests) > 0
+}
+
 func (b planBuilder) config() step {
 	s := step{name: stepConfig}
-	if len(b.manifests) == 0 {
+	if !b.configPlanned() {
 		s.skipped = true
 		s.detail = "no volcano-config.yaml"
 		return s

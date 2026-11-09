@@ -78,8 +78,9 @@ func (f *VisibilityFlags) Visibility() (visibility apiclient.FunctionVisibility,
 
 // PrivateHint is what a deploy prints about the new functions that came up
 // private. A deploy does not apply the manifest's visibility, so a function
-// the manifest gives another level is pointed at config deploy, and one the
-// manifest keeps private gets no hint.
+// the manifest gives another level is pointed at config deploy, or at the
+// config step when one follows, and one the manifest keeps private gets no
+// hint.
 type PrivateHint struct {
 	// Summary says who can call a private function of this kind.
 	Summary string
@@ -93,6 +94,10 @@ type PrivateHint struct {
 	ConfigFirst bool
 	// Declared is the level volcano-config.yaml declares for each function.
 	Declared map[string]string
+	// ConfigFollows is set by a caller that applies volcano-config.yaml later
+	// in the same run, so a declared level is reported as on its way rather
+	// than pointed at config deploy.
+	ConfigFollows bool
 }
 
 // Print writes the hint for names, the new functions that came up private.
@@ -111,8 +116,17 @@ func (h PrivateHint) Print(out io.Writer, names []string) {
 		return
 	}
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, h.Summary)
-	if len(declared) > 0 {
+	// A declared function does not stay private when the config step follows,
+	// so the summary is only for the ones that do.
+	if !h.ConfigFollows || len(undeclared) > 0 {
+		fmt.Fprintln(out, h.Summary)
+	}
+	switch {
+	case len(declared) == 0:
+	case h.ConfigFollows:
+		fmt.Fprintf(out, "volcano-config.yaml declares a visibility for %s; the config step below applies it.\n",
+			strings.Join(declared, ", "))
+	default:
 		fmt.Fprintf(out, "volcano-config.yaml declares a visibility for %s; apply it with:\n  %s\n",
 			strings.Join(declared, ", "), h.ConfigDeploy)
 	}

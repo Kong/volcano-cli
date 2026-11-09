@@ -115,6 +115,40 @@ func TestDeployAcceptsAFirstManifestThatDeclaresTheDurableFunctions(t *testing.T
 	assert.Equal(t, []string{"durable order-pipeline", "config"}, fake.recorded())
 }
 
+// New functions come up private, but the config step applies the visibility
+// the manifest declares in the same run, so the output says so instead of
+// pointing at config deploy. One the manifest leaves alone stays private and
+// still gets the commands that open it.
+func TestDeployReportsDeclaredVisibilityAsAppliedByTheConfigStep(t *testing.T) {
+	setDeployCommandTestHome(t)
+	for _, name := range []string{"control", "open", "agent-runner"} {
+		writeDeployProjectFile(t, "volcano/functions/"+name+".js", `exports.handler = async () => ({});`)
+	}
+	writeDeployProjectFile(t, "volcano/volcano-config.yaml", `version: 1
+functions:
+  - name: control
+    visibility: authenticated
+  - name: open
+  - name: agent-runner
+    kind: durable
+    visibility: authenticated
+`)
+	fake := newFakeVolcano(t)
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.NoError(t, err, out)
+
+	assert.Contains(t, out, "New functions are private: only service keys and schedulers can invoke them.\n"+
+		"volcano-config.yaml declares a visibility for control; the config step below applies it.\n"+
+		"To let your project's signed-in users call one, run:\n"+
+		"  volcano cloud functions update open --visibility authenticated\n")
+	assert.Contains(t, out, "\nvolcano-config.yaml declares a visibility for agent-runner; the config step below applies it.\n")
+	assert.NotContains(t, out, "New durable functions are private")
+	assert.NotContains(t, out, "apply it with")
+	assert.Equal(t, "config", fake.recorded()[len(fake.recorded())-1])
+}
+
 // A manifest that owns the project's variables still deploys in a project
 // whose volcano/volcano.env serves local runs.
 // A cloud server on this machine is the project's API, so an env file naming
