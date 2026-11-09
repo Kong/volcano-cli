@@ -57,7 +57,7 @@ func TestListSaysWhatCameOfEachRun(t *testing.T) {
 		"possible_personal_data":   "No PR: adds an email address",
 		"ungated_workflows":        "No PR: ungated workflows",
 		"convention_unsatisfiable": "No PR: commit convention",
-		"pull_request_open":        "No PR: another was open",
+		"pull_request_open":        "No PR: earlier fix pending",
 		"source_unavailable":       "No PR: couldn't read source",
 		"permission_missing":       "No PR: permission missing",
 		"repository_changed":       "No PR: repository changed",

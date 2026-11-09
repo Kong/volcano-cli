@@ -113,11 +113,14 @@ func FetchInfo(ctx context.Context, runner CommandRunner) (Info, error) {
 }
 
 // serverNotRunning reports whether a `docker exec` failure means the local
-// server container isn't up: docker prints "No such container" when it is absent
-// and "is not running" when it exists but is stopped.
+// server container isn't up: docker prints "No such container" when it is absent,
+// "is not running" when it exists but is stopped, and "Cannot connect to the
+// Docker daemon" or, in newer releases, "failed to connect to the docker API"
+// when the engine itself is down; `volcano start` then says Docker is not available.
 func serverNotRunning(err error) bool {
 	s := err.Error()
-	return strings.Contains(s, "No such container") || strings.Contains(s, "is not running")
+	return strings.Contains(s, "No such container") || strings.Contains(s, "is not running") ||
+		strings.Contains(s, "Cannot connect to the Docker daemon") || strings.Contains(s, "failed to connect to the docker API")
 }
 
 // InfoCommandArgs returns the docker arguments used to fetch local-mode metadata.

@@ -199,8 +199,9 @@ A setting you don't pass keeps its value. `settings` shows both in full.
 
 ### Merge fixes
 
-At autonomy `merge`, LavaFlow can merge its fix pull requests. A fix built on
-a commit the deploy reported, at either
+At autonomy `merge`, LavaFlow can merge its fix pull requests, but only into a
+base branch that requires a check; on any other branch it holds every fix. A
+fix built on a commit the deploy reported, at either
 [verification level](deploy.md#verification), is always held for a person.
 Only a fix on a commit that a push to the repository deployed is free of that
 hold. A fix it holds or stops is yours to review and merge on GitHub.
@@ -255,15 +256,21 @@ volcano cloud lavaflow settings set --human-review-path 'infra/**' --human-revie
 fix says `merged by LavaFlow`, or `merged by someone else` when a person
 merged it while LavaFlow waited. While merging is paused, a
 waiting fix says `paused while merging is off; it resumes once merging is back`
-instead. `held` and `stopped` are final: LavaFlow doesn't touch the pull
+instead. LavaFlow never merges a fix whose review leaves you a decision, so
+while such a fix's pull request is open and the API still reports
+`waiting_for_checks`, `show` says
+`held for you; LavaFlow records the hold about a minute after the pull request opens`,
+or `held for you; LavaFlow records the hold once merging resumes` while merging
+is paused. `held` and `stopped` are final: LavaFlow doesn't touch the pull
 request again, and it's yours to review and merge on GitHub. A held fix lists
-each reason in Volcano's words, with the paths it names when the reason
-doesn't already name them. While the pull request is open, the `Fix:` block
-ends with a line saying it's yours and what to do next, and both `list` and
+each reason in Volcano's words, followed by the paths it names that the reason
+doesn't, after `also` when the reason names some of them. While the pull
+request is open, the `Fix:` block ends with a line saying it's yours and what
+to do next, and both `list` and
 the `Status:` line of `show` read `Held: yours to merge` or
 `Stopped: yours to merge`. Once someone merges or closes the pull request,
 `show` keeps the `Merge:` line and its reasons, adds
-`then someone else merged it` or `then someone closed it`, and the status
+`someone else merged it` or `the pull request is closed now`, and the status
 reads as the run's own.
 
 ```text
@@ -290,13 +297,13 @@ reviewing and merging the pull request:
 | `removed_from_queue` | the fix left the merge queue, and LavaFlow can't tell why, for example because its checks failed there or someone removed it | |
 | `reads_failed` | LavaFlow kept failing to read the pull request, or the project's settings or repository | Check whether it is still in the merge queue |
 | `handed_off` | someone else took over the pull request, by drafting it, closing it or moving it to another branch | |
-| `unreadable` | LavaFlow couldn't read the pull request's state on GitHub | |
+| `unreadable` | the pull request has more checks, reviews, labels or commits than LavaFlow reads, so LavaFlow can't judge the fix | |
 | `permission_missing` | the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs | Grant the App's requested permissions, and make sure the owner can push, so later fixes can merge |
 | `repository_changed` | the project now deploys from another repository | |
-| `settings_changed` | the project's settings no longer allow LavaFlow to merge | |
+| `settings_changed` | LavaFlow was turned off or set to stop merging, the owner's plan no longer includes LavaFlow, or the project is being deleted | |
 | `request_rejected` | GitHub refused LavaFlow's request to start the fix's checks | |
 | `ci_start_commit_mismatch` | GitHub reports a different commit from the one LavaFlow made to start the fix's checks | |
-| `branch_refused` | LavaFlow starts checks only on its own branch of an open pull request it opened, never the default or production branch, so it didn't start them here | |
+| `branch_refused` | LavaFlow didn't start the fix's checks because the pull request was no longer open, or its branch wasn't one LavaFlow opened a pull request from | |
 | `head_unverified` | GitHub doesn't report the fix's head as the signed commit LavaFlow pushed, so LavaFlow didn't start its checks | |
 | `checks_not_started` | LavaFlow couldn't give the fix a commit message that runs CI | |
 | `queue_carries_ci_skip` | the repository's merge queue could carry an instruction to skip checks into the base branch | Follow LavaFlow's comment on the pull request to merge it without skipping checks |
@@ -553,18 +560,27 @@ Open findings:
   - major, src/cart.ts:42: An empty cart still reaches chargeCustomer, which reads cart.total before the new guard runs.
   - minor: LavaFlow left this explanation out because it may contain a credential
 For you to decide:
-  - billing: The fix skips the charge for an empty cart. Is that intended?
-  - trust boundary: LavaFlow left this question out because it may contain a credential
+  - effect on payments, pricing, metering, or charges: The fix skips the charge for an empty cart. Is that intended?
+  - effect on authentication, authorization, secrets, or access: LavaFlow left this question out because it may contain a credential
 ```
 
 Each finding gives its severity (`nit`, `minor`, `major` or `critical`) and
 the file and line it points to. A finding about no file names none, and
 `path not shown` marks a file whose path Volcano doesn't show. Each decision
-names what it's about: `irreversible`, `trust boundary`, `breaks a contract`,
-`billing`, `unexplained` or `not reviewable`. A kind your CLI doesn't know
-shows as the API gives it. Volcano replaces an explanation or question that may
-contain a credential with the sentence shown above. A review with nothing to
-list prints neither heading.
+starts with what LavaFlow's reviewers ask you to check:
+
+| `kind` | Shown |
+| --- | --- |
+| `irreversible` | whether a revert can undo it |
+| `trust_boundary` | effect on authentication, authorization, secrets, or access |
+| `breaks_contract` | effect on interfaces other code or users depend on |
+| `billing` | effect on payments, pricing, metering, or charges |
+| `unexplained` | behavior its context doesn't explain |
+| `not_reviewable` | what the reviewers couldn't review closely |
+
+A kind your CLI doesn't know shows as the API gives it. Volcano replaces an
+explanation or question that may contain a credential with the sentence shown
+above. A review with nothing to list prints neither heading.
 
 The `Source:` line gives the commit's short SHA and where it came from:
 
@@ -590,8 +606,9 @@ The `Fix:` block always says what happened to the run's fix:
 - With none: why LavaFlow opened none, and what to do next, with the command
   to run where one helps, such as `settings set --autonomy open_pr` for a run
   that only diagnosed, or `list --status pr_open` when another LavaFlow pull
-  request for the issue was open. A run that finished without a recorded
-  reason says `No fix pull request was opened. LavaFlow didn't record why.`
+  request for the issue was open, or merged and not yet deployed. A run that
+  finished without a recorded reason says
+  `No fix pull request was opened. LavaFlow didn't record why.`
 - With none because LavaFlow couldn't read the code that served the error:
   the reason the API gives, the deployment that served the error when the API
   names it, and the next step, such as committing and pushing changes and then

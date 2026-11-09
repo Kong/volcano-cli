@@ -64,7 +64,8 @@ const MergeWarning = "Turning on merge lets LavaFlow's fixes, including those fr
 
 // MergeDisclosure is what autonomy merge does, then the warning. settings set
 // prints it before it turns merging on.
-const MergeDisclosure = "At autonomy merge, LavaFlow can merge its fix pull requests. " +
+const MergeDisclosure = "At autonomy merge, LavaFlow can merge its fix pull requests, but only into a base branch " +
+	"that requires a check; on any other branch it holds every fix. " +
 	"A fix it holds or stops is yours to review and merge on GitHub. " + MergeWarning
 
 // UngatedWorkflowsWarning is what allowing ungated workflows risks, in the

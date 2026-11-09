@@ -163,7 +163,7 @@ func TestShowSaysWhyLavaFlowHoldsTheFix(t *testing.T) {
 }
 
 // A question that already names each path it holds the fix for prints
-// without the paths again; one that names only some lists them all.
+// without the paths again; one that names only some lists the rest.
 func TestShowListsTheHeldPathsOnlyWhenTheQuestionDoesnt(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
@@ -178,7 +178,7 @@ func TestShowListsTheHeldPathsOnlyWhenTheQuestionDoesnt(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "  Merge: held\n"+
 		"    - Changes db/migrations/0042_orders.sql, which always needs a person.\n"+
-		"    - Changes volcano/auth.js, which touches authentication or authorization. (volcano/auth.js, volcano/session.js)\n")
+		"    - Changes volcano/auth.js, which touches authentication or authorization. (also volcano/session.js)\n")
 }
 
 // Each hold code the API documents reads as words when the API sends no
@@ -269,6 +269,43 @@ func TestShowSaysWhereTheMergeIs(t *testing.T) {
 	assert.NotContains(t, out, "Merge:")
 }
 
+// An open fix that waits for CI while its review leaves a decision to a
+// person says LavaFlow will hold it, and when, not that it waits for CI. A
+// closed one, or one with nothing to decide, keeps its status.
+func TestShowSaysAFixWithADecisionWillBeHeld(t *testing.T) {
+	decision := []any{map[string]any{"kind": "billing", "question": "Is skipping the charge intended?"}}
+	for _, tc := range []struct {
+		name, reason, state string
+		reasons             []any
+		want                string
+	}{
+		{"waiting", "", "open", decision,
+			"Merge: held for you; LavaFlow records the hold about a minute after the pull request opens\n"},
+		{"paused", "paused", "open", decision, "Merge: held for you; LavaFlow records the hold once merging resumes\n"},
+		{"nothing to decide", "", "open", nil, "Merge: waiting for CI\n"},
+		{"closed", "", "closed", decision, "Merge: waiting for CI\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.runs[0]["merge"] = map[string]any{"status": "waiting_for_checks", "reason": nil}
+				if tc.reason != "" {
+					s.runs[0]["merge"].(map[string]any)["reason"] = tc.reason
+				}
+				s.runs[0]["pull_request"].(map[string]any)["state"] = tc.state
+				if tc.reasons != nil {
+					s.runs[0]["review"].(map[string]any)["person_reasons"] = tc.reasons
+				}
+			})
+
+			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "  Opened: 2026-10-30 09:03Z\n  "+tc.want)
+			assert.NotContains(t, out, "now yours")
+		})
+	}
+}
+
 // Every reason the API documents for a stopped merge reads as plain words,
 // with the next step where it isn't reviewing and merging the pull request.
 func TestShowSaysWhyTheMergeStopped(t *testing.T) {
@@ -286,15 +323,16 @@ func TestShowSaysWhyTheMergeStopped(t *testing.T) {
 		"removed_from_queue": "the fix left the merge queue, and LavaFlow can't tell why, for example because its checks failed there or someone removed it\n" + yours,
 		"reads_failed":       "LavaFlow kept failing to read the pull request, or the project's settings or repository\n" + next("check whether it is still in the merge queue"+thenMerge),
 		"handed_off":         "someone else took over the pull request, by drafting it, closing it or moving it to another branch\n" + yours,
-		"unreadable":         "LavaFlow couldn't read the pull request's state on GitHub\n" + yours,
+		"unreadable":         "the pull request has more checks, reviews, labels or commits than LavaFlow reads, so LavaFlow can't judge the fix\n" + yours,
 		"permission_missing": "the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs\n" +
 			next("review it, then merge it or close it on GitHub. So later fixes can merge, grant the App's requested permissions and make sure the owner can push to the repository."),
-		"repository_changed":       "the project now deploys from another repository\n" + yours,
-		"settings_changed":         "the project's settings no longer allow LavaFlow to merge\n" + yours,
+		"repository_changed": "the project now deploys from another repository\n" + yours,
+		"settings_changed": "LavaFlow was turned off or set to stop merging, the owner's plan no longer includes LavaFlow, " +
+			"or the project is being deleted\n" + yours,
 		"request_rejected":         "GitHub refused LavaFlow's request to start the fix's checks\n" + yours,
 		"ci_start_commit_mismatch": "GitHub reports a different commit from the one LavaFlow made to start the fix's checks\n" + yours,
-		"branch_refused": "LavaFlow starts checks only on its own branch of an open pull request it opened, never the default or production branch, " +
-			"so it didn't start them here\n" + yours,
+		"branch_refused": "LavaFlow didn't start the fix's checks because the pull request was no longer open, " +
+			"or its branch wasn't one LavaFlow opened a pull request from\n" + yours,
 		"head_unverified":       "GitHub doesn't report the fix's head as the signed commit LavaFlow pushed, so LavaFlow didn't start its checks\n" + yours,
 		"checks_not_started":    "LavaFlow couldn't give the fix a commit message that runs CI\n" + yours,
 		"queue_carries_ci_skip": "the repository's merge queue could carry an instruction to skip checks into the base branch\n" + follow,
@@ -358,7 +396,7 @@ func TestShowListsTheUngatedWorkflowsAPullRequestOpenedPast(t *testing.T) {
 func TestShowDropsTheHandOffOnceThePullRequestCloses(t *testing.T) {
 	yours := "The pull request is now yours"
 	for _, status := range []string{"held", "stopped"} {
-		for state, then := range map[string]string{"merged": "then someone else merged it", "closed": "then someone closed it"} {
+		for state, then := range map[string]string{"merged": "someone else merged it", "closed": "the pull request is closed now"} {
 			fake, deps := newLavaflowServer(t)
 			fake.set(func(s *lavaflowServer) {
 				s.holdFix(holdReason("label", "The pull request has the needs-human-review label."))
@@ -368,7 +406,7 @@ func TestShowDropsTheHandOffOnceThePullRequestCloses(t *testing.T) {
 
 			out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 			require.NoError(t, err, status+"/"+state)
-			assert.Contains(t, out, "  Merge: "+status+", "+then+"\n"+
+			assert.Contains(t, out, "  Merge: "+status+"; "+then+"\n"+
 				"    - The pull request has the needs-human-review label.\n", status+"/"+state)
 			assert.NotContains(t, out, yours, status+"/"+state)
 		}
@@ -466,9 +504,10 @@ func TestShowSaysWhyARunOpenedNoPullRequest(t *testing.T) {
 			". Or apply the fix yourself from the diff below.\n",
 		"convention_unsatisfiable": none + ": LavaFlow would merge the fix, but no pull request title can meet the repository's " +
 			"commit convention, so it kept the fix on this run. Apply the fix yourself from the diff below, or relax the convention.\n",
-		"pull_request_open": none + ": another LavaFlow pull request for this issue was open when this run finished. Review or close it.\n" +
-			"  See the open ones with volcano cloud lavaflow list --status pr_open. If that pull request closed without merging, " +
-			"start a new run with " + startRun + ".\n",
+		"pull_request_open": none + ": before opening one, this run found another LavaFlow pull request for this issue that was open, " +
+			"or merged and not yet deployed.\n" +
+			"  See the open ones with volcano cloud lavaflow list --status pr_open. If that pull request merged, wait for its fix to deploy; " +
+			"if it closed without merging, start a new run with " + startRun + ".\n",
 		"source_unavailable": none + ": LavaFlow couldn't read, or open a fix on, the code that served the error.\n" +
 			"  See " + noCodeGuide + " for why LavaFlow reads no code and what to do.\n",
 		"permission_missing": none + ": the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs. " +
@@ -1503,8 +1542,8 @@ func TestShowListsTheReviewsOpenFindingsAndQuestions(t *testing.T) {
 		"  - major, src/cart.ts:42: An empty cart still reaches chargeCustomer, which reads cart.total before the new guard runs.\n"+
 		"  - minor: "+findingWithheld+"\n"+
 		"For you to decide:\n"+
-		"  - billing: The fix skips the charge for an empty cart. Is that intended?\n"+
-		"  - trust boundary: "+questionWithheld+"\n"+
+		"  - effect on payments, pricing, metering, or charges: The fix skips the charge for an empty cart. Is that intended?\n"+
+		"  - effect on authentication, authorization, secrets, or access: "+questionWithheld+"\n"+
 		"Checks: ")
 	assertLavaFlowWording(t, out)
 
@@ -1577,12 +1616,12 @@ func TestShowPrintsReviewTextAsPlainText(t *testing.T) {
 // the API gives it.
 func TestShowNamesWhatEachDecisionIsAbout(t *testing.T) {
 	for kind, want := range map[string]string{
-		"irreversible":    "irreversible",
-		"trust_boundary":  "trust boundary",
-		"breaks_contract": "breaks a contract",
-		"billing":         "billing",
-		"unexplained":     "unexplained",
-		"not_reviewable":  "not reviewable",
+		"irreversible":    "whether a revert can undo it",
+		"trust_boundary":  "effect on authentication, authorization, secrets, or access",
+		"breaks_contract": "effect on interfaces other code or users depend on",
+		"billing":         "effect on payments, pricing, metering, or charges",
+		"unexplained":     "behavior its context doesn't explain",
+		"not_reviewable":  "what the reviewers couldn't review closely",
 		"data_residency":  "data_residency",
 	} {
 		t.Run(kind, func(t *testing.T) {

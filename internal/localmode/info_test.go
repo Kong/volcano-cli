@@ -89,6 +89,20 @@ func TestFetchInfoReportsNotRunning(t *testing.T) {
 		return nil, errors.New("Error response from daemon: Container abc123 is not running: exit status 1")
 	}))
 	require.ErrorIs(t, stopped, cliruntime.ErrLocalNotRunning)
+
+	// docker can't reach the engine when the daemon is down; older releases
+	// and newer ones word it differently.
+	for _, down := range []string{
+		"Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?: exit status 1",
+		"failed to connect to the docker API at unix:///var/run/docker.sock; check if the path is correct and if the daemon is running: " +
+			"dial unix /var/run/docker.sock: connect: no such file or directory: exit status 1",
+	} {
+		_, err := FetchInfo(context.Background(), CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			return nil, errors.New(down)
+		}))
+		require.ErrorIs(t, err, cliruntime.ErrLocalNotRunning, down)
+		assert.NotContains(t, err.Error(), "docker.sock", down)
+	}
 }
 
 func TestFetchInfoRejectsEmptyOutput(t *testing.T) {
