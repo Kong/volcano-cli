@@ -279,8 +279,10 @@ func TestShowSaysAFixWithADecisionWillBeHeld(t *testing.T) {
 		reasons             []any
 		want                string
 	}{
-		{"waiting", "", "open", decision,
-			"Merge: held for you; LavaFlow records the hold about a minute after the pull request opens\n"},
+		{
+			"waiting", "", "open", decision,
+			"Merge: held for you; LavaFlow records the hold about a minute after the pull request opens\n",
+		},
 		{"paused", "paused", "open", decision, "Merge: held for you; LavaFlow records the hold once merging resumes\n"},
 		{"nothing to decide", "", "open", nil, "Merge: waiting for CI\n"},
 		{"closed", "", "closed", decision, "Merge: waiting for CI\n"},
