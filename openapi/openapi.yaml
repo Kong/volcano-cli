@@ -3340,7 +3340,7 @@ paths:
                   description: SHA-256 of the sorted unique current shared names joined by a newline. Use instead of expected_shared_variables for a compact conditional replacement.
       responses:
         '200':
-          description: 'Shared list replaced and synchronization started for every affected function except the ones listed, which a promoted preview serves (`code: function_served_by_candidate`). The preview keeps the variables it was built with, so their variables were not synchronized; deploy each listed function to apply the current values.'
+          description: 'Shared list replaced and synchronization started for every affected function except the ones listed, which a promoted preview serves (`code: function_served_by_candidate`). The preview keeps the variables it was built with, so their variables were not synchronized; a rollback of a listed function to production synchronizes its own build, and so does deploying it.'
           content:
             application/json:
               schema:
