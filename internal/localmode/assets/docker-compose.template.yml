@@ -154,6 +154,9 @@ services:
       # frontend at <frontend-id>.frontends.localhost:8080 is browser-reachable.
       FRONTENDS_HTTP_PORT: "8080"
       FRONTEND_INVOCATION_DNS: "*.frontends.localhost"
+      # HTTP-mode functions are served by the API listener at
+      # http://<function-id>.functions.localhost:8000/.
+      FUNCTION_INVOCATION_DNS: "*.functions.localhost"
       # Local plan defaults are baked into the server binary (cmd/server/internal/config).
       # Do not put FREE_*/PRO_* values here: this template ships in the CLI image.
       # Deployable regions used by project region resolution (`all_regions=true`
