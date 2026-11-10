@@ -1610,16 +1610,16 @@ func (e FrontendVariableScope) Valid() bool {
 
 // Defines values for FrontendCandidateConfigurationStatus.
 const (
-	Changed FrontendCandidateConfigurationStatus = "changed"
-	Current FrontendCandidateConfigurationStatus = "current"
+	FrontendCandidateConfigurationStatusChanged FrontendCandidateConfigurationStatus = "changed"
+	FrontendCandidateConfigurationStatusCurrent FrontendCandidateConfigurationStatus = "current"
 )
 
 // Valid indicates whether the value is a known member of the FrontendCandidateConfigurationStatus enum.
 func (e FrontendCandidateConfigurationStatus) Valid() bool {
 	switch e {
-	case Changed:
+	case FrontendCandidateConfigurationStatusChanged:
 		return true
-	case Current:
+	case FrontendCandidateConfigurationStatusCurrent:
 		return true
 	default:
 		return false
@@ -1950,6 +1950,24 @@ func (e FunctionStatus) Valid() bool {
 	}
 }
 
+// Defines values for FunctionCandidateConfigurationStatus.
+const (
+	FunctionCandidateConfigurationStatusChanged FunctionCandidateConfigurationStatus = "changed"
+	FunctionCandidateConfigurationStatusCurrent FunctionCandidateConfigurationStatus = "current"
+)
+
+// Valid indicates whether the value is a known member of the FunctionCandidateConfigurationStatus enum.
+func (e FunctionCandidateConfigurationStatus) Valid() bool {
+	switch e {
+	case FunctionCandidateConfigurationStatusChanged:
+		return true
+	case FunctionCandidateConfigurationStatusCurrent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FunctionCandidateExposure.
 const (
 	Private FunctionCandidateExposure = "private"
@@ -1968,7 +1986,6 @@ func (e FunctionCandidateExposure) Valid() bool {
 // Defines values for FunctionCandidateStatus.
 const (
 	FunctionCandidateStatusCreating FunctionCandidateStatus = "creating"
-	FunctionCandidateStatusDeleted  FunctionCandidateStatus = "deleted"
 	FunctionCandidateStatusDeleting FunctionCandidateStatus = "deleting"
 	FunctionCandidateStatusError    FunctionCandidateStatus = "error"
 	FunctionCandidateStatusReady    FunctionCandidateStatus = "ready"
@@ -1978,8 +1995,6 @@ const (
 func (e FunctionCandidateStatus) Valid() bool {
 	switch e {
 	case FunctionCandidateStatusCreating:
-		return true
-	case FunctionCandidateStatusDeleted:
 		return true
 	case FunctionCandidateStatusDeleting:
 		return true
@@ -2187,6 +2202,24 @@ func (e FunctionKindFilter) Valid() bool {
 	}
 }
 
+// Defines values for FunctionProductionEnvironmentStatus.
+const (
+	FunctionProductionEnvironmentStatusCurrent   FunctionProductionEnvironmentStatus = "current"
+	FunctionProductionEnvironmentStatusOutOfDate FunctionProductionEnvironmentStatus = "out_of_date"
+)
+
+// Valid indicates whether the value is a known member of the FunctionProductionEnvironmentStatus enum.
+func (e FunctionProductionEnvironmentStatus) Valid() bool {
+	switch e {
+	case FunctionProductionEnvironmentStatusCurrent:
+		return true
+	case FunctionProductionEnvironmentStatusOutOfDate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FunctionSchedulerHealth.
 const (
 	FunctionSchedulerHealthFailing FunctionSchedulerHealth = "failing"
@@ -2240,16 +2273,19 @@ func (e FunctionSchedulerScheduleKind) Valid() bool {
 
 // Defines values for FunctionServingActivationKind.
 const (
-	Promotion FunctionServingActivationKind = "promotion"
-	Rollback  FunctionServingActivationKind = "rollback"
+	FunctionServingActivationKindDeploy    FunctionServingActivationKind = "deploy"
+	FunctionServingActivationKindPromotion FunctionServingActivationKind = "promotion"
+	FunctionServingActivationKindRollback  FunctionServingActivationKind = "rollback"
 )
 
 // Valid indicates whether the value is a known member of the FunctionServingActivationKind enum.
 func (e FunctionServingActivationKind) Valid() bool {
 	switch e {
-	case Promotion:
+	case FunctionServingActivationKindDeploy:
 		return true
-	case Rollback:
+	case FunctionServingActivationKindPromotion:
+		return true
+	case FunctionServingActivationKindRollback:
 		return true
 	default:
 		return false
@@ -4953,21 +4989,6 @@ func (e ShareUpdateRequestStatus) Valid() bool {
 	case ShareUpdateRequestStatusActive:
 		return true
 	case ShareUpdateRequestStatusDisabled:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SkippedServedFunctionCode.
-const (
-	FunctionServedByCandidate SkippedServedFunctionCode = "function_served_by_candidate"
-)
-
-// Valid indicates whether the value is a known member of the SkippedServedFunctionCode enum.
-func (e SkippedServedFunctionCode) Valid() bool {
-	switch e {
-	case FunctionServedByCandidate:
 		return true
 	default:
 		return false
@@ -9901,10 +9922,16 @@ type Function struct {
 	ProjectId           openapi_types.UUID  `json:"project_id"`
 
 	// ProvisioningStartedAt Timestamp when the current provisioning phase started
-	ProvisioningStartedAt *time.Time     `json:"provisioning_started_at,omitempty"`
-	Runtime               *string        `json:"runtime,omitempty"`
-	Status                FunctionStatus `json:"status"`
-	UpdatedAt             time.Time      `json:"updated_at"`
+	ProvisioningStartedAt *time.Time `json:"provisioning_started_at,omitempty"`
+	Runtime               *string    `json:"runtime,omitempty"`
+
+	// ServingCandidateId The promoted preview whose Lambda receives this function's traffic, the same as
+	// `candidate_id` in `serving`. Null when the function runs its own build. While it is set,
+	// `current_deployment_id` and `status` describe the function's own Lambda, which receives no
+	// traffic until the function is rolled back.
+	ServingCandidateId *openapi_types.UUID `json:"serving_candidate_id,omitempty"`
+	Status             FunctionStatus      `json:"status"`
+	UpdatedAt          time.Time           `json:"updated_at"`
 
 	// Visibility Who can invoke the function. Each level admits everything the one
 	// before it does.
@@ -9921,26 +9948,28 @@ type Function struct {
 // FunctionStatus defines model for Function.Status.
 type FunctionStatus string
 
-// FunctionActivationRequest defines model for FunctionActivationRequest.
-type FunctionActivationRequest struct {
-	// ExpectedRevision Refuses the request with `stale_revision` unless what the function runs is still at this revision.
-	ExpectedRevision *int64 `json:"expected_revision,omitempty"`
-
-	// ToProduction For a rollback, return to the function's own newest build.
-	ToProduction *bool `json:"to_production,omitempty"`
-}
-
 // FunctionCandidate A copy of an ordinary function built from an uploaded source with the function's own variables,
 // run on a Lambda of its own and invoked at its own host with the project's service key only, so it
-// can be checked before it is promoted. It has none of the function's schedules or warmers.
+// can be checked before it is promoted. It has none of the function's schedules or warmers. Fields
+// that do not apply yet are absent.
 type FunctionCandidate struct {
-	// ConfigurationStatus Present while the preview serves a deployment: `current` when it was built with the variables
-	// the function would give that source now, else `changed`. Promotion refuses `changed`.
-	ConfigurationStatus *string             `json:"configuration_status,omitempty"`
-	CreatedAt           time.Time           `json:"created_at"`
-	CreatedBy           *string             `json:"created_by,omitempty"`
-	CurrentDeploymentId *openapi_types.UUID `json:"current_deployment_id,omitempty"`
-	ExpiresAt           *time.Time          `json:"expires_at,omitempty"`
+	// ConfigurationStatus Present while the preview serves a deployment. `current` means that deployment was built with
+	// the variables, runtime and handler the function would give that source now; `changed` means
+	// they differ, or can no longer be resolved. Promotion refuses a preview whose status is
+	// `changed`.
+	ConfigurationStatus *FunctionCandidateConfigurationStatus `json:"configuration_status,omitempty"`
+	CreatedAt           time.Time                             `json:"created_at"`
+
+	// CreatedBy The user who created the preview, when a user did.
+	CreatedBy *string `json:"created_by,omitempty"`
+
+	// CurrentDeploymentId The deployment the preview serves. Absent until its first deployment succeeds. It differs from
+	// `deployment` while a redeploy runs or after one failed.
+	CurrentDeploymentId *openapi_types.UUID          `json:"current_deployment_id,omitempty"`
+	Deployment          *FunctionCandidateDeployment `json:"deployment,omitempty"`
+
+	// ExpiresAt When the preview is deleted on its own. Absent when it is kept until deleted. A preview the function runs, or keeps for a rollback, is not deleted then; it expires once it is neither.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 
 	// Exposure A function preview is always private. Only the project's service key, with `functions.invoke`, can invoke it; signed-in users, anon keys and access tokens are refused.
 	Exposure   FunctionCandidateExposure `json:"exposure"`
@@ -9948,51 +9977,68 @@ type FunctionCandidate struct {
 	Id         openapi_types.UUID        `json:"id"`
 
 	// KeptForRollback A rollback of the function returns to this preview's build.
-	KeptForRollback  bool                         `json:"kept_for_rollback"`
-	LatestDeployment *FunctionCandidateDeployment `json:"latest_deployment,omitempty"`
-	Name             string                       `json:"name"`
+	KeptForRollback bool   `json:"kept_for_rollback"`
+	Name            string `json:"name"`
 
 	// Serving The function runs this preview's build.
 	Serving bool   `json:"serving"`
 	Slug    string `json:"slug"`
 
 	// Status `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while its
-	// Lambda is removed, and `error` when its deletion gave up and needs an operator.
+	// Lambda is removed, and `error` when its deletion gave up and needs an operator. A deleted
+	// preview answers `404`.
 	Status    FunctionCandidateStatus `json:"status"`
 	UpdatedAt time.Time               `json:"updated_at"`
 
-	// Url Where the preview is invoked. Null until its first deployment succeeds.
+	// Url Where the preview is invoked. Absent until its first deployment succeeds.
 	Url *string `json:"url,omitempty"`
 }
+
+// FunctionCandidateConfigurationStatus Present while the preview serves a deployment. `current` means that deployment was built with
+// the variables, runtime and handler the function would give that source now; `changed` means
+// they differ, or can no longer be resolved. Promotion refuses a preview whose status is
+// `changed`.
+type FunctionCandidateConfigurationStatus string
 
 // FunctionCandidateExposure A function preview is always private. Only the project's service key, with `functions.invoke`, can invoke it; signed-in users, anon keys and access tokens are refused.
 type FunctionCandidateExposure string
 
 // FunctionCandidateStatus `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while its
-// Lambda is removed, and `error` when its deletion gave up and needs an operator.
+// Lambda is removed, and `error` when its deletion gave up and needs an operator. A deleted
+// preview answers `404`.
 type FunctionCandidateStatus string
 
 // FunctionCandidateDeployment defines model for FunctionCandidateDeployment.
 type FunctionCandidateDeployment struct {
+	// CompletedAt Set once the deployment is no longer provisioning.
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 
 	// ConfigurationDigest Identifies the variables the build used without carrying any value.
-	ConfigurationDigest string             `json:"configuration_digest"`
-	CreatedAt           time.Time          `json:"created_at"`
-	ErrorMessage        *string            `json:"error_message,omitempty"`
-	Id                  openapi_types.UUID `json:"id"`
+	ConfigurationDigest string    `json:"configuration_digest"`
+	CreatedAt           time.Time `json:"created_at"`
 
-	// ImageUri The published image, one `region=uri@sha256:digest` entry per region. Recorded on the promotion that makes this deployment serve; a promotion deploys nothing.
-	ImageUri  *string                              `json:"image_uri,omitempty"`
-	Operation FunctionCandidateDeploymentOperation `json:"operation"`
-	Regions   []string                             `json:"regions"`
-	Status    FunctionCandidateDeploymentStatus    `json:"status"`
+	// ErrorMessage Why a failed deployment failed.
+	ErrorMessage *string            `json:"error_message,omitempty"`
+	Id           openapi_types.UUID `json:"id"`
+
+	// ImageDigests The digest of the image this deployment published, per region. Present once the deployment
+	// succeeded. A promotion points the function at this image and deploys nothing.
+	ImageDigests *[]FunctionImageDigest               `json:"image_digests,omitempty"`
+	Operation    FunctionCandidateDeploymentOperation `json:"operation"`
+	Regions      []string                             `json:"regions"`
+
+	// Status `provisioning` while the build and deploy run, `active` once the preview serves this
+	// deployment, and `failed` when it could not be built or deployed. A failed deployment of a
+	// preview that already served keeps the previous deployment serving.
+	Status FunctionCandidateDeploymentStatus `json:"status"`
 }
 
 // FunctionCandidateDeploymentOperation defines model for FunctionCandidateDeployment.Operation.
 type FunctionCandidateDeploymentOperation string
 
-// FunctionCandidateDeploymentStatus defines model for FunctionCandidateDeployment.Status.
+// FunctionCandidateDeploymentStatus `provisioning` while the build and deploy run, `active` once the preview serves this
+// deployment, and `failed` when it could not be built or deployed. A failed deployment of a
+// preview that already served keeps the previous deployment serving.
 type FunctionCandidateDeploymentStatus string
 
 // FunctionCandidateDeploymentList defines model for FunctionCandidateDeploymentList.
@@ -10054,6 +10100,14 @@ type FunctionDeploymentStatus string
 // externally signed webhooks.
 type FunctionHTTPAuthMode string
 
+// FunctionImageDigest The content digest of a function image in one region. It names no registry or account.
+type FunctionImageDigest struct {
+	Digest string `json:"digest"`
+
+	// Region The region the image was published to. Absent when the build published one image for every region.
+	Region *string `json:"region,omitempty"`
+}
+
 // FunctionInvocationMode Invocation contract. `rpc` preserves the existing POST `{payload: ...}` contract;
 // `http` forwards HTTP request semantics to the function runtime.
 type FunctionInvocationMode string
@@ -10094,6 +10148,27 @@ type FunctionKind string
 // default: omitting the filter includes both kinds.
 type FunctionKindFilter string
 
+// FunctionProductionEnvironment Whether the function's own Lambda has the project's current variables. While a preview serves the
+// function, `volcano config deploy` and replacing the shared variable list skip the function, so its
+// own Lambda keeps the values it had. A rollback to the function's own build synchronizes them as it
+// returns the traffic, and a deployment of the function applies them too.
+type FunctionProductionEnvironment struct {
+	// OutOfDateSince When the latest skipped change was stored. Absent while `status` is `current`.
+	OutOfDateSince *time.Time `json:"out_of_date_since,omitempty"`
+
+	// Status `out_of_date`: a stored variable change skipped the function while a preview served it.
+	Status FunctionProductionEnvironmentStatus `json:"status"`
+}
+
+// FunctionProductionEnvironmentStatus `out_of_date`: a stored variable change skipped the function while a preview served it.
+type FunctionProductionEnvironmentStatus string
+
+// FunctionPromotionRequest defines model for FunctionPromotionRequest.
+type FunctionPromotionRequest struct {
+	// ExpectedRevision The `revision` the caller read from `serving`. Refuses the promotion with `stale_revision` unless what the function runs is still at this revision.
+	ExpectedRevision int64 `json:"expected_revision"`
+}
+
 // FunctionRegion defines model for FunctionRegion.
 type FunctionRegion struct {
 	// Code Region identifier accepted by function APIs.
@@ -10104,6 +10179,15 @@ type FunctionRegion struct {
 
 	// Label Human-readable region label suitable for display in pickers.
 	Label string `json:"label"`
+}
+
+// FunctionRollbackRequest defines model for FunctionRollbackRequest.
+type FunctionRollbackRequest struct {
+	// ExpectedRevision The `revision` the caller read from `serving`. Refuses the rollback with `stale_revision` unless what the function runs is still at this revision, so a retried rollback cannot undo itself.
+	ExpectedRevision int64 `json:"expected_revision"`
+
+	// ToProduction Return to the function's own build whatever it ran before.
+	ToProduction *bool `json:"to_production,omitempty"`
 }
 
 // FunctionRuntimeDeployment defines model for FunctionRuntimeDeployment.
@@ -10213,9 +10297,17 @@ type FunctionSchedulerListResponse struct {
 	Total      int     `json:"total"`
 }
 
-// FunctionServing What a function runs, its own build or a promoted preview's.
+// FunctionServing What a function runs. Until a preview is promoted it runs its own build and `candidate_id` is
+// null. After a promotion, the function's traffic runs on that preview's Lambda, nothing is rebuilt
+// or deployed, and `previous_candidate_id` is what a rollback returns to (null when that is the
+// function's own build). A preview the function runs cannot be deleted and does not expire. One kept
+// only as what a rollback returns to does not expire either, but it can be deleted, which gives up
+// that rollback; the function's own build stays one `to_production` rollback away.
 type FunctionServing struct {
-	Activation *FunctionServingActivation `json:"activation"`
+	// Activation The latest change to what serves the function's traffic: a promotion, a rollback, or a deployment
+	// of the function that returned its traffic to its own build. Each takes effect at once. Absent until
+	// the function's first promotion.
+	Activation *FunctionServingActivation `json:"activation,omitempty"`
 
 	// CandidateId The preview whose build the function runs; null for its own.
 	CandidateId *openapi_types.UUID `json:"candidate_id"`
@@ -10223,29 +10315,39 @@ type FunctionServing struct {
 	// PreviousCandidateId The preview a rollback returns to; null for the function's own build.
 	PreviousCandidateId *openapi_types.UUID `json:"previous_candidate_id"`
 
-	// Revision Increases with every promotion, rollback and released rollback.
+	// ProductionEnvironment Whether the function's own Lambda has the project's current variables. While a preview serves the
+	// function, `volcano config deploy` and replacing the shared variable list skip the function, so its
+	// own Lambda keeps the values it had. A rollback to the function's own build synchronizes them as it
+	// returns the traffic, and a deployment of the function applies them too.
+	ProductionEnvironment FunctionProductionEnvironment `json:"production_environment"`
+
+	// Revision Counts changes to what the function runs or can roll back to — promotions, rollbacks, a deployment that returns the traffic to the function's own build, and deleting the preview kept for a rollback. A promotion or rollback names the revision it read, so one that read before such a change fails with `409` (`stale_revision`) instead of overwriting it; read the serving state again and retry.
 	Revision int64 `json:"revision"`
 }
 
-// FunctionServingActivation A promotion or rollback, which moves what serves the function's traffic at once.
+// FunctionServingActivation The latest change to what serves the function's traffic: a promotion, a rollback, or a deployment
+// of the function that returned its traffic to its own build. Each takes effect at once. Absent until
+// the function's first promotion.
 type FunctionServingActivation struct {
-	// CandidateId The preview now serving; null for the function's own Lambda.
+	// CandidateId The preview the activation pointed the function at. Absent for the function's own Lambda.
 	CandidateId *openapi_types.UUID `json:"candidate_id,omitempty"`
 	Id          openapi_types.UUID  `json:"id"`
 
-	// ImageUri The serving preview's image; null for the function's own Lambda.
-	ImageUri *string                       `json:"image_uri,omitempty"`
+	// ImageDigests The digests of the image the activation pointed the function at. Absent for the function's own Lambda.
+	ImageDigests *[]FunctionImageDigest `json:"image_digests,omitempty"`
+
+	// Kind `deploy`: a successful deployment of the function cleared the preview pointers.
 	Kind     FunctionServingActivationKind `json:"kind"`
 	Revision int64                         `json:"revision"`
 
-	// Status `applied`: a promotion or rollback takes effect in the request that makes it.
+	// Status `applied`: the change takes effect when it is recorded.
 	Status FunctionServingActivationStatus `json:"status"`
 }
 
-// FunctionServingActivationKind defines model for FunctionServingActivation.Kind.
+// FunctionServingActivationKind `deploy`: a successful deployment of the function cleared the preview pointers.
 type FunctionServingActivationKind string
 
-// FunctionServingActivationStatus `applied`: a promotion or rollback takes effect in the request that makes it.
+// FunctionServingActivationStatus `applied`: the change takes effect when it is recorded.
 type FunctionServingActivationStatus string
 
 // FunctionVisibility Who can invoke the function. Each level admits everything the one
@@ -12578,6 +12680,12 @@ type ProjectConfigApplyResult struct {
 type ProjectConfigApplyResultEntry struct {
 	Action ProjectConfigApplyResultEntryAction `json:"action"`
 
+	// Code Machine-readable reason for a `notice`, when it has one. Clients must accept codes not listed
+	// here. `function_served_by_candidate` - a promoted preview serves the function and keeps the
+	// variables it was built with, so the apply did not synchronize the function's variables; the
+	// entry's action is `unchanged`, and the rest of the apply succeeded.
+	Code *string `json:"code,omitempty"`
+
 	// Error Error detail when action is `error`.
 	Error *string `json:"error,omitempty"`
 
@@ -14800,8 +14908,13 @@ type SharesResponse struct {
 
 // SkippedServedFunction defines model for SkippedServedFunction.
 type SkippedServedFunction struct {
-	// Code Why the function was left out. `function_served_by_candidate` - a promoted preview serves the function and keeps the variables it was built with.
-	Code SkippedServedFunctionCode `json:"code"`
+	// Code Why the function was left out. Clients must accept codes not listed here.
+	// `function_served_by_candidate` - a promoted preview serves the function and keeps the
+	// variables it was built with.
+	Code string `json:"code"`
+
+	// Id Function ID.
+	Id openapi_types.UUID `json:"id"`
 
 	// Message What brings the function in line.
 	Message string `json:"message"`
@@ -14809,9 +14922,6 @@ type SkippedServedFunction struct {
 	// Name Function name.
 	Name string `json:"name"`
 }
-
-// SkippedServedFunctionCode Why the function was left out. `function_served_by_candidate` - a promoted preview serves the function and keeps the variables it was built with.
-type SkippedServedFunctionCode string
 
 // SlackAuthorizationResponse defines model for SlackAuthorizationResponse.
 type SlackAuthorizationResponse struct {
@@ -17642,7 +17752,7 @@ type CreateFunctionCandidateMultipartBody struct {
 	// Name Names the preview within the function. Cannot be `production`.
 	Name string `json:"name"`
 
-	// TtlSeconds Deletes the preview this many seconds after it is created, at most 30 days.
+	// TtlSeconds Deletes the preview this many seconds after it is created, at most 30 days. Omit to keep it until deleted.
 	TtlSeconds *int `json:"ttl_seconds,omitempty"`
 }
 
@@ -18595,7 +18705,7 @@ type CreateFunctionCandidateMultipartRequestBody CreateFunctionCandidateMultipar
 type RedeployFunctionCandidateMultipartRequestBody RedeployFunctionCandidateMultipartBody
 
 // PromoteFunctionCandidateJSONRequestBody defines body for PromoteFunctionCandidate for application/json ContentType.
-type PromoteFunctionCandidateJSONRequestBody = FunctionActivationRequest
+type PromoteFunctionCandidateJSONRequestBody = FunctionPromotionRequest
 
 // CreateFunctionSchedulerJSONRequestBody defines body for CreateFunctionScheduler for application/json ContentType.
 type CreateFunctionSchedulerJSONRequestBody = CreateFunctionSchedulerRequest
@@ -18604,7 +18714,7 @@ type CreateFunctionSchedulerJSONRequestBody = CreateFunctionSchedulerRequest
 type UpdateFunctionSchedulerJSONRequestBody = UpdateFunctionSchedulerRequest
 
 // RollbackFunctionServingJSONRequestBody defines body for RollbackFunctionServing for application/json ContentType.
-type RollbackFunctionServingJSONRequestBody = FunctionActivationRequest
+type RollbackFunctionServingJSONRequestBody = FunctionRollbackRequest
 
 // ConnectProjectGitJSONRequestBody defines body for ConnectProjectGit for application/json ContentType.
 type ConnectProjectGitJSONRequestBody = ConnectProjectGitRequest
@@ -59817,7 +59927,6 @@ func (r CreateFunctionCandidateClientResponse) ContentType() string {
 type DeleteFunctionCandidateClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *FunctionCandidate
 	JSON400      *Error
 	JSON401      *Error
 	JSON403      *Error
@@ -59932,6 +60041,7 @@ type RedeployFunctionCandidateClientResponse struct {
 	JSON413      *Error
 	JSON429      *Error
 	JSON500      *Error
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -82020,13 +82130,6 @@ func ParseDeleteFunctionCandidateClientResponse(rsp *http.Response) (*DeleteFunc
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
-		var dest FunctionCandidate
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON202 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -82272,6 +82375,13 @@ func ParseRedeployFunctionCandidateClientResponse(rsp *http.Response) (*Redeploy
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 

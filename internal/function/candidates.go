@@ -115,6 +115,23 @@ func (s Service) DeployCandidate(ctx context.Context, request CandidateDeploy) (
 	return candidate, deployment, nil
 }
 
+// ListCandidateDeployments returns a Candidate's deployments.
+func (s Service) ListCandidateDeployments(ctx context.Context, functionIdentifier, candidateIdentifier string) (*apiclient.FunctionCandidate, []apiclient.FunctionCandidateDeployment, error) {
+	authenticated, function, err := s.currentFunction(ctx, functionIdentifier)
+	if err != nil {
+		return nil, nil, err
+	}
+	candidate, err := resolveCandidate(ctx, authenticated, function, candidateIdentifier)
+	if err != nil {
+		return nil, nil, err
+	}
+	deployments, err := authenticated.API.ListFunctionCandidateDeployments(ctx, authenticated.ProjectID, function.Id, candidate.Id)
+	if err != nil {
+		return nil, nil, previewError(fmt.Sprintf("failed to list the deployments of preview %q", candidate.Name), err)
+	}
+	return candidate, deployments, nil
+}
+
 // DeleteCandidate starts deleting a Candidate once confirm, when set, agrees
 // to delete the Candidate it found. It reports whether it deleted it.
 func (s Service) DeleteCandidate(ctx context.Context, functionIdentifier, candidateIdentifier string, confirm func(*apiclient.FunctionCandidate) (bool, error)) (*apiclient.FunctionCandidate, bool, error) {

@@ -50,6 +50,7 @@ func newFunctionPreviewServer(t *testing.T) (*functionPreviewServer, *httptest.S
 	t.Helper()
 	p := &functionPreviewServer{t: t, serving: map[string]any{
 		"revision": 4, "candidate_id": nil, "previous_candidate_id": nil, "activation": nil,
+		"production_environment": map[string]any{"status": "current"},
 	}}
 	server := httptest.NewServer(http.HandlerFunc(p.handle))
 	t.Cleanup(server.Close)
@@ -62,10 +63,11 @@ func functionPreviewPayload(status string) map[string]any {
 		"status": status, "exposure": "private", "url": "https://" + functionPreviewID + ".functions.example.com",
 		"created_at": "2026-11-07T10:00:00Z", "updated_at": "2026-11-07T10:00:00Z",
 		"configuration_status": "current", "serving": false, "kept_for_rollback": false,
-		"latest_deployment": map[string]any{
+		"deployment": map[string]any{
 			"id": "99999999-9999-4999-8999-999999999999", "status": "active", "operation": "deploy",
-			"image_uri": "us-east-1=repo@sha256:aa", "configuration_digest": "sha256:x",
-			"regions": []string{"us-east-1"}, "created_at": "2026-11-07T10:00:00Z",
+			"image_digests":        []any{map[string]any{"region": "us-east-1", "digest": "sha256:aa"}},
+			"configuration_digest": "sha256:x",
+			"regions":              []string{"us-east-1"}, "created_at": "2026-11-07T10:00:00Z",
 		},
 	}
 }
@@ -112,21 +114,24 @@ func (p *functionPreviewServer) handle(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		p.serving = map[string]any{"revision": 5, "candidate_id": functionPreviewID, "previous_candidate_id": nil, "activation": nil}
+		p.serving = map[string]any{"revision": 5, "candidate_id": functionPreviewID, "previous_candidate_id": nil, "activation": nil, "production_environment": map[string]any{"status": "current"}}
 		writeFunctionCommandJSON(p.t, w, http.StatusOK, p.serving)
 	case r.Method == http.MethodPost && r.URL.Path == functionPreviewBasePath+"/serving/rollback":
 		p.rolled = p.readJSON(r)
-		p.serving = map[string]any{"revision": 6, "candidate_id": nil, "previous_candidate_id": functionPreviewID, "activation": nil}
+		p.serving = map[string]any{"revision": 6, "candidate_id": nil, "previous_candidate_id": functionPreviewID, "activation": nil, "production_environment": map[string]any{"status": "current"}}
 		writeFunctionCommandJSON(p.t, w, http.StatusOK, p.serving)
 	case r.Method == http.MethodGet && r.URL.Path == functionPreviewBasePath+"/candidates/"+functionPreviewID:
 		writeFunctionCommandJSON(p.t, w, http.StatusOK, functionPreviewPayload("ready"))
+	case r.Method == http.MethodGet && r.URL.Path == functionPreviewBasePath+"/candidates/"+functionPreviewID+"/deployments":
+		older := functionPreviewPayload("ready")["deployment"].(map[string]any)
+		writeFunctionCommandJSON(p.t, w, http.StatusOK, map[string]any{"data": []any{older}})
 	case r.Method == http.MethodDelete && r.URL.Path == functionPreviewBasePath+"/candidates/"+functionPreviewID:
 		p.deleted = true
 		w.WriteHeader(http.StatusAccepted)
 	case r.Method == http.MethodPost && r.URL.Path == functionPreviewBasePath+"/candidates/"+functionPreviewID+"/deployments":
 		p.readForm(r)
 		p.deployed++
-		writeFunctionCommandJSON(p.t, w, http.StatusAccepted, functionPreviewPayload("deploying")["latest_deployment"])
+		writeFunctionCommandJSON(p.t, w, http.StatusAccepted, functionPreviewPayload("deploying")["deployment"])
 	default:
 		http.NotFound(w, r)
 	}
@@ -265,7 +270,7 @@ func TestFunctionPreviewGetShowsTheImageAndVariables(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Contains(t, out, "Variables: current")
-	assert.Contains(t, out, "Image:     us-east-1=repo@sha256:aa")
+	assert.Contains(t, out, "Image:     us-east-1 sha256:aa")
 	assert.Contains(t, out, "https://"+functionPreviewID+".functions.example.com")
 }
 
@@ -451,4 +456,61 @@ func TestFunctionPreviewFeatureUnavailableSaysPreviews(t *testing.T) {
 	_, err := runFunctionPreview(t, server, "preview", "list", "api")
 
 	require.ErrorContains(t, err, "function previews aren't available for this project yet")
+}
+
+func TestFunctionPreviewDeploymentsListsAPreviewsDeployments(t *testing.T) {
+	_, server := newFunctionPreviewServer(t)
+
+	out, err := runFunctionPreview(t, server, "preview", "deployments", "api", "checkout-v2")
+
+	require.NoError(t, err)
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	require.Len(t, lines, 2)
+	assert.Contains(t, lines[0], "OPERATION")
+	assert.Contains(t, lines[1], "99999999-9999-4999-8999-999999999999")
+	assert.Contains(t, lines[1], "active")
+	assert.Contains(t, lines[1], "us-east-1")
+
+	out, err = runFunctionPreview(t, server, "preview", "deployments", "api", "checkout-v2", "--json")
+	require.NoError(t, err)
+	var listed []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &listed))
+	require.Len(t, listed, 1)
+	assert.Equal(t, "deploy", listed[0]["operation"])
+}
+
+func TestFunctionServingSaysWhenTheOwnBuildsVariablesAreOutOfDate(t *testing.T) {
+	p, server := newFunctionPreviewServer(t)
+	p.serving = map[string]any{
+		"revision": 5, "candidate_id": functionPreviewID, "previous_candidate_id": nil,
+		"production_environment": map[string]any{"status": "out_of_date", "out_of_date_since": "2026-11-10T10:00:00Z"},
+		"activation": map[string]any{
+			"id": "88888888-8888-4888-8888-888888888888", "kind": "promotion", "status": "active", "revision": 5,
+			"candidate_id": functionPreviewID, "image_digests": []any{map[string]any{"digest": "sha256:bb"}},
+		},
+	}
+
+	out, err := runFunctionPreview(t, server, "serving", "api")
+
+	require.NoError(t, err)
+	assert.Contains(t, out, "Function 'api' runs preview 'checkout-v2' (revision 5)")
+	assert.Contains(t, out, "Latest promotion: active (revision 5)")
+	assert.Contains(t, out, "Image: sha256:bb")
+	assert.Contains(t, out, "Own build's variables: out of date since ")
+	assert.Contains(t, out, "a rollback to production synchronizes them")
+
+	out, err = runFunctionPreview(t, server, "serving", "api", "--json")
+	require.NoError(t, err)
+	var serving map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &serving))
+	assert.Equal(t, map[string]any{"status": "out_of_date", "out_of_date_since": "2026-11-10T10:00:00Z"}, serving["production_environment"])
+}
+
+func TestFunctionServingSaysNothingOfCurrentVariables(t *testing.T) {
+	_, server := newFunctionPreviewServer(t)
+
+	out, err := runFunctionPreview(t, server, "serving", "api")
+
+	require.NoError(t, err)
+	assert.NotContains(t, out, "variables")
 }

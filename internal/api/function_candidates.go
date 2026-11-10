@@ -67,6 +67,20 @@ func (c *Client) DeleteFunctionCandidate(ctx context.Context, projectID, functio
 	return apiOK(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
+// ListFunctionCandidateDeployments lists a Candidate's deployments, newest
+// first.
+func (c *Client) ListFunctionCandidateDeployments(ctx context.Context, projectID, functionID, candidateID uuid.UUID) ([]apiclient.FunctionCandidateDeployment, error) {
+	resp, err := c.client.ListFunctionCandidateDeploymentsWithResponse(ctx, projectID, functionID, candidateID)
+	if err != nil {
+		return nil, err
+	}
+	list, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
+	if err != nil {
+		return nil, err
+	}
+	return list.Data, nil
+}
+
 // RedeployFunctionCandidate uploads a new source to an existing Candidate and
 // starts a deployment of it.
 func (c *Client) RedeployFunctionCandidate(ctx context.Context, projectID, functionID, candidateID uuid.UUID, input FunctionCandidateInput) (*apiclient.FunctionCandidateDeployment, error) {
@@ -95,7 +109,7 @@ func (c *Client) GetFunctionServing(ctx context.Context, projectID, functionID u
 // Lambda. The revision is the one GetFunctionServing returned.
 func (c *Client) PromoteFunctionCandidate(ctx context.Context, projectID, functionID, candidateID uuid.UUID, expectedRevision int64) (*apiclient.FunctionServing, error) {
 	resp, err := c.client.PromoteFunctionCandidateWithResponse(ctx, projectID, functionID, candidateID,
-		apiclient.PromoteFunctionCandidateJSONRequestBody{ExpectedRevision: &expectedRevision})
+		apiclient.PromoteFunctionCandidateJSONRequestBody{ExpectedRevision: expectedRevision})
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +119,7 @@ func (c *Client) PromoteFunctionCandidate(ctx context.Context, projectID, functi
 // RollbackFunctionServing points a function back at what served it before, or
 // at its own Lambda when toProduction is set.
 func (c *Client) RollbackFunctionServing(ctx context.Context, projectID, functionID uuid.UUID, expectedRevision int64, toProduction bool) (*apiclient.FunctionServing, error) {
-	request := apiclient.RollbackFunctionServingJSONRequestBody{ExpectedRevision: &expectedRevision}
+	request := apiclient.RollbackFunctionServingJSONRequestBody{ExpectedRevision: expectedRevision}
 	if toProduction {
 		request.ToProduction = &toProduction
 	}

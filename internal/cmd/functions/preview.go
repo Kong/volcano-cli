@@ -38,7 +38,7 @@ Promoting a preview points the function's traffic at the preview's Lambda
 without deploying anything, and 'functions rollback' undoes that.`,
 	}
 	cmd.AddCommand(newPreviewCreate(deps), newPreviewList(deps), newPreviewGet(deps),
-		newPreviewDeploy(deps), newPreviewDelete(deps), newPreviewPromote(deps))
+		newPreviewDeploy(deps), newPreviewDeployments(deps), newPreviewDelete(deps), newPreviewPromote(deps))
 	return cmd
 }
 
@@ -234,6 +234,38 @@ func newPreviewDeploy(deps cliruntime.Deps) *cobra.Command {
 	return cmd
 }
 
+func newPreviewDeployments(deps cliruntime.Deps) *cobra.Command {
+	var jsonOutput bool
+	cmd := &cobra.Command{
+		Use:   "deployments <function> <preview>",
+		Short: "List a preview's deployments",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, deployments, err := clifunction.NewService(deps).ListCandidateDeployments(cmd.Context(),
+				strings.TrimSpace(args[0]), strings.TrimSpace(args[1]))
+			if err != nil {
+				return err
+			}
+			if jsonOutput {
+				return output.JSON(cmd.OutOrStdout(), deployments)
+			}
+			if len(deployments) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "No deployments.")
+				return nil
+			}
+			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
+			fmt.Fprintln(w, "ID\tSTATUS\tOPERATION\tREGIONS\tCREATED")
+			for i := range deployments {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", deployments[i].Id, deployments[i].Status, deployments[i].Operation,
+					strings.Join(deployments[i].Regions, ","), deployments[i].CreatedAt.Local().Format(time.RFC3339))
+			}
+			return w.Flush()
+		},
+	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Emit machine-readable JSON")
+	return cmd
+}
+
 func newPreviewDelete(deps cliruntime.Deps) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
@@ -337,10 +369,10 @@ func printPreview(out io.Writer, preview *apiclient.FunctionCandidate) {
 	if preview.ConfigurationStatus != nil {
 		fmt.Fprintf(out, "Variables: %s\n", *preview.ConfigurationStatus)
 	}
-	if deployment := preview.LatestDeployment; deployment != nil {
+	if deployment := preview.Deployment; deployment != nil {
 		fmt.Fprintf(out, "Deployment: %s (%s)\n", deployment.Id, deployment.Status)
-		if deployment.ImageUri != nil {
-			fmt.Fprintf(out, "Image:     %s\n", *deployment.ImageUri)
+		if images := imageDigests(deployment.ImageDigests); images != "" {
+			fmt.Fprintf(out, "Image:     %s\n", images)
 		}
 		if deployment.ErrorMessage != nil && *deployment.ErrorMessage != "" {
 			fmt.Fprintf(out, "Error:     %s\n", *deployment.ErrorMessage)
@@ -370,10 +402,34 @@ func printServing(ctx context.Context, out io.Writer, service clifunction.Servic
 	}
 	if activation := serving.Activation; activation != nil {
 		fmt.Fprintf(out, "Latest %s: %s (revision %d)\n", activation.Kind, activation.Status, activation.Revision)
-		if activation.ImageUri != nil {
-			fmt.Fprintf(out, "Image: %s\n", *activation.ImageUri)
+		if images := imageDigests(activation.ImageDigests); images != "" {
+			fmt.Fprintf(out, "Image: %s\n", images)
 		}
 	}
+	if environment := serving.ProductionEnvironment; environment.Status == apiclient.FunctionProductionEnvironmentStatusOutOfDate {
+		since := ""
+		if environment.OutOfDateSince != nil {
+			since = " since " + environment.OutOfDateSince.Local().Format(time.RFC3339)
+		}
+		fmt.Fprintf(out, "Own build's variables: out of date%s; a rollback to production synchronizes them\n", since)
+	}
+}
+
+// imageDigests shows a build's image digests, each with its region when the
+// API names one.
+func imageDigests(digests *[]apiclient.FunctionImageDigest) string {
+	if digests == nil {
+		return ""
+	}
+	shown := make([]string, 0, len(*digests))
+	for _, digest := range *digests {
+		if digest.Region != nil && *digest.Region != "" {
+			shown = append(shown, *digest.Region+" "+digest.Digest)
+			continue
+		}
+		shown = append(shown, digest.Digest)
+	}
+	return strings.Join(shown, ", ")
 }
 
 // nameOrID names a preview, or shows its ID when the name cannot be read.
