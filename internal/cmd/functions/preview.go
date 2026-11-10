@@ -15,6 +15,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
+	"github.com/Kong/volcano-cli/internal/confirm"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -42,7 +43,8 @@ without deploying anything, and 'functions rollback' undoes that.`,
 }
 
 func newServing(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "serving <function>",
 		Short: "Show what a function runs",
 		Long:  "Show whether a function runs its own build or a promoted preview's, and its latest promotion or rollback.",
@@ -53,10 +55,15 @@ func newServing(deps cliruntime.Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if jsonOutput {
+				return output.JSON(cmd.OutOrStdout(), serving)
+			}
 			printServing(cmd.Context(), cmd.OutOrStdout(), service, function, serving)
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Emit machine-readable JSON")
+	return cmd
 }
 
 func newRollback(deps cliruntime.Deps) *cobra.Command {
@@ -107,7 +114,13 @@ shown by 'preview get' once it is ready.`,
 				return err
 			}
 			service := clifunction.NewService(deps)
-			source, err := packageFunctionPreview(cmd.Context(), cmd.OutOrStdout(), service, strings.TrimSpace(args[0]), path)
+			// Listing the previews first reports a server without previews
+			// before any packaging.
+			function, _, err := service.ListCandidates(cmd.Context(), strings.TrimSpace(args[0]))
+			if err != nil {
+				return err
+			}
+			source, err := packageFunctionPreview(cmd.Context(), cmd.OutOrStdout(), service, function, path)
 			if err != nil {
 				return err
 			}
@@ -143,7 +156,8 @@ func previewTTLSeconds(ttl time.Duration) (int, error) {
 }
 
 func newPreviewList(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "list <function>",
 		Short: "List a function's previews",
 		Args:  cobra.ExactArgs(1),
@@ -151,6 +165,9 @@ func newPreviewList(deps cliruntime.Deps) *cobra.Command {
 			_, previews, err := clifunction.NewService(deps).ListCandidates(cmd.Context(), strings.TrimSpace(args[0]))
 			if err != nil {
 				return err
+			}
+			if jsonOutput {
+				return output.JSON(cmd.OutOrStdout(), previews)
 			}
 			if len(previews) == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "No previews.")
@@ -165,10 +182,13 @@ func newPreviewList(deps cliruntime.Deps) *cobra.Command {
 			return w.Flush()
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Emit machine-readable JSON")
+	return cmd
 }
 
 func newPreviewGet(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "get <function> <preview>",
 		Short: "Show a preview",
 		Args:  cobra.ExactArgs(2),
@@ -177,10 +197,15 @@ func newPreviewGet(deps cliruntime.Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if jsonOutput {
+				return output.JSON(cmd.OutOrStdout(), preview)
+			}
 			printPreview(cmd.OutOrStdout(), preview)
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Emit machine-readable JSON")
+	return cmd
 }
 
 func newPreviewDeploy(deps cliruntime.Deps) *cobra.Command {
@@ -191,12 +216,11 @@ func newPreviewDeploy(deps cliruntime.Deps) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			service := clifunction.NewService(deps)
-			source, err := packageFunctionPreview(cmd.Context(), cmd.OutOrStdout(), service, strings.TrimSpace(args[0]), path)
-			if err != nil {
-				return err
-			}
 			preview, deployment, err := service.DeployCandidate(cmd.Context(), clifunction.CandidateDeploy{
-				Function: strings.TrimSpace(args[0]), Candidate: strings.TrimSpace(args[1]), Source: source,
+				Function: strings.TrimSpace(args[0]), Candidate: strings.TrimSpace(args[1]),
+				Package: func(function *apiclient.Function) ([]byte, error) {
+					return packageFunctionPreview(cmd.Context(), cmd.OutOrStdout(), service, function, path)
+				},
 			})
 			if err != nil {
 				return err
@@ -211,23 +235,37 @@ func newPreviewDeploy(deps cliruntime.Deps) *cobra.Command {
 }
 
 func newPreviewDelete(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var yes bool
+	cmd := &cobra.Command{
 		Use:   "delete <function> <preview>",
 		Short: "Delete a preview",
 		Long: `Delete a preview and remove its Lambda, URL and stored source.
 
 A preview the function runs cannot be deleted: roll back first. Deleting a
-preview kept only for 'functions rollback' gives that rollback up.`,
+preview kept only for 'functions rollback' gives that rollback up;
+'functions rollback --to-production' still returns to the function's own build.
+
+By default this command prompts for confirmation.
+Use --yes to skip the prompt.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			preview, err := clifunction.NewService(deps).DeleteCandidate(cmd.Context(), strings.TrimSpace(args[0]), strings.TrimSpace(args[1]))
-			if err != nil {
+			var ask func(*apiclient.FunctionCandidate) (bool, error)
+			if !yes {
+				ask = func(preview *apiclient.FunctionCandidate) (bool, error) {
+					return confirm.Delete(cmd.InOrStdin(), cmd.OutOrStdout(), "preview", preview.Name)
+				}
+			}
+			preview, deleted, err := clifunction.NewService(deps).DeleteCandidate(cmd.Context(),
+				strings.TrimSpace(args[0]), strings.TrimSpace(args[1]), ask)
+			if err != nil || !deleted {
 				return err
 			}
 			output.Success(cmd.OutOrStdout(), "Preview '%s' is being deleted", preview.Name)
 			return nil
 		},
 	}
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt")
+	return cmd
 }
 
 func newPreviewPromote(deps cliruntime.Deps) *cobra.Command {
@@ -255,11 +293,7 @@ to. The function keeps its URL, visibility, schedules, usage and logs.
 
 // packageFunctionPreview packages the function's source as 'functions deploy'
 // does, found by the function's name under the project directory.
-func packageFunctionPreview(ctx context.Context, out io.Writer, service clifunction.Service, identifier, rawPath string) ([]byte, error) {
-	function, err := service.Get(ctx, identifier)
-	if err != nil {
-		return nil, err
-	}
+func packageFunctionPreview(ctx context.Context, out io.Writer, service clifunction.Service, function *apiclient.Function, rawPath string) ([]byte, error) {
 	baseDir, err := filepath.Abs(valueOrDefault(strings.TrimSpace(rawPath), "."))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve project path: %w", err)

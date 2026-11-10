@@ -240,6 +240,8 @@ refused: roll back or deploy the function first.
 `promote` and `rollback` name the revision the CLI just read, so one that races
 another is refused instead of overwriting it. `rollback --to-production`
 returns to the function's own Lambda. A preview the function runs cannot
-be deleted; roll back first. Creating, deploying to and promoting a preview are
-behind a release gate and answer `feature_unavailable` while it is off. See
+be deleted; roll back first. `preview delete` asks first; `--yes` skips the
+prompt. `preview list`, `preview get` and `serving` take `--json`. Creating,
+deploying to and promoting a preview are behind a release gate, and the CLI
+says function previews aren't available for the project while it is off. See
 [Function previews](/platform/functions/previews).
