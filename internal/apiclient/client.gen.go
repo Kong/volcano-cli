@@ -9925,9 +9925,9 @@ type Function struct {
 	ProvisioningStartedAt *time.Time `json:"provisioning_started_at,omitempty"`
 	Runtime               *string    `json:"runtime,omitempty"`
 
-	// ServingCandidateId The promoted preview whose Lambda receives this function's traffic, the same as
+	// ServingCandidateId The promoted preview whose runtime receives this function's traffic, the same as
 	// `candidate_id` in `serving`. Null when the function runs its own build. While it is set,
-	// `current_deployment_id` and `status` describe the function's own Lambda, which receives no
+	// `current_deployment_id` and `status` describe the function's own build, which receives no
 	// traffic until the function is rolled back.
 	ServingCandidateId *openapi_types.UUID `json:"serving_candidate_id,omitempty"`
 	Status             FunctionStatus      `json:"status"`
@@ -9949,7 +9949,7 @@ type Function struct {
 type FunctionStatus string
 
 // FunctionCandidate A copy of an ordinary function built from an uploaded source with the function's own variables,
-// run on a Lambda of its own and invoked at its own host with the project's service key only, so it
+// run on a runtime of its own and invoked at its own host with the project's service key only, so it
 // can be checked before it is promoted. It has none of the function's schedules or warmers. Fields
 // that do not apply yet are absent.
 type FunctionCandidate struct {
@@ -9985,7 +9985,7 @@ type FunctionCandidate struct {
 	Slug    string `json:"slug"`
 
 	// Status `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while its
-	// Lambda is removed, and `error` when its deletion gave up and needs an operator. A deleted
+	// runtime is removed, and `error` when its deletion gave up and needs an operator. A deleted
 	// preview answers `404`.
 	Status    FunctionCandidateStatus `json:"status"`
 	UpdatedAt time.Time               `json:"updated_at"`
@@ -10004,7 +10004,7 @@ type FunctionCandidateConfigurationStatus string
 type FunctionCandidateExposure string
 
 // FunctionCandidateStatus `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while its
-// Lambda is removed, and `error` when its deletion gave up and needs an operator. A deleted
+// runtime is removed, and `error` when its deletion gave up and needs an operator. A deleted
 // preview answers `404`.
 type FunctionCandidateStatus string
 
@@ -10148,10 +10148,11 @@ type FunctionKind string
 // default: omitting the filter includes both kinds.
 type FunctionKindFilter string
 
-// FunctionProductionEnvironment Whether the function's own Lambda has the project's current variables. While a preview serves the
+// FunctionProductionEnvironment Whether the function's own build has the project's current variables. While a preview serves the
 // function, `volcano config deploy` and replacing the shared variable list skip the function, so its
-// own Lambda keeps the values it had. A rollback to the function's own build synchronizes them as it
-// returns the traffic, and a deployment of the function applies them too.
+// own build keeps the values it had. A rollback to the function's own build starts synchronizing them
+// as it returns the traffic, and the status reads `current` once that synchronization completes or a
+// deployment of the function activates. A synchronization that fails leaves it `out_of_date`.
 type FunctionProductionEnvironment struct {
 	// OutOfDateSince When the latest skipped change was stored. Absent while `status` is `current`.
 	OutOfDateSince *time.Time `json:"out_of_date_since,omitempty"`
@@ -10298,7 +10299,7 @@ type FunctionSchedulerListResponse struct {
 }
 
 // FunctionServing What a function runs. Until a preview is promoted it runs its own build and `candidate_id` is
-// null. After a promotion, the function's traffic runs on that preview's Lambda, nothing is rebuilt
+// null. After a promotion, the function's traffic runs on that preview's runtime, nothing is rebuilt
 // or deployed, and `previous_candidate_id` is what a rollback returns to (null when that is the
 // function's own build). A preview the function runs cannot be deleted and does not expire. One kept
 // only as what a rollback returns to does not expire either, but it can be deleted, which gives up
@@ -10315,10 +10316,11 @@ type FunctionServing struct {
 	// PreviousCandidateId The preview a rollback returns to; null for the function's own build.
 	PreviousCandidateId *openapi_types.UUID `json:"previous_candidate_id"`
 
-	// ProductionEnvironment Whether the function's own Lambda has the project's current variables. While a preview serves the
+	// ProductionEnvironment Whether the function's own build has the project's current variables. While a preview serves the
 	// function, `volcano config deploy` and replacing the shared variable list skip the function, so its
-	// own Lambda keeps the values it had. A rollback to the function's own build synchronizes them as it
-	// returns the traffic, and a deployment of the function applies them too.
+	// own build keeps the values it had. A rollback to the function's own build starts synchronizing them
+	// as it returns the traffic, and the status reads `current` once that synchronization completes or a
+	// deployment of the function activates. A synchronization that fails leaves it `out_of_date`.
 	ProductionEnvironment FunctionProductionEnvironment `json:"production_environment"`
 
 	// Revision Counts changes to what the function runs or can roll back to — promotions, rollbacks, a deployment that returns the traffic to the function's own build, and deleting the preview kept for a rollback. A promotion or rollback names the revision it read, so one that read before such a change fails with `409` (`stale_revision`) instead of overwriting it; read the serving state again and retry.
@@ -10329,11 +10331,11 @@ type FunctionServing struct {
 // of the function that returned its traffic to its own build. Each takes effect at once. Absent until
 // the function's first promotion.
 type FunctionServingActivation struct {
-	// CandidateId The preview the activation pointed the function at. Absent for the function's own Lambda.
+	// CandidateId The preview the activation pointed the function at. Absent for the function's own build.
 	CandidateId *openapi_types.UUID `json:"candidate_id,omitempty"`
 	Id          openapi_types.UUID  `json:"id"`
 
-	// ImageDigests The digests of the image the activation pointed the function at. Absent for the function's own Lambda.
+	// ImageDigests The digests of the image the activation pointed the function at. Absent for the function's own build.
 	ImageDigests *[]FunctionImageDigest `json:"image_digests,omitempty"`
 
 	// Kind `deploy`: a successful deployment of the function cleared the preview pointers.

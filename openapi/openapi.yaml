@@ -7785,7 +7785,7 @@ paths:
       summary: Create a function preview
       description: |
         Builds the uploaded source with the function's runtime, handler and variables, and deploys it to a
-        Lambda of its own in every region the function deploys to. The preview is invoked at
+        runtime of its own in every region the function deploys to. The preview is invoked at
         `https://<preview id>.<functions domain>` and is always private, whatever the function's own
         visibility: only the project's service key, with `functions.invoke`, can invoke it, and signed-in
         users, anon keys and access tokens are refused. It gets none of the function's schedules or warmers.
@@ -7946,7 +7946,7 @@ paths:
         - Functions
       summary: Delete a function preview
       description: |
-        Starts removing the preview's Lambda, DNS record and stored source once any running deployment
+        Starts removing the preview's runtime, URL, builds and stored source once any running deployment
         finishes; the preview reads `deleting` until that is done, and answers `404` once it is gone. Asking
         again for a preview that is already being deleted is the same request.
 
@@ -8151,10 +8151,10 @@ paths:
         - Functions
       summary: Promote a function preview
       description: |
-        Points the function's traffic at the preview's Lambda. Nothing is deployed or rebuilt, so it
+        Points the function's traffic at the preview's runtime. Nothing is deployed or rebuilt, so it
         takes effect at once: every call to the function, through its own URL, the invoke route, a
         schedule or a frontend route, runs the preview's code, while the function keeps its ID, URL,
-        visibility, schedules, metering and logs. The function's own Lambda is kept as it is for a
+        visibility, schedules, metering and logs. The function's own build is kept as it is for a
         rollback, and what the function ran becomes what a rollback returns to.
 
         The preview must be serving a successful deployment built with the variables, runtime and handler
@@ -8210,7 +8210,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: 'Conflict. `code: durable_function_unsupported` - the function is durable. `code: stale_revision` - the revision is stale; read `serving` again. `code: already_serving` - the function already runs this preview. `code: candidate_not_ready` - the preview serves no successful deployment. `code: configuration_changed` - the preview was built with other variables, runtime or handler than the function has now; redeploy it. `code: candidate_regions_changed` - the function deploys to a region the preview was not built in; redeploy it. `code: deployment_in_progress` - a deployment of the preview or of the function, or a synchronization of the function''s variables, is running; retry once it finishes. `code: function_not_deployed` - the function has no successful deployment of its own to roll back to. `code: function_deleting` - the function is being deleted. `code: source_managed_by_git` - the project''s repository is the source of truth; deploy from it.'
+          description: 'Conflict. `code: durable_function_unsupported` - the function is durable. `code: stale_revision` - the revision is stale; read `serving` again. `code: already_serving` - the function already runs this preview. `code: candidate_not_ready` - the preview serves no successful deployment, or its latest redeploy failed; redeploy it successfully first. `code: configuration_changed` - the preview was built with other variables, runtime or handler than the function has now; redeploy it. `code: candidate_regions_changed` - the function deploys to a region the preview was not built in; redeploy it. `code: deployment_in_progress` - a deployment of the preview or of the function, or a synchronization of the function''s variables, is running; retry once it finishes. `code: function_not_deployed` - the function has no successful deployment of its own to roll back to. `code: function_deleting` - the function is being deleted. `code: source_managed_by_git` - the project''s repository is the source of truth; deploy from it.'
           content:
             application/json:
               schema:
@@ -14186,7 +14186,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: '`code: function_served_by_candidate` - a promoted Candidate serves a function whose environment this write changes, and the Candidate''s Lambda would keep the old values; roll the function back to its own runtime, or deploy it, first.'
+          description: '`code: function_served_by_candidate` - a promoted preview serves a function whose environment this write changes; the preview keeps the variables it was built with and the write would reach only the function''s own build, so roll the function back to its own build, or deploy it, first.'
           content:
             application/json:
               schema:
@@ -16643,7 +16643,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: '`code: function_served_by_candidate` - a promoted Candidate serves a function whose environment this write changes, and the Candidate''s Lambda would keep the old values; roll the function back to its own runtime, or deploy it, first.'
+          description: '`code: function_served_by_candidate` - a promoted preview serves a function whose environment this write changes; the preview keeps the variables it was built with and the write would reach only the function''s own build, so roll the function back to its own build, or deploy it, first.'
           content:
             application/json:
               schema:
@@ -16678,7 +16678,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: '`code: function_served_by_candidate` - a promoted Candidate serves a function whose environment this write changes, and the Candidate''s Lambda would keep the old values; roll the function back to its own runtime, or deploy it, first.'
+          description: '`code: function_served_by_candidate` - a promoted preview serves a function whose environment this write changes; the preview keeps the variables it was built with and the write would reach only the function''s own build, so roll the function back to its own build, or deploy it, first.'
           content:
             application/json:
               schema:
@@ -29009,7 +29009,7 @@ components:
       additionalProperties: false
       description: |
         A copy of an ordinary function built from an uploaded source with the function's own variables,
-        run on a Lambda of its own and invoked at its own host with the project's service key only, so it
+        run on a runtime of its own and invoked at its own host with the project's service key only, so it
         can be checked before it is promoted. It has none of the function's schedules or warmers. Fields
         that do not apply yet are absent.
       properties:
@@ -29033,7 +29033,7 @@ components:
             - error
           description: |
             `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while its
-            Lambda is removed, and `error` when its deletion gave up and needs an operator. A deleted
+            runtime is removed, and `error` when its deletion gave up and needs an operator. A deleted
             preview answers `404`.
         exposure:
           type: string
@@ -29171,7 +29171,7 @@ components:
       additionalProperties: false
       description: |
         What a function runs. Until a preview is promoted it runs its own build and `candidate_id` is
-        null. After a promotion, the function's traffic runs on that preview's Lambda, nothing is rebuilt
+        null. After a promotion, the function's traffic runs on that preview's runtime, nothing is rebuilt
         or deployed, and `previous_candidate_id` is what a rollback returns to (null when that is the
         function's own build). A preview the function runs cannot be deleted and does not expire. One kept
         only as what a rollback returns to does not expire either, but it can be deleted, which gives up
@@ -29235,10 +29235,10 @@ components:
         candidate_id:
           type: string
           format: uuid
-          description: The preview the activation pointed the function at. Absent for the function's own Lambda.
+          description: The preview the activation pointed the function at. Absent for the function's own build.
         image_digests:
           type: array
-          description: The digests of the image the activation pointed the function at. Absent for the function's own Lambda.
+          description: The digests of the image the activation pointed the function at. Absent for the function's own build.
           items:
             $ref: '#/components/schemas/FunctionImageDigest'
       required:
@@ -29250,10 +29250,11 @@ components:
       type: object
       additionalProperties: false
       description: |
-        Whether the function's own Lambda has the project's current variables. While a preview serves the
+        Whether the function's own build has the project's current variables. While a preview serves the
         function, `volcano config deploy` and replacing the shared variable list skip the function, so its
-        own Lambda keeps the values it had. A rollback to the function's own build synchronizes them as it
-        returns the traffic, and a deployment of the function applies them too.
+        own build keeps the values it had. A rollback to the function's own build starts synchronizing them
+        as it returns the traffic, and the status reads `current` once that synchronization completes or a
+        deployment of the function activates. A synchronization that fails leaves it `out_of_date`.
       properties:
         status:
           type: string
@@ -30188,9 +30189,9 @@ components:
           nullable: true
           readOnly: true
           description: |
-            The promoted preview whose Lambda receives this function's traffic, the same as
+            The promoted preview whose runtime receives this function's traffic, the same as
             `candidate_id` in `serving`. Null when the function runs its own build. While it is set,
-            `current_deployment_id` and `status` describe the function's own Lambda, which receives no
+            `current_deployment_id` and `status` describe the function's own build, which receives no
             traffic until the function is rolled back.
         last_invoked_at:
           type: string
