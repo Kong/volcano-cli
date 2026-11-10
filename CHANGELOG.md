@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.3](https://github.com/Kong/volcano-cli/compare/v0.75.2...v0.75.3) (2026-11-10)
+
+
+### Bug Fixes
+
+* **localmode:** serve HTTP-mode functions on *.functions.localhost ([#467](https://github.com/Kong/volcano-cli/issues/467)) ([378ebcb](https://github.com/Kong/volcano-cli/commit/378ebcbae8b032aedfb70716e4f05a6230413df0))
+
 ## [0.75.2](https://github.com/Kong/volcano-cli/compare/v0.75.1...v0.75.2) (2026-11-09)
 
 
