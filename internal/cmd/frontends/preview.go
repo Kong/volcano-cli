@@ -15,6 +15,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
+	"github.com/Kong/volcano-cli/internal/confirm"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -46,7 +47,8 @@ rebuilding, and 'frontends rollback' undoes that.`,
 }
 
 func newServing(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "serving <frontend>",
 		Short: "Show what a frontend serves",
 		Long:  "Show whether a frontend serves its own build or a promoted preview, and the preview a rollback returns to.",
@@ -57,10 +59,15 @@ func newServing(deps cliruntime.Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if jsonOutput {
+				return output.JSON(cmd.OutOrStdout(), serving)
+			}
 			printServing(cmd.Context(), cmd.OutOrStdout(), service, frontend, serving)
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Emit machine-readable JSON")
+	return cmd
 }
 
 func newRollback(deps cliruntime.Deps) *cobra.Command {
@@ -139,7 +146,8 @@ once it is ready.`,
 }
 
 func newPreviewList(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "list <frontend>",
 		Short: "List a frontend's previews",
 		Args:  cobra.ExactArgs(1),
@@ -147,6 +155,9 @@ func newPreviewList(deps cliruntime.Deps) *cobra.Command {
 			_, previews, err := clifrontend.NewService(deps).ListCandidates(cmd.Context(), strings.TrimSpace(args[0]))
 			if err != nil {
 				return err
+			}
+			if jsonOutput {
+				return output.JSON(cmd.OutOrStdout(), previews)
 			}
 			if len(previews) == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "No previews.")
@@ -161,10 +172,13 @@ func newPreviewList(deps cliruntime.Deps) *cobra.Command {
 			return w.Flush()
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Emit machine-readable JSON")
+	return cmd
 }
 
 func newPreviewGet(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "get <frontend> <preview>",
 		Short: "Show a preview",
 		Args:  cobra.ExactArgs(2),
@@ -173,10 +187,15 @@ func newPreviewGet(deps cliruntime.Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if jsonOutput {
+				return output.JSON(cmd.OutOrStdout(), preview)
+			}
 			printPreview(cmd.OutOrStdout(), preview)
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Emit machine-readable JSON")
+	return cmd
 }
 
 func newPreviewDeploy(deps cliruntime.Deps) *cobra.Command {
@@ -186,12 +205,9 @@ func newPreviewDeploy(deps cliruntime.Deps) *cobra.Command {
 		Short: "Deploy a new build to an existing preview",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			packaged, err := packagePreview(cmd.OutOrStdout(), path)
-			if err != nil {
-				return err
-			}
 			preview, deployment, err := clifrontend.NewService(deps).DeployCandidate(cmd.Context(), clifrontend.CandidateDeploy{
-				Frontend: strings.TrimSpace(args[0]), Candidate: strings.TrimSpace(args[1]), Archive: packaged,
+				Frontend: strings.TrimSpace(args[0]), Candidate: strings.TrimSpace(args[1]),
+				Package: func() ([]byte, error) { return packagePreview(cmd.OutOrStdout(), path) },
 			})
 			if err != nil {
 				return err
@@ -206,7 +222,8 @@ func newPreviewDeploy(deps cliruntime.Deps) *cobra.Command {
 }
 
 func newPreviewDelete(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var yes bool
+	cmd := &cobra.Command{
 		Use:   "delete <frontend> <preview>",
 		Short: "Delete a preview",
 		Long: `Delete a preview and remove its runtime.
@@ -214,17 +231,29 @@ func newPreviewDelete(deps cliruntime.Deps) *cobra.Command {
 A preview the frontend serves cannot be deleted: roll back first. A preview the
 frontend only keeps for 'frontends rollback' can be deleted, which gives up that
 rollback; 'frontends rollback --to-production' still returns to the frontend's
-own build.`,
+own build.
+
+By default this command prompts for confirmation.
+Use --yes to skip the prompt.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			preview, err := clifrontend.NewService(deps).DeleteCandidate(cmd.Context(), strings.TrimSpace(args[0]), strings.TrimSpace(args[1]))
-			if err != nil {
+			var ask func(*apiclient.FrontendCandidate) (bool, error)
+			if !yes {
+				ask = func(preview *apiclient.FrontendCandidate) (bool, error) {
+					return confirm.Delete(cmd.InOrStdin(), cmd.OutOrStdout(), "preview", preview.Name)
+				}
+			}
+			preview, deleted, err := clifrontend.NewService(deps).DeleteCandidate(cmd.Context(),
+				strings.TrimSpace(args[0]), strings.TrimSpace(args[1]), ask)
+			if err != nil || !deleted {
 				return err
 			}
 			output.Success(cmd.OutOrStdout(), "Preview '%s' is being deleted", preview.Name)
 			return nil
 		},
 	}
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt")
+	return cmd
 }
 
 func newPreviewPromote(deps cliruntime.Deps) *cobra.Command {

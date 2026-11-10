@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -139,9 +140,16 @@ func previewProject(t *testing.T) string {
 
 func runPreview(t *testing.T, server *httptest.Server, args ...string) (string, error) {
 	t.Helper()
+	return runPreviewWithInput(t, server, "", args...)
+}
+
+func runPreviewWithInput(t *testing.T, server *httptest.Server, input string, args ...string) (string, error) {
+	t.Helper()
 	setFrontendCommandTestHome(t)
 	saveFrontendCommandTestConfig(t)
-	return executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), args...)
+	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	cmd.SetIn(strings.NewReader(input))
+	return executeFrontendsCommand(t, cmd, args...)
 }
 
 func TestPreviewCreateUploadsTheDirectoryWithItsNameAndExpiry(t *testing.T) {
@@ -236,18 +244,74 @@ func TestPreviewDeploySendsOnlyTheArchive(t *testing.T) {
 func TestPreviewDeleteDeletesTheNamedPreview(t *testing.T) {
 	p, server := newPreviewServer(t)
 
-	out, err := runPreview(t, server, "preview", "delete", "web", "redesign")
+	out, err := runPreview(t, server, "preview", "delete", "web", "redesign", "--yes")
+
+	require.NoError(t, err)
+	assert.True(t, p.deleted)
+	assert.Contains(t, out, "Preview 'redesign' is being deleted")
+	assert.NotContains(t, out, "Delete preview")
+}
+
+func TestPreviewDeleteAsksFirstAndCancelsOnNo(t *testing.T) {
+	p, server := newPreviewServer(t)
+
+	out, err := runPreviewWithInput(t, server, "no\n", "preview", "delete", "web", "redesign")
+
+	require.NoError(t, err)
+	assert.False(t, p.deleted)
+	assert.Contains(t, out, "Delete preview 'redesign'?")
+	assert.Contains(t, out, "Delete cancelled.")
+}
+
+func TestPreviewDeleteDeletesOnceConfirmed(t *testing.T) {
+	p, server := newPreviewServer(t)
+
+	out, err := runPreviewWithInput(t, server, "y\n", "preview", "delete", "web", "redesign")
 
 	require.NoError(t, err)
 	assert.True(t, p.deleted)
 	assert.Contains(t, out, "Preview 'redesign' is being deleted")
 }
 
+func TestPreviewDeployFindsThePreviewBeforePackaging(t *testing.T) {
+	p, server := newPreviewServer(t)
+
+	out, err := runPreview(t, server, "preview", "deploy", "web", "nope", "--path", previewProject(t))
+
+	require.ErrorContains(t, err, `preview "nope"`)
+	assert.Zero(t, p.archived)
+	assert.NotContains(t, out, "Packaging", "nothing is packaged for a preview that does not exist")
+}
+
+func TestPreviewListGetAndServingEmitJSON(t *testing.T) {
+	_, server := newPreviewServer(t)
+
+	out, err := runPreview(t, server, "preview", "list", "web", "--json")
+	require.NoError(t, err)
+	var listed []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &listed))
+	require.Len(t, listed, 2)
+	assert.Equal(t, "redesign", listed[0]["name"])
+	assert.Equal(t, "beta", listed[1]["name"])
+
+	out, err = runPreview(t, server, "preview", "get", "web", "redesign", "--json")
+	require.NoError(t, err)
+	var got map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &got))
+	assert.Equal(t, "redesign", got["name"])
+
+	out, err = runPreview(t, server, "serving", "web", "--json")
+	require.NoError(t, err)
+	var serving map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &serving))
+	assert.Contains(t, serving, "revision")
+}
+
 func TestPreviewDeleteReportsThatTheFrontendServesIt(t *testing.T) {
 	p, server := newPreviewServer(t)
 	p.inUse = true
 
-	_, err := runPreview(t, server, "preview", "delete", "web", "redesign")
+	_, err := runPreview(t, server, "preview", "delete", "web", "redesign", "--yes")
 
 	require.ErrorContains(t, err, "failed to delete preview")
 	require.ErrorContains(t, err, "the frontend serves this candidate")

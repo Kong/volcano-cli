@@ -286,8 +286,10 @@ read, so one that races another is refused instead of overwriting it.
 
 While a preview is promoted, deploying the frontend itself is refused: roll
 back first. A preview the frontend serves cannot be deleted; one it only keeps
-for `rollback` can be, which gives up that rollback. Its URL is not
-indexed, but anyone who holds it can open it. Creating, deploying to and
+for `rollback` can be, which gives up that rollback. A preview's URL is not
+indexed, but anyone who holds it can open it. `preview delete` asks first;
+`--yes` skips the prompt. `preview list`, `preview get` and `serving` take
+`--json`. Creating, deploying to and
 promoting a preview, and a rollback that would make one serve again, are behind
 a release gate and answer `feature_unavailable` while it is off;
 `rollback --to-production` always works. See
