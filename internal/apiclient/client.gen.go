@@ -9932,7 +9932,7 @@ type FunctionActivationRequest struct {
 
 // FunctionCandidate A copy of an ordinary function built from an uploaded source with the function's own variables,
 // run on a Lambda of its own and invoked at its own host with the project's service key only, so it
-// can be checked before its exact image is promoted. It has none of the function's schedules or warmers.
+// can be checked before it is promoted. It has none of the function's schedules or warmers.
 type FunctionCandidate struct {
 	// ConfigurationStatus Present while the preview serves a deployment: `current` when it was built with the variables
 	// the function would give that source now, else `changed`. Promotion refuses `changed`.
@@ -9982,7 +9982,7 @@ type FunctionCandidateDeployment struct {
 	ErrorMessage        *string            `json:"error_message,omitempty"`
 	Id                  openapi_types.UUID `json:"id"`
 
-	// ImageUri The published image, one `region=uri@sha256:digest` entry per region. A promotion deploys exactly this.
+	// ImageUri The published image, one `region=uri@sha256:digest` entry per region. Recorded on the promotion that makes this deployment serve; a promotion deploys nothing.
 	ImageUri  *string                              `json:"image_uri,omitempty"`
 	Operation FunctionCandidateDeploymentOperation `json:"operation"`
 	Regions   []string                             `json:"regions"`
