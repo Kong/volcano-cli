@@ -87,6 +87,11 @@ func Function(w io.Writer, fn *apiclient.Function, routedFrom []FunctionRouteSou
 	if fn.PendingDeploymentId != nil {
 		kv(w, on, "Pending Deployment", "%s", fn.PendingDeploymentId.String())
 	}
+	if fn.ServingCandidateId != nil {
+		// Status and the deployment above describe the function's own Lambda,
+		// which receives no traffic while a promoted preview serves.
+		kv(w, on, "Serving Preview", "%s", fn.ServingCandidateId.String())
+	}
 	kv(w, on, "Created", "%s", FormatTimestamp(fn.CreatedAt))
 	kv(w, on, "Updated", "%s", FormatTimestamp(fn.UpdatedAt))
 }
