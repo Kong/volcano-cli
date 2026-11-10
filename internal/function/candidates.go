@@ -100,8 +100,9 @@ func (s Service) DeleteCandidate(ctx context.Context, functionIdentifier, candid
 	return candidate, nil
 }
 
-// PromoteCandidate deploys a Candidate's exact image to its function. It names
-// the serving revision it read, so a competing promotion or rollback refuses it.
+// PromoteCandidate points a function's traffic at a Candidate's Lambda without
+// deploying anything. It names the serving revision it read, so a competing
+// promotion or rollback refuses it.
 func (s Service) PromoteCandidate(ctx context.Context, functionIdentifier, candidateIdentifier string) (*apiclient.FunctionCandidate, *apiclient.FunctionServing, error) {
 	authenticated, function, err := s.currentFunction(ctx, functionIdentifier)
 	if err != nil {
@@ -190,9 +191,22 @@ func resolveCandidate(ctx context.Context, authenticated *clisession.ProjectSess
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the previews of function %q: %w", function.Name, err)
 	}
-	id, parseErr := uuid.Parse(target)
+	// An exact ID wins over a name, and a name over a slug, so one preview's
+	// slug never shadows another preview named exactly as asked.
+	if id, parseErr := uuid.Parse(target); parseErr == nil {
+		for i := range candidates {
+			if candidates[i].Id == id {
+				return &candidates[i], nil
+			}
+		}
+	}
 	for i := range candidates {
-		if (parseErr == nil && candidates[i].Id == id) || candidates[i].Name == target || candidates[i].Slug == target {
+		if candidates[i].Name == target {
+			return &candidates[i], nil
+		}
+	}
+	for i := range candidates {
+		if candidates[i].Slug == target {
 			return &candidates[i], nil
 		}
 	}

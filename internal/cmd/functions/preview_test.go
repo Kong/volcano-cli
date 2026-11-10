@@ -32,6 +32,8 @@ type functionPreviewServer struct {
 	promoted map[string]any
 	rolled   map[string]any
 	conflict bool
+	// listed replaces the one preview the server lists, when set.
+	listed []any
 }
 
 func newFunctionPreviewServer(t *testing.T) (*functionPreviewServer, *httptest.Server) {
@@ -72,7 +74,11 @@ func (p *functionPreviewServer) handle(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && r.URL.Path == functionPreviewBasePath:
 		writeFunctionCommandJSON(p.t, w, http.StatusOK, functionCommandPayload(functionID, "api"))
 	case r.Method == http.MethodGet && r.URL.Path == functionPreviewBasePath+"/candidates":
-		writeFunctionCommandJSON(p.t, w, http.StatusOK, map[string]any{"data": []any{functionPreviewPayload("ready")}})
+		listed := []any{functionPreviewPayload("ready")}
+		if p.listed != nil {
+			listed = p.listed
+		}
+		writeFunctionCommandJSON(p.t, w, http.StatusOK, map[string]any{"data": listed})
 	case r.Method == http.MethodPost && r.URL.Path == functionPreviewBasePath+"/candidates":
 		p.readForm(r)
 		writeFunctionCommandJSON(p.t, w, http.StatusAccepted, functionPreviewPayload("creating"))
@@ -168,6 +174,23 @@ func TestFunctionPreviewPromoteNamesTheRevisionItRead(t *testing.T) {
 	assert.InDelta(t, 4, p.promoted["expected_revision"], 0)
 	assert.Contains(t, out, "Function now runs preview 'checkout-v2'")
 	assert.Contains(t, out, "Revision: 5")
+}
+
+func TestFunctionPreviewPromotePrefersAnExactNameOverAnotherPreviewsSlug(t *testing.T) {
+	p, server := newFunctionPreviewServer(t)
+	older := functionPreviewPayload("ready")
+	older["id"] = "66666666-6666-4666-8666-666666666666"
+	older["name"] = "checkout v2"
+	older["slug"] = "checkout-v2"
+	named := functionPreviewPayload("ready")
+	named["slug"] = "checkout-v2-2"
+	p.listed = []any{older, named}
+
+	out, err := runFunctionPreview(t, server, "preview", "promote", "api", "checkout-v2")
+
+	require.NoError(t, err)
+	assert.NotNil(t, p.promoted, "the preview named checkout-v2 is promoted, not the one whose slug matches")
+	assert.Contains(t, out, "Function now runs preview 'checkout-v2'")
 }
 
 func TestFunctionPreviewPromoteReportsTheRefusal(t *testing.T) {
