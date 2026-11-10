@@ -3339,6 +3339,12 @@ paths:
                   pattern: ^[a-f0-9]{64}$
                   description: SHA-256 of the sorted unique current shared names joined by a newline. Use instead of expected_shared_variables for a compact conditional replacement.
       responses:
+        '200':
+          description: 'Shared list replaced and synchronization started for every affected function except the ones listed, which a promoted preview serves (`code: function_served_by_candidate`). The preview keeps the variables it was built with, so their variables were not synchronized; deploy each listed function to apply the current values.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedVariablesReplaceResult'
         '204':
           description: Shared list replaced and affected function synchronization started.
         '400':
@@ -7776,8 +7782,9 @@ paths:
       description: |
         Builds the uploaded source with the function's runtime, handler and variables, and deploys it to a
         Lambda of its own in every region the function deploys to. The preview is invoked at
-        `https://<preview id>.<functions domain>` with the project's credentials, whatever the
-        function's own visibility, and gets none of the function's schedules or warmers. The response is
+        `https://<preview id>.<functions domain>` and is always private, whatever the function's own
+        visibility: only the project's service key, with `functions.invoke`, can invoke it, and signed-in
+        users, anon keys and access tokens are refused. It gets none of the function's schedules or warmers. The response is
         `202` while the first deployment runs. Answers `404` with code `feature_unavailable` while the `functions.candidates` capability is unavailable, including on the local development server.
         A preview builds like any deploy and spends the project's build minutes. A function has at most 20
         live previews; durable functions have none.
@@ -7845,6 +7852,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: 'Conflict. `code: durable_function_unsupported` - the function is durable. `code: deployment_in_progress` - a deployment of the preview, or for a promotion of the function, is running. `code: configuration_changed` - the function''s variables for that source changed since the preview was built. `code: candidate_not_ready`, `code: candidate_regions_changed`, `code: function_not_deployed`, `code: stale_revision`, `code: already_serving`, `code: nothing_to_roll_back`, `code: rollback_unavailable`, `code: candidate_in_use`, `code: candidate_not_deployable`, `code: candidate_name_taken`, `code: candidate_limit_reached`, `code: function_deleting` and `code: project_deleting` are described in the function previews guide.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request body exceeds the function source archive limit
           content:
             application/json:
               schema:
@@ -8097,6 +8110,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '413':
+          description: Request body exceeds the function source archive limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '429':
           description: Too many requests - the project's build minutes are used up
           content:
@@ -8172,6 +8191,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: 'Conflict. `code: durable_function_unsupported` - the function is durable. `code: deployment_in_progress` - a deployment of the preview, or for a promotion of the function, is running. `code: configuration_changed` - the function''s variables for that source changed since the preview was built. `code: candidate_not_ready`, `code: candidate_regions_changed`, `code: function_not_deployed`, `code: stale_revision`, `code: already_serving`, `code: nothing_to_roll_back`, `code: rollback_unavailable`, `code: candidate_in_use`, `code: candidate_not_deployable`, `code: candidate_name_taken`, `code: candidate_limit_reached`, `code: function_deleting` and `code: project_deleting` are described in the function previews guide.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request body exceeds 65,536 bytes
           content:
             application/json:
               schema:
@@ -8291,6 +8316,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: 'Conflict. `code: durable_function_unsupported` - the function is durable. `code: deployment_in_progress` - a deployment of the preview, or for a promotion of the function, is running. `code: configuration_changed` - the function''s variables for that source changed since the preview was built. `code: candidate_not_ready`, `code: candidate_regions_changed`, `code: function_not_deployed`, `code: stale_revision`, `code: already_serving`, `code: nothing_to_roll_back`, `code: rollback_unavailable`, `code: candidate_in_use`, `code: candidate_not_deployable`, `code: candidate_name_taken`, `code: candidate_limit_reached`, `code: function_deleting` and `code: project_deleting` are described in the function previews guide.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request body exceeds 65,536 bytes
           content:
             application/json:
               schema:
@@ -14129,6 +14160,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: '`code: function_served_by_candidate` - a promoted Candidate serves a function whose environment this write changes, and the Candidate''s Lambda would keep the old values; roll the function back to its own runtime, or deploy it, first.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Private variable membership writes are disabled during rollout
           content:
@@ -16580,6 +16617,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: '`code: function_served_by_candidate` - a promoted Candidate serves a function whose environment this write changes, and the Candidate''s Lambda would keep the old values; roll the function back to its own runtime, or deploy it, first.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Private variable membership writes are disabled during rollout
           content:
@@ -16605,6 +16648,12 @@ paths:
           description: Variable deleted
         '404':
           description: Variable not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: '`code: function_served_by_candidate` - a promoted Candidate serves a function whose environment this write changes, and the Candidate''s Lambda would keep the old values; roll the function back to its own runtime, or deploy it, first.'
           content:
             application/json:
               schema:
@@ -22785,14 +22834,6 @@ components:
         type: string
         format: uuid
       description: Frontend ID
-    FunctionCandidateId:
-      name: candidateId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: Function preview (Candidate) ID
     FrontendCandidateId:
       name: candidateId
       in: path
@@ -22801,6 +22842,14 @@ components:
         type: string
         format: uuid
       description: Frontend Candidate ID
+    FunctionCandidateId:
+      name: candidateId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Function preview (Candidate) ID
     FrontendFunctionRouteId:
       name: routeId
       in: path
@@ -27334,6 +27383,36 @@ components:
         - impact
         - message
         - remediation
+    SharedVariablesReplaceResult:
+      type: object
+      additionalProperties: false
+      required:
+        - skipped_functions
+      properties:
+        skipped_functions:
+          type: array
+          description: Functions the replacement changes whose variables were not synchronized.
+          items:
+            $ref: '#/components/schemas/SkippedServedFunction'
+    SkippedServedFunction:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - code
+        - message
+      properties:
+        name:
+          type: string
+          description: Function name.
+        code:
+          type: string
+          enum:
+            - function_served_by_candidate
+          description: Why the function was left out. `function_served_by_candidate` - a promoted preview serves the function and keeps the variables it was built with.
+        message:
+          type: string
+          description: What brings the function in line.
     ProjectImportSummary:
       type: object
       properties:
@@ -28829,13 +28908,78 @@ components:
         - frontend_routes
         - created_at
         - updated_at
+    FrontendCandidate:
+      type: object
+      additionalProperties: false
+      description: |
+        A copy of a frontend built from an uploaded archive with the frontend's own configuration, so
+        it can be checked before anything is promoted. A Candidate is reachable by anyone who holds its
+        URL and is not indexed or listed; it is never public, and it does not claim to be private.
+      properties:
+        id:
+          type: string
+          format: uuid
+        frontend_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 128
+        status:
+          type: string
+          enum:
+            - creating
+            - ready
+            - deleting
+            - error
+          description: |
+            `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while
+            its runtime is removed, and `error` when its deletion gave up and needs an operator.
+        url:
+          type: string
+          format: uri
+          description: Where the Candidate is served. Absent until its first deployment succeeds.
+        expires_at:
+          type: string
+          format: date-time
+          description: When the Candidate is deleted on its own. Absent when it is kept until deleted.
+        current_deployment_id:
+          type: string
+          format: uuid
+          description: |
+            The deployment the Candidate serves. Absent until its first
+            deployment succeeds. It differs from `deployment` while a redeploy runs or after one failed.
+        deployment:
+          $ref: '#/components/schemas/FrontendCandidateDeployment'
+        configuration_status:
+          type: string
+          enum:
+            - current
+            - changed
+          description: |
+            Present while the Candidate serves a deployment. `current` means that deployment was built
+            with the variables the frontend selects now; `changed` means they differ, or can no longer
+            be resolved. Promotion refuses a Candidate whose status is `changed`.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - frontend_id
+        - name
+        - status
+        - created_at
+        - updated_at
     FunctionCandidate:
       type: object
       additionalProperties: false
       description: |
         A copy of an ordinary function built from an uploaded source with the function's own variables,
-        run on a Lambda of its own and invoked at its own host with the project's credentials, so it can
-        be checked before its exact image is promoted. It has none of the function's schedules or warmers.
+        run on a Lambda of its own and invoked at its own host with the project's service key only, so it
+        can be checked before its exact image is promoted. It has none of the function's schedules or warmers.
       properties:
         id:
           type: string
@@ -28863,7 +29007,7 @@ components:
           type: string
           enum:
             - private
-          description: A function preview is always invoked with the project's credentials.
+          description: A function preview is always private. Only the project's service key, with `functions.invoke`, can invoke it; signed-in users, anon keys and access tokens are refused.
         url:
           type: string
           format: uri
@@ -29054,71 +29198,6 @@ components:
         to_production:
           type: boolean
           description: For a rollback, return to the function's own newest build.
-    FrontendCandidate:
-      type: object
-      additionalProperties: false
-      description: |
-        A copy of a frontend built from an uploaded archive with the frontend's own configuration, so
-        it can be checked before anything is promoted. A Candidate is reachable by anyone who holds its
-        URL and is not indexed or listed; it is never public, and it does not claim to be private.
-      properties:
-        id:
-          type: string
-          format: uuid
-        frontend_id:
-          type: string
-          format: uuid
-        name:
-          type: string
-          maxLength: 128
-        status:
-          type: string
-          enum:
-            - creating
-            - ready
-            - deleting
-            - error
-          description: |
-            `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while
-            its runtime is removed, and `error` when its deletion gave up and needs an operator.
-        url:
-          type: string
-          format: uri
-          description: Where the Candidate is served. Absent until its first deployment succeeds.
-        expires_at:
-          type: string
-          format: date-time
-          description: When the Candidate is deleted on its own. Absent when it is kept until deleted.
-        current_deployment_id:
-          type: string
-          format: uuid
-          description: |
-            The deployment the Candidate serves. Absent until its first
-            deployment succeeds. It differs from `deployment` while a redeploy runs or after one failed.
-        deployment:
-          $ref: '#/components/schemas/FrontendCandidateDeployment'
-        configuration_status:
-          type: string
-          enum:
-            - current
-            - changed
-          description: |
-            Present while the Candidate serves a deployment. `current` means that deployment was built
-            with the variables the frontend selects now; `changed` means they differ, or can no longer
-            be resolved. Promotion refuses a Candidate whose status is `changed`.
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-      required:
-        - id
-        - frontend_id
-        - name
-        - status
-        - created_at
-        - updated_at
     FrontendCandidateDeployment:
       type: object
       additionalProperties: false

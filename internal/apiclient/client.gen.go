@@ -4959,6 +4959,21 @@ func (e ShareUpdateRequestStatus) Valid() bool {
 	}
 }
 
+// Defines values for SkippedServedFunctionCode.
+const (
+	FunctionServedByCandidate SkippedServedFunctionCode = "function_served_by_candidate"
+)
+
+// Valid indicates whether the value is a known member of the SkippedServedFunctionCode enum.
+func (e SkippedServedFunctionCode) Valid() bool {
+	switch e {
+	case FunctionServedByCandidate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StoragePolicyOperation.
 const (
 	DELETE StoragePolicyOperation = "DELETE"
@@ -9916,8 +9931,8 @@ type FunctionActivationRequest struct {
 }
 
 // FunctionCandidate A copy of an ordinary function built from an uploaded source with the function's own variables,
-// run on a Lambda of its own and invoked at its own host with the project's credentials, so it can
-// be checked before its exact image is promoted. It has none of the function's schedules or warmers.
+// run on a Lambda of its own and invoked at its own host with the project's service key only, so it
+// can be checked before its exact image is promoted. It has none of the function's schedules or warmers.
 type FunctionCandidate struct {
 	// ConfigurationStatus Present while the preview serves a deployment: `current` when it was built with the variables
 	// the function would give that source now, else `changed`. Promotion refuses `changed`.
@@ -9927,7 +9942,7 @@ type FunctionCandidate struct {
 	CurrentDeploymentId *openapi_types.UUID `json:"current_deployment_id,omitempty"`
 	ExpiresAt           *time.Time          `json:"expires_at,omitempty"`
 
-	// Exposure A function preview is always invoked with the project's credentials.
+	// Exposure A function preview is always private. Only the project's service key, with `functions.invoke`, can invoke it; signed-in users, anon keys and access tokens are refused.
 	Exposure   FunctionCandidateExposure `json:"exposure"`
 	FunctionId openapi_types.UUID        `json:"function_id"`
 	Id         openapi_types.UUID        `json:"id"`
@@ -9950,7 +9965,7 @@ type FunctionCandidate struct {
 	Url *string `json:"url,omitempty"`
 }
 
-// FunctionCandidateExposure A function preview is always invoked with the project's credentials.
+// FunctionCandidateExposure A function preview is always private. Only the project's service key, with `functions.invoke`, can invoke it; signed-in users, anon keys and access tokens are refused.
 type FunctionCandidateExposure string
 
 // FunctionCandidateStatus `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while its
@@ -14772,10 +14787,31 @@ type ShareVariable struct {
 	Unshared *bool `json:"unshared,omitempty"`
 }
 
+// SharedVariablesReplaceResult defines model for SharedVariablesReplaceResult.
+type SharedVariablesReplaceResult struct {
+	// SkippedFunctions Functions the replacement changes whose variables were not synchronized.
+	SkippedFunctions []SkippedServedFunction `json:"skipped_functions"`
+}
+
 // SharesResponse defines model for SharesResponse.
 type SharesResponse struct {
 	Shares []Share `json:"shares"`
 }
+
+// SkippedServedFunction defines model for SkippedServedFunction.
+type SkippedServedFunction struct {
+	// Code Why the function was left out. `function_served_by_candidate` - a promoted preview serves the function and keeps the variables it was built with.
+	Code SkippedServedFunctionCode `json:"code"`
+
+	// Message What brings the function in line.
+	Message string `json:"message"`
+
+	// Name Function name.
+	Name string `json:"name"`
+}
+
+// SkippedServedFunctionCode Why the function was left out. `function_served_by_candidate` - a promoted preview serves the function and keeps the variables it was built with.
+type SkippedServedFunctionCode string
 
 // SlackAuthorizationResponse defines model for SlackAuthorizationResponse.
 type SlackAuthorizationResponse struct {
@@ -59748,6 +59784,7 @@ type CreateFunctionCandidateClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON413      *Error
 	JSON429      *Error
 	JSON500      *Error
 	JSON503      *Error
@@ -59892,6 +59929,7 @@ type RedeployFunctionCandidateClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON413      *Error
 	JSON429      *Error
 	JSON500      *Error
 }
@@ -59929,6 +59967,7 @@ type PromoteFunctionCandidateClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON413      *Error
 	JSON500      *Error
 }
 
@@ -60188,6 +60227,7 @@ type RollbackFunctionServingClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON413      *Error
 	JSON500      *Error
 }
 
@@ -61934,6 +61974,7 @@ func (r RegenerateServiceKeyClientResponse) ContentType() string {
 type ReplaceSharedVariablesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *SharedVariablesReplaceResult
 	JSON400      *Error
 	JSON409      *Error
 	JSON413      *Error
@@ -62626,6 +62667,7 @@ type CreateVariableClientResponse struct {
 	HTTPResponse *http.Response
 	JSON201      *Variable
 	JSON400      *Error
+	JSON409      *Error
 	JSON503      *Error
 }
 
@@ -62657,6 +62699,7 @@ type DeleteVariableClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON404      *Error
+	JSON409      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -62720,6 +62763,7 @@ type UpdateVariableClientResponse struct {
 	JSON200      *Variable
 	JSON400      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON503      *Error
 }
 
@@ -81929,6 +81973,13 @@ func ParseCreateFunctionCandidateClientResponse(rsp *http.Response) (*CreateFunc
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -82201,6 +82252,13 @@ func ParseRedeployFunctionCandidateClientResponse(rsp *http.Response) (*Redeploy
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -82275,6 +82333,13 @@ func ParsePromoteFunctionCandidateClientResponse(rsp *http.Response) (*PromoteFu
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
@@ -82616,6 +82681,13 @@ func ParseRollbackFunctionServingClientResponse(rsp *http.Response) (*RollbackFu
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
@@ -84849,6 +84921,13 @@ func ParseReplaceSharedVariablesClientResponse(rsp *http.Response) (*ReplaceShar
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SharedVariablesReplaceResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -85754,6 +85833,13 @@ func ParseCreateVariableClientResponse(rsp *http.Response) (*CreateVariableClien
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -85786,6 +85872,13 @@ func ParseDeleteVariableClientResponse(rsp *http.Response) (*DeleteVariableClien
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 
@@ -85859,6 +85952,13 @@ func ParseUpdateVariableClientResponse(rsp *http.Response) (*UpdateVariableClien
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
