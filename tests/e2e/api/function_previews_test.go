@@ -177,9 +177,10 @@ func requireAPIE2EPreviewRedeploy(t *testing.T, env *apiE2E, serviceKey, preview
 	writeAPIE2EFunctionVersion(t, env.projectDir, "own-v4")
 	env.runCloudCLI(t, "functions", "deploy", "-f", "hello").requireSuccess(t, "functions deployment started")
 	env.waitForFunctionVersion(t, "hello", "own-v4", apiE2EFunctionDeploymentTimeout)
-	afterDeploy := env.runCloudCLI(t, "functions", "serving", "hello")
-	afterDeploy.requireSuccess(t, "Function 'hello' runs its own build")
-	afterDeploy.requireNotContains(t, "A rollback returns to")
+	// The new Lambda code answers a moment before the deployment is recorded
+	// as active, and that record is what releases the preview.
+	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
+	env.waitForServingReleased(t, apiE2EFunctionConvergenceTimeout)
 
 	writeAPIE2EFunctionVersion(t, env.projectDir, "preview-v3")
 	deployed := env.runCloudCLI(t, "functions", "preview", "deploy", "hello", "next")
@@ -197,6 +198,24 @@ func requireAPIE2EPreviewRedeploy(t *testing.T, env *apiE2E, serviceKey, preview
 	env.runCloudCLI(t, "functions", "rollback", "hello", "--to-production").
 		requireSuccess(t, "Function 'hello' runs its own build")
 	env.waitForFunctionVersion(t, "hello", "own-v4", apiE2EFunctionConvergenceTimeout)
+}
+
+// waitForServingReleased waits until 'functions serving' shows the function
+// on its own build with no preview kept for a rollback, as a deployment of the
+// function leaves it.
+func (e *apiE2E) waitForServingReleased(t *testing.T, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	var last cliResult
+	for time.Now().Before(deadline) {
+		last = e.runCloudCLIWithin(t, attemptTimeout(deadline), "functions", "serving", "hello")
+		if last.code == 0 && strings.Contains(last.output, "Function 'hello' runs its own build") &&
+			!strings.Contains(last.output, "A rollback returns to") {
+			return
+		}
+		time.Sleep(apiE2EPollInterval)
+	}
+	t.Fatalf("a deployment of hello did not release the preview kept for a rollback within %s:\n%s", timeout, last.output)
 }
 
 var servingRevisionPattern = regexp.MustCompile(`\(revision (\d+)\)`)
