@@ -32,7 +32,7 @@ func newPreview(deps cliruntime.Deps) *cobra.Command {
 
 A preview builds the function's source from your project directory, runs with
 the function's current project variables, and is invoked at its own URL with
-your project credentials. It has none of the function's schedules or warmers.
+a project service key only. It has none of the function's schedules or warmers.
 Promoting a preview points the function's traffic at the preview's Lambda
 without deploying anything, and 'functions rollback' undoes that.`,
 	}
@@ -119,7 +119,7 @@ shown by 'preview get' once it is ready.`,
 			}
 			output.Success(cmd.OutOrStdout(), "Preview '%s' deployment started", created.Name)
 			fmt.Fprintf(cmd.OutOrStdout(), "Run '%s' for its URL once it is ready.\n",
-				cliruntime.CommandPath(deps, "functions preview get "+strings.TrimSpace(args[0])+" "+created.Name))
+				cliruntime.CommandPath(deps, "functions preview get "+cliruntime.ShellQuote(strings.TrimSpace(args[0]))+" "+cliruntime.ShellQuote(created.Name)))
 			return nil
 		},
 	}

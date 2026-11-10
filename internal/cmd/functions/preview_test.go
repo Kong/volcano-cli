@@ -81,7 +81,9 @@ func (p *functionPreviewServer) handle(w http.ResponseWriter, r *http.Request) {
 		writeFunctionCommandJSON(p.t, w, http.StatusOK, map[string]any{"data": listed})
 	case r.Method == http.MethodPost && r.URL.Path == functionPreviewBasePath+"/candidates":
 		p.readForm(r)
-		writeFunctionCommandJSON(p.t, w, http.StatusAccepted, functionPreviewPayload("creating"))
+		created := functionPreviewPayload("creating")
+		created["name"] = p.form["name"]
+		writeFunctionCommandJSON(p.t, w, http.StatusAccepted, created)
 	case r.Method == http.MethodGet && r.URL.Path == functionPreviewBasePath+"/serving":
 		writeFunctionCommandJSON(p.t, w, http.StatusOK, p.serving)
 	case r.Method == http.MethodPost && r.URL.Path == functionPreviewBasePath+"/candidates/"+functionPreviewID+"/promote":
@@ -154,6 +156,16 @@ func TestFunctionPreviewCreateUploadsTheFunctionsSourceWithItsNameAndExpiry(t *t
 	assert.Equal(t, "259200", p.form["ttl_seconds"])
 	assert.Positive(t, p.uploaded, "the function's source is uploaded as code")
 	assert.Contains(t, out, "Preview 'checkout-v2' deployment started")
+}
+
+func TestFunctionPreviewCreatePrintsAGetCommandThatCanBePasted(t *testing.T) {
+	_, server := newFunctionPreviewServer(t)
+
+	out, err := runFunctionPreview(t, server, "preview", "create", "api", "--name", "checkout v2",
+		"--path", functionPreviewProject(t))
+
+	require.NoError(t, err)
+	assert.Contains(t, out, "functions preview get api 'checkout v2'")
 }
 
 func TestFunctionPreviewCreateRefusesAFunctionWithNoSource(t *testing.T) {

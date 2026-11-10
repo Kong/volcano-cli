@@ -224,7 +224,8 @@ volcano cloud functions rollback api
 volcano cloud functions preview delete api checkout-v2
 ```
 
-A preview is private: invoke its URL with your project credentials. It gets
+A preview is private: only a project service key can invoke its URL;
+signed-in users and access tokens are refused. It gets
 none of the function's schedules or warmers. `--name` is required and unique
 within the function; `--ttl` deletes the preview after that long, at most 720
 hours. A function can have 20 live previews; durable functions have none.
