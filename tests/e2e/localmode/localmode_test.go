@@ -95,6 +95,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	functionGetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "get", "hello")
 	requireContains(t, functionGetOutput, "Name: hello")
 	requireLocalModeListsDeployments(t, volcanoBin, env, projectDir)
+	requireLocalModeRefusesFunctionPreviews(t, volcanoBin, env, projectDir)
 
 	info := fetchVolcanoLocalModeE2EInfo(t, env)
 	assertVolcanoLocalModeE2EPlanCannotDowngrade(t, env, info)
