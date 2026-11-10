@@ -37,7 +37,7 @@ func requireLocalModeRefusesFunctionPreviews(t *testing.T, binary string, env []
 	if err == nil {
 		t.Fatalf("expected volcano %s to fail against the local stack\n%s", strings.Join(args, " "), output)
 	}
-	requireContains(t, output, "function candidates are not available")
+	requireContains(t, output, "function previews aren't available")
 	requireNotContains(t, output, "Preview 'next' deployment started")
 
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "preview", "list", "hello"), "No previews.")

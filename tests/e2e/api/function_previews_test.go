@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-// functionPreviewsOffMessage is the API's refusal while its function_candidates
-// gate is closed, which the CLI prints as it came.
-const functionPreviewsOffMessage = "function candidates are not available"
+// functionPreviewsOffMessage is what the CLI prints for the API's
+// feature_unavailable refusal while its function_candidates gate is closed.
+const functionPreviewsOffMessage = "function previews aren't available"
 
 // functionPreviewsAvailable reads the server's functions.candidates capability,
 // so the test asserts the branch the server is on instead of failing where
