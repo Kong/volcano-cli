@@ -29,12 +29,12 @@ func newPreview(deps cliruntime.Deps) *cobra.Command {
 		Use:     "preview",
 		Aliases: []string{"previews"},
 		Short:   "Manage function previews",
-		Long: `Deploy a private copy of a function to its own Lambda and URL, check it, and promote it.
+		Long: `Deploy a private copy of a function to its own runtime and URL, check it, and promote it.
 
 A preview builds the function's source from your project directory, runs with
 the function's current project variables, and is invoked at its own URL with
 a project service key only. It has none of the function's schedules or warmers.
-Promoting a preview points the function's traffic at the preview's Lambda
+Promoting a preview points the function's traffic at the preview's runtime
 without deploying anything, and 'functions rollback' undoes that.`,
 	}
 	cmd.AddCommand(newPreviewCreate(deps), newPreviewList(deps), newPreviewGet(deps),
@@ -74,7 +74,7 @@ func newRollback(deps cliruntime.Deps) *cobra.Command {
 		Long: `Point a function back at what served it before its last promotion or rollback.
 
 A second rollback undoes the first. With --to-production, return to the
-function's own Lambda instead. While previews are unavailable, a rollback
+function's own build instead. While previews are unavailable, a rollback
 that would run a preview's build again is refused; --to-production still works.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -271,7 +271,7 @@ func newPreviewDelete(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <function> <preview>",
 		Short: "Delete a preview",
-		Long: `Delete a preview and remove its Lambda, URL and stored source.
+		Long: `Delete a preview and remove its runtime, URL and stored source.
 
 A preview the function runs cannot be deleted: roll back first. Deleting a
 preview kept only for 'functions rollback' gives that rollback up;
@@ -304,7 +304,7 @@ func newPreviewPromote(deps cliruntime.Deps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "promote <function> <preview>",
 		Short: "Make a preview what the function runs",
-		Long: `Point the function's traffic at a preview's Lambda, without deploying or rebuilding.
+		Long: `Point the function's traffic at a preview's runtime, without deploying or rebuilding.
 
 It takes effect at once. The preview must be ready, built with the function's
 current variables, runtime and handler, and in every region the function deploys

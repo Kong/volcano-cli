@@ -201,7 +201,7 @@ alerted when a scheduler keeps failing, see [notifications.md](notifications.md)
 
 ## Previews
 
-A preview is a copy of an ordinary function deployed to its own Lambda and URL,
+A preview is a copy of an ordinary function deployed to its own runtime and URL,
 so you can check a change with the function's real variables before it replaces
 what the function runs. Previews run in the cloud only; the local development
 server answers `feature_unavailable`.
@@ -231,7 +231,7 @@ none of the function's schedules or warmers. `--name` is required and unique
 within the function; `--ttl` deletes the preview after that long, at most 720
 hours. A function can have 20 live previews; durable functions have none.
 
-Promotion points the function's traffic at the preview's Lambda, without
+Promotion points the function's traffic at the preview's runtime, without
 deploying or rebuilding anything, so it takes effect at once and the function
 keeps its URL, visibility, schedules, usage and logs. It is refused while a
 deployment of the function runs, and when the preview was built with different
@@ -245,7 +245,7 @@ that the function's own build has out-of-date variables, and
 `rollback --to-production` brings them up to date.
 `promote` and `rollback` name the revision the CLI just read, so one that races
 another is refused instead of overwriting it. `rollback --to-production`
-returns to the function's own Lambda. A preview the function runs cannot
+returns to the function's own build. A preview the function runs cannot
 be deleted; roll back first. While the project deploys from a connected Git
 repository, promoting a preview, and a rollback that would return to one, are
 refused: deploy from the repository instead. `preview delete` asks first; `--yes` skips the
