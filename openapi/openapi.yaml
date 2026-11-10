@@ -3748,7 +3748,7 @@ paths:
             The source has already been exported, the repository has already
             taken over as the source of truth, the confirmed production branch
             or repository is stale, a function or frontend deployment is still in progress,
-            a preview is serving one of the project's frontends, or the project
+            a promoted preview is serving one of the project's functions or frontends, or the project
             has no stored source to export
           content:
             application/json:
