@@ -76,7 +76,7 @@ func TestAPIE2ECloudFunctionPreviews(t *testing.T) {
 	requireAPIE2EFunctionRollbacks(t, env, revision+1)
 	requireAPIE2EPreviewRedeploy(t, env, serviceKey, previewURL)
 
-	env.runCloudCLI(t, "functions", "preview", "delete", "hello", "next").
+	env.runCloudCLI(t, "functions", "preview", "delete", "hello", "next", "--yes").
 		requireSuccess(t, "Preview 'next' is being deleted")
 	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No previews.", "functions", "preview", "list", "hello")
 	env.runCloudCLI(t, "functions", "rollback", "hello").
@@ -129,7 +129,7 @@ func requireAPIE2EServedPreviewRefusals(t *testing.T, env *apiE2E) {
 	t.Helper()
 	env.runCloudCLI(t, "functions", "preview", "promote", "hello", "next").
 		requireFailure(t, "failed to promote preview \"next\"", "the candidate already serves")
-	env.runCloudCLI(t, "functions", "preview", "delete", "hello", "next").
+	env.runCloudCLI(t, "functions", "preview", "delete", "hello", "next", "--yes").
 		requireFailure(t, "failed to delete preview \"next\"", "the preview is what its frontend or function runs")
 	writeAPIE2EFunctionVersion(t, env.projectDir, "preview-v3")
 	env.runCloudCLI(t, "functions", "preview", "deploy", "hello", "next").

@@ -287,7 +287,7 @@ func requireLocalModeServesPreviews(t *testing.T, binary string, env []string, d
 		"Frontend now serves preview 'redesign'")
 	awaitLocalModeE2EFrontendServes(t, siteURL, localModeE2EPreviewMarker)
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "serving", "web"), "serves preview 'redesign'")
-	refused, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "frontends", "preview", "delete", "web", "redesign")
+	refused, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "frontends", "preview", "delete", "web", "redesign", "--yes")
 	if err == nil {
 		t.Fatalf("expected deleting the preview the frontend serves to fail\n%s", refused)
 	}
@@ -296,7 +296,7 @@ func requireLocalModeServesPreviews(t *testing.T, binary string, env []string, d
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "rollback", "web"), "Frontend 'web' rolled back")
 	awaitLocalModeE2EFrontendServes(t, siteURL, localModeE2EFrontendMarker)
 
-	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "preview", "delete", "web", "redesign"),
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "preview", "delete", "web", "redesign", "--yes"),
 		"Preview 'redesign' is being deleted")
 	awaitLocalModeE2EPreviewGone(t, binary, env, dir)
 	removeLocalModeE2EFile(t, dir, filepath.Join("web-preview", "package.json"))
