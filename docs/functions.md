@@ -97,7 +97,7 @@ build compiles it.
 | Deployable regions | `volcano functions regions [--json]` |
 | Aliases | `volcano functions alias set\|list\|delete …` |
 | Schedulers | `volcano functions schedulers create\|list\|enable\|disable\|delete …` |
-| Previews | `volcano cloud functions preview create\|list\|get\|deploy\|delete\|promote …` |
+| Previews | `volcano cloud functions preview create\|list\|get\|deploy\|deployments\|delete\|promote …` |
 | What a function runs, roll back | `volcano cloud functions serving <name>`, `volcano cloud functions rollback <name> [--to-production]` |
 
 Prefix with `cloud` (e.g. `volcano cloud functions deploy`) to target cloud.
@@ -211,6 +211,7 @@ server answers `feature_unavailable`.
 volcano cloud functions preview create api --name checkout-v2 --ttl 72h
 volcano cloud functions preview get api checkout-v2
 volcano cloud functions preview list api
+volcano cloud functions preview deployments api checkout-v2
 
 # Deploy a newer build to the same preview
 volcano cloud functions preview deploy api checkout-v2
@@ -235,12 +236,17 @@ deploying or rebuilding anything, so it takes effect at once and the function
 keeps its URL, visibility, schedules, usage and logs. It is refused while a
 deployment of the function runs, and when the preview was built with different
 variables, runtime or handler than the function has now. While a preview
-serves, a variable change that would change the function's environment is
-refused: roll back or deploy the function first.
+serves, changing one of the function's variables is refused: roll back or
+deploy the function first. A shared variable change or `config deploy` skips
+the function instead and says so in a notice, without failing; `serving` then
+shows that the function's own build has out-of-date variables, and
+`rollback --to-production` brings them up to date.
 `promote` and `rollback` name the revision the CLI just read, so one that races
 another is refused instead of overwriting it. `rollback --to-production`
 returns to the function's own Lambda. A preview the function runs cannot
-be deleted; roll back first. `preview delete` asks first; `--yes` skips the
+be deleted; roll back first. While the project deploys from a connected Git
+repository, promoting a preview, and a rollback that would return to one, are
+refused: deploy from the repository instead. `preview delete` asks first; `--yes` skips the
 prompt. `preview list`, `preview get` and `serving` take `--json`. Creating,
 deploying to and promoting a preview are behind a release gate, and the CLI
 says function previews aren't available for the project while it is off. See
