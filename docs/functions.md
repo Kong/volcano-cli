@@ -236,10 +236,12 @@ deploying or rebuilding anything, so it takes effect at once and the function
 keeps its URL, visibility, schedules, usage and logs. It is refused while a
 deployment of the function runs, and when the preview was built with different
 variables, runtime or handler than the function has now. While a preview
-serves, changing one of the function's variables is refused: roll back or
-deploy the function first. A shared variable change or `config deploy` skips
-the function instead and says so in a notice, without failing; `serving` then
-shows that the function's own build has out-of-date variables, and
+serves, setting or deleting a variable the function reads, shared or not
+(including through `volcano cloud variables deploy`), is refused: roll back or
+deploy the function first. `config deploy` and replacing the project's list of
+shared variable names store the change for the whole project, so they skip the
+function instead and say so in a notice, without failing; `serving` then shows
+that the function's own build has out-of-date variables, and
 `rollback --to-production` brings them up to date.
 `promote` and `rollback` name the revision the CLI just read, so one that races
 another is refused instead of overwriting it. `rollback --to-production`
