@@ -76,8 +76,9 @@ func inputPaths(
 	}
 	rules.sourceDir = path.Dir(rules.source)
 	if !info.IsDir {
-		// Packaging has already refused an entrypoint that is not safe.
-		rules.entrypoint, _ = safeArchivePath(info.Runtime.Deployment.Entrypoint)
+		// Packaging has already refused an entrypoint that is not safe. A
+		// TypeScript file keeps its extension in the archive, such as index.ts.
+		rules.entrypoint, _ = safeArchivePath(singleFileEntrypoint(info))
 	}
 	for _, name := range info.Runtime.Deployment.DependencyManifests {
 		if manifest, err := safeArchivePath(name); err == nil {

@@ -156,6 +156,13 @@ func TestInputPathsOfASingleFileFunction(t *testing.T) {
 	assert.True(t, feeds("volcano/functions/package.json"))
 
 	assert.Nil(t, inputPaths(SourceInfo{Path: filepath.Join(t.TempDir(), "hello.js")}, dir, matcher, nil, nil), "a function outside the project")
+
+	tsInfo := info
+	tsInfo.Path = filepath.Join(dir, "volcano", "functions", "hello.ts")
+	in = inputPaths(tsInfo, dir, matcher, map[string]string{"index.ts": "volcano/functions/hello.ts"}, nil)
+	require.NotNil(t, in)
+	assert.True(t, feeding(in)("volcano/functions/hello.ts"), "a TypeScript file is its function's input at index.ts")
+	assert.Empty(t, shadowing(in)("volcano/functions/hello.ts"))
 }
 
 // A file that comes first at an archive path stays an input when it is gone
