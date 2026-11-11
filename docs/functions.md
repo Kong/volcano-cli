@@ -54,7 +54,7 @@ archive includes.
 |---|---|---|
 | `hello.js`, `hello.mjs`, `hello.py`, `hello.rb` | `hello` | the file itself |
 | `hello.ts`, `hello.mts`, `hello.cts` | `hello` | the file itself, compiled by Volcano |
-| `checkout/` | `checkout` | `index.js`, else `main.py` or `main.rb`, else `index.ts`, `index.mts` or `index.cts` |
+| `checkout/` | `checkout` | `index.js`, else `main.py` or `main.rb`, else `index.cts`, `index.mts` or `index.ts`, the first found |
 
 ### TypeScript
 
