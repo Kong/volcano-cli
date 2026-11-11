@@ -41,10 +41,12 @@ project for that one command, without changing the active project.`,
 		},
 	}
 	project := &projectFlag{}
-	// The flag is resolved with the unwrapped loader: resolving it needs only
-	// the credential, not a project.
+	// The flag resolves before the override is set: resolving it needs only
+	// the credential, not a project. ConfigLoader stays as it was, so commands
+	// that pick their own loader when none is set, such as durable callbacks,
+	// still do.
 	project.register(cmd, deps)
-	deps.ConfigLoader = project.configLoader(deps.ConfigLoader)
+	deps.ProjectOverride = project.override
 	cmd.AddCommand(NewResourceCommands(deps)...)
 	return cmd
 }

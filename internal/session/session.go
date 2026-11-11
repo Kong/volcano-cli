@@ -75,6 +75,11 @@ func (f Factory) Config() (*config.Config, error) {
 		}
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
+	if f.deps.ProjectOverride != nil {
+		if project := f.deps.ProjectOverride(); project != nil {
+			cfg.ProjectOverride = project
+		}
+	}
 	return cfg, nil
 }
 

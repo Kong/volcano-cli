@@ -61,19 +61,12 @@ func (f *projectFlag) resolve(ctx context.Context, deps cliruntime.Deps) error {
 	return nil
 }
 
-// configLoader wraps next so every config a cloud command loads carries the
-// project --project chose. next is config.Load when nil.
-func (f *projectFlag) configLoader(next func() (*config.Config, error)) func() (*config.Config, error) {
-	if next == nil {
-		next = config.Load
+// override is cliruntime.Deps.ProjectOverride for the cloud tree: a copy of the
+// project --project chose, or nil.
+func (f *projectFlag) override() *config.ProjectConfig {
+	if f.selected == nil {
+		return nil
 	}
-	return func() (*config.Config, error) {
-		cfg, err := next()
-		if err != nil || f.selected == nil {
-			return cfg, err
-		}
-		selected := *f.selected
-		cfg.ProjectOverride = &selected
-		return cfg, nil
-	}
+	selected := *f.selected
+	return &selected
 }

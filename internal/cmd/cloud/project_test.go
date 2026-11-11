@@ -3,6 +3,8 @@ package cloud
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -171,7 +173,7 @@ func TestCloudProjectFlagRejectsUnknownProject(t *testing.T) {
 
 			_, err := executeCloudCommand(t, server.command(), "variables", "list", "--project", test.identifier)
 			require.ErrorIs(t, err, cliproject.ErrNotFound)
-			assert.EqualError(t, err, test.want)
+			require.EqualError(t, err, test.want)
 			assert.Empty(t, server.listed())
 		})
 	}
@@ -203,6 +205,26 @@ func TestCloudProjectFlagNameNeedsAccountToken(t *testing.T) {
 	_, err = executeCloudCommand(t, server.command(), "variables", "list", "--project", flagProjectBetaID)
 	require.NoError(t, err)
 	assert.Equal(t, []string{flagProjectBetaID}, server.listed())
+}
+
+// Adding --project leaves the cloud tree's config loader unset, so durable
+// callbacks still swaps in its link-free loader and a broken link cannot stop
+// an answer.
+func TestCloudDurableCallbacksStillIgnoreABrokenLink(t *testing.T) {
+	setCloudCommandTestHome(t)
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".volcano", "project.json"), []byte("{not-json"), 0o600))
+	t.Chdir(dir)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeCloudCommandJSON(t, w, http.StatusOK, map[string]any{"status": "waiting"})
+	}))
+	defer server.Close()
+
+	out, err := executeCloudCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"durable", "callbacks", "heartbeat", "vcb_0000000000000000000000000000000000000000000")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Heartbeat sent")
 }
 
 func TestCloudProjectFlagInHelp(t *testing.T) {

@@ -31,6 +31,11 @@ type Deps struct {
 	NewTimer     func(time.Duration) Timer
 	NewTicker    func(time.Duration) Ticker
 	ConfigLoader func() (*config.Config, error)
+	// ProjectOverride returns the project `volcano cloud --project` chose, or
+	// nil. Session configs carry it as config.Config.ProjectOverride. It is
+	// separate from ConfigLoader so a command that substitutes its own loader
+	// when none is set keeps doing so in the cloud tree.
+	ProjectOverride func() *config.ProjectConfig
 	// LocalMode makes session-built API clients send no credential. Local mode
 	// is a single-tenant sandbox; the local server defaults an absent credential
 	// to the pre-provisioned local user. Set by the local command wiring.
