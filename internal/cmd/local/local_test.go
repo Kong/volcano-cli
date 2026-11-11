@@ -24,6 +24,7 @@ import (
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/localmode"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/telemetry"
 )
 
 const localProjectID = "22222222-2222-4222-8222-222222222222"
@@ -337,6 +338,8 @@ func TestLocalCommandsRefuseProjectFlag(t *testing.T) {
 			cmd.AddCommand(NewResourceCommands(cliruntime.Deps{LocalCommandRunner: runner})...)
 			_, err := executeLocalCommand(t, cmd, args...)
 			require.ErrorIs(t, err, errLocalProjectFlag)
+			assert.True(t, telemetry.IsUsageError(err), "a refused flag is a usage error, not a problem to report")
+			assert.Contains(t, err.Error(), `invalid argument "my-app" for "--project" flag`)
 		})
 	}
 	assert.Zero(t, calls, "the refusal comes before any local server call")

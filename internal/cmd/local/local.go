@@ -4,6 +4,7 @@ package local
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -71,14 +72,16 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 	})
 }
 
-// errLocalProjectFlag is a local command's answer to --project.
-var errLocalProjectFlag = errors.New("--project selects a cloud project, and local development has only one project. " +
+// errLocalProjectFlag is why a local command refuses --project.
+var errLocalProjectFlag = errors.New("it selects a cloud project, and local development has only one project. " +
 	"Drop --project, or run the command under 'volcano cloud' to use a cloud project")
 
 // refuseProjectFlag gives each local command a hidden --project that fails
 // with errLocalProjectFlag, so `volcano cloud --project` used on a local
-// command says why instead of reporting an unknown flag. Cloud-only commands
-// parse no flags and refuse on their own.
+// command says why instead of reporting an unknown flag. The error keeps
+// cobra's invalid-argument form, so it still counts as a usage error rather
+// than a problem to report. Cloud-only commands parse no flags and refuse on
+// their own.
 func refuseProjectFlag(cmds []*cobra.Command) []*cobra.Command {
 	for _, cmd := range cmds {
 		if cmd.DisableFlagParsing {
@@ -87,10 +90,11 @@ func refuseProjectFlag(cmds []*cobra.Command) []*cobra.Command {
 		cmd.PersistentFlags().String("project", "", "")
 		_ = cmd.PersistentFlags().MarkHidden("project")
 		cmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
-			if cmd.Flags().Changed("project") {
-				return errLocalProjectFlag
+			if !cmd.Flags().Changed("project") {
+				return nil
 			}
-			return nil
+			value, _ := cmd.Flags().GetString("project")
+			return fmt.Errorf("invalid argument %q for \"--project\" flag: %w", value, errLocalProjectFlag)
 		}
 	}
 	return cmds

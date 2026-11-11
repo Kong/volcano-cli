@@ -62,7 +62,11 @@ func newProjectFlagServer(t *testing.T) *projectFlagServer {
 			s.listedFor = append(s.listedFor, parts[1])
 			s.mu.Unlock()
 			writeCloudCommandJSON(t, w, http.StatusOK, map[string]any{
-				"data": []any{}, "has_more": false, "page": 1, "limit": 100, "total": 0,
+				"data": []any{map[string]any{
+					"id": cloudObjectID, "name": "API_KEY",
+					"created_at": "2026-05-20T00:00:00Z", "updated_at": "2026-05-20T00:00:00Z",
+				}},
+				"has_more": true, "page": 1, "limit": 1, "total": 2,
 			})
 		default:
 			http.NotFound(w, r)
@@ -132,9 +136,16 @@ func TestCloudProjectFlagSelectsProjectForOneCommand(t *testing.T) {
 			} else {
 				args = append(args, test.args...)
 			}
-			_, err := executeCloudCommand(t, server.command(), args...)
+			out, err := executeCloudCommand(t, server.command(), args...)
 			require.NoError(t, err)
 			assert.Equal(t, []string{test.want}, server.listed())
+
+			// The next-page command keeps acting on the same project.
+			nextPage := "volcano cloud variables list --page 2"
+			if len(test.args) > 0 {
+				nextPage = "volcano cloud --project " + test.want + " variables list --page 2"
+			}
+			assert.Contains(t, out, nextPage)
 
 			// The flag chose the project without reading the deprecated
 			// variable, so the command prints no deprecation warning.

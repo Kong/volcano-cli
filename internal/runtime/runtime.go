@@ -77,10 +77,18 @@ func ShellQuote(s string) string {
 }
 
 // CommandPath returns a user-facing command path for the current command tree.
+// During a `volcano cloud --project` run it carries the flag with the chosen
+// project's ID, so a printed follow-up command acts on the same project rather
+// than the active one.
 func CommandPath(deps Deps, command string) string {
 	prefix := deps.CommandPathPrefix
 	if prefix == "" {
 		prefix = "volcano"
+	}
+	if deps.ProjectOverride != nil {
+		if project := deps.ProjectOverride(); project != nil {
+			prefix += " --project " + ShellQuote(project.ID)
+		}
 	}
 	if command == "" {
 		return prefix
