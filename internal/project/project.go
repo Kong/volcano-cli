@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -23,11 +24,14 @@ var ErrNotFound = errors.New("project not found")
 // Service performs authenticated Volcano project workflows.
 type Service struct {
 	sessions clisession.Factory
+	// sleep waits before a fork asks again about an earlier attempt that is
+	// still settling.
+	sleep func(context.Context, time.Duration) error
 }
 
 // NewService returns a project service.
 func NewService(deps cliruntime.Deps) Service {
-	return Service{sessions: clisession.NewFactory(deps)}
+	return Service{sessions: clisession.NewFactory(deps), sleep: sleepContext}
 }
 
 // List returns the authenticated config and one visible project page.
@@ -210,6 +214,17 @@ func (s Service) Use(ctx context.Context, identifier string) (UseResult, error) 
 		return SelectInLink(ctx, authenticated.API, s.sessions.APIURL(authenticated.Config), link, selected)
 	}
 	return UseResult{Project: selected, SavedTo: "~/.volcano/config.json"}, saveCurrentProject(selected)
+}
+
+// Resolve finds the project an exact ID or exact name names, as Use does,
+// without selecting it. It fails the same way Use does for a project that is
+// not there.
+func (s Service) Resolve(ctx context.Context, identifier string) (*apiclient.Project, error) {
+	authenticated, err := s.sessions.Authenticated()
+	if err != nil {
+		return nil, err
+	}
+	return resolveProject(ctx, authenticated, strings.TrimSpace(identifier))
 }
 
 // CheckProjectOverride refuses to relink a directory while VOLCANO_PROJECT_ID

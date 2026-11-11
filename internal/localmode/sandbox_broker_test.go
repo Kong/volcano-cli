@@ -56,6 +56,10 @@ func TestComposeDownIncludesSandboxBrokerAndPreservesFailure(t *testing.T) {
 			t.Parallel()
 			failure := errors.New("broker cleanup failed")
 			runner := &fakeCommandRunner{run: func(_ context.Context, command Command) ([]byte, error) {
+				// The plugin is present, so the failure must come back as is.
+				if commandIs(command, "docker", "compose", "version", "--short") {
+					return []byte("v2.28.1\n"), nil
+				}
 				assert.True(t, commandIsComposeDown(command, clean), commandDebug(command))
 				return nil, failure
 			}}

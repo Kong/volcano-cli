@@ -21,6 +21,22 @@ failures apart without parsing the error text.
 process's exit code instead, and `124` on timeout. See
 [sandboxes.md](sandboxes.md).
 
+## Choose the project per command
+
+`volcano cloud` commands take `--project <name-or-id>` to run against a project
+for that one command, without changing the active project. A script or agent
+can check several projects in a row without `volcano use` between them:
+
+```bash
+for project in app-staging app-production; do
+  volcano cloud lavaflow status --project "$project" --json
+done
+```
+
+A project `--project` does not find exits `4`. See
+[connect.md](connect.md#linked-directories) for how the CLI picks a project
+otherwise.
+
 ## JSON output
 
 Commands that support `--json` print machine-readable JSON on stdout. These

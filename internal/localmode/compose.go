@@ -3,9 +3,11 @@ package localmode
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -154,20 +156,12 @@ func (s Service) startDockerServices(ctx context.Context, w io.Writer, env []str
 
 	s.refreshDefaultServerImage(ctx, w, composePaths, env)
 
-	args := composeFileArgs(composePaths)
-	args = append(args, "-p", composeProjectName, "up", "-d", "--force-recreate")
-	_, err = s.runner.Run(ctx, Command{
-		Name: dockerCommand,
-		Args: args,
-		Env:  env,
-	})
-	if err != nil {
+	if err := s.runCompose(ctx, composePaths, env, "-p", composeProjectName, "up", "-d", "--force-recreate"); err != nil {
 		return err
 	}
 	// The broker needs a Docker socket that may not exist on this host.
 	// Its optional profile must not prevent ordinary local services from starting.
-	brokerArgs := append(composeFileArgs(composePaths), "-p", composeProjectName, "up", "-d", "sandbox-broker")
-	if _, brokerErr := s.runner.Run(ctx, Command{Name: dockerCommand, Args: brokerArgs, Env: env}); brokerErr != nil {
+	if brokerErr := s.runCompose(ctx, composePaths, env, "-p", composeProjectName, "up", "-d", "sandbox-broker"); brokerErr != nil {
 		output.Warning(w, "Sandbox broker could not start; other local services remain available. Sandbox commands will be unavailable until the broker is reachable: %v", brokerErr)
 	}
 	return nil
@@ -186,9 +180,7 @@ func (s Service) refreshDefaultServerImage(ctx context.Context, w io.Writer, com
 		return
 	}
 	fmt.Fprintf(w, "Pulling latest local-mode image: %s\n", image)
-	args := composeFileArgs(composePaths)
-	args = append(args, "-p", composeProjectName, "pull", serverComposeService)
-	if _, err := s.runner.Run(ctx, Command{Name: dockerCommand, Args: args, Env: env}); err != nil {
+	if err := s.runCompose(ctx, composePaths, env, "-p", composeProjectName, "pull", serverComposeService); err != nil {
 		// Best-effort: `up` still runs and uses a cached image if one exists;
 		// a first start with no cached image will fail there with a clearer error.
 		output.Warning(w, "could not pull latest local-mode image; using a cached copy if present: %v", err)
@@ -249,13 +241,61 @@ func (s Service) composeDown(ctx context.Context, clean bool) error {
 	}
 	defer cleanup()
 
-	args := composeFileArgs(composePaths)
-	args = append(args, "-p", composeProjectName, "--profile", "sandboxes", "down")
+	args := []string{"-p", composeProjectName, "--profile", "sandboxes", "down"}
 	if clean {
 		args = append(args, "-v")
 	}
-	_, err = s.runDocker(ctx, args...)
+	return s.runCompose(ctx, composePaths, nil, args...)
+}
+
+// composeUnavailableError reports a missing Docker Compose v2 plugin. Without
+// it, docker rejects every `docker compose -f ...` call with a usage error
+// ("unknown shorthand flag: 'f' in -f") that never names Compose.
+type composeUnavailableError struct{ err error }
+
+func (e composeUnavailableError) Error() string {
+	return "docker compose v2 not found: " + e.err.Error()
+}
+
+func (e composeUnavailableError) Unwrap() error { return e.err }
+
+// runCompose runs `docker compose` against the given compose files. Every
+// compose call goes through here so a missing plugin always comes back as
+// composeUnavailableError; callers that can hit it print the guidance with
+// reportComposeUnavailable. The plugin probe runs only after a failure, so a
+// working setup pays nothing for it.
+func (s Service) runCompose(ctx context.Context, composePaths, env []string, args ...string) error {
+	command := Command{Name: dockerCommand, Args: append(composeFileArgs(composePaths), args...), Env: env}
+	if _, err := s.runner.Run(ctx, command); err != nil {
+		return s.diagnoseComposeFailure(ctx, err)
+	}
+	return nil
+}
+
+// diagnoseComposeFailure returns composeUnavailableError when a compose call
+// failed because the plugin is missing, and the original error otherwise.
+func (s Service) diagnoseComposeFailure(ctx context.Context, err error) error {
+	// No docker binary at all is not a Compose problem, and a canceled or
+	// expired context would fail the probe too.
+	if errors.Is(err, exec.ErrNotFound) || ctx.Err() != nil {
+		return err
+	}
+	if _, probeErr := s.dockerComposeVersion(ctx); probeErr != nil {
+		return composeUnavailableError{err: probeErr}
+	}
 	return err
+}
+
+// reportComposeUnavailable prints the Compose install guidance when err is a
+// missing-plugin failure.
+func reportComposeUnavailable(w io.Writer, err error) {
+	if _, ok := errors.AsType[composeUnavailableError](err); ok {
+		printComposeUnavailable(w)
+	}
+}
+
+func printComposeUnavailable(w io.Writer) {
+	renderCheckFail(w, "Docker Compose v2 is not available", composeGuidance())
 }
 
 func (s Service) printContainerLogs(ctx context.Context, w io.Writer, containerName string, tailLines int) {

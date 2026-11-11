@@ -24,6 +24,7 @@ import (
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/localmode"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/telemetry"
 )
 
 const localProjectID = "22222222-2222-4222-8222-222222222222"
@@ -315,6 +316,37 @@ func TestLocalHelpIncludesReset(t *testing.T) {
 	out, err := executeLocalCommand(t, New(cliruntime.Deps{}), "--help")
 	require.NoError(t, err)
 	assert.Contains(t, out, "reset")
+}
+
+// Local development has one project, so --project, which picks a cloud
+// project, fails with the reason instead of as an unknown flag, before the
+// command reaches the local server, and stays out of local help.
+func TestLocalCommandsRefuseProjectFlag(t *testing.T) {
+	setLocalCommandTestEnv(t)
+	calls := 0
+	runner := localmode.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+		calls++
+		return nil, errors.New("local server not running")
+	})
+	for _, args := range [][]string{
+		{"functions", "list", "--project", "my-app"},
+		{"variables", "list", "--project=my-app"},
+		{"databases", "list", "--project", "my-app"},
+	} {
+		t.Run(strings.Join(args[:2], " "), func(t *testing.T) {
+			cmd := &cobra.Command{Use: "volcano", SilenceUsage: true, SilenceErrors: true}
+			cmd.AddCommand(NewResourceCommands(cliruntime.Deps{LocalCommandRunner: runner})...)
+			_, err := executeLocalCommand(t, cmd, args...)
+			require.ErrorIs(t, err, errLocalProjectFlag)
+			assert.True(t, telemetry.IsUsageError(err), "a refused flag is a usage error, not a problem to report")
+			assert.Contains(t, err.Error(), `invalid argument "my-app" for "--project" flag`)
+		})
+	}
+	assert.Zero(t, calls, "the refusal comes before any local server call")
+
+	out, err := executeLocalCommand(t, New(cliruntime.Deps{}), "functions", "list", "--help")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "--project")
 }
 
 func TestLocalRejectsUnknownNextJSDeployPath(t *testing.T) {

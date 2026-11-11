@@ -3,7 +3,10 @@ package localmode
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -97,4 +100,82 @@ func TestStopRunsWhenComposeContainersAreStopped(t *testing.T) {
 	assert.True(t, runner.calledComposeDown(false))
 	_, err = os.Stat(statePath)
 	require.NoError(t, err)
+}
+
+func TestStopCleanFailsClearlyWhenComposeMissing(t *testing.T) {
+	setLocalDevTestHome(t)
+	require.NoError(t, saveDevState(localModeInfo("http://localhost:8000")))
+	statePath, err := DevStatePath()
+	require.NoError(t, err)
+
+	runner := &fakeCommandRunner{
+		run: func(_ context.Context, command Command) ([]byte, error) {
+			switch {
+			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
+				return []byte("false\n"), nil
+			case commandIsComposeDown(command, false):
+				return nil, errors.New("unknown shorthand flag: 'f' in -f")
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return nil, errors.New("docker: unknown command: docker compose")
+			default:
+				t.Fatalf("unexpected command: %s", commandDebug(command))
+				return nil, nil
+			}
+		},
+	}
+
+	var out bytes.Buffer
+	err = NewService(cliruntime.Deps{}, WithDockerRunner(runner)).Stop(context.Background(), &out, true)
+
+	require.ErrorContains(t, err, "docker compose v2 not found")
+	assert.NotContains(t, err.Error(), "unknown shorthand flag")
+	assert.Contains(t, out.String(), "✗ Docker Compose v2 is not available")
+	_, err = os.Stat(statePath)
+	require.NoError(t, err, "dev state must be kept when stop fails")
+}
+
+func TestStopCleanKeepsErrorWhenDockerMissing(t *testing.T) {
+	setLocalDevTestHome(t)
+
+	missing := fmt.Errorf("exec: \"docker\": %w", exec.ErrNotFound)
+	runner := &fakeCommandRunner{
+		run: func(_ context.Context, command Command) ([]byte, error) {
+			if commandIs(command, "docker", "compose", "version", "--short") {
+				t.Fatalf("a missing docker binary must not be reported as a missing Compose plugin")
+			}
+			return nil, missing
+		},
+	}
+
+	var out bytes.Buffer
+	err := NewService(cliruntime.Deps{}, WithDockerRunner(runner)).Stop(context.Background(), &out, true)
+
+	require.ErrorIs(t, err, exec.ErrNotFound)
+	assert.NotContains(t, out.String(), "Docker Compose v2 is not available")
+}
+
+func TestStopKeepsErrorWhenContextCanceled(t *testing.T) {
+	setLocalDevTestHome(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	runner := &fakeCommandRunner{
+		run: func(_ context.Context, command Command) ([]byte, error) {
+			switch {
+			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
+				return []byte("true\n"), nil
+			case commandIsComposeDown(command, false):
+				cancel()
+				return nil, context.Canceled
+			default:
+				t.Fatalf("a canceled stop must not probe the Compose plugin: %s", commandDebug(command))
+				return nil, nil
+			}
+		},
+	}
+
+	var out bytes.Buffer
+	err := NewService(cliruntime.Deps{}, WithDockerRunner(runner)).Stop(ctx, &out, false)
+
+	require.ErrorIs(t, err, context.Canceled)
+	assert.NotContains(t, out.String(), "Docker Compose v2 is not available")
 }

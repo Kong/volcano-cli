@@ -408,6 +408,33 @@ status the CLI doesn't know prints as the API gives it.
 and its diagnosis and root cause with the evidence behind them. A run that
 failed says why.
 
+A run with a fix has a `Checks:` line. LavaFlow doesn't run your repository's
+tests before it opens the pull request, so the line says they didn't run. Your
+repository's CI may still run on the pull request after it opens.
+
+The line reads
+`LavaFlow didn't run the repository's tests before opening this pull request.`
+for a run that opened one, and `LavaFlow didn't run the repository's tests.`
+for a run that didn't.
+
+When the review ends without passing the fix, a `Review stopped:` line says
+why, in the words of the API's `review.stopped`:
+
+| `review.stopped` | `Review stopped:` |
+| --- | --- |
+| `rounds` | The last review round still found problems. |
+| `no_revision` | LavaFlow gave no revised fix. |
+| `budget_exhausted` | The run used its token budget before LavaFlow could revise the fix, not the daily spend limit. |
+| `context_limit` | The fix's conversation grew too long for LavaFlow before it could revise it. |
+| `timed_out` | The run's time for review ran out. |
+| `reviewers_failed` | No reviewer of the last round finished. |
+| `too_few_reviewers` | Fewer reviewers could run than a round needs to pass the fix. |
+| `unreadable` | A retried run couldn't read the review saved with its fix, so a person must review it. |
+
+A reason your CLI doesn't know shows as `Other` with its code. When no
+reviewer could run, the review reads `Review: error; no reviewer could run`,
+followed by `Review stopped:` with the reason.
+
 The `Source:` line gives the commit's short SHA and where it came from:
 
 | Shown | Meaning |
@@ -447,6 +474,7 @@ Issue: 5b2d8e1c-3f4a-4c6b-9d7e-8a1f2b3c4d5e
 Source: commit 4f1c2b3 (deployed from a push)
 Started: 2026-10-30 09:00
 Review: passed after 2 round(s)
+Checks: LavaFlow didn't run the repository's tests before opening this pull request.
 Fix:
   Pull request: #42 https://github.com/acme/shop/pull/42
   State: open

@@ -174,10 +174,12 @@ to `/`.
 
 The project a command uses comes from, in order:
 
-1. `VOLCANO_PROJECT_ID`, which is deprecated and will be removed in a future
+1. `--project <name-or-id>`, on `volcano cloud` commands. It applies to that
+   one command and changes neither the link nor the saved project.
+2. `VOLCANO_PROJECT_ID`, which is deprecated and will be removed in a future
    release. A command that uses it prints a warning on stderr.
-2. The directory's link
-3. The project `volcano use` saved
+3. The directory's link
+4. The project `volcano use` saved
 
 `volcano use` run inside a linked directory updates the link. Elsewhere it
 saves the project for every directory without a link. Inside a linked

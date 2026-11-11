@@ -46,6 +46,8 @@ func TestRestartStopsBeforeStarting(t *testing.T) {
 				return nil, nil
 			case commandIs(command, "docker", "version"):
 				return nil, nil
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return []byte("v2.28.1\n"), nil
 			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
 				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
@@ -120,4 +122,39 @@ func TestRestartFailsBeforeTeardownWhenCustomImageMissing(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found locally")
 	assert.False(t, runner.calledWithArg("docker", "down"), "environment must not be torn down on a bad --image")
+}
+
+func TestRestartFailsClearlyWhenComposeMissing(t *testing.T) {
+	setLocalDevTestHome(t)
+	withTempWorkingDir(t)
+
+	runner := &fakeCommandRunner{
+		run: func(_ context.Context, command Command) ([]byte, error) {
+			switch {
+			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
+				return []byte("true\n"), nil
+			case commandIsComposeDown(command, false):
+				return nil, errors.New("unknown shorthand flag: 'f' in -f")
+			case commandIs(command, "docker", "compose", "version", "--short"):
+				return nil, errors.New("docker: unknown command: docker compose")
+			default:
+				t.Fatalf("unexpected command: %s", commandDebug(command))
+				return nil, nil
+			}
+		},
+	}
+
+	var out bytes.Buffer
+	service := NewService(
+		cliruntime.Deps{},
+		WithDockerRunner(runner),
+		WithEnvironment(func() []string { return []string{"PATH=/bin"} }, func(string) string { return "" }),
+		WithTempDir(t.TempDir()),
+	)
+	err := service.Restart(context.Background(), &out)
+
+	require.ErrorContains(t, err, "docker compose v2 not found")
+	assert.NotContains(t, err.Error(), "unknown shorthand flag")
+	assert.Contains(t, out.String(), "✗ Docker Compose v2 is not available")
+	assert.False(t, runner.calledWithArg("docker", "up"), "start must not run after stop fails")
 }

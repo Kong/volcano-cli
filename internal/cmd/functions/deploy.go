@@ -34,8 +34,11 @@ type deployOptions struct {
 	// durableFollows drops the hint to deploy the skipped durable functions,
 	// for a caller that deploys them next.
 	durableFollows bool
-	out            io.Writer
-	errOut         io.Writer
+	// configFollows reports a visibility the manifest declares as applied by
+	// the caller's config step instead of pointing at config deploy.
+	configFollows bool
+	out           io.Writer
+	errOut        io.Writer
 }
 
 // DeployAllOptions configures DeployAll.
@@ -48,6 +51,9 @@ type DeployAllOptions struct {
 	// DurableFollows is set by a caller that deploys the durable functions
 	// itself, so the output does not tell the user to.
 	DurableFollows bool
+	// ConfigFollows is set by a caller that applies volcano-config.yaml after
+	// the deploy, so the output does not tell the user to.
+	ConfigFollows bool
 	// Out and ErrOut are required.
 	Out    io.Writer
 	ErrOut io.Writer
@@ -63,6 +69,7 @@ func DeployAll(ctx context.Context, deps cliruntime.Deps, opts DeployAllOptions)
 		batchAll:       opts.Batch,
 		manifest:       opts.ManifestPath,
 		durableFollows: opts.DurableFollows,
+		configFollows:  opts.ConfigFollows,
 		out:            opts.Out,
 		errOut:         opts.ErrOut,
 	})
@@ -222,8 +229,9 @@ func newDeployReport(
 		Open: func(name string) string {
 			return cliruntime.CommandPath(opts.deps, "functions update "+name+" --visibility authenticated")
 		},
-		ConfigDeploy: cliruntime.CommandPath(opts.deps, "config deploy"),
-		Declared:     declared,
+		ConfigDeploy:  cliruntime.CommandPath(opts.deps, "config deploy"),
+		Declared:      declared,
+		ConfigFollows: opts.configFollows,
 	}, get: cliruntime.CommandPath(opts.deps, "functions get NAME")}
 	if existing, err := service.Names(ctx); err == nil {
 		report.existing = existing

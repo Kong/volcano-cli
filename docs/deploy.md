@@ -61,6 +61,12 @@ the first manifest isn't the default one, it only says to run it again:
 `functions deploy` and `durable deploy` read the default manifest, so run by
 hand they could deploy a durable function as a standard one.
 
+New functions start `private`, and the config step then applies the
+`visibility` the first manifest declares for them. The functions and durable
+steps say so instead of telling you to run `config deploy`. A new function the
+manifest gives no visibility stays `private`, and the run prints the commands
+that open it.
+
 The server only adds or changes a scheduler on an active function, and a
 function the run just deployed is usually still building when the config step
 runs. When a manifest adds or changes a scheduler on such a function, the config

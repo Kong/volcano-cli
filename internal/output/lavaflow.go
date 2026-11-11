@@ -205,7 +205,19 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 		kv(w, on, "Finished", "%s", formatLavaflowTime(*run.FinishedAt))
 	}
 	if run.Review != nil {
-		kv(w, on, "Review", "%s after %d round(s)", clean(strings.ReplaceAll(string(run.Review.Verdict), "_", " ")), run.Review.Rounds)
+		verdict := clean(strings.ReplaceAll(string(run.Review.Verdict), "_", " "))
+		// A review with no round never had a reviewer that could run.
+		if run.Review.Rounds == 0 {
+			kv(w, on, "Review", "%s; no reviewer could run", verdict)
+		} else {
+			kv(w, on, "Review", "%s after %d round(s)", verdict, run.Review.Rounds)
+		}
+		if run.Review.Stopped != nil {
+			kv(w, on, "Review stopped", "%s", lavaflowReviewStopped(*run.Review.Stopped))
+		}
+	}
+	if checks := run.RepositoryChecks; checks != nil {
+		kv(w, on, "Checks", "%s", lavaflowRepositoryChecks(checks))
 	}
 	// The API lists only the first ungated job on each branch or commit it
 	// checked, so a count would understate the jobs that could run the change.
@@ -252,6 +264,41 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	if run.Diff != nil && *run.Diff != "" {
 		block(w, on, "Diff", *run.Diff)
 	}
+}
+
+// lavaflowReviewStopped says why a review ended without passing the fix. A
+// reason the CLI doesn't know reads as other, with its code.
+func lavaflowReviewStopped(stopped apiclient.LavaflowReviewStop) string {
+	switch stopped {
+	case apiclient.LavaflowReviewStopRounds:
+		return "The last review round still found problems."
+	case apiclient.LavaflowReviewStopNoRevision:
+		return "LavaFlow gave no revised fix."
+	case apiclient.LavaflowReviewStopBudgetExhausted:
+		return "The run used its token budget before LavaFlow could revise the fix, not the daily spend limit."
+	case apiclient.LavaflowReviewStopContextLimit:
+		return "The fix's conversation grew too long for LavaFlow before it could revise it."
+	case apiclient.LavaflowReviewStopTimedOut:
+		return "The run's time for review ran out."
+	case apiclient.LavaflowReviewStopReviewersFailed:
+		return "No reviewer of the last round finished."
+	case apiclient.LavaflowReviewStopTooFewReviewers:
+		return "Fewer reviewers could run than a round needs to pass the fix."
+	case apiclient.LavaflowReviewStopUnreadable:
+		return "A retried run couldn't read the review saved with its fix, so a person must review it."
+	default:
+		return "Other (" + clean(strings.ReplaceAll(string(stopped), "_", " ")) + ")."
+	}
+}
+
+// lavaflowRepositoryChecks says the repository's own checks didn't run on the
+// fix, in the API's words. The API has no status for checks that ran yet, and
+// asks clients to read a status they don't know as not_run.
+func lavaflowRepositoryChecks(checks *apiclient.LavaflowRepositoryChecks) string {
+	if message := strings.TrimSpace(checks.Message); message != "" {
+		return clean(message)
+	}
+	return "The repository's tests didn't run."
 }
 
 // lavaflowSourceCommit is the commit a run read the code at, short, with

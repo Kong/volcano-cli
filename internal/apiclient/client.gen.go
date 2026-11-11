@@ -30,6 +30,24 @@ const (
 	UserTokenScopes           userTokenContextKey           = "UserToken.Scopes"
 )
 
+// Defines values for AccountSessionKind.
+const (
+	AccountSessionKindBrowser AccountSessionKind = "browser"
+	AccountSessionKindCli     AccountSessionKind = "cli"
+)
+
+// Valid indicates whether the value is a known member of the AccountSessionKind enum.
+func (e AccountSessionKind) Valid() bool {
+	switch e {
+	case AccountSessionKindBrowser:
+		return true
+	case AccountSessionKindCli:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuthConfigAllowedEmailDomainsMode.
 const (
 	AuthConfigAllowedEmailDomainsModeDisabled        AuthConfigAllowedEmailDomainsMode = "disabled"
@@ -609,6 +627,7 @@ func (e DatabaseStatus) Valid() bool {
 // Defines values for DatabaseBackupSource.
 const (
 	Manual    DatabaseBackupSource = "manual"
+	Migration DatabaseBackupSource = "migration"
 	Scheduled DatabaseBackupSource = "scheduled"
 )
 
@@ -616,6 +635,8 @@ const (
 func (e DatabaseBackupSource) Valid() bool {
 	switch e {
 	case Manual:
+		return true
+	case Migration:
 		return true
 	case Scheduled:
 		return true
@@ -669,42 +690,255 @@ func (e DatabaseBranchStatus) Valid() bool {
 	}
 }
 
+// Defines values for DatabaseMigrationHistoryEntryStatus.
+const (
+	DatabaseMigrationHistoryEntryStatusApplied   DatabaseMigrationHistoryEntryStatus = "applied"
+	DatabaseMigrationHistoryEntryStatusBaselined DatabaseMigrationHistoryEntryStatus = "baselined"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationHistoryEntryStatus enum.
+func (e DatabaseMigrationHistoryEntryStatus) Valid() bool {
+	switch e {
+	case DatabaseMigrationHistoryEntryStatusApplied:
+		return true
+	case DatabaseMigrationHistoryEntryStatusBaselined:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationRunPhase.
+const (
+	DatabaseMigrationRunPhaseApply    DatabaseMigrationRunPhase = "apply"
+	DatabaseMigrationRunPhaseBackup   DatabaseMigrationRunPhase = "backup"
+	DatabaseMigrationRunPhasePlan     DatabaseMigrationRunPhase = "plan"
+	DatabaseMigrationRunPhaseRehearse DatabaseMigrationRunPhase = "rehearse"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationRunPhase enum.
+func (e DatabaseMigrationRunPhase) Valid() bool {
+	switch e {
+	case DatabaseMigrationRunPhaseApply:
+		return true
+	case DatabaseMigrationRunPhaseBackup:
+		return true
+	case DatabaseMigrationRunPhasePlan:
+		return true
+	case DatabaseMigrationRunPhaseRehearse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationRunSource.
+const (
+	DatabaseMigrationRunSourceApi       DatabaseMigrationRunSource = "api"
+	DatabaseMigrationRunSourceGitDeploy DatabaseMigrationRunSource = "git_deploy"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationRunSource enum.
+func (e DatabaseMigrationRunSource) Valid() bool {
+	switch e {
+	case DatabaseMigrationRunSourceApi:
+		return true
+	case DatabaseMigrationRunSourceGitDeploy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationRunStatus.
+const (
+	DatabaseMigrationRunStatusFailed    DatabaseMigrationRunStatus = "failed"
+	DatabaseMigrationRunStatusQueued    DatabaseMigrationRunStatus = "queued"
+	DatabaseMigrationRunStatusRunning   DatabaseMigrationRunStatus = "running"
+	DatabaseMigrationRunStatusSucceeded DatabaseMigrationRunStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationRunStatus enum.
+func (e DatabaseMigrationRunStatus) Valid() bool {
+	switch e {
+	case DatabaseMigrationRunStatusFailed:
+		return true
+	case DatabaseMigrationRunStatusQueued:
+		return true
+	case DatabaseMigrationRunStatusRunning:
+		return true
+	case DatabaseMigrationRunStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationRunErrorCode.
+const (
+	AttemptsExhausted    DatabaseMigrationRunErrorCode = "attempts_exhausted"
+	BackupFailed         DatabaseMigrationRunErrorCode = "backup_failed"
+	BranchLimit          DatabaseMigrationRunErrorCode = "branch_limit"
+	ChecksumMismatch     DatabaseMigrationRunErrorCode = "checksum_mismatch"
+	ConnectionFailed     DatabaseMigrationRunErrorCode = "connection_failed"
+	DatabaseUnavailable  DatabaseMigrationRunErrorCode = "database_unavailable"
+	HistoryMissing       DatabaseMigrationRunErrorCode = "history_missing"
+	HistoryTooLarge      DatabaseMigrationRunErrorCode = "history_too_large"
+	InternalError        DatabaseMigrationRunErrorCode = "internal_error"
+	InvalidFile          DatabaseMigrationRunErrorCode = "invalid_file"
+	InvalidLayout        DatabaseMigrationRunErrorCode = "invalid_layout"
+	Locked               DatabaseMigrationRunErrorCode = "locked"
+	MigrationFailed      DatabaseMigrationRunErrorCode = "migration_failed"
+	OperatorFailed       DatabaseMigrationRunErrorCode = "operator_failed"
+	OwnerNotActive       DatabaseMigrationRunErrorCode = "owner_not_active"
+	PlanChanged          DatabaseMigrationRunErrorCode = "plan_changed"
+	RehearsalUnavailable DatabaseMigrationRunErrorCode = "rehearsal_unavailable"
+	RestoreInProgress    DatabaseMigrationRunErrorCode = "restore_in_progress"
+	Timeout              DatabaseMigrationRunErrorCode = "timeout"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationRunErrorCode enum.
+func (e DatabaseMigrationRunErrorCode) Valid() bool {
+	switch e {
+	case AttemptsExhausted:
+		return true
+	case BackupFailed:
+		return true
+	case BranchLimit:
+		return true
+	case ChecksumMismatch:
+		return true
+	case ConnectionFailed:
+		return true
+	case DatabaseUnavailable:
+		return true
+	case HistoryMissing:
+		return true
+	case HistoryTooLarge:
+		return true
+	case InternalError:
+		return true
+	case InvalidFile:
+		return true
+	case InvalidLayout:
+		return true
+	case Locked:
+		return true
+	case MigrationFailed:
+		return true
+	case OperatorFailed:
+		return true
+	case OwnerNotActive:
+		return true
+	case PlanChanged:
+		return true
+	case RehearsalUnavailable:
+		return true
+	case RestoreInProgress:
+		return true
+	case Timeout:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationRunFileOutcome.
+const (
+	DatabaseMigrationRunFileOutcomeAlreadyApplied DatabaseMigrationRunFileOutcome = "already_applied"
+	DatabaseMigrationRunFileOutcomeApplied        DatabaseMigrationRunFileOutcome = "applied"
+	DatabaseMigrationRunFileOutcomeFailed         DatabaseMigrationRunFileOutcome = "failed"
+	DatabaseMigrationRunFileOutcomeNotRun         DatabaseMigrationRunFileOutcome = "not_run"
+	DatabaseMigrationRunFileOutcomePending        DatabaseMigrationRunFileOutcome = "pending"
+	DatabaseMigrationRunFileOutcomeUnknown        DatabaseMigrationRunFileOutcome = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationRunFileOutcome enum.
+func (e DatabaseMigrationRunFileOutcome) Valid() bool {
+	switch e {
+	case DatabaseMigrationRunFileOutcomeAlreadyApplied:
+		return true
+	case DatabaseMigrationRunFileOutcomeApplied:
+		return true
+	case DatabaseMigrationRunFileOutcomeFailed:
+		return true
+	case DatabaseMigrationRunFileOutcomeNotRun:
+		return true
+	case DatabaseMigrationRunFileOutcomePending:
+		return true
+	case DatabaseMigrationRunFileOutcomeUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationWarningCode.
+const (
+	BackupPruneFailed DatabaseMigrationWarningCode = "backup_prune_failed"
+	BackupSkipped     DatabaseMigrationWarningCode = "backup_skipped"
+	MissingFile       DatabaseMigrationWarningCode = "missing_file"
+	OutOfOrder        DatabaseMigrationWarningCode = "out_of_order"
+	RehearsalSkipped  DatabaseMigrationWarningCode = "rehearsal_skipped"
+	WarningsTruncated DatabaseMigrationWarningCode = "warnings_truncated"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationWarningCode enum.
+func (e DatabaseMigrationWarningCode) Valid() bool {
+	switch e {
+	case BackupPruneFailed:
+		return true
+	case BackupSkipped:
+		return true
+	case MissingFile:
+		return true
+	case OutOfOrder:
+		return true
+	case RehearsalSkipped:
+		return true
+	case WarningsTruncated:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DatabaseQueryFilterOperator.
 const (
-	DatabaseQueryFilterOperatorEq    DatabaseQueryFilterOperator = "eq"
-	DatabaseQueryFilterOperatorGt    DatabaseQueryFilterOperator = "gt"
-	DatabaseQueryFilterOperatorGte   DatabaseQueryFilterOperator = "gte"
-	DatabaseQueryFilterOperatorIlike DatabaseQueryFilterOperator = "ilike"
-	DatabaseQueryFilterOperatorIn    DatabaseQueryFilterOperator = "in"
-	DatabaseQueryFilterOperatorIs    DatabaseQueryFilterOperator = "is"
-	DatabaseQueryFilterOperatorLike  DatabaseQueryFilterOperator = "like"
-	DatabaseQueryFilterOperatorLt    DatabaseQueryFilterOperator = "lt"
-	DatabaseQueryFilterOperatorLte   DatabaseQueryFilterOperator = "lte"
-	DatabaseQueryFilterOperatorNeq   DatabaseQueryFilterOperator = "neq"
+	Eq    DatabaseQueryFilterOperator = "eq"
+	Gt    DatabaseQueryFilterOperator = "gt"
+	Gte   DatabaseQueryFilterOperator = "gte"
+	Ilike DatabaseQueryFilterOperator = "ilike"
+	In    DatabaseQueryFilterOperator = "in"
+	Is    DatabaseQueryFilterOperator = "is"
+	Like  DatabaseQueryFilterOperator = "like"
+	Lt    DatabaseQueryFilterOperator = "lt"
+	Lte   DatabaseQueryFilterOperator = "lte"
+	Neq   DatabaseQueryFilterOperator = "neq"
 )
 
 // Valid indicates whether the value is a known member of the DatabaseQueryFilterOperator enum.
 func (e DatabaseQueryFilterOperator) Valid() bool {
 	switch e {
-	case DatabaseQueryFilterOperatorEq:
+	case Eq:
 		return true
-	case DatabaseQueryFilterOperatorGt:
+	case Gt:
 		return true
-	case DatabaseQueryFilterOperatorGte:
+	case Gte:
 		return true
-	case DatabaseQueryFilterOperatorIlike:
+	case Ilike:
 		return true
-	case DatabaseQueryFilterOperatorIn:
+	case In:
 		return true
-	case DatabaseQueryFilterOperatorIs:
+	case Is:
 		return true
-	case DatabaseQueryFilterOperatorLike:
+	case Like:
 		return true
-	case DatabaseQueryFilterOperatorLt:
+	case Lt:
 		return true
-	case DatabaseQueryFilterOperatorLte:
+	case Lte:
 		return true
-	case DatabaseQueryFilterOperatorNeq:
+	case Neq:
 		return true
 	default:
 		return false
@@ -771,6 +1005,51 @@ func (e DatabaseStatsGranularity) Valid() bool {
 	case DatabaseStatsGranularityHourly:
 		return true
 	case DatabaseStatsGranularityMonthly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DefaultEmailTemplateType.
+const (
+	DefaultEmailTemplateConfirmation    DefaultEmailTemplateType = "confirmation"
+	DefaultEmailTemplatePasswordChanged DefaultEmailTemplateType = "password_changed"
+	DefaultEmailTemplatePasswordReset   DefaultEmailTemplateType = "password_reset"
+	DefaultEmailTemplateWelcome         DefaultEmailTemplateType = "welcome"
+)
+
+// Valid indicates whether the value is a known member of the DefaultEmailTemplateType enum.
+func (e DefaultEmailTemplateType) Valid() bool {
+	switch e {
+	case DefaultEmailTemplateConfirmation:
+		return true
+	case DefaultEmailTemplatePasswordChanged:
+		return true
+	case DefaultEmailTemplatePasswordReset:
+		return true
+	case DefaultEmailTemplateWelcome:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeploymentCommitVerification.
+const (
+	DeploymentCommitVerificationFiles      DeploymentCommitVerification = "files"
+	DeploymentCommitVerificationNone       DeploymentCommitVerification = "none"
+	DeploymentCommitVerificationRepository DeploymentCommitVerification = "repository"
+)
+
+// Valid indicates whether the value is a known member of the DeploymentCommitVerification enum.
+func (e DeploymentCommitVerification) Valid() bool {
+	switch e {
+	case DeploymentCommitVerificationFiles:
+		return true
+	case DeploymentCommitVerificationNone:
+		return true
+	case DeploymentCommitVerificationRepository:
 		return true
 	default:
 		return false
@@ -1757,16 +2036,16 @@ func (e FunctionDeploymentStatus) Valid() bool {
 
 // Defines values for FunctionHTTPAuthMode.
 const (
-	None    FunctionHTTPAuthMode = "none"
-	Volcano FunctionHTTPAuthMode = "volcano"
+	FunctionHTTPAuthModeNone    FunctionHTTPAuthMode = "none"
+	FunctionHTTPAuthModeVolcano FunctionHTTPAuthMode = "volcano"
 )
 
 // Valid indicates whether the value is a known member of the FunctionHTTPAuthMode enum.
 func (e FunctionHTTPAuthMode) Valid() bool {
 	switch e {
-	case None:
+	case FunctionHTTPAuthModeNone:
 		return true
-	case Volcano:
+	case FunctionHTTPAuthModeVolcano:
 		return true
 	default:
 		return false
@@ -1793,16 +2072,16 @@ func (e FunctionInvocationMode) Valid() bool {
 
 // Defines values for FunctionKind.
 const (
-	Durable  FunctionKind = "durable"
-	Standard FunctionKind = "standard"
+	FunctionKindDurable  FunctionKind = "durable"
+	FunctionKindStandard FunctionKind = "standard"
 )
 
 // Valid indicates whether the value is a known member of the FunctionKind enum.
 func (e FunctionKind) Valid() bool {
 	switch e {
-	case Durable:
+	case FunctionKindDurable:
 		return true
-	case Standard:
+	case FunctionKindStandard:
 		return true
 	default:
 		return false
@@ -1899,6 +2178,36 @@ func (e FunctionVisibility) Valid() bool {
 	}
 }
 
+// Defines values for GitDeploymentRunStatus.
+const (
+	GitDeploymentRunStatusFailed     GitDeploymentRunStatus = "failed"
+	GitDeploymentRunStatusPending    GitDeploymentRunStatus = "pending"
+	GitDeploymentRunStatusRunning    GitDeploymentRunStatus = "running"
+	GitDeploymentRunStatusSkipped    GitDeploymentRunStatus = "skipped"
+	GitDeploymentRunStatusSucceeded  GitDeploymentRunStatus = "succeeded"
+	GitDeploymentRunStatusSuperseded GitDeploymentRunStatus = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the GitDeploymentRunStatus enum.
+func (e GitDeploymentRunStatus) Valid() bool {
+	switch e {
+	case GitDeploymentRunStatusFailed:
+		return true
+	case GitDeploymentRunStatusPending:
+		return true
+	case GitDeploymentRunStatusRunning:
+		return true
+	case GitDeploymentRunStatusSkipped:
+		return true
+	case GitDeploymentRunStatusSucceeded:
+		return true
+	case GitDeploymentRunStatusSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HostedAuthPageType.
 const (
 	HostedAuthPageTypeDevice         HostedAuthPageType = "device"
@@ -1971,6 +2280,72 @@ func (e ImportProvider) Valid() bool {
 	}
 }
 
+// Defines values for IssueSource.
+const (
+	IssueSourceCodeQuality IssueSource = "code_quality"
+	IssueSourceReport      IssueSource = "report"
+	IssueSourceRuntime     IssueSource = "runtime"
+)
+
+// Valid indicates whether the value is a known member of the IssueSource enum.
+func (e IssueSource) Valid() bool {
+	switch e {
+	case IssueSourceCodeQuality:
+		return true
+	case IssueSourceReport:
+		return true
+	case IssueSourceRuntime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IssueFindingSeverity.
+const (
+	Critical IssueFindingSeverity = "critical"
+	Major    IssueFindingSeverity = "major"
+	Minor    IssueFindingSeverity = "minor"
+	Nit      IssueFindingSeverity = "nit"
+)
+
+// Valid indicates whether the value is a known member of the IssueFindingSeverity enum.
+func (e IssueFindingSeverity) Valid() bool {
+	switch e {
+	case Critical:
+		return true
+	case Major:
+		return true
+	case Minor:
+		return true
+	case Nit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IssueStatus.
+const (
+	IssueStatusIgnored  IssueStatus = "ignored"
+	IssueStatusOpen     IssueStatus = "open"
+	IssueStatusResolved IssueStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the IssueStatus enum.
+func (e IssueStatus) Valid() bool {
+	switch e {
+	case IssueStatusIgnored:
+		return true
+	case IssueStatusOpen:
+		return true
+	case IssueStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowAutonomy.
 const (
 	DiagnoseOnly LavaflowAutonomy = "diagnose_only"
@@ -2037,6 +2412,27 @@ func (e LavaflowDraftReason) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowInvolvedResourceRoles.
+const (
+	LavaflowInvolvedResourceRolesCause LavaflowInvolvedResourceRoles = "cause"
+	LavaflowInvolvedResourceRolesFix   LavaflowInvolvedResourceRoles = "fix"
+	LavaflowInvolvedResourceRolesIssue LavaflowInvolvedResourceRoles = "issue"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowInvolvedResourceRoles enum.
+func (e LavaflowInvolvedResourceRoles) Valid() bool {
+	switch e {
+	case LavaflowInvolvedResourceRolesCause:
+		return true
+	case LavaflowInvolvedResourceRolesFix:
+		return true
+	case LavaflowInvolvedResourceRolesIssue:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowMergeStatus.
 const (
 	LavaflowMergeStatusHeld             LavaflowMergeStatus = "held"
@@ -2090,6 +2486,7 @@ const (
 	LavaflowResourceReferenceTypeDurableFunction LavaflowResourceReferenceType = "durable_function"
 	LavaflowResourceReferenceTypeFrontend        LavaflowResourceReferenceType = "frontend"
 	LavaflowResourceReferenceTypeFunction        LavaflowResourceReferenceType = "function"
+	LavaflowResourceReferenceTypeProject         LavaflowResourceReferenceType = "project"
 )
 
 // Valid indicates whether the value is a known member of the LavaflowResourceReferenceType enum.
@@ -2100,6 +2497,8 @@ func (e LavaflowResourceReferenceType) Valid() bool {
 	case LavaflowResourceReferenceTypeFrontend:
 		return true
 	case LavaflowResourceReferenceTypeFunction:
+		return true
+	case LavaflowResourceReferenceTypeProject:
 		return true
 	default:
 		return false
@@ -2124,6 +2523,123 @@ func (e LavaflowReviewVerdict) Valid() bool {
 	case LavaflowReviewVerdictError:
 		return true
 	case LavaflowReviewVerdictPassed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowReviewStop.
+const (
+	LavaflowReviewStopBudgetExhausted LavaflowReviewStop = "budget_exhausted"
+	LavaflowReviewStopContextLimit    LavaflowReviewStop = "context_limit"
+	LavaflowReviewStopNoRevision      LavaflowReviewStop = "no_revision"
+	LavaflowReviewStopReviewersFailed LavaflowReviewStop = "reviewers_failed"
+	LavaflowReviewStopRounds          LavaflowReviewStop = "rounds"
+	LavaflowReviewStopTimedOut        LavaflowReviewStop = "timed_out"
+	LavaflowReviewStopTooFewReviewers LavaflowReviewStop = "too_few_reviewers"
+	LavaflowReviewStopUnreadable      LavaflowReviewStop = "unreadable"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowReviewStop enum.
+func (e LavaflowReviewStop) Valid() bool {
+	switch e {
+	case LavaflowReviewStopBudgetExhausted:
+		return true
+	case LavaflowReviewStopContextLimit:
+		return true
+	case LavaflowReviewStopNoRevision:
+		return true
+	case LavaflowReviewStopReviewersFailed:
+		return true
+	case LavaflowReviewStopRounds:
+		return true
+	case LavaflowReviewStopTimedOut:
+		return true
+	case LavaflowReviewStopTooFewReviewers:
+		return true
+	case LavaflowReviewStopUnreadable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowRunCategory.
+const (
+	LavaflowRunCategoryBug           LavaflowRunCategory = "bug"
+	LavaflowRunCategoryConfiguration LavaflowRunCategory = "configuration"
+	LavaflowRunCategoryDependency    LavaflowRunCategory = "dependency"
+	LavaflowRunCategoryExternal      LavaflowRunCategory = "external"
+	LavaflowRunCategoryImprovement   LavaflowRunCategory = "improvement"
+	LavaflowRunCategoryPerformance   LavaflowRunCategory = "performance"
+	LavaflowRunCategorySecurity      LavaflowRunCategory = "security"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowRunCategory enum.
+func (e LavaflowRunCategory) Valid() bool {
+	switch e {
+	case LavaflowRunCategoryBug:
+		return true
+	case LavaflowRunCategoryConfiguration:
+		return true
+	case LavaflowRunCategoryDependency:
+		return true
+	case LavaflowRunCategoryExternal:
+		return true
+	case LavaflowRunCategoryImprovement:
+		return true
+	case LavaflowRunCategoryPerformance:
+		return true
+	case LavaflowRunCategorySecurity:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowRunMode.
+const (
+	LavaflowRunModeCodeQuality LavaflowRunMode = "code_quality"
+	LavaflowRunModeLive        LavaflowRunMode = "live"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowRunMode enum.
+func (e LavaflowRunMode) Valid() bool {
+	switch e {
+	case LavaflowRunModeCodeQuality:
+		return true
+	case LavaflowRunModeLive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowRunProgressStage.
+const (
+	LavaflowRunProgressStageDiagnosing       LavaflowRunProgressStage = "diagnosing"
+	LavaflowRunProgressStageFixing           LavaflowRunProgressStage = "fixing"
+	LavaflowRunProgressStageMergeQueued      LavaflowRunProgressStage = "merge_queued"
+	LavaflowRunProgressStageQueued           LavaflowRunProgressStage = "queued"
+	LavaflowRunProgressStageReviewing        LavaflowRunProgressStage = "reviewing"
+	LavaflowRunProgressStageWaitingForChecks LavaflowRunProgressStage = "waiting_for_checks"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowRunProgressStage enum.
+func (e LavaflowRunProgressStage) Valid() bool {
+	switch e {
+	case LavaflowRunProgressStageDiagnosing:
+		return true
+	case LavaflowRunProgressStageFixing:
+		return true
+	case LavaflowRunProgressStageMergeQueued:
+		return true
+	case LavaflowRunProgressStageQueued:
+		return true
+	case LavaflowRunProgressStageReviewing:
+		return true
+	case LavaflowRunProgressStageWaitingForChecks:
 		return true
 	default:
 		return false
@@ -2166,24 +2682,293 @@ func (e LavaflowRunStatus) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowScanSource.
+const (
+	Deployment LavaflowScanSource = "deployment"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowScanSource enum.
+func (e LavaflowScanSource) Valid() bool {
+	switch e {
+	case Deployment:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowScanResourceResourceType.
+const (
+	LavaflowScanResourceResourceTypeFrontend LavaflowScanResourceResourceType = "frontend"
+	LavaflowScanResourceResourceTypeFunction LavaflowScanResourceResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowScanResourceResourceType enum.
+func (e LavaflowScanResourceResourceType) Valid() bool {
+	switch e {
+	case LavaflowScanResourceResourceTypeFrontend:
+		return true
+	case LavaflowScanResourceResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowScanStatus.
+const (
+	LavaflowScanStatusCancelled LavaflowScanStatus = "cancelled"
+	LavaflowScanStatusCompleted LavaflowScanStatus = "completed"
+	LavaflowScanStatusFailed    LavaflowScanStatus = "failed"
+	LavaflowScanStatusRunning   LavaflowScanStatus = "running"
+	LavaflowScanStatusWaiting   LavaflowScanStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowScanStatus enum.
+func (e LavaflowScanStatus) Valid() bool {
+	switch e {
+	case LavaflowScanStatusCancelled:
+		return true
+	case LavaflowScanStatusCompleted:
+		return true
+	case LavaflowScanStatusFailed:
+		return true
+	case LavaflowScanStatusRunning:
+		return true
+	case LavaflowScanStatusWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillErrorRules.
+const (
+	Characters     LavaflowSkillErrorRules = "characters"
+	Credential     LavaflowSkillErrorRules = "credential"
+	CredentialScan LavaflowSkillErrorRules = "credential_scan"
+	Directive      LavaflowSkillErrorRules = "directive"
+	Email          LavaflowSkillErrorRules = "email"
+	Link           LavaflowSkillErrorRules = "link"
+	Policy         LavaflowSkillErrorRules = "policy"
+	ReadValue      LavaflowSkillErrorRules = "read_value"
+	Sanitizer      LavaflowSkillErrorRules = "sanitizer"
+	Secret         LavaflowSkillErrorRules = "secret"
+	Shape          LavaflowSkillErrorRules = "shape"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillErrorRules enum.
+func (e LavaflowSkillErrorRules) Valid() bool {
+	switch e {
+	case Characters:
+		return true
+	case Credential:
+		return true
+	case CredentialScan:
+		return true
+	case Directive:
+		return true
+	case Email:
+		return true
+	case Link:
+		return true
+	case Policy:
+		return true
+	case ReadValue:
+		return true
+	case Sanitizer:
+		return true
+	case Secret:
+		return true
+	case Shape:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillLearning.
+const (
+	LavaflowSkillLearningAuto   LavaflowSkillLearning = "auto"
+	LavaflowSkillLearningOff    LavaflowSkillLearning = "off"
+	LavaflowSkillLearningReview LavaflowSkillLearning = "review"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillLearning enum.
+func (e LavaflowSkillLearning) Valid() bool {
+	switch e {
+	case LavaflowSkillLearningAuto:
+		return true
+	case LavaflowSkillLearningOff:
+		return true
+	case LavaflowSkillLearningReview:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillRetiredReason.
+const (
+	LavaflowSkillRetiredReasonGate              LavaflowSkillRetiredReason = "gate"
+	LavaflowSkillRetiredReasonHarmful           LavaflowSkillRetiredReason = "harmful"
+	LavaflowSkillRetiredReasonOwner             LavaflowSkillRetiredReason = "owner"
+	LavaflowSkillRetiredReasonRepositoryChanged LavaflowSkillRetiredReason = "repository_changed"
+	LavaflowSkillRetiredReasonStale             LavaflowSkillRetiredReason = "stale"
+	LavaflowSkillRetiredReasonUnused            LavaflowSkillRetiredReason = "unused"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillRetiredReason enum.
+func (e LavaflowSkillRetiredReason) Valid() bool {
+	switch e {
+	case LavaflowSkillRetiredReasonGate:
+		return true
+	case LavaflowSkillRetiredReasonHarmful:
+		return true
+	case LavaflowSkillRetiredReasonOwner:
+		return true
+	case LavaflowSkillRetiredReasonRepositoryChanged:
+		return true
+	case LavaflowSkillRetiredReasonStale:
+		return true
+	case LavaflowSkillRetiredReasonUnused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillScope.
+const (
+	LavaflowSkillScopeProject LavaflowSkillScope = "project"
+	LavaflowSkillScopeVolcano LavaflowSkillScope = "volcano"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillScope enum.
+func (e LavaflowSkillScope) Valid() bool {
+	switch e {
+	case LavaflowSkillScopeProject:
+		return true
+	case LavaflowSkillScopeVolcano:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillSourceAct.
+const (
+	LavaflowSkillSourceActComment LavaflowSkillSourceAct = "comment"
+	LavaflowSkillSourceActCommit  LavaflowSkillSourceAct = "commit"
+	LavaflowSkillSourceActReview  LavaflowSkillSourceAct = "review"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillSourceAct enum.
+func (e LavaflowSkillSourceAct) Valid() bool {
+	switch e {
+	case LavaflowSkillSourceActComment:
+		return true
+	case LavaflowSkillSourceActCommit:
+		return true
+	case LavaflowSkillSourceActReview:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillSourceKind.
+const (
+	Person LavaflowSkillSourceKind = "person"
+	Run    LavaflowSkillSourceKind = "run"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillSourceKind enum.
+func (e LavaflowSkillSourceKind) Valid() bool {
+	switch e {
+	case Person:
+		return true
+	case Run:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillStatus.
+const (
+	LavaflowSkillStatusActive   LavaflowSkillStatus = "active"
+	LavaflowSkillStatusProposed LavaflowSkillStatus = "proposed"
+	LavaflowSkillStatusRetired  LavaflowSkillStatus = "retired"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillStatus enum.
+func (e LavaflowSkillStatus) Valid() bool {
+	switch e {
+	case LavaflowSkillStatusActive:
+		return true
+	case LavaflowSkillStatusProposed:
+		return true
+	case LavaflowSkillStatusRetired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowSkillUpdateStatus.
+const (
+	LavaflowSkillUpdateStatusActive  LavaflowSkillUpdateStatus = "active"
+	LavaflowSkillUpdateStatusRetired LavaflowSkillUpdateStatus = "retired"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowSkillUpdateStatus enum.
+func (e LavaflowSkillUpdateStatus) Valid() bool {
+	switch e {
+	case LavaflowSkillUpdateStatusActive:
+		return true
+	case LavaflowSkillUpdateStatusRetired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowSkipReason.
 const (
-	LavaflowSkipReasonLowConfidence        LavaflowSkipReason = "low_confidence"
-	LavaflowSkipReasonNoPatch              LavaflowSkipReason = "no_patch"
-	LavaflowSkipReasonNotFixable           LavaflowSkipReason = "not_fixable"
-	LavaflowSkipReasonPermissionMissing    LavaflowSkipReason = "permission_missing"
-	LavaflowSkipReasonPossibleCredential   LavaflowSkipReason = "possible_credential"
-	LavaflowSkipReasonPossiblePersonalData LavaflowSkipReason = "possible_personal_data"
-	LavaflowSkipReasonPublishFailed        LavaflowSkipReason = "publish_failed"
-	LavaflowSkipReasonPullRequestOpen      LavaflowSkipReason = "pull_request_open"
-	LavaflowSkipReasonRepositoryChanged    LavaflowSkipReason = "repository_changed"
-	LavaflowSkipReasonSourceUnavailable    LavaflowSkipReason = "source_unavailable"
-	LavaflowSkipReasonUngatedWorkflows     LavaflowSkipReason = "ungated_workflows"
+	LavaflowSkipReasonConventionUnsatisfiable LavaflowSkipReason = "convention_unsatisfiable"
+	LavaflowSkipReasonDiagnoseOnly            LavaflowSkipReason = "diagnose_only"
+	LavaflowSkipReasonDuplicateInRepository   LavaflowSkipReason = "duplicate_in_repository"
+	LavaflowSkipReasonLineageCap              LavaflowSkipReason = "lineage_cap"
+	LavaflowSkipReasonLineageHeld             LavaflowSkipReason = "lineage_held"
+	LavaflowSkipReasonLowConfidence           LavaflowSkipReason = "low_confidence"
+	LavaflowSkipReasonNoPatch                 LavaflowSkipReason = "no_patch"
+	LavaflowSkipReasonNotFixable              LavaflowSkipReason = "not_fixable"
+	LavaflowSkipReasonPermissionMissing       LavaflowSkipReason = "permission_missing"
+	LavaflowSkipReasonPossibleCredential      LavaflowSkipReason = "possible_credential"
+	LavaflowSkipReasonPossiblePersonalData    LavaflowSkipReason = "possible_personal_data"
+	LavaflowSkipReasonPublishFailed           LavaflowSkipReason = "publish_failed"
+	LavaflowSkipReasonPullRequestOpen         LavaflowSkipReason = "pull_request_open"
+	LavaflowSkipReasonRepositoryChanged       LavaflowSkipReason = "repository_changed"
+	LavaflowSkipReasonReviewUnresolved        LavaflowSkipReason = "review_unresolved"
+	LavaflowSkipReasonSecurityFinding         LavaflowSkipReason = "security_finding"
+	LavaflowSkipReasonSourceUnavailable       LavaflowSkipReason = "source_unavailable"
+	LavaflowSkipReasonUngatedWorkflows        LavaflowSkipReason = "ungated_workflows"
 )
 
 // Valid indicates whether the value is a known member of the LavaflowSkipReason enum.
 func (e LavaflowSkipReason) Valid() bool {
 	switch e {
+	case LavaflowSkipReasonConventionUnsatisfiable:
+		return true
+	case LavaflowSkipReasonDiagnoseOnly:
+		return true
+	case LavaflowSkipReasonDuplicateInRepository:
+		return true
+	case LavaflowSkipReasonLineageCap:
+		return true
+	case LavaflowSkipReasonLineageHeld:
+		return true
 	case LavaflowSkipReasonLowConfidence:
 		return true
 	case LavaflowSkipReasonNoPatch:
@@ -2201,6 +2986,10 @@ func (e LavaflowSkipReason) Valid() bool {
 	case LavaflowSkipReasonPullRequestOpen:
 		return true
 	case LavaflowSkipReasonRepositoryChanged:
+		return true
+	case LavaflowSkipReasonReviewUnresolved:
+		return true
+	case LavaflowSkipReasonSecurityFinding:
 		return true
 	case LavaflowSkipReasonSourceUnavailable:
 		return true
@@ -3024,6 +3813,30 @@ func (e ProjectFrontendCustomDomainVerificationStatus) Valid() bool {
 	}
 }
 
+// Defines values for ProjectGitOwnerPushReason.
+const (
+	ProjectGitOwnerPushReasonNoPushPermission       ProjectGitOwnerPushReason = "no_push_permission"
+	ProjectGitOwnerPushReasonOwnerNotConnected      ProjectGitOwnerPushReason = "owner_not_connected"
+	ProjectGitOwnerPushReasonOwnerReconnectRequired ProjectGitOwnerPushReason = "owner_reconnect_required"
+	ProjectGitOwnerPushReasonRepositoryAccessLost   ProjectGitOwnerPushReason = "repository_access_lost"
+)
+
+// Valid indicates whether the value is a known member of the ProjectGitOwnerPushReason enum.
+func (e ProjectGitOwnerPushReason) Valid() bool {
+	switch e {
+	case ProjectGitOwnerPushReasonNoPushPermission:
+		return true
+	case ProjectGitOwnerPushReasonOwnerNotConnected:
+		return true
+	case ProjectGitOwnerPushReasonOwnerReconnectRequired:
+		return true
+	case ProjectGitOwnerPushReasonRepositoryAccessLost:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProjectHealthCategory.
 const (
 	Lifecycle ProjectHealthCategory = "lifecycle"
@@ -3068,16 +3881,19 @@ func (e ProjectHealthDataStatus) Valid() bool {
 
 // Defines values for ProjectHealthResourceType.
 const (
-	ProjectHealthResourceTypeDatabase ProjectHealthResourceType = "database"
-	ProjectHealthResourceTypeFrontend ProjectHealthResourceType = "frontend"
-	ProjectHealthResourceTypeFunction ProjectHealthResourceType = "function"
-	ProjectHealthResourceTypeProject  ProjectHealthResourceType = "project"
+	ProjectHealthResourceTypeDatabase       ProjectHealthResourceType = "database"
+	ProjectHealthResourceTypeDatabaseBranch ProjectHealthResourceType = "database_branch"
+	ProjectHealthResourceTypeFrontend       ProjectHealthResourceType = "frontend"
+	ProjectHealthResourceTypeFunction       ProjectHealthResourceType = "function"
+	ProjectHealthResourceTypeProject        ProjectHealthResourceType = "project"
 )
 
 // Valid indicates whether the value is a known member of the ProjectHealthResourceType enum.
 func (e ProjectHealthResourceType) Valid() bool {
 	switch e {
 	case ProjectHealthResourceTypeDatabase:
+		return true
+	case ProjectHealthResourceTypeDatabaseBranch:
 		return true
 	case ProjectHealthResourceTypeFrontend:
 		return true
@@ -3092,10 +3908,12 @@ func (e ProjectHealthResourceType) Valid() bool {
 
 // Defines values for ProjectHealthStatus.
 const (
-	ProjectHealthStatusCritical ProjectHealthStatus = "critical"
-	ProjectHealthStatusDegraded ProjectHealthStatus = "degraded"
-	ProjectHealthStatusHealthy  ProjectHealthStatus = "healthy"
-	ProjectHealthStatusUnknown  ProjectHealthStatus = "unknown"
+	ProjectHealthStatusCritical       ProjectHealthStatus = "critical"
+	ProjectHealthStatusDegraded       ProjectHealthStatus = "degraded"
+	ProjectHealthStatusEmpty          ProjectHealthStatus = "empty"
+	ProjectHealthStatusHealthy        ProjectHealthStatus = "healthy"
+	ProjectHealthStatusNeedsAttention ProjectHealthStatus = "needs_attention"
+	ProjectHealthStatusUnknown        ProjectHealthStatus = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the ProjectHealthStatus enum.
@@ -3105,7 +3923,11 @@ func (e ProjectHealthStatus) Valid() bool {
 		return true
 	case ProjectHealthStatusDegraded:
 		return true
+	case ProjectHealthStatusEmpty:
+		return true
 	case ProjectHealthStatusHealthy:
+		return true
+	case ProjectHealthStatusNeedsAttention:
 		return true
 	case ProjectHealthStatusUnknown:
 		return true
@@ -3305,19 +4127,19 @@ func (e ProjectImportTarget) Valid() bool {
 
 // Defines values for ProjectMetricsDataStatus.
 const (
-	ProjectMetricsDataStatusComplete ProjectMetricsDataStatus = "complete"
-	ProjectMetricsDataStatusNoData   ProjectMetricsDataStatus = "no_data"
-	ProjectMetricsDataStatusPartial  ProjectMetricsDataStatus = "partial"
+	Complete ProjectMetricsDataStatus = "complete"
+	NoData   ProjectMetricsDataStatus = "no_data"
+	Partial  ProjectMetricsDataStatus = "partial"
 )
 
 // Valid indicates whether the value is a known member of the ProjectMetricsDataStatus enum.
 func (e ProjectMetricsDataStatus) Valid() bool {
 	switch e {
-	case ProjectMetricsDataStatusComplete:
+	case Complete:
 		return true
-	case ProjectMetricsDataStatusNoData:
+	case NoData:
 		return true
-	case ProjectMetricsDataStatusPartial:
+	case Partial:
 		return true
 	default:
 		return false
@@ -3507,6 +4329,21 @@ func (e ProjectTemplateInstallationStatus) Valid() bool {
 	}
 }
 
+// Defines values for ProjectTemplateInstallationSourceKind.
+const (
+	ProjectTemplateInstallationSourceKindShareRelease ProjectTemplateInstallationSourceKind = "share_release"
+)
+
+// Valid indicates whether the value is a known member of the ProjectTemplateInstallationSourceKind enum.
+func (e ProjectTemplateInstallationSourceKind) Valid() bool {
+	switch e {
+	case ProjectTemplateInstallationSourceKindShareRelease:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PublishSandboxPresetRequestMemoryMb.
 const (
 	PublishSandboxPresetRequestMemoryMbN1024 PublishSandboxPresetRequestMemoryMb = 1024
@@ -3579,6 +4416,72 @@ func (e SandboxExecutionRequestMemoryMb) Valid() bool {
 	case SandboxExecutionRequestMemoryMbN1024:
 		return true
 	case SandboxExecutionRequestMemoryMbN2048:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxFileEntrySha256Skipped.
+const (
+	Budget     SandboxFileEntrySha256Skipped = "budget"
+	Changing   SandboxFileEntrySha256Skipped = "changing"
+	Unreadable SandboxFileEntrySha256Skipped = "unreadable"
+)
+
+// Valid indicates whether the value is a known member of the SandboxFileEntrySha256Skipped enum.
+func (e SandboxFileEntrySha256Skipped) Valid() bool {
+	switch e {
+	case Budget:
+		return true
+	case Changing:
+		return true
+	case Unreadable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxFileEntryType.
+const (
+	Directory SandboxFileEntryType = "directory"
+	File      SandboxFileEntryType = "file"
+	Other     SandboxFileEntryType = "other"
+	Symlink   SandboxFileEntryType = "symlink"
+)
+
+// Valid indicates whether the value is a known member of the SandboxFileEntryType enum.
+func (e SandboxFileEntryType) Valid() bool {
+	switch e {
+	case Directory:
+		return true
+	case File:
+		return true
+	case Other:
+		return true
+	case Symlink:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxLimitsApplied.
+const (
+	SandboxLimitsEnforced    SandboxLimitsApplied = "enforced"
+	SandboxLimitsNotEnforced SandboxLimitsApplied = "not_enforced"
+	SandboxLimitsUnknown     SandboxLimitsApplied = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SandboxLimitsApplied enum.
+func (e SandboxLimitsApplied) Valid() bool {
+	switch e {
+	case SandboxLimitsEnforced:
+		return true
+	case SandboxLimitsNotEnforced:
+		return true
+	case SandboxLimitsUnknown:
 		return true
 	default:
 		return false
@@ -3660,6 +4563,63 @@ func (e SandboxSessionState) Valid() bool {
 	}
 }
 
+// Defines values for SandboxSessionNetworkApplied.
+const (
+	SandboxSessionNetworkAppliedDefault SandboxSessionNetworkApplied = "default"
+	SandboxSessionNetworkAppliedDenyAll SandboxSessionNetworkApplied = "deny_all"
+	SandboxSessionNetworkAppliedUnknown SandboxSessionNetworkApplied = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SandboxSessionNetworkApplied enum.
+func (e SandboxSessionNetworkApplied) Valid() bool {
+	switch e {
+	case SandboxSessionNetworkAppliedDefault:
+		return true
+	case SandboxSessionNetworkAppliedDenyAll:
+		return true
+	case SandboxSessionNetworkAppliedUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxSessionNetworkEgress.
+const (
+	SandboxSessionNetworkEgressDefault SandboxSessionNetworkEgress = "default"
+	SandboxSessionNetworkEgressDenyAll SandboxSessionNetworkEgress = "deny_all"
+)
+
+// Valid indicates whether the value is a known member of the SandboxSessionNetworkEgress enum.
+func (e SandboxSessionNetworkEgress) Valid() bool {
+	switch e {
+	case SandboxSessionNetworkEgressDefault:
+		return true
+	case SandboxSessionNetworkEgressDenyAll:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxSessionNetworkRequestEgress.
+const (
+	SandboxSessionNetworkRequestEgressDefault SandboxSessionNetworkRequestEgress = "default"
+	SandboxSessionNetworkRequestEgressDenyAll SandboxSessionNetworkRequestEgress = "deny_all"
+)
+
+// Valid indicates whether the value is a known member of the SandboxSessionNetworkRequestEgress enum.
+func (e SandboxSessionNetworkRequestEgress) Valid() bool {
+	switch e {
+	case SandboxSessionNetworkRequestEgressDefault:
+		return true
+	case SandboxSessionNetworkRequestEgressDenyAll:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxTemplateStatus.
 const (
 	SandboxTemplateStatusDeleting    SandboxTemplateStatus = "deleting"
@@ -3708,6 +4668,177 @@ func (e SchedulerFailureNotifyOn) Valid() bool {
 	case SchedulerFailureNotifyOnConsecutiveFailures:
 		return true
 	case SchedulerFailureNotifyOnFirstFailure:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShareStatus.
+const (
+	ShareStatusActive   ShareStatus = "active"
+	ShareStatusDisabled ShareStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the ShareStatus enum.
+func (e ShareStatus) Valid() bool {
+	switch e {
+	case ShareStatusActive:
+		return true
+	case ShareStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShareDailyCountKind.
+const (
+	ShareDailyCountKindAccepted ShareDailyCountKind = "accepted"
+	ShareDailyCountKindClick    ShareDailyCountKind = "click"
+	ShareDailyCountKindConfirm  ShareDailyCountKind = "confirm"
+	ShareDailyCountKindFailed   ShareDailyCountKind = "failed"
+	ShareDailyCountKindPreview  ShareDailyCountKind = "preview"
+	ShareDailyCountKindReady    ShareDailyCountKind = "ready"
+)
+
+// Valid indicates whether the value is a known member of the ShareDailyCountKind enum.
+func (e ShareDailyCountKind) Valid() bool {
+	switch e {
+	case ShareDailyCountKindAccepted:
+		return true
+	case ShareDailyCountKindClick:
+		return true
+	case ShareDailyCountKindConfirm:
+		return true
+	case ShareDailyCountKindFailed:
+		return true
+	case ShareDailyCountKindPreview:
+		return true
+	case ShareDailyCountKindReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShareDraftChangedErrorCode.
+const (
+	DraftChanged ShareDraftChangedErrorCode = "draft_changed"
+)
+
+// Valid indicates whether the value is a known member of the ShareDraftChangedErrorCode enum.
+func (e ShareDraftChangedErrorCode) Valid() bool {
+	switch e {
+	case DraftChanged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShareKindCountKind.
+const (
+	ShareKindCountKindAccepted ShareKindCountKind = "accepted"
+	ShareKindCountKindClick    ShareKindCountKind = "click"
+	ShareKindCountKindConfirm  ShareKindCountKind = "confirm"
+	ShareKindCountKindFailed   ShareKindCountKind = "failed"
+	ShareKindCountKindPreview  ShareKindCountKind = "preview"
+	ShareKindCountKindReady    ShareKindCountKind = "ready"
+)
+
+// Valid indicates whether the value is a known member of the ShareKindCountKind enum.
+func (e ShareKindCountKind) Valid() bool {
+	switch e {
+	case ShareKindCountKindAccepted:
+		return true
+	case ShareKindCountKindClick:
+		return true
+	case ShareKindCountKindConfirm:
+		return true
+	case ShareKindCountKindFailed:
+		return true
+	case ShareKindCountKindPreview:
+		return true
+	case ShareKindCountKindReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShareReleaseFunctionKind.
+const (
+	ShareReleaseFunctionKindDurable  ShareReleaseFunctionKind = "durable"
+	ShareReleaseFunctionKindStandard ShareReleaseFunctionKind = "standard"
+)
+
+// Valid indicates whether the value is a known member of the ShareReleaseFunctionKind enum.
+func (e ShareReleaseFunctionKind) Valid() bool {
+	switch e {
+	case ShareReleaseFunctionKindDurable:
+		return true
+	case ShareReleaseFunctionKindStandard:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShareReleaseFunctionVariableScope.
+const (
+	ShareReleaseFunctionVariableScopeScoped ShareReleaseFunctionVariableScope = "scoped"
+)
+
+// Valid indicates whether the value is a known member of the ShareReleaseFunctionVariableScope enum.
+func (e ShareReleaseFunctionVariableScope) Valid() bool {
+	switch e {
+	case ShareReleaseFunctionVariableScopeScoped:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShareReleaseOmissionKind.
+const (
+	ShareReleaseOmissionKindDatabase         ShareReleaseOmissionKind = "database"
+	ShareReleaseOmissionKindNoSource         ShareReleaseOmissionKind = "no_source"
+	ShareReleaseOmissionKindSandbox          ShareReleaseOmissionKind = "sandbox"
+	ShareReleaseOmissionKindSecretFile       ShareReleaseOmissionKind = "secret_file"
+	ShareReleaseOmissionKindUnsupportedEntry ShareReleaseOmissionKind = "unsupported_entry"
+)
+
+// Valid indicates whether the value is a known member of the ShareReleaseOmissionKind enum.
+func (e ShareReleaseOmissionKind) Valid() bool {
+	switch e {
+	case ShareReleaseOmissionKindDatabase:
+		return true
+	case ShareReleaseOmissionKindNoSource:
+		return true
+	case ShareReleaseOmissionKindSandbox:
+		return true
+	case ShareReleaseOmissionKindSecretFile:
+		return true
+	case ShareReleaseOmissionKindUnsupportedEntry:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShareUpdateRequestStatus.
+const (
+	ShareUpdateRequestStatusActive   ShareUpdateRequestStatus = "active"
+	ShareUpdateRequestStatusDisabled ShareUpdateRequestStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the ShareUpdateRequestStatus enum.
+func (e ShareUpdateRequestStatus) Valid() bool {
+	switch e {
+	case ShareUpdateRequestStatusActive:
+		return true
+	case ShareUpdateRequestStatusDisabled:
 		return true
 	default:
 		return false
@@ -3972,6 +5103,123 @@ func (e DeploymentStatus) Valid() bool {
 	case DeploymentStatusQueued:
 		return true
 	case DeploymentStatusSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowCategoryFilter.
+const (
+	LavaflowCategoryFilterBug           LavaflowCategoryFilter = "bug"
+	LavaflowCategoryFilterConfiguration LavaflowCategoryFilter = "configuration"
+	LavaflowCategoryFilterDependency    LavaflowCategoryFilter = "dependency"
+	LavaflowCategoryFilterExternal      LavaflowCategoryFilter = "external"
+	LavaflowCategoryFilterImprovement   LavaflowCategoryFilter = "improvement"
+	LavaflowCategoryFilterPerformance   LavaflowCategoryFilter = "performance"
+	LavaflowCategoryFilterSecurity      LavaflowCategoryFilter = "security"
+	LavaflowCategoryFilterUncategorized LavaflowCategoryFilter = "uncategorized"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowCategoryFilter enum.
+func (e LavaflowCategoryFilter) Valid() bool {
+	switch e {
+	case LavaflowCategoryFilterBug:
+		return true
+	case LavaflowCategoryFilterConfiguration:
+		return true
+	case LavaflowCategoryFilterDependency:
+		return true
+	case LavaflowCategoryFilterExternal:
+		return true
+	case LavaflowCategoryFilterImprovement:
+		return true
+	case LavaflowCategoryFilterPerformance:
+		return true
+	case LavaflowCategoryFilterSecurity:
+		return true
+	case LavaflowCategoryFilterUncategorized:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowPullRequestStateFilter.
+const (
+	LavaflowPullRequestStateFilterClosed LavaflowPullRequestStateFilter = "closed"
+	LavaflowPullRequestStateFilterMerged LavaflowPullRequestStateFilter = "merged"
+	LavaflowPullRequestStateFilterNone   LavaflowPullRequestStateFilter = "none"
+	LavaflowPullRequestStateFilterOpen   LavaflowPullRequestStateFilter = "open"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowPullRequestStateFilter enum.
+func (e LavaflowPullRequestStateFilter) Valid() bool {
+	switch e {
+	case LavaflowPullRequestStateFilterClosed:
+		return true
+	case LavaflowPullRequestStateFilterMerged:
+		return true
+	case LavaflowPullRequestStateFilterNone:
+		return true
+	case LavaflowPullRequestStateFilterOpen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowRunOrder.
+const (
+	LavaflowRunOrderCreatedAtAsc    LavaflowRunOrder = "created_at.asc"
+	LavaflowRunOrderCreatedAtDesc   LavaflowRunOrder = "created_at.desc"
+	LavaflowRunOrderIssueEventsDesc LavaflowRunOrder = "issue_events.desc"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowRunOrder enum.
+func (e LavaflowRunOrder) Valid() bool {
+	switch e {
+	case LavaflowRunOrderCreatedAtAsc:
+		return true
+	case LavaflowRunOrderCreatedAtDesc:
+		return true
+	case LavaflowRunOrderIssueEventsDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionListSort.
+const (
+	SessionListSortCreatedAt    SessionListSort = "created_at"
+	SessionListSortLastActivity SessionListSort = "last_activity"
+)
+
+// Valid indicates whether the value is a known member of the SessionListSort enum.
+func (e SessionListSort) Valid() bool {
+	switch e {
+	case SessionListSortCreatedAt:
+		return true
+	case SessionListSortLastActivity:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionListStatus.
+const (
+	SessionListStatusActive  SessionListStatus = "active"
+	SessionListStatusExpired SessionListStatus = "expired"
+)
+
+// Valid indicates whether the value is a known member of the SessionListStatus enum.
+func (e SessionListStatus) Valid() bool {
+	switch e {
+	case SessionListStatusActive:
+		return true
+	case SessionListStatusExpired:
 		return true
 	default:
 		return false
@@ -4406,22 +5654,22 @@ func (e ListDeploymentsParamsStatus) Valid() bool {
 
 // Defines values for ListDeploymentsParamsOperation.
 const (
-	Delete   ListDeploymentsParamsOperation = "delete"
-	Deploy   ListDeploymentsParamsOperation = "deploy"
-	Redeploy ListDeploymentsParamsOperation = "redeploy"
-	Update   ListDeploymentsParamsOperation = "update"
+	ListDeploymentsParamsOperationDelete   ListDeploymentsParamsOperation = "delete"
+	ListDeploymentsParamsOperationDeploy   ListDeploymentsParamsOperation = "deploy"
+	ListDeploymentsParamsOperationRedeploy ListDeploymentsParamsOperation = "redeploy"
+	ListDeploymentsParamsOperationUpdate   ListDeploymentsParamsOperation = "update"
 )
 
 // Valid indicates whether the value is a known member of the ListDeploymentsParamsOperation enum.
 func (e ListDeploymentsParamsOperation) Valid() bool {
 	switch e {
-	case Delete:
+	case ListDeploymentsParamsOperationDelete:
 		return true
-	case Deploy:
+	case ListDeploymentsParamsOperationDeploy:
 		return true
-	case Redeploy:
+	case ListDeploymentsParamsOperationRedeploy:
 		return true
-	case Update:
+	case ListDeploymentsParamsOperationUpdate:
 		return true
 	default:
 		return false
@@ -4464,6 +5712,174 @@ func (e GetDefaultEmailTemplateParamsType) Valid() bool {
 	case GetDefaultEmailTemplateParamsTypePasswordReset:
 		return true
 	case GetDefaultEmailTemplateParamsTypeWelcome:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListLavaflowResourcesParamsCategory.
+const (
+	ListLavaflowResourcesParamsCategoryBug           ListLavaflowResourcesParamsCategory = "bug"
+	ListLavaflowResourcesParamsCategoryConfiguration ListLavaflowResourcesParamsCategory = "configuration"
+	ListLavaflowResourcesParamsCategoryDependency    ListLavaflowResourcesParamsCategory = "dependency"
+	ListLavaflowResourcesParamsCategoryExternal      ListLavaflowResourcesParamsCategory = "external"
+	ListLavaflowResourcesParamsCategoryImprovement   ListLavaflowResourcesParamsCategory = "improvement"
+	ListLavaflowResourcesParamsCategoryPerformance   ListLavaflowResourcesParamsCategory = "performance"
+	ListLavaflowResourcesParamsCategorySecurity      ListLavaflowResourcesParamsCategory = "security"
+	ListLavaflowResourcesParamsCategoryUncategorized ListLavaflowResourcesParamsCategory = "uncategorized"
+)
+
+// Valid indicates whether the value is a known member of the ListLavaflowResourcesParamsCategory enum.
+func (e ListLavaflowResourcesParamsCategory) Valid() bool {
+	switch e {
+	case ListLavaflowResourcesParamsCategoryBug:
+		return true
+	case ListLavaflowResourcesParamsCategoryConfiguration:
+		return true
+	case ListLavaflowResourcesParamsCategoryDependency:
+		return true
+	case ListLavaflowResourcesParamsCategoryExternal:
+		return true
+	case ListLavaflowResourcesParamsCategoryImprovement:
+		return true
+	case ListLavaflowResourcesParamsCategoryPerformance:
+		return true
+	case ListLavaflowResourcesParamsCategorySecurity:
+		return true
+	case ListLavaflowResourcesParamsCategoryUncategorized:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListLavaflowRunsParamsCategory.
+const (
+	ListLavaflowRunsParamsCategoryBug           ListLavaflowRunsParamsCategory = "bug"
+	ListLavaflowRunsParamsCategoryConfiguration ListLavaflowRunsParamsCategory = "configuration"
+	ListLavaflowRunsParamsCategoryDependency    ListLavaflowRunsParamsCategory = "dependency"
+	ListLavaflowRunsParamsCategoryExternal      ListLavaflowRunsParamsCategory = "external"
+	ListLavaflowRunsParamsCategoryImprovement   ListLavaflowRunsParamsCategory = "improvement"
+	ListLavaflowRunsParamsCategoryPerformance   ListLavaflowRunsParamsCategory = "performance"
+	ListLavaflowRunsParamsCategorySecurity      ListLavaflowRunsParamsCategory = "security"
+	ListLavaflowRunsParamsCategoryUncategorized ListLavaflowRunsParamsCategory = "uncategorized"
+)
+
+// Valid indicates whether the value is a known member of the ListLavaflowRunsParamsCategory enum.
+func (e ListLavaflowRunsParamsCategory) Valid() bool {
+	switch e {
+	case ListLavaflowRunsParamsCategoryBug:
+		return true
+	case ListLavaflowRunsParamsCategoryConfiguration:
+		return true
+	case ListLavaflowRunsParamsCategoryDependency:
+		return true
+	case ListLavaflowRunsParamsCategoryExternal:
+		return true
+	case ListLavaflowRunsParamsCategoryImprovement:
+		return true
+	case ListLavaflowRunsParamsCategoryPerformance:
+		return true
+	case ListLavaflowRunsParamsCategorySecurity:
+		return true
+	case ListLavaflowRunsParamsCategoryUncategorized:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListLavaflowRunsParamsPullRequestState.
+const (
+	Closed ListLavaflowRunsParamsPullRequestState = "closed"
+	Merged ListLavaflowRunsParamsPullRequestState = "merged"
+	None   ListLavaflowRunsParamsPullRequestState = "none"
+	Open   ListLavaflowRunsParamsPullRequestState = "open"
+)
+
+// Valid indicates whether the value is a known member of the ListLavaflowRunsParamsPullRequestState enum.
+func (e ListLavaflowRunsParamsPullRequestState) Valid() bool {
+	switch e {
+	case Closed:
+		return true
+	case Merged:
+		return true
+	case None:
+		return true
+	case Open:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListLavaflowRunsParamsOrder.
+const (
+	ListLavaflowRunsParamsOrderCreatedAtAsc    ListLavaflowRunsParamsOrder = "created_at.asc"
+	ListLavaflowRunsParamsOrderCreatedAtDesc   ListLavaflowRunsParamsOrder = "created_at.desc"
+	ListLavaflowRunsParamsOrderIssueEventsDesc ListLavaflowRunsParamsOrder = "issue_events.desc"
+)
+
+// Valid indicates whether the value is a known member of the ListLavaflowRunsParamsOrder enum.
+func (e ListLavaflowRunsParamsOrder) Valid() bool {
+	switch e {
+	case ListLavaflowRunsParamsOrderCreatedAtAsc:
+		return true
+	case ListLavaflowRunsParamsOrderCreatedAtDesc:
+		return true
+	case ListLavaflowRunsParamsOrderIssueEventsDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListLavaflowRunsParamsInclude.
+const (
+	Counts ListLavaflowRunsParamsInclude = "counts"
+)
+
+// Valid indicates whether the value is a known member of the ListLavaflowRunsParamsInclude enum.
+func (e ListLavaflowRunsParamsInclude) Valid() bool {
+	switch e {
+	case Counts:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetLavaflowStatsParamsCategory.
+const (
+	Bug           GetLavaflowStatsParamsCategory = "bug"
+	Configuration GetLavaflowStatsParamsCategory = "configuration"
+	Dependency    GetLavaflowStatsParamsCategory = "dependency"
+	External      GetLavaflowStatsParamsCategory = "external"
+	Improvement   GetLavaflowStatsParamsCategory = "improvement"
+	Performance   GetLavaflowStatsParamsCategory = "performance"
+	Security      GetLavaflowStatsParamsCategory = "security"
+	Uncategorized GetLavaflowStatsParamsCategory = "uncategorized"
+)
+
+// Valid indicates whether the value is a known member of the GetLavaflowStatsParamsCategory enum.
+func (e GetLavaflowStatsParamsCategory) Valid() bool {
+	switch e {
+	case Bug:
+		return true
+	case Configuration:
+		return true
+	case Dependency:
+		return true
+	case External:
+		return true
+	case Improvement:
+		return true
+	case Performance:
+		return true
+	case Security:
+		return true
+	case Uncategorized:
 		return true
 	default:
 		return false
@@ -4886,16 +6302,16 @@ func (e CreateFrontendMultipartBodyFramework) Valid() bool {
 
 // Defines values for CreateFrontendMultipartBodyVariableScope.
 const (
-	All    CreateFrontendMultipartBodyVariableScope = "all"
-	Scoped CreateFrontendMultipartBodyVariableScope = "scoped"
+	CreateFrontendMultipartBodyVariableScopeAll    CreateFrontendMultipartBodyVariableScope = "all"
+	CreateFrontendMultipartBodyVariableScopeScoped CreateFrontendMultipartBodyVariableScope = "scoped"
 )
 
 // Valid indicates whether the value is a known member of the CreateFrontendMultipartBodyVariableScope enum.
 func (e CreateFrontendMultipartBodyVariableScope) Valid() bool {
 	switch e {
-	case All:
+	case CreateFrontendMultipartBodyVariableScopeAll:
 		return true
-	case Scoped:
+	case CreateFrontendMultipartBodyVariableScopeScoped:
 		return true
 	default:
 		return false
@@ -5091,6 +6507,124 @@ func (e StartGitConnectParamsProvider) Valid() bool {
 	}
 }
 
+// Defines values for ListAccountSessionsParamsSort.
+const (
+	ListAccountSessionsParamsSortCreatedAt    ListAccountSessionsParamsSort = "created_at"
+	ListAccountSessionsParamsSortLastActivity ListAccountSessionsParamsSort = "last_activity"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountSessionsParamsSort enum.
+func (e ListAccountSessionsParamsSort) Valid() bool {
+	switch e {
+	case ListAccountSessionsParamsSortCreatedAt:
+		return true
+	case ListAccountSessionsParamsSortLastActivity:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAccountSessionsParamsStatus.
+const (
+	ListAccountSessionsParamsStatusActive  ListAccountSessionsParamsStatus = "active"
+	ListAccountSessionsParamsStatusExpired ListAccountSessionsParamsStatus = "expired"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountSessionsParamsStatus enum.
+func (e ListAccountSessionsParamsStatus) Valid() bool {
+	switch e {
+	case ListAccountSessionsParamsStatusActive:
+		return true
+	case ListAccountSessionsParamsStatusExpired:
+		return true
+	default:
+		return false
+	}
+}
+
+// AccountSession A sign-in to your Volcano account, from the CLI or a browser.
+type AccountSession struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// ExpiresAt When this session expires
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// Id Unique session identifier
+	Id openapi_types.UUID `json:"id"`
+
+	// IpAddress IP address of the client when the session was created
+	IpAddress *string `json:"ip_address,omitempty"`
+
+	// IsActive Whether the session is currently active (not expired)
+	IsActive bool `json:"is_active"`
+
+	// IsCurrent Whether this is the session making the current request
+	IsCurrent bool `json:"is_current"`
+
+	// Kind `cli` for a device-code login, such as `volcano login`, and
+	// `browser` for every other sign-in.
+	Kind AccountSessionKind `json:"kind"`
+
+	// LastActivityAt Last activity timestamp
+	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
+
+	// LastIpAddress IP address of the most recent activity (token refresh)
+	LastIpAddress *string `json:"last_ip_address,omitempty"`
+
+	// Provider How the session was created: `email`, `google`, `github`,
+	// `microsoft`, `apple`, or `device:<client_id>` for a device-code
+	// login such as the `volcano` CLI. More values may be added; use
+	// `kind` to tell CLI logins from browser sign-ins.
+	Provider string `json:"provider"`
+
+	// SessionStartedAt When the session was created
+	SessionStartedAt *time.Time `json:"session_started_at,omitempty"`
+	UpdatedAt        *time.Time `json:"updated_at,omitempty"`
+
+	// UserAgent Browser/device user agent string
+	UserAgent *string `json:"user_agent,omitempty"`
+
+	// UserId The sign-in identity (auth user) the session belongs to. This is
+	// not your account ID: an identity linked to your account has its
+	// own ID.
+	UserId openapi_types.UUID `json:"user_id"`
+}
+
+// AccountSessionKind `cli` for a device-code login, such as `volcano login`, and
+// `browser` for every other sign-in.
+type AccountSessionKind string
+
+// AccountSessionList A page of sessions. Without `sort` the body is the legacy
+// `sessions`/`total`/`page`/`limit`/`total_pages` shape; with
+// `sort=created_at` and a cursor it is the shared `data` envelope.
+type AccountSessionList struct {
+	// Data Sessions for this page (cursor pagination only)
+	Data *[]AccountSession `json:"data,omitempty"`
+
+	// HasMore Whether a further page exists (cursor pagination only)
+	HasMore *bool `json:"has_more,omitempty"`
+
+	// Limit Number of sessions per page
+	Limit *int `json:"limit,omitempty"`
+
+	// NextCursor Opaque cursor for the next page (cursor pagination only)
+	NextCursor *string `json:"next_cursor,omitempty"`
+
+	// Page Current page number
+	Page *int `json:"page,omitempty"`
+
+	// PrevCursor Opaque cursor for the previous page (cursor pagination only). Send as `ending_before`.
+	PrevCursor *string           `json:"prev_cursor,omitempty"`
+	Sessions   *[]AccountSession `json:"sessions,omitempty"`
+
+	// Total Total number of sessions
+	Total *int `json:"total,omitempty"`
+
+	// TotalPages Total number of pages
+	TotalPages *int `json:"total_pages,omitempty"`
+}
+
 // AnonKey defines model for AnonKey.
 type AnonKey struct {
 	CreatedAt *time.Time         `json:"created_at,omitempty"`
@@ -5149,9 +6683,12 @@ type AuthConfig struct {
 	AutoLinkVerifiedOauth *bool `json:"auto_link_verified_oauth,omitempty"`
 
 	// CorsAllowCredentials Allow credentials in CORS requests
-	CorsAllowCredentials *bool     `json:"cors_allow_credentials,omitempty"`
-	CorsAllowedOrigins   *[]string `json:"cors_allowed_origins,omitempty"`
-	CorsEnabled          *bool     `json:"cors_enabled,omitempty"`
+	CorsAllowCredentials *bool `json:"cors_allow_credentials,omitempty"`
+
+	// CorsAllowFrontendPreviews Allow the exact origins of the project's own live frontend previews in its CORS checks, in addition to `cors_allowed_origins`. A preview's origin stops being allowed within seconds of the preview being deleted or expiring, with no configuration change.
+	CorsAllowFrontendPreviews *bool     `json:"cors_allow_frontend_previews,omitempty"`
+	CorsAllowedOrigins        *[]string `json:"cors_allowed_origins,omitempty"`
+	CorsEnabled               *bool     `json:"cors_enabled,omitempty"`
 
 	// CorsMaxAge CORS preflight cache duration (seconds)
 	CorsMaxAge *int       `json:"cors_max_age,omitempty"`
@@ -5169,8 +6706,12 @@ type AuthConfig struct {
 	EmailConfirmationTimeout *int `json:"email_confirmation_timeout,omitempty"`
 
 	// EmailEnabled Enable transactional email sending (confirmation, reset, change notifications). Must be true when require_email_confirmation is true.
-	EmailEnabled                *bool   `json:"email_enabled,omitempty"`
-	EmailFromAddress            *string `json:"email_from_address,omitempty"`
+	EmailEnabled *bool `json:"email_enabled,omitempty"`
+
+	// EmailFromAddress Sender email address. New or changed values containing carriage returns or newlines return 400. Unchanged stored or exported values are preserved. Leading and trailing whitespace in previously saved settings is trimmed in responses and exports, and ignored when sending.
+	EmailFromAddress *string `json:"email_from_address,omitempty"`
+
+	// EmailFromName Sender display name; supports punctuation and Unicode. New or changed values containing carriage returns or newlines return 400. Unchanged stored or exported values are preserved. Leading and trailing whitespace in previously saved settings is trimmed in responses and exports, and ignored when sending.
 	EmailFromName               *string `json:"email_from_name,omitempty"`
 	EmailPasswordChangedSubject *string `json:"email_password_changed_subject,omitempty"`
 	EmailPasswordResetSubject   *string `json:"email_password_reset_subject,omitempty"`
@@ -5183,6 +6724,9 @@ type AuthConfig struct {
 
 	// EnableSignup Master switch - allow new user signups via ANY provider
 	EnableSignup *bool `json:"enable_signup,omitempty"`
+
+	// FrontendPreviewOrigins Origins of the project's live frontend previews that its CORS checks currently allow. Empty unless `cors_allow_frontend_previews` is true. Omitted when the live previews could not be read; the rest of the response, and any update it answers, is unaffected.
+	FrontendPreviewOrigins *[]string `json:"frontend_preview_origins,omitempty"`
 
 	// InactivityTimeout Force re-login after inactivity (seconds, 0=never)
 	InactivityTimeout *int `json:"inactivity_timeout,omitempty"`
@@ -5704,7 +7248,7 @@ type ConnectProjectGitRequest struct {
 	ConnectionId   openapi_types.UUID `json:"connection_id"`
 	InstallationId int64              `json:"installation_id"`
 
-	// ProductionBranch The branch a push must land on to deploy, with three cases, because this is a full replace and a read-modify-write client sends back whatever it read. Omit it to follow the repository's GitHub default branch, which also discards a branch set earlier. Send back the branch the project already deploys from, when that is the repository's default, and nothing changes either way — a project pinned to that branch stays pinned. Sending the default branch when the project deploys from something else returns it to following the default, including on a rebind, where a pin describes a branch chosen for the repository being left. Any other branch becomes the project's own choice, exempt from later default-branch renames. Validated as a Git branch name only: it does not have to exist yet, so a project can be pointed at a branch about to be pushed. Changing repository and naming a branch other than the new repository's default in one request is refused with 400, because the branch named is almost always the previous repository's, echoed back — connect first, then set the branch.
+	// ProductionBranch The branch a push must land on to deploy, with three cases, because this is a full replace and a read-modify-write client sends back whatever it read. Omit it to follow the repository's GitHub default branch, which also discards a branch set earlier. Send back the branch the project already deploys from, when that is the repository's default, and nothing changes either way — a project pinned to that branch stays pinned. Sending the default branch when the project deploys from something else returns it to following the default, including on a rebind, where a pin describes a branch chosen for the repository being left. Any other branch becomes the project's own choice, exempt from later default-branch renames. Validated as a Git branch name only: it does not have to exist yet, so a project can be pointed at a branch about to be pushed. Changing repository and naming a branch other than the new repository's default in one request is refused with 400, because the branch named is almost always the previous repository's, echoed back — connect first, then set the branch. A repository that reports no default branch, as one with no commits can, is connected only by naming a branch, and any branch is accepted for it, including on a rebind. An empty repository that still reports a default follows the rule above.
 	ProductionBranch *string `json:"production_branch,omitempty"`
 
 	// RepoFullName Deprecated selector kept for a compatibility window; prefer repository_id. Either repository_id or repo_full_name is required.
@@ -5721,13 +7265,17 @@ type ConnectProjectGitRequest struct {
 // CreateDatabaseBackupRequest defines model for CreateDatabaseBackupRequest.
 type CreateDatabaseBackupRequest struct {
 	// Name Backup name, unique within the database. Names beginning with
-	// `volcano-` are reserved for the platform's own snapshots.
+	// `volcano-` are reserved for the platform's own snapshots, and names
+	// beginning with `before-migration-` for the backups migration runs
+	// take.
 	Name string `json:"name"`
 }
 
 // CreateDatabaseBranchRequest defines model for CreateDatabaseBranchRequest.
 type CreateDatabaseBranchRequest struct {
-	// Name Branch name (must be unique within the parent database)
+	// Name Branch name, unique within the parent database. Names beginning
+	// with `migration_rehearsal_` are reserved for the branches migration
+	// runs rehearse on.
 	Name string `json:"name"`
 
 	// TtlSeconds How long the branch should live, between one hour and 30 days.
@@ -5794,7 +7342,7 @@ type CreateEmailTemplateRequest struct {
 	// - {{.Email}} - User's email address
 	HtmlBody string `json:"html_body"`
 
-	// Subject Email subject line
+	// Subject Subject template. After Go template whitespace trimming, literal interior carriage returns or newlines return 400. Outer whitespace and trailing block-scalar newlines are allowed.
 	Subject string `json:"subject"`
 
 	// TemplateType Type of email template
@@ -5922,7 +7470,8 @@ type CreateProjectRequest struct {
 	// InitialPrompt Optional initial builder prompt. Cannot be combined with template_id.
 	InitialPrompt *string `json:"initialPrompt,omitempty"`
 
-	// Name Project name (must be unique).
+	// Name Project name. A name you already use is not refused: the project is
+	// created with a short random suffix added to it.
 	// Can only contain letters, numbers, underscores, and hyphens.
 	Name string `json:"name"`
 
@@ -5939,16 +7488,26 @@ type CreateProjectRequestTemplateId string
 
 // CreateSandboxSessionRequest defines model for CreateSandboxSessionRequest.
 type CreateSandboxSessionRequest struct {
+	// Executions How the session's command executions are kept. Fixed when the session is created.
+	Executions *SandboxSessionExecutions `json:"executions,omitempty"`
+
+	// Limits Caps the session's code runs under, enforced inside the session. Each
+	// cap is an upper bound; the session's own size still bounds both.
+	Limits *SandboxSessionLimits `json:"limits,omitempty"`
+
 	// MaxDurationSeconds Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime.
 	MaxDurationSeconds *int `json:"max_duration_seconds,omitempty"`
 
 	// MemoryMb Baseline memory in MiB. Cloud HOBBY supports 1024; SUPERAGENT supports 1024 or 2048. Omission uses the preset or template default; a template requiring more than the plan permits is rejected. Local sessions are exempt from cloud plan limits.
 	MemoryMb *CreateSandboxSessionRequestMemoryMb `json:"memory_mb,omitempty"`
 
+	// Network Outbound network policy for the session. Omitting `network` is the same as `egress` `default`.
+	Network *SandboxSessionNetworkRequest `json:"network,omitempty"`
+
 	// Preset Preset ID from the available Sandbox preset catalog.
 	Preset *string `json:"preset,omitempty"`
 
-	// Region Region such as `us-east-1`. Region IDs issued by earlier versions of the API are still accepted.
+	// Region Region such as `us-east-1`, from the preset catalog. Region IDs issued by earlier versions of the API are still accepted. A temporarily unavailable region answers 400 with code `sandbox_region_unavailable`.
 	Region    string              `json:"region"`
 	SandboxId *openapi_types.UUID `json:"sandbox_id,omitempty"`
 	union     json.RawMessage
@@ -6204,15 +7763,15 @@ type DatabaseBackup struct {
 	// not the same as empty.
 	SizeBytes *int64 `json:"size_bytes,omitempty"`
 
-	// Source Whether the backup was requested explicitly or produced by the
-	// backup schedule. Only `manual` backups count against the plan's
-	// backup allowance.
+	// Source Whether the backup was requested explicitly, produced by the backup
+	// schedule, or taken before migrations were applied to the database.
+	// Only `manual` backups count against the plan's backup allowance.
 	Source DatabaseBackupSource `json:"source"`
 }
 
-// DatabaseBackupSource Whether the backup was requested explicitly or produced by the
-// backup schedule. Only `manual` backups count against the plan's
-// backup allowance.
+// DatabaseBackupSource Whether the backup was requested explicitly, produced by the backup
+// schedule, or taken before migrations were applied to the database.
+// Only `manual` backups count against the plan's backup allowance.
 type DatabaseBackupSource string
 
 // DatabaseBackupList defines model for DatabaseBackupList.
@@ -6361,6 +7920,351 @@ type DatabaseInsertRequest struct {
 	// so send them to `json` or `jsonb` columns. For a Postgres array
 	// column, send an array literal string such as `"{a,b}"`.
 	Values map[string]interface{} `json:"values"`
+}
+
+// DatabaseMigrationBaseline defines model for DatabaseMigrationBaseline.
+type DatabaseMigrationBaseline struct {
+	// Recorded The files this request recorded, in name order. Empty when the
+	// history already recorded every file.
+	Recorded []string `json:"recorded"`
+}
+
+// DatabaseMigrationConflictError defines model for DatabaseMigrationConflictError.
+type DatabaseMigrationConflictError struct {
+	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token, or that the change needs the owner's own credential that expires, a project repository, and an owner whose GitHub account can push to it; `error` says which. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
+	Code  *string             `json:"code,omitempty"`
+	Error string              `json:"error"`
+	RunId *openapi_types.UUID `json:"run_id,omitempty"`
+}
+
+// DatabaseMigrationFile One migration file and its SQL.
+type DatabaseMigrationFile struct {
+	// Name The file's path under `volcano/migrations/`: a file name such as
+	// `001_create_users.sql`, or `<database>/001_create_users.sql` in a
+	// project with more than one database, where `<database>` must be
+	// this database. Every file in a request takes the same form. Files
+	// run in byte order of their file name, which the history records.
+	Name string `json:"name"`
+
+	// Sql The file's SQL, at most 1 MiB. A file may hold several statements
+	// and runs in one transaction. A file cannot commit, roll back, use
+	// savepoints, or `COPY` from the client; such a file fails with
+	// `migration_failed`. A statement that cannot run in a transaction,
+	// such as `CREATE INDEX CONCURRENTLY`, goes alone in a file whose
+	// first line is `-- volcano:no-transaction`. That file runs outside a
+	// transaction and runs again from its start when a run retries it. A
+	// run refuses with `invalid_file`, before anything runs, a file with
+	// the marker on any other line, and a marked file that builds an
+	// unnamed index with `CREATE INDEX CONCURRENTLY` or starts with
+	// `COPY`.
+	Sql string `json:"sql"`
+}
+
+// DatabaseMigrationFileError The database's error for a `failed` file, or for an `unknown` file
+// that runs outside a transaction, when a later attempt failed it after
+// an earlier one may have run it. `message` is the database's own
+// message and can quote values from the file or the data.
+type DatabaseMigrationFileError struct {
+	// Line The line of the file the database reported, when known.
+	Line *int `json:"line,omitempty"`
+
+	// Message At most 8 KiB (8,192 bytes). A longer message is cut and ends with
+	// ` … [truncated]`. Volcano reads each reply the database sends about
+	// the file up to 4 MiB, which leaves room for a reply that quotes the
+	// whole file twice. A larger reply is not read: the file fails, and
+	// this message says so instead.
+	Message string `json:"message"`
+
+	// Sqlstate The Postgres error code, when the database reported one.
+	Sqlstate *string `json:"sqlstate,omitempty"`
+}
+
+// DatabaseMigrationFilesRequest defines model for DatabaseMigrationFilesRequest.
+type DatabaseMigrationFilesRequest struct {
+	Files []DatabaseMigrationFile `json:"files"`
+}
+
+// DatabaseMigrationHistoryEntry One file the database's migration history records.
+type DatabaseMigrationHistoryEntry struct {
+	AppliedAt time.Time `json:"applied_at"`
+
+	// Checksum `sha256:` and the hex digest of the file as recorded, with a leading
+	// byte order mark removed and CRLF line endings converted to LF.
+	Checksum string `json:"checksum"`
+	Name     string `json:"name"`
+
+	// RunId The run that recorded the file. Absent for a baseline.
+	RunId *openapi_types.UUID `json:"run_id,omitempty"`
+
+	// Status `applied`: a run ran the file and it committed. `baselined`: the file
+	// was recorded as applied without running.
+	Status DatabaseMigrationHistoryEntryStatus `json:"status"`
+}
+
+// DatabaseMigrationHistoryEntryStatus `applied`: a run ran the file and it committed. `baselined`: the file
+// was recorded as applied without running.
+type DatabaseMigrationHistoryEntryStatus string
+
+// DatabaseMigrationRun One application of migration files to a database. A run plans the files
+// against the database's history, rehearses the pending ones on a
+// short-lived branch, takes a backup, and applies them.
+type DatabaseMigrationRun struct {
+	// BackupName The backup the run takes before it applies the files, named once
+	// the run starts taking it. It is listed with the database's backups
+	// with `source: migration`. A run that ended in its `backup` phase
+	// may name a backup that was never created.
+	BackupName *string `json:"backup_name,omitempty"`
+
+	// CommitSha The commit whose files the run applies. Present for `git_deploy` runs.
+	CommitSha   *string    `json:"commit_sha,omitempty"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+
+	// Database Stable reference to a Volcano resource.
+	Database ResourceReference `json:"database"`
+
+	// Error Why the run failed, or why its last attempt did.
+	Error *DatabaseMigrationRunError `json:"error,omitempty"`
+
+	// Files The run's files, in the order they run, with what became of each.
+	// Absent when listing runs.
+	Files *[]DatabaseMigrationRunFile `json:"files,omitempty"`
+	Id    openapi_types.UUID          `json:"id"`
+
+	// Phase The step the run is on, or the one it ended on. `plan` compares the
+	// files with the history. `rehearse` applies the pending files to a
+	// short-lived branch of the database, which is deleted afterwards.
+	// `backup` takes the backup named by `backup_name`. `apply` applies
+	// the files to the database.
+	Phase DatabaseMigrationRunPhase `json:"phase"`
+
+	// Source What started the run.
+	Source DatabaseMigrationRunSource `json:"source"`
+
+	// StartedAt When a worker first picked the run up.
+	StartedAt *time.Time `json:"started_at,omitempty"`
+
+	// Status `queued` and `running` mean the run has not ended; a run waiting
+	// to retry stays `running`. `succeeded`: every pending file was
+	// applied, or none was pending. `failed`: `error` says why.
+	Status    DatabaseMigrationRunStatus `json:"status"`
+	UpdatedAt time.Time                  `json:"updated_at"`
+
+	// Warnings A run keeps at most 100 warnings, keeping those about the run, such
+	// as a skipped backup, ahead of those about files. A run that raised
+	// more ends the list with a `warnings_truncated` warning.
+	Warnings []DatabaseMigrationWarning `json:"warnings"`
+}
+
+// DatabaseMigrationRunPhase The step the run is on, or the one it ended on. `plan` compares the
+// files with the history. `rehearse` applies the pending files to a
+// short-lived branch of the database, which is deleted afterwards.
+// `backup` takes the backup named by `backup_name`. `apply` applies
+// the files to the database.
+type DatabaseMigrationRunPhase string
+
+// DatabaseMigrationRunSource What started the run.
+type DatabaseMigrationRunSource string
+
+// DatabaseMigrationRunStatus `queued` and `running` mean the run has not ended; a run waiting
+// to retry stays `running`. `succeeded`: every pending file was
+// applied, or none was pending. `failed`: `error` says why.
+type DatabaseMigrationRunStatus string
+
+// DatabaseMigrationRunError Why the run failed, or why its last attempt did.
+type DatabaseMigrationRunError struct {
+	// Code Stable machine-readable reason. `migration_failed`: a file's SQL,
+	// or its `COMMIT`, failed; `phase` says whether in the rehearsal,
+	// leaving the database untouched, or in the database, where the files
+	// before it stay applied. `checksum_mismatch`: an applied file changed.
+	// `history_missing`: the database's history table is gone though
+	// migrations ran there; record a baseline of the files already
+	// applied. Dropping the whole `_volcano_migrations` schema is not
+	// supported and not detected: the database reads as new, and the run
+	// applies every file again. `history_too_large`: the history has
+	// more than the 1,000 entries Volcano reads. `invalid_file`: a file
+	// Volcano refuses to run. `invalid_layout`: file paths that do not map
+	// to the database.
+	// `plan_changed`: the history changed after the rehearsal.
+	// `branch_limit`: the rehearsal branch would exceed the plan's branch
+	// allowance. `backup_failed` and `rehearsal_unavailable`: Volcano
+	// could not take the backup or prepare the rehearsal.
+	// `restore_in_progress` and `database_unavailable`: the database could
+	// not take the run. `owner_not_active`: the project owner's account
+	// was not `active` when Volcano picked the run up, or before its
+	// `backup` or `apply`, or before a file in `apply` unless held
+	// `read_only` only for the plan's limits, so the run applied nothing
+	// further; files it already applied stay applied.
+	// `locked`: another session held the migration lock,
+	// or a file, or Volcano's drop of a failed build's index, waited too
+	// long for a lock. `connection_failed`: the
+	// database could not be reached, or the connection was lost,
+	// including while a file ran. `internal_error`: Volcano failed for a
+	// reason of its own, such as its own statements around a file.
+	// `timeout` and `attempts_exhausted`: the run could not finish.
+	// `operator_failed`: Volcano ended a run that stopped making
+	// progress; read the history to see which files were applied, then
+	// start a new run.
+	Code DatabaseMigrationRunErrorCode `json:"code"`
+
+	// Message What happened, naming files and Postgres error codes. The
+	// database's own message is on the failed file.
+	Message string `json:"message"`
+}
+
+// DatabaseMigrationRunErrorCode Stable machine-readable reason. `migration_failed`: a file's SQL,
+// or its `COMMIT`, failed; `phase` says whether in the rehearsal,
+// leaving the database untouched, or in the database, where the files
+// before it stay applied. `checksum_mismatch`: an applied file changed.
+// `history_missing`: the database's history table is gone though
+// migrations ran there; record a baseline of the files already
+// applied. Dropping the whole `_volcano_migrations` schema is not
+// supported and not detected: the database reads as new, and the run
+// applies every file again. `history_too_large`: the history has
+// more than the 1,000 entries Volcano reads. `invalid_file`: a file
+// Volcano refuses to run. `invalid_layout`: file paths that do not map
+// to the database.
+// `plan_changed`: the history changed after the rehearsal.
+// `branch_limit`: the rehearsal branch would exceed the plan's branch
+// allowance. `backup_failed` and `rehearsal_unavailable`: Volcano
+// could not take the backup or prepare the rehearsal.
+// `restore_in_progress` and `database_unavailable`: the database could
+// not take the run. `owner_not_active`: the project owner's account
+// was not `active` when Volcano picked the run up, or before its
+// `backup` or `apply`, or before a file in `apply` unless held
+// `read_only` only for the plan's limits, so the run applied nothing
+// further; files it already applied stay applied.
+// `locked`: another session held the migration lock,
+// or a file, or Volcano's drop of a failed build's index, waited too
+// long for a lock. `connection_failed`: the
+// database could not be reached, or the connection was lost,
+// including while a file ran. `internal_error`: Volcano failed for a
+// reason of its own, such as its own statements around a file.
+// `timeout` and `attempts_exhausted`: the run could not finish.
+// `operator_failed`: Volcano ended a run that stopped making
+// progress; read the history to see which files were applied, then
+// start a new run.
+type DatabaseMigrationRunErrorCode string
+
+// DatabaseMigrationRunFile defines model for DatabaseMigrationRunFile.
+type DatabaseMigrationRunFile struct {
+	// Error The database's error for a `failed` file, or for an `unknown` file
+	// that runs outside a transaction, when a later attempt failed it after
+	// an earlier one may have run it. `message` is the database's own
+	// message and can quote values from the file or the data.
+	Error *DatabaseMigrationFileError `json:"error,omitempty"`
+	Name  string                      `json:"name"`
+
+	// Outcome `pending`: not settled yet, including a file the run will try again
+	// on its next attempt. `already_applied`: the history already recorded
+	// it, so it did not run; a file can also end this way in `apply`, when
+	// another session applied or baselined it after the run planned.
+	// `applied`: this run applied it. `failed`: its own SQL failed and
+	// its transaction rolled back, in the rehearsal or in the database as
+	// the run's `phase` says, including when the run's time limit stopped
+	// it; a file whose `COMMIT` failed is `unknown` instead. A file whose
+	// first line is `-- volcano:no-transaction` runs outside a
+	// transaction, so nothing rolls back what it did before failing, such
+	// as the invalid index a failed `CREATE INDEX CONCURRENTLY` leaves.
+	// `not_run`: the run ended before the file committed, without its
+	// SQL failing: before `apply`, after an earlier file failed or lost
+	// its `COMMIT`, or after the connection was lost or Volcano's own
+	// statements around the file failed, which rolled it back. `unknown`:
+	// the run ended in `apply` without confirming whether the file ran,
+	// for example because its attempts ran out, its `COMMIT` failed or
+	// was cut short, or it ran outside a transaction and the connection
+	// was lost or Volcano's own statements after it failed. The file may
+	// have committed. The database's history says whether a file that
+	// ran in a transaction committed, and the next run's plan applies a
+	// file only if the history does not record it.
+	// While the run is `queued` or `running`, each attempt reads the
+	// history again before it runs a file, and sets every file the run
+	// has not applied from it: `already_applied` if the history holds
+	// it, `pending` otherwise. The exception is a file that runs outside
+	// a transaction: it is `unknown` from just before Volcano sends it
+	// until Volcano confirms what became of it. If it may have run, it
+	// stays `unknown` until an attempt applies it or the history holds
+	// it, and keeps the `error` of a later attempt that fails it.
+	Outcome DatabaseMigrationRunFileOutcome `json:"outcome"`
+}
+
+// DatabaseMigrationRunFileOutcome `pending`: not settled yet, including a file the run will try again
+// on its next attempt. `already_applied`: the history already recorded
+// it, so it did not run; a file can also end this way in `apply`, when
+// another session applied or baselined it after the run planned.
+// `applied`: this run applied it. `failed`: its own SQL failed and
+// its transaction rolled back, in the rehearsal or in the database as
+// the run's `phase` says, including when the run's time limit stopped
+// it; a file whose `COMMIT` failed is `unknown` instead. A file whose
+// first line is `-- volcano:no-transaction` runs outside a
+// transaction, so nothing rolls back what it did before failing, such
+// as the invalid index a failed `CREATE INDEX CONCURRENTLY` leaves.
+// `not_run`: the run ended before the file committed, without its
+// SQL failing: before `apply`, after an earlier file failed or lost
+// its `COMMIT`, or after the connection was lost or Volcano's own
+// statements around the file failed, which rolled it back. `unknown`:
+// the run ended in `apply` without confirming whether the file ran,
+// for example because its attempts ran out, its `COMMIT` failed or
+// was cut short, or it ran outside a transaction and the connection
+// was lost or Volcano's own statements after it failed. The file may
+// have committed. The database's history says whether a file that
+// ran in a transaction committed, and the next run's plan applies a
+// file only if the history does not record it.
+// While the run is `queued` or `running`, each attempt reads the
+// history again before it runs a file, and sets every file the run
+// has not applied from it: `already_applied` if the history holds
+// it, `pending` otherwise. The exception is a file that runs outside
+// a transaction: it is `unknown` from just before Volcano sends it
+// until Volcano confirms what became of it. If it may have run, it
+// stays `unknown` until an attempt applies it or the history holds
+// it, and keeps the `error` of a later attempt that fails it.
+type DatabaseMigrationRunFileOutcome string
+
+// DatabaseMigrationRunList defines model for DatabaseMigrationRunList.
+type DatabaseMigrationRunList struct {
+	Data []DatabaseMigrationRun `json:"data"`
+}
+
+// DatabaseMigrationWarning A condition the run reports that did not stop it.
+type DatabaseMigrationWarning struct {
+	// Code `out_of_order`: a pending file sorts before one the history already
+	// records; it still ran. `missing_file`: the history records a file
+	// the run did not include. `rehearsal_skipped`: the files were not
+	// rehearsed, because branches are not available here or on the plan.
+	// `backup_skipped`: no backup was taken, because backups are not
+	// available here or on the plan. `backup_prune_failed`: Volcano
+	// could not delete older migration backups beyond the 20 it keeps;
+	// the run's outcome is unaffected, and the next run that takes a
+	// backup tries again. `warnings_truncated`: the run raised more than
+	// 100 warnings; it is the last one, and its message says how many
+	// more were not kept.
+	Code DatabaseMigrationWarningCode `json:"code"`
+
+	// File The file the warning is about, when it is about one.
+	File    *string `json:"file,omitempty"`
+	Message string  `json:"message"`
+}
+
+// DatabaseMigrationWarningCode `out_of_order`: a pending file sorts before one the history already
+// records; it still ran. `missing_file`: the history records a file
+// the run did not include. `rehearsal_skipped`: the files were not
+// rehearsed, because branches are not available here or on the plan.
+// `backup_skipped`: no backup was taken, because backups are not
+// available here or on the plan. `backup_prune_failed`: Volcano
+// could not delete older migration backups beyond the 20 it keeps;
+// the run's outcome is unaffected, and the next run that takes a
+// backup tries again. `warnings_truncated`: the run raised more than
+// 100 warnings; it is the last one, and its message says how many
+// more were not kept.
+type DatabaseMigrationWarningCode string
+
+// DatabaseMigrations defines model for DatabaseMigrations.
+type DatabaseMigrations struct {
+	// ActiveRunId The run that is queued or running, if any.
+	ActiveRunId *openapi_types.UUID `json:"active_run_id,omitempty"`
+
+	// History Every file the history records, in name order.
+	History []DatabaseMigrationHistoryEntry `json:"history"`
 }
 
 // DatabaseQueryFilter One WHERE condition. Conditions are combined with AND.
@@ -6525,6 +8429,14 @@ type DatabaseRestoreKind string
 // cannot be cancelled once it starts.
 type DatabaseRestoreStatus string
 
+// DatabaseRestoreConflictError defines model for DatabaseRestoreConflictError.
+type DatabaseRestoreConflictError struct {
+	// Code Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner's plan does not include the requested feature or option; upgrading the plan unlocks it. `person_required` (403) means a project access token tried to change LavaFlow settings, which only the project's owner changes, with a platform token, or that the change needs the owner's own credential that expires, a project repository, and an owner whose GitHub account can push to it; `error` says which. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner's plan. Match on the code, not the message text.
+	Code  *string             `json:"code,omitempty"`
+	Error string              `json:"error"`
+	RunId *openapi_types.UUID `json:"run_id,omitempty"`
+}
+
 // DatabaseRestoreList defines model for DatabaseRestoreList.
 type DatabaseRestoreList struct {
 	Data []DatabaseRestore `json:"data"`
@@ -6637,6 +8549,20 @@ type DatabaseUpdateRequest struct {
 	Values map[string]interface{} `json:"values"`
 }
 
+// DefaultEmailTemplate Built-in email template used when no custom template applies.
+type DefaultEmailTemplate struct {
+	// HtmlBody HTML template with placeholders
+	HtmlBody string `json:"html_body"`
+	Subject  string `json:"subject"`
+
+	// TextBody Plain text template with placeholders
+	TextBody string                   `json:"text_body"`
+	Type     DefaultEmailTemplateType `json:"type"`
+}
+
+// DefaultEmailTemplateType defines model for DefaultEmailTemplate.Type.
+type DefaultEmailTemplateType string
+
 // DeploymentCommit The commit a deploy client reported for the deployment's source. Absent when the client reported none. A frontend deployment that publishes another deployment's build carries that deployment's commit.
 type DeploymentCommit struct {
 	// Dirty `true` when the client reported that the uploaded files differ from the commit, or Volcano found an uploaded file in the project's root directory that the commit does not hold, so the deployed code may differ from the commit.
@@ -6648,9 +8574,15 @@ type DeploymentCommit struct {
 	// Sha Full commit ID.
 	Sha string `json:"sha"`
 
-	// Verified `true` when Volcano confirmed, through the project's GitHub connection, that `repository` is the project's connected repository, `sha` is on its production branch, every uploaded file is the commit's file at its path, and the upload holds the commit's files under its root but those deploy clients leave out. Only frontend uploads are checked; a function deployment's commit, one the client reports dirty, and one from another branch, repository, or a project without a connection, is recorded unverified. LavaFlow reads source and opens pull requests only for a verified commit with `dirty: false`.
+	// Verification What Volcano confirmed about the commit, through the project's GitHub connection, when it recorded the deployment. `files`: `repository` is the project's connected repository, `sha` is on its production branch, every uploaded file is the commit's file at its path, and the upload holds the commit's files under its root but those deploy clients leave out. Only a frontend upload is checked this far. `repository`: `repository` is the project's connected repository and `sha` is on its production branch, but the uploaded files were not compared with the commit, since a function upload holds build output rather than the repository's layout. Only a function upload the client reports clean is checked at this level. `none`: Volcano confirmed nothing, as for a commit the client reports dirty, one from another branch or repository, one from a project without a connection, or one it couldn't check in time.
+	Verification DeploymentCommitVerification `json:"verification"`
+
+	// Verified `true` only when `verification` is `files`: Volcano confirmed that the deployed files are the commit's. A commit verified at the `repository` level is not `verified`.
 	Verified bool `json:"verified"`
 }
+
+// DeploymentCommitVerification What Volcano confirmed about the commit, through the project's GitHub connection, when it recorded the deployment. `files`: `repository` is the project's connected repository, `sha` is on its production branch, every uploaded file is the commit's file at its path, and the upload holds the commit's files under its root but those deploy clients leave out. Only a frontend upload is checked this far. `repository`: `repository` is the project's connected repository and `sha` is on its production branch, but the uploaded files were not compared with the commit, since a function upload holds build output rather than the repository's layout. Only a function upload the client reports clean is checked at this level. `none`: Volcano confirmed nothing, as for a commit the client reports dirty, one from another branch or repository, one from a project without a connection, or one it couldn't check in time.
+type DeploymentCommitVerification string
 
 // DeploymentPhase Timing and outcome for one normalized deployment pipeline phase.
 type DeploymentPhase struct {
@@ -6876,6 +8808,19 @@ type DurableCallbackOutcome struct {
 	Status DurableCallbackStatus `json:"status"`
 }
 
+// DurableCallbackRegistration The token for the waiting step, as the workflow receives it.
+type DurableCallbackRegistration struct {
+	// ExpiresAt When the waiting step's `timeout` passes and the token stops
+	// working. Null when the workflow set no `timeout`. A step with a
+	// heartbeat timeout also ends once that long passes without a
+	// heartbeat, which can be before this time.
+	ExpiresAt *time.Time `json:"expires_at"`
+
+	// Token The `vcb_` token the workflow handed out. It is the only credential
+	// the callback operations take, so treat it as a secret.
+	Token DurableCallbackToken `json:"token"`
+}
+
 // DurableCallbackStatus `waiting` until the token is succeeded or failed. `delivering` while
 // the outcome is on its way to the workflow; Volcano finishes the
 // delivery on its own. `succeeded` or `failed` once the workflow has the
@@ -6888,9 +8833,11 @@ type DurableCallbackToken = string
 
 // DurableExecution defines model for DurableExecution.
 type DurableExecution struct {
-	// ClientToken Lets a browser read and send the execution's messages. Returned only
-	// by the start that created the execution, never by a repeat under the
-	// same name or by a read. Send it as `X-Volcano-Client-Token`.
+	// ClientToken Lets a browser read the execution, stop it, and read and send its
+	// messages, and a service key scoped to a list without `*` do the
+	// same. Returned only by the start whose input the execution runs,
+	// never by a repeat under the same name or by a read. Send it as
+	// `X-Volcano-Client-Token`.
 	ClientToken *string `json:"client_token,omitempty"`
 
 	// CompletedAt Present once the execution has reached a terminal status.
@@ -6913,7 +8860,8 @@ type DurableExecution struct {
 	// Result Whatever the function returned, verbatim. Absent while the execution
 	// is still running, absent when the result was too large to return and
 	// was checkpointed instead, and absent once the retention period has
-	// lapsed.
+	// lapsed. A result Volcano has just read can still be returned for up
+	// to five minutes after that.
 	Result interface{} `json:"result,omitempty"`
 
 	// ResultExpired `true` when the execution is terminal but its result is no longer
@@ -7137,11 +9085,18 @@ type DurableFunction struct {
 	UpdatedAt             time.Time             `json:"updated_at"`
 
 	// Visibility Who may start executions of this function through
-	// `POST /durable-functions/{functionId}/executions`: service keys at
-	// every level, signed-in users of the project from `authenticated`,
-	// and anon keys holding `functions.invoke` only at `public`. Reading
-	// and stopping an execution always require the project owner's
-	// token, whatever this is set to.
+	// `POST /durable-functions/{functionId}/executions`, and read and stop
+	// them through `GET /durable-functions/{functionId}/executions/{executionId}`
+	// and its `/stop`: service keys at every level (a scoped key needs
+	// `functions.invoke`), signed-in users of the project from
+	// `authenticated`, and anon keys holding `functions.invoke` only at
+	// `public`. On the read and stop routes a service key holding `*`,
+	// the default, reaches every execution. A service key scoped to a
+	// list without `*` and an anon key reach the ones whose client token
+	// they send, which the start returns, and a signed-in user also the
+	// ones they started. The project-scoped routes under
+	// `/projects/{id}/durable-functions` take the project owner's token or
+	// a project access token, whatever this is set to.
 	//
 	// Set it when the function is deployed. Durable functions have no
 	// update endpoint, so changing visibility later means redeploying.
@@ -7172,7 +9127,10 @@ type DurableFunctionConfig struct {
 
 	// RetentionDays How long a finished execution's result and history are retained, for
 	// as long as the function exists. Deleting the function, or its
-	// project, ends retention early and takes the history with it.
+	// project, ends retention early and takes the history with it. A
+	// result or error Volcano has just read is kept in memory for up to
+	// five minutes, so a read can still return it for up to five minutes
+	// after retention ends.
 	RetentionDays int64 `json:"retention_days"`
 }
 
@@ -7298,14 +9256,14 @@ type EmailTemplate struct {
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 
 	// HtmlBody HTML template with placeholders
-	HtmlBody     string                    `json:"html_body"`
+	HtmlBody     *string                   `json:"html_body,omitempty"`
 	Id           *openapi_types.UUID       `json:"id,omitempty"`
 	ProjectId    *openapi_types.UUID       `json:"project_id,omitempty"`
-	Subject      string                    `json:"subject"`
+	Subject      *string                   `json:"subject,omitempty"`
 	TemplateType EmailTemplateTemplateType `json:"template_type"`
 
 	// TextBody Plain text template with placeholders
-	TextBody  string     `json:"text_body"`
+	TextBody  *string    `json:"text_body,omitempty"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
 
@@ -7323,6 +9281,12 @@ type Error struct {
 type ExportProjectSourceRequest struct {
 	// ProductionBranch The currently configured production branch the user confirmed for export.
 	ProductionBranch string `json:"production_branch"`
+
+	// RepoId The `repo_id` of the connected repository the user confirmed for
+	// export, as the git connection reports it. When set, export answers
+	// `409` if the project is now connected to a different repository, so
+	// source is written only to the repository the user was shown.
+	RepoId *int64 `json:"repo_id,omitempty"`
 }
 
 // FailDurableCallbackRequest defines model for FailDurableCallbackRequest.
@@ -7333,6 +9297,25 @@ type FailDurableCallbackRequest struct {
 	// Token The `vcb_` token the workflow handed out. It is the only credential
 	// the callback operations take, so treat it as a secret.
 	Token DurableCallbackToken `json:"token"`
+}
+
+// ForkCreateRequest defines model for ForkCreateRequest.
+type ForkCreateRequest struct {
+	// Name The new project's name, which may contain only letters, numbers, underscores and hyphens. A name you already use gets a short random suffix. An invalid name answers `400` before anything is counted against the share or your hourly fork limit.
+	Name string `json:"name"`
+
+	// ReleaseId The `release.id` the share's preview returned, so only the release the visitor saw is installed.
+	ReleaseId openapi_types.UUID `json:"release_id"`
+
+	// ShareId The share to fork, the id at the end of its deploy URL.
+	ShareId string `json:"share_id"`
+
+	// Variables Values for the variables the preview lists, by name. Any may be left out
+	// and is then created empty; only listed names are accepted (`422`
+	// otherwise). Each value is at most 4096 bytes of UTF-8, since a function's
+	// environment is limited in bytes; a longer one, or one containing a NUL
+	// character, answers `400`. Values are never logged, and `Idempotency-Key` compares only the names given a value.
+	Variables *map[string]string `json:"variables,omitempty"`
 }
 
 // Frontend defines model for Frontend.
@@ -7377,7 +9360,13 @@ type Frontend struct {
 
 	// ProvisioningStartedAt Timestamp when the current provisioning phase started
 	ProvisioningStartedAt *time.Time `json:"provisioning_started_at,omitempty"`
-	SiteUrl               *string    `json:"site_url,omitempty"`
+
+	// ServingCandidateId The promoted Candidate whose runtime receives this frontend's traffic, the same as
+	// `candidate_id` in `serving`. Null when the frontend serves its own runtime. While it is
+	// set, `current_deployment_id` and `status` describe a deployment that receives no traffic,
+	// and deploying the frontend is refused until it is rolled back.
+	ServingCandidateId *openapi_types.UUID `json:"serving_candidate_id,omitempty"`
+	SiteUrl            *string             `json:"site_url,omitempty"`
 
 	// Status Frontend lifecycle status. `degraded` means the regional runtime remains
 	// available but edge synchronization exhausted its immediate retries; Volcano
@@ -7872,6 +9861,9 @@ type FunctionInvocationRequest struct {
 	//   }
 	// }
 	// ```
+	//
+	// The top-level `__volcano_auth` and `__volcano_http` keys are reserved;
+	// Volcano removes caller-supplied values for both.
 	Payload *map[string]interface{} `json:"payload,omitempty"`
 }
 
@@ -7942,7 +9934,7 @@ type FunctionRuntimesResponse struct {
 
 // FunctionScheduler defines model for FunctionScheduler.
 type FunctionScheduler struct {
-	// ConsecutiveFailures How many runs in a row have failed, in the region where the current streak is longest. Resets to 0 when a run succeeds.
+	// ConsecutiveFailures How many runs in a row have failed in the region the scheduler runs in now. Resets to 0 when a run succeeds, and starts at 0 in a region it moves to.
 	ConsecutiveFailures *int64              `json:"consecutive_failures,omitempty"`
 	CreatedAt           *time.Time          `json:"created_at,omitempty"`
 	CronExpression      *string             `json:"cron_expression,omitempty"`
@@ -7956,7 +9948,7 @@ type FunctionScheduler struct {
 	// or starts a durable execution.
 	FunctionKind *FunctionKind `json:"function_kind,omitempty"`
 
-	// Health `failing` while the last finished run in any region the scheduler runs in failed; `healthy` otherwise, including before its first run. For a durable function a run finishes when its execution does, so a run that starts but then fails counts as failed.
+	// Health `failing` while `consecutive_failures` is above 0; `healthy` otherwise, including before its first run in the region the scheduler runs in now. A run from a region it moved away from does not count. For a durable function a run finishes when its execution does, so a run that starts but then fails counts as failed.
 	Health          *FunctionSchedulerHealth `json:"health,omitempty"`
 	Id              *openapi_types.UUID      `json:"id,omitempty"`
 	LastCompletedAt *time.Time               `json:"last_completed_at,omitempty"`
@@ -7984,7 +9976,7 @@ type FunctionScheduler struct {
 	UpdatedAt    *time.Time                     `json:"updated_at,omitempty"`
 }
 
-// FunctionSchedulerHealth `failing` while the last finished run in any region the scheduler runs in failed; `healthy` otherwise, including before its first run. For a durable function a run finishes when its execution does, so a run that starts but then fails counts as failed.
+// FunctionSchedulerHealth `failing` while `consecutive_failures` is above 0; `healthy` otherwise, including before its first run in the region the scheduler runs in now. A run from a region it moved away from does not count. For a durable function a run finishes when its execution does, so a run that starts but then fails counts as failed.
 type FunctionSchedulerHealth string
 
 // FunctionSchedulerLastRunStatus Outcome of the most recent finished run. Absent before the first.
@@ -8040,6 +10032,56 @@ type GitConnection struct {
 type GitConnectionsResponse struct {
 	Connections []GitConnection `json:"connections"`
 }
+
+// GitDeploymentMigrationRun A migration run a deployment run started. Get it at `GET /projects/{id}/databases/{databaseName}/migration-runs/{runId}` with `database.name` and `id`.
+type GitDeploymentMigrationRun struct {
+	// Database Stable reference to a Volcano resource.
+	Database ResourceReference  `json:"database"`
+	Id       openapi_types.UUID `json:"id"`
+}
+
+// GitDeploymentRun One push's deployment through Git auto deploy.
+type GitDeploymentRun struct {
+	// ApplyMigrations Whether the run applies the commit's migrations: the project's `apply_migrations` Git deploy setting when the push arrived.
+	ApplyMigrations bool `json:"apply_migrations"`
+
+	// Branch The branch the push updated, the project's production branch at the time.
+	Branch string `json:"branch"`
+
+	// CommitSha The commit the run deploys.
+	CommitSha string `json:"commit_sha"`
+
+	// CompletedAt When the run ended.
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+
+	// CreatedAt When the push was recorded.
+	CreatedAt time.Time `json:"created_at"`
+
+	// Error Why a run failed or was skipped.
+	Error *GitDeploymentRunError `json:"error,omitempty"`
+	Id    openapi_types.UUID     `json:"id"`
+
+	// MigrationRuns The migration runs the run started, one per database, ordered by database name. Empty when it started none.
+	MigrationRuns []GitDeploymentMigrationRun `json:"migration_runs"`
+
+	// StartedAt When a worker first picked the run up.
+	StartedAt *time.Time `json:"started_at,omitempty"`
+
+	// Status Where a run is. `pending` and `running` have not ended. `succeeded`: every deployment the run dispatched succeeded, or the commit only had migrations to apply. `failed`: `error` says why. `superseded`: a newer push replaced the run before it started. `skipped`: there was nothing to deploy; `error` says why.
+	Status GitDeploymentRunStatus `json:"status"`
+}
+
+// GitDeploymentRunError Why a run failed or was skipped.
+type GitDeploymentRunError struct {
+	// Code Stable machine-readable reason. For a failed run: `migration_failed`, `migration_invalid_layout`, `migration_timeout`, `feature_unavailable`, `source_invalid`, `child_deploy_failed`, `child_deploy_not_started`, `deploy_refused`, `typescript_not_compiled`, `deploy_failed`, `max_attempts_exhausted`, `owner_not_active`, or `project_deleting`. `source_invalid`, `deploy_refused`, and `typescript_not_compiled` fail the same way if the same commit is pushed again; `child_deploy_not_started`, `deploy_failed`, and `max_attempts_exhausted` may succeed on another push; for `owner_not_active`, reactivating the owner's account restores deployment eligibility; push again to deploy. `project_deleting` means the project is being deleted. For a skipped run: `auto_deploy_disabled`, `binding_changed`, `disconnected`, `project_missing`, or `nothing_to_deploy`. Treat a code you do not know as a failure.
+	Code string `json:"code"`
+
+	// Message What happened. For `migration_failed`, `migration_invalid_layout`, `source_invalid`, `deploy_refused`, `child_deploy_not_started`, and `typescript_not_compiled` it names the database, files, resource, or setting at fault when Volcano has them.
+	Message string `json:"message"`
+}
+
+// GitDeploymentRunStatus Where a run is. `pending` and `running` have not ended. `succeeded`: every deployment the run dispatched succeeded, or the commit only had migrations to apply. `failed`: `error` says why. `superseded`: a newer push replaced the run before it started. `skipped`: there was nothing to deploy; `error` says why.
+type GitDeploymentRunStatus string
 
 // GitInstallation defines model for GitInstallation.
 type GitInstallation struct {
@@ -8156,6 +10198,102 @@ type ImportSourcesResponse struct {
 	Sources []ImportSource `json:"sources"`
 }
 
+// Issue Runtime errors from one function or frontend, grouped by error type and stack, one LavaFlow Code Quality finding, or a user-reported project problem. A report has a project resource, zero runtime occurrences, and report times as its first and last seen times.
+type Issue struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Culprit The innermost frame of your code in the stack, as `function (file)`. For a frontend's Next.js build output, the outermost route or page file of the build in the stack, such as `.next/server/app/checkout/route.js`, or without one, the outermost file of the build. For a minified file of a function's own bundle, the file alone. Omitted without a stack.
+	Culprit *string `json:"culprit,omitempty"`
+
+	// ErrorType The exception class, such as `TypeError`. Omitted when the error has none.
+	ErrorType *string `json:"error_type,omitempty"`
+
+	// EventCount Errors counted in this issue. A retried delivery can count an error twice.
+	EventCount int64 `json:"event_count"`
+
+	// Exception Whether the issue holds an exception: one your code threw, or one it
+	// logged with `console.error(err)` or Python's `logger.exception()`.
+	// `false` for an error logged any other way, such as a structured log
+	// line, a logger's error line, or a printed traceback, and for every
+	// `code_quality` issue. Once `true`, it stays `true`.
+	Exception bool `json:"exception"`
+
+	// Finding The finding behind a `code_quality` issue. Absent on a `runtime` issue.
+	Finding     *IssueFinding      `json:"finding,omitempty"`
+	FirstSeenAt time.Time          `json:"first_seen_at"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// LastRegion The region that served the latest error, such as `us-east-1`.
+	LastRegion *string            `json:"last_region,omitempty"`
+	LastSeenAt time.Time          `json:"last_seen_at"`
+	ProjectId  openapi_types.UUID `json:"project_id"`
+
+	// RegressedAt When a resolved issue was last seen again and reopened.
+	RegressedAt *time.Time `json:"regressed_at,omitempty"`
+
+	// ResolvedAt When the issue was resolved. Present only while it is resolved.
+	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
+
+	// Resource Stable reference to a Volcano resource.
+	Resource ResourceReference `json:"resource"`
+
+	// SampleEventAt When the latest error's log event was written.
+	SampleEventAt *time.Time `json:"sample_event_at,omitempty"`
+
+	// SampleEventId The ID of the latest error's log event, while logs retain it.
+	SampleEventId *string `json:"sample_event_id,omitempty"`
+
+	// Source Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it.
+	Source IssueSource `json:"source"`
+
+	// Status `open` until someone resolves or ignores the issue. A resolved issue
+	// seen again reopens. A reported problem resolves when its LavaFlow fix
+	// merges. Volcano ignores one whose report it deleted before any fix
+	// merged, so it no longer counts toward the project's open issues.
+	Status IssueStatus `json:"status"`
+
+	// Title The error type and message, with values such as IDs, numbers, and
+	// URLs replaced by placeholders like `<uuid>` and `<n>`.
+	Title     string    `json:"title"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// IssueSource Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it.
+type IssueSource string
+
+// IssueFinding The LavaFlow Code Quality finding behind a `code_quality` issue.
+type IssueFinding struct {
+	// CommitSha The deployed commit the scan found the problem in.
+	CommitSha string `json:"commit_sha"`
+
+	// EndLine The last line of the problem in that commit.
+	EndLine int64 `json:"end_line"`
+
+	// Explanation What fails and on which input, as plain text. When it may contain a credential, LavaFlow withholds it whole, and it reads `LavaFlow left this explanation out because it may contain a credential`.
+	Explanation string `json:"explanation"`
+
+	// Path The file, from the repository root.
+	Path string `json:"path"`
+
+	// Rule The rule the finding names, such as `null-dereference`.
+	Rule string `json:"rule"`
+
+	// Severity How much the problem matters, as the finding was confirmed.
+	Severity IssueFindingSeverity `json:"severity"`
+
+	// StartLine The first line of the problem in that commit, from 1.
+	StartLine int64 `json:"start_line"`
+}
+
+// IssueFindingSeverity How much the problem matters, as the finding was confirmed.
+type IssueFindingSeverity string
+
+// IssueStatus `open` until someone resolves or ignores the issue. A resolved issue
+// seen again reopens. A reported problem resolves when its LavaFlow fix
+// merges. Volcano ignores one whose report it deleted before any fix
+// merged, so it no longer counts toward the project's open issues.
+type IssueStatus string
+
 // LavaflowAllowedWorkflow A workflow job that could run a fix's pull request with the repository's secrets before a person approves it.
 type LavaflowAllowedWorkflow struct {
 	// Job The job, absent for a workflow that could not be read.
@@ -8179,6 +10317,29 @@ type LavaflowAnomaly struct {
 
 // LavaflowAutonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
 type LavaflowAutonomy string
+
+// LavaflowCategoryCounts Matching runs in each category, zeros included. `uncategorized` counts runs whose `category` is null.
+type LavaflowCategoryCounts struct {
+	Bug           int64 `json:"bug"`
+	Configuration int64 `json:"configuration"`
+	Dependency    int64 `json:"dependency"`
+	External      int64 `json:"external"`
+	Improvement   int64 `json:"improvement"`
+	Performance   int64 `json:"performance"`
+	Security      int64 `json:"security"`
+	Uncategorized int64 `json:"uncategorized"`
+}
+
+// LavaflowCodeQualitySettings LavaFlow Code Quality: whether LavaFlow reviews the code each production deploy changes and opens pull requests that fix what it confirms.
+type LavaflowCodeQualitySettings struct {
+	// Enabled Whether Code Quality reviews the project's deploys. Off by default. It reads as off while the project points at another repository than the one it was turned on for, and works only while LavaFlow is on.
+	Enabled bool `json:"enabled"`
+}
+
+// LavaflowCodeQualityUpdate Turns Code Quality on or off. Only the project's owner, signed in, can turn it on; any credential that can save the settings can turn it off.
+type LavaflowCodeQualityUpdate struct {
+	Enabled bool `json:"enabled"`
+}
 
 // LavaflowCommitOrigin Where the commit a run read came from. `push`: a push to the project's connected repository deployed it. `client_reported`: the deploy client reported it, and Volcano matched the deployed files against it. `client_reported_repository`: the deploy client reported it, and Volcano confirmed only that the connected repository's production branch holds it, without matching the deployed files, which for a function are build output. A fix on such a commit opens only while the production branch still holds it. `repository`: a reported problem's run read the production branch at a commit it pinned, which need not be deployed.
 type LavaflowCommitOrigin string
@@ -8204,7 +10365,7 @@ type LavaflowDiagnosis struct {
 	Summary   string            `json:"summary"`
 }
 
-// LavaflowDraftReason Why a run's pull request is a draft. `open_pr`: LavaFlow doesn't merge the fix, because the project's autonomy is `open_pr`, merging was unavailable when it opened, or it was already a draft when the run took it on; it waits for a person to review it and mark it ready. `review_unresolved`: LavaFlow's review didn't pass the fix, so LavaFlow never merges it; a person decides whether to finish it. `converted_to_draft`: LavaFlow opened it ready for review, and someone made it a draft since.
+// LavaflowDraftReason Why a run's pull request is a draft. `open_pr`: LavaFlow doesn't merge the fix, because the project's autonomy is `open_pr`, merging was unavailable when it opened, LavaFlow started the run on its own under settings saved with automatic runs off before this API (sending `autonomy: merge` again as the owner lifts that), or it was already a draft when the run took it on; it waits for a person to review it and mark it ready. `review_unresolved`: LavaFlow's review didn't pass the fix, so LavaFlow never merges it; a person decides whether to finish it. `converted_to_draft`: LavaFlow opened it ready for review, and someone made it a draft since.
 type LavaflowDraftReason string
 
 // LavaflowFailure defines model for LavaflowFailure.
@@ -8212,13 +10373,69 @@ type LavaflowFailure struct {
 	// Code Stable code, such as `timed_out` or `feature_paused`.
 	Code string `json:"code"`
 
-	// Message Fixed text for the code.
+	// Message Text to show for the code.
 	Message string `json:"message"`
+}
+
+// LavaflowGlobalSkill A skill Volcano wrote for every project. It holds no customer content.
+type LavaflowGlobalSkill struct {
+	// AppliesTo Where a global skill applies. Empty lists apply it to every project.
+	AppliesTo LavaflowGlobalSkillAppliesTo `json:"applies_to"`
+	Body      string                       `json:"body"`
+
+	// ContentSha256 The hash of the skill's file, which identifies its version.
+	ContentSha256 string `json:"content_sha256"`
+	Description   string `json:"description"`
+
+	// Name Runs list it as `volcano:<name>`.
+	Name string `json:"name"`
+
+	// Scope `project` skills belong to this project and never leave it. `volcano` skills are written by Volcano for every project.
+	Scope LavaflowSkillScope `json:"scope"`
+}
+
+// LavaflowGlobalSkillAppliesTo Where a global skill applies. Empty lists apply it to every project.
+type LavaflowGlobalSkillAppliesTo struct {
+	Frameworks    []string `json:"frameworks"`
+	ResourceTypes []string `json:"resource_types"`
+	Runtimes      []string `json:"runtimes"`
+}
+
+// LavaflowGlobalSkillList defines model for LavaflowGlobalSkillList.
+type LavaflowGlobalSkillList struct {
+	Data []LavaflowGlobalSkill `json:"data"`
+}
+
+// LavaflowHeldFixOpen The project, the run, and the diff and jobs of the held fix you read, by the digests the run served them with.
+type LavaflowHeldFixOpen struct {
+	// DiffSha256 The run's `diff_sha256`, as it served it.
+	DiffSha256 string `json:"diff_sha256"`
+
+	// JobsSha256 The run's `held_workflows.jobs_sha256`, as it served it.
+	JobsSha256 string `json:"jobs_sha256"`
+
+	// ProjectId The project the run belongs to.
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// RunId The run whose held fix to open.
+	RunId openapi_types.UUID `json:"run_id"`
+}
+
+// LavaflowHeldWorkflows Every workflow job that could run a held fix's pull request with the repository's secrets before a person approves it, as LavaFlow found them when it held the fix, and the commits it read the workflows at.
+type LavaflowHeldWorkflows struct {
+	// Jobs Every such job, at most 256, sorted by source, path and job. Empty when LavaFlow read every workflow to the end and found none, such as when they changed between the hold and the read.
+	Jobs []LavaflowAllowedWorkflow `json:"jobs"`
+
+	// JobsSha256 Identifies `read_at` and `jobs` together. Treat it as opaque: it changes when a listed job, or a commit the workflows were read at, does.
+	JobsSha256 string `json:"jobs_sha256"`
+
+	// ReadAt Each branch or commit whose workflows LavaFlow read: the project's production branch, the repository's default branch, and the commit the fix is cut from.
+	ReadAt []LavaflowWorkflowSource `json:"read_at"`
 }
 
 // LavaflowHoldReason One reason LavaFlow holds the fix for a person.
 type LavaflowHoldReason struct {
-	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files or a YAML file that declares a resource. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent's instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `ungated_workflows`: the fix opened past workflows that can run it with the repository's secrets before a person approves it, as the project's owner allowed, or LavaFlow couldn't check its workflows, so LavaFlow never starts its CI or merges it. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
+	// Code Why the fix is held. `client_reported_commit`: the fix is built on a commit Volcano can't tie to a push. `path`: it changes a path in `human_review_paths`, or deploy or infrastructure configuration Volcano always holds, such as `volcano-config.yaml`, Terraform files, a YAML or JSON file that declares a resource, a YAML template that mentions `apiVersion` or `kind`, a file in a Helm chart or Kustomize directory, or, in a repository too large to read in full, any file no other path reason holds. `sensitive_path`: it changes another path Volcano always holds: authentication or authorization code, Next.js middleware included; secret, key, certificate or cryptography files; a coding agent's instructions or settings, or Git hook configuration; CI configuration; a dependency manifest or lockfile, or a `package.json` change to what installs or its install scripts; or runtime, container or other configuration files. `label`: the pull request has the `needs-human-review` label. `no_checks`: no CI ran on it. `required_check_skipped`: a required check was skipped. `no_required_checks`: the base branch requires no check, so passing checks alone don't vouch for the fix. `changes_requested`: a reviewer requested changes. `repository_requires_approval`: the repository requires an approving review. `person_commits`: someone other than LavaFlow pushed to the fix's branch. `rules_bypass`: the Volcano GitHub App can bypass a ruleset on the base branch. `unchecked_rules`: the base branch has a rule LavaFlow doesn't check, such as required signatures. `commit_convention`: no title can meet the repository's commit convention. `ungated_workflows`: the fix opened past workflows that can run it with the repository's secrets before a person approves it, as the project's owner allowed, or LavaFlow couldn't check its workflows, so LavaFlow never starts its CI or merges it. `lineage_undoes_parent`: the fix follows up an earlier LavaFlow fix and deletes or changes lines that fix added, which could undo it. `lineage_cap`: the fix's lineage opened as many pull requests as it may. `lineage_held`: an earlier pull request in the fix's lineage was held, stopped or closed. `recent_regressions`: fixes LavaFlow merged in the project recently caused new errors. Other codes name a concern LavaFlow's reviewers raised. New codes may appear.
 	Code string `json:"code"`
 
 	// Paths The changed paths that matched, for a path code.
@@ -8226,6 +10443,54 @@ type LavaflowHoldReason struct {
 
 	// Question What a person decides before merging the fix, written to show as given.
 	Question string `json:"question"`
+}
+
+// LavaflowInvolvedResource A resource a run involves, and how.
+type LavaflowInvolvedResource struct {
+	// Resource A function, durable function or frontend in the project, or the project of a user-reported problem.
+	Resource LavaflowResourceReference `json:"resource"`
+
+	// Roles `issue`: the issue came from it. `cause`: the issue came from it, or code the diagnosis cites as evidence is in its source. `fix`: the diagnosis proposes changing its source, or the fix changes it; a change to code that every function shares involves every function.
+	Roles []LavaflowInvolvedResourceRoles `json:"roles"`
+}
+
+// LavaflowInvolvedResourceRoles defines model for LavaflowInvolvedResource.Roles.
+type LavaflowInvolvedResourceRoles string
+
+// LavaflowInvolvedResourceCount A resource and how many matching runs involve it.
+type LavaflowInvolvedResourceCount struct {
+	// Resource A function, durable function or frontend in the project, or the project of a user-reported problem.
+	Resource LavaflowResourceReference `json:"resource"`
+	Runs     int64                     `json:"runs"`
+}
+
+// LavaflowIssueSummary The project issue a run works on.
+type LavaflowIssueSummary struct {
+	// Culprit The innermost frame of your code, as `function (file)`; for a Code Quality finding, the symbol and file it is in, as `symbol (file)`, or the file alone. Null for an error without a stack and for a reported problem.
+	Culprit *string `json:"culprit"`
+
+	// EventCount Errors the issue has grouped so far; for a Code Quality finding, the scans that saw it; 0 for a reported problem.
+	EventCount int64              `json:"event_count"`
+	Id         openapi_types.UUID `json:"id"`
+	LastSeenAt time.Time          `json:"last_seen_at"`
+
+	// RegressedAt When the issue was last seen again after it was resolved, and reopened; null if it never was.
+	RegressedAt *time.Time `json:"regressed_at"`
+
+	// ResolvedAt When the issue was resolved; null unless it is resolved now.
+	ResolvedAt *time.Time `json:"resolved_at"`
+
+	// RunCount LavaFlow runs on this issue, this one included.
+	RunCount int64 `json:"run_count"`
+
+	// Status `open` until someone resolves or ignores the issue. A resolved issue
+	// seen again reopens. A reported problem resolves when its LavaFlow fix
+	// merges. Volcano ignores one whose report it deleted before any fix
+	// merged, so it no longer counts toward the project's open issues.
+	Status IssueStatus `json:"status"`
+
+	// Title The issue's title: the error type and message, a Code Quality finding's title, or a reported problem's title.
+	Title string `json:"title"`
 }
 
 // LavaflowLogLine defines model for LavaflowLogLine.
@@ -8259,7 +10524,7 @@ type LavaflowMergePolicyUpdate struct {
 	HumanReviewPaths *[]string `json:"human_review_paths,omitempty"`
 }
 
-// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `branch_behind`: the base branch requires the fix to be up to date with it, and LavaFlow doesn't update fix branches. `removed_from_queue`: the fix isn't in the merge queue, and LavaFlow can't tell why, for example because its checks failed there or someone removed it. `reads_failed`: LavaFlow failed to read the pull request for about an hour while the fix may have been queued, so it took the fix out of the merge queue, when it could still reach it, and stopped. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `request_rejected`: GitHub refused LavaFlow's request to start the checks on the fix. `ci_start_commit_mismatch`: GitHub reports a different commit from the one LavaFlow made to start the checks. `queue_carries_ci_skip`: the repository's merge queue could carry the fix commit's instruction to skip checks into the base branch. `merge_carries_ci_skip`: the repository allows no squash merge, so merging would carry that instruction into the base branch. Each of these four hands the fix to you for good. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused, and the merge waits. LavaFlow takes a queued fix out of the merge queue, so it shows `waiting_for_checks`, and queues it again when merging resumes. `paused_too_long`: merging stayed paused for more than 7 days. `cancelled`: the project is being deleted, so LavaFlow stopped waiting on the merge. New reasons may appear.
+// LavaflowMergeReason Why the merge stopped, or what a waiting merge is paused for. `review_unresolved`: LavaFlow's review did not pass the fix. `checks_failed`: a check failed. `checks_timed_out`: checks did not finish in time. `blocked_by_rules`: the repository's rules hold the merge. `not_mergeable`: GitHub can't merge the pull request, for example because it conflicts. `branch_behind`: the base branch requires the fix to be up to date with it, and LavaFlow doesn't update fix branches. `removed_from_queue`: the fix isn't in the merge queue, and LavaFlow can't tell why, for example because its checks failed there or someone removed it. `reads_failed`: LavaFlow failed to read the pull request for about an hour while the fix may have been queued, so it took the fix out of the merge queue, when it could still reach it, and stopped, or failed to read the project's settings or repository for about a day while merging was paused. `handed_off`: someone else changed or took over the pull request. `unreadable`: GitHub's state could not be read. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission the merge needs. `repository_changed`: the project now deploys from another repository. `settings_changed`: the project's settings no longer allow the merge. `request_rejected`: GitHub refused LavaFlow's request to start the checks on the fix. `ci_start_commit_mismatch`: GitHub reports a different commit from the one LavaFlow made to start the checks. `branch_refused`: LavaFlow starts checks only on a LavaFlow branch of an open pull request it opened, never the default or production branch, so it didn't start them on this one. `head_unverified`: GitHub doesn't report the fix's head as the signed commit LavaFlow pushed, so LavaFlow didn't start its checks. `checks_not_started`: LavaFlow couldn't give the fix a commit message that runs CI. `queue_carries_ci_skip`: the repository's merge queue could carry an instruction to skip checks, from the fix's commits or its pull request's title or description, into the base branch. `merge_carries_ci_skip`: merging would carry an instruction to skip checks into the base branch, for example because the repository allows no squash merge. Each of these seven hands the fix to you for good. `manual_deploy`: the fix merged and waits for you to deploy it. `paused`: merging is paused, and the merge waits. LavaFlow takes a queued fix out of the merge queue, so it shows `waiting_for_checks`, and queues it again when merging resumes. `paused_too_long`: merging stayed paused for more than 7 days. `cancelled`: the project is being deleted, so LavaFlow stopped waiting on the merge. New reasons may appear.
 type LavaflowMergeReason = string
 
 // LavaflowMergeStatus `waiting_for_checks`: LavaFlow waits for the checks on the fix's commit. `queued`: the fix is in the repository's merge queue. `merged`: the pull request merged. `held`: something in `hold_reasons` needs a person. LavaFlow commented on the pull request once and never merges, pushes to, rebases or dequeues it again; review it and merge it yourself if you want it. `stopped`: LavaFlow left the pull request open for you, for `reason`.
@@ -8267,12 +10532,18 @@ type LavaflowMergeStatus string
 
 // LavaflowPullRequest defines model for LavaflowPullRequest.
 type LavaflowPullRequest struct {
+	// DeployedAt When the merged fix went live: the first live deployment of the issue's resource that includes it finished. When more than 20 deployments went live between the merge and the one LavaFlow found the fix in, LavaFlow can't tell which first included it, and this is the merge time. Null until LavaFlow finds the fix live, and for a pull request that didn't merge. LavaFlow watches the resource's deployments for a week after the merge.
+	DeployedAt *time.Time `json:"deployed_at"`
+
 	// Draft Whether the pull request is a draft, as GitHub last reported it to LavaFlow. Null for one opened before LavaFlow recorded it.
 	Draft *bool `json:"draft"`
 
 	// DraftReason Why the pull request is a draft, null unless `draft` is true.
 	DraftReason *LavaflowDraftReason `json:"draft_reason"`
-	Number      int64                `json:"number"`
+
+	// MergedAt When the pull request merged; null unless `state` is `merged`.
+	MergedAt *time.Time `json:"merged_at"`
+	Number   int64      `json:"number"`
 
 	// OpenedAt When the run opened the pull request, null for one opened before LavaFlow recorded the time.
 	OpenedAt *time.Time               `json:"opened_at"`
@@ -8282,6 +10553,26 @@ type LavaflowPullRequest struct {
 
 // LavaflowPullRequestState defines model for LavaflowPullRequest.State.
 type LavaflowPullRequestState string
+
+// LavaflowPullRequestStateCounts Matching runs by the state of their pull request, zeros included. `none` counts runs without one.
+type LavaflowPullRequestStateCounts struct {
+	Closed int64 `json:"closed"`
+	Merged int64 `json:"merged"`
+	None   int64 `json:"none"`
+	Open   int64 `json:"open"`
+}
+
+// LavaflowRepositoryChecks Whether LavaFlow ran the repository's own checks, such as its tests, on a fix itself, before it opened a pull request or held the fix. CI that runs on the pull request afterwards is the repository's own.
+type LavaflowRepositoryChecks struct {
+	// Message Text to show for the status and reason. It names the pull request when one opened.
+	Message string `json:"message"`
+
+	// Reason Stable code for why the checks did not run. `sandbox_unavailable`: LavaFlow cannot run a repository's checks itself yet.
+	Reason string `json:"reason"`
+
+	// Status `not_run`: LavaFlow did not run the repository's checks on the fix, for the reason `reason` names. Treat a status you don't know as `not_run`.
+	Status string `json:"status"`
+}
 
 // LavaflowResource defines model for LavaflowResource.
 type LavaflowResource struct {
@@ -8299,7 +10590,7 @@ type LavaflowResource struct {
 	// PullRequestsOpened Pull requests with a fix LavaFlow opened in the window.
 	PullRequestsOpened int64 `json:"pull_requests_opened"`
 
-	// Resource The function, durable function or frontend an issue came from.
+	// Resource A function, durable function or frontend in the project, or the project of a user-reported problem.
 	Resource LavaflowResourceReference `json:"resource"`
 }
 
@@ -8308,7 +10599,7 @@ type LavaflowResourceList struct {
 	Data []LavaflowResource `json:"data"`
 }
 
-// LavaflowResourceReference The function, durable function or frontend an issue came from.
+// LavaflowResourceReference A function, durable function or frontend in the project, or the project of a user-reported problem.
 type LavaflowResourceReference struct {
 	Id   openapi_types.UUID            `json:"id"`
 	Name string                        `json:"name"`
@@ -8320,40 +10611,81 @@ type LavaflowResourceReferenceType string
 
 // LavaflowReview defines model for LavaflowReview.
 type LavaflowReview struct {
+	// Rounds The review rounds that ran, 0 when no reviewer could run.
 	Rounds int `json:"rounds"`
 
-	// Verdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding.
+	// Stopped Why the review ended without passing the fix, null when it passed the fix or when the run saved no fix.
+	Stopped *LavaflowReviewStop `json:"stopped"`
+
+	// Verdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding, or no reviewer could run.
 	Verdict LavaflowReviewVerdict `json:"verdict"`
 }
 
-// LavaflowReviewVerdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding.
+// LavaflowReviewVerdict The last review round's verdict. `blocked` means a critical or major finding stops the fix; `changes_requested` means only minor findings do; `error` means a reviewer failed without a blocking finding, or no reviewer could run.
 type LavaflowReviewVerdict string
+
+// LavaflowReviewStop Why a run's review ended without passing its fix. `rounds`: the last review round still found problems. `no_revision`: LavaFlow gave no revised fix. `budget_exhausted`: the run used its token budget before LavaFlow could revise the fix; this is the run's own budget, not the project's daily spend limit. `context_limit`: the fix's conversation grew too long for the model before LavaFlow could revise it. `timed_out`: the run's time for review ran out. `reviewers_failed`: no reviewer of the last round finished. `too_few_reviewers`: fewer reviewers could run than a round needs to pass the fix. `unreadable`: a retried run could not read the review saved with its fix, so a person must review it. More values may be added: treat a value you don't know as other.
+type LavaflowReviewStop string
 
 // LavaflowRun defines model for LavaflowRun.
 type LavaflowRun struct {
-	CreatedAt time.Time          `json:"created_at"`
-	Diagnosis *LavaflowDiagnosis `json:"diagnosis"`
+	// Category A Code Quality run carries its finding's from the start. Any other run's is null until LavaFlow records a diagnosis. Runs from before categories get one when their diagnosis names one or their saved fix's paths imply one, and stay null only when neither does.
+	Category *LavaflowRunCategory `json:"category"`
 
-	// Diff The fix as a unified diff. Null for now; a run that opened a pull request links to the change in `pull_request`.
+	// ChangedFiles Repository paths the fix changes, sorted; empty without a fix. A path that may itself hold a credential is listed as "", as `diff_withheld` lists it, and so is every path when `diff` can't tell the fix's files apart. A file past a truncated `diff`'s cut is listed.
+	ChangedFiles []string           `json:"changed_files"`
+	CreatedAt    time.Time          `json:"created_at"`
+	Diagnosis    *LavaflowDiagnosis `json:"diagnosis"`
+
+	// Diff The fix LavaFlow saved, as the unified diff its reviewers read, cut short past 256 KiB as they read it, with a last line that starts with `[diff truncated`. When a file's content, before or after the fix, or any change to it may hold a credential, or the file is too long for LavaFlow to read whole (over 64 KiB, or past 256 KiB across the fix's files), every change to that file is left out, with one line in their place that starts with `# LavaFlow withheld` and names the file. A run held with `possible_credential` leaves out every file. Null for a run with no saved fix, or one saved before LavaFlow kept its diff.
 	Diff *string `json:"diff"`
 
+	// DiffSha256 The SHA-256, in hex, of `diff` exactly as served, its UTF-8 bytes. Null whenever `diff` is.
+	DiffSha256 *string `json:"diff_sha256"`
+
+	// DiffTruncated `diff` was cut short, so it does not show the whole fix. False when `diff` is null.
+	DiffTruncated bool `json:"diff_truncated"`
+
+	// DiffWithheld The files whose changes `diff` leaves out, by path, as its `# LavaFlow withheld` lines name them; an empty string for a file whose path may itself hold a credential. Empty when `diff` shows every file, or is null.
+	DiffWithheld []string `json:"diff_withheld"`
+
 	// Failure Why the run stopped or waits, null when nothing went wrong.
-	Failure    *LavaflowFailure   `json:"failure"`
-	FinishedAt *time.Time         `json:"finished_at"`
-	Id         openapi_types.UUID `json:"id"`
-	IssueId    openapi_types.UUID `json:"issue_id"`
-	Merge      *LavaflowMerge     `json:"merge"`
+	Failure    *LavaflowFailure `json:"failure"`
+	FinishedAt *time.Time       `json:"finished_at"`
+
+	// HeldWorkflows For a run whose `pull_request_skipped` is `ungated_workflows`, every workflow job that held its fix. Null for any other run, and for a held run whose workflows LavaFlow couldn't read to the end, such as one with a workflow it couldn't parse, or more than 256 such jobs.
+	HeldWorkflows *LavaflowHeldWorkflows `json:"held_workflows"`
+	Id            openapi_types.UUID     `json:"id"`
+
+	// Issue Null only for a run that works on no issue.
+	Issue   *LavaflowIssueSummary `json:"issue"`
+	IssueId openapi_types.UUID    `json:"issue_id"`
+	Merge   *LavaflowMerge        `json:"merge"`
+
+	// Mode What the run works on: `live` for an issue seen in the project's logs, `code_quality` for a Code Quality finding.
+	Mode LavaflowRunMode `json:"mode"`
+
+	// Progress Where a run LavaFlow is still working on stands; null once it has nothing left to do.
+	Progress *LavaflowRunProgress `json:"progress"`
 
 	// ProjectId The project the run belongs to.
 	ProjectId   openapi_types.UUID   `json:"project_id"`
 	PullRequest *LavaflowPullRequest `json:"pull_request"`
 
-	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
+	// PullRequestSkipped Why a finished run opened no pull request. A `completed` run without `pull_request` always has one; it is `diagnose_only` when the project's `autonomy` stopped the run at its diagnosis. Null when the run opened a pull request, while it is queued or runs, and when it failed or was cancelled.
 	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
 
-	// Resource The function, durable function or frontend an issue came from.
+	// RepositoryChecks Whether LavaFlow ran the repository's own checks on the fix itself. Null for a run with no fix.
+	RepositoryChecks *LavaflowRepositoryChecks `json:"repository_checks"`
+
+	// Resource A function, durable function or frontend in the project, or the project of a user-reported problem.
 	Resource LavaflowResourceReference `json:"resource"`
-	Review   *LavaflowReview           `json:"review"`
+
+	// Resources Every resource the run involves: the issue's first, then by name. A run without a recorded diagnosis lists only the issue's. For a run whose report came from what it saved rather than its source, such as one from before involved resources were recorded, the list may leave out frontends and the functions involved through shared code or the build root's dependency files.
+	Resources []LavaflowInvolvedResource `json:"resources"`
+
+	// Review The review of the run's fix. When no reviewer could run, it still says why in `stopped`. Null when no review ran.
+	Review *LavaflowReview `json:"review"`
 
 	// SourceCommit The commit the run read the code at. Null when it read none, as for a run that diagnosed from the logs alone.
 	SourceCommit *LavaflowSourceCommit `json:"source_commit"`
@@ -8361,11 +10693,30 @@ type LavaflowRun struct {
 	// Status Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 	Status LavaflowRunStatus `json:"status"`
 
-	// Title The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
+	// Title Names the problem the run worked on, in at most 80 characters: its diagnosis' title, else the title of the fix it proposed, else the first line or sentence of its diagnosis' summary. Null while none is known.
 	Title *string `json:"title"`
 
 	// UngatedWorkflows The workflow jobs the run's pull request opened past because the project's owner allowed ungated workflows, the first one on each branch or commit checked. Empty when none or when the run opened no pull request. Null when there is no record of the workflows its pull request opened past, as for pull requests opened before LavaFlow recorded them. Under the merge stage, LavaFlow holds such a fix as unchecked, with `ungated_workflows`.
 	UngatedWorkflows *[]LavaflowAllowedWorkflow `json:"ungated_workflows"`
+}
+
+// LavaflowRunCategory What kind of problem the run works on. `bug`: the project's code is wrong. `performance`: the code is too slow or uses too much. `security`: the code exposes data or access it shouldn't. `improvement`: the code mishandles an edge case or an outside failure. `configuration`: a setting, variable or manifest value is wrong or missing. `dependency`: a package or its version causes it. `external`: a service outside the project fails and no repository change is right. A Code Quality run's is its finding's, `bug` or `improvement`. Any other run's is `dependency` or `configuration` for a fix that changes only such files, else the kind its diagnosis names. New values may appear; treat an unknown value as uncategorized.
+type LavaflowRunCategory string
+
+// LavaflowRunCounts Runs that match the request. `total` applies every filter. Each breakdown applies every filter but its own, so it shows what picking another value would return.
+type LavaflowRunCounts struct {
+	// Category Matching runs in each category, zeros included. `uncategorized` counts runs whose `category` is null.
+	Category LavaflowCategoryCounts `json:"category"`
+
+	// InvolvedResources Resources involved in at least one matching run, most runs first, then by name; at most 50. A run counts once per resource it involves. A run whose report came from what it saved rather than its source, such as one from before involved resources were recorded, may leave out frontends and the functions involved through shared code or the build root's dependency files, so these counts can undercount them.
+	InvolvedResources []LavaflowInvolvedResourceCount `json:"involved_resources"`
+
+	// PullRequestState Matching runs by the state of their pull request, zeros included. `none` counts runs without one.
+	PullRequestState LavaflowPullRequestStateCounts `json:"pull_request_state"`
+
+	// Status Matching runs in each status, zeros included.
+	Status LavaflowRunStatusCounts `json:"status"`
+	Total  int64                   `json:"total"`
 }
 
 // LavaflowRunCreate The project, and the issue to start a run on.
@@ -8377,33 +10728,170 @@ type LavaflowRunCreate struct {
 	ProjectId openapi_types.UUID `json:"project_id"`
 }
 
+// LavaflowRunMode What the run works on: `live` for an issue seen in the project's logs, `code_quality` for a Code Quality finding.
+type LavaflowRunMode string
+
+// LavaflowRunProgress How far an active run has come. The steps are `queued`, `diagnosing`, `fixing`, `reviewing`, `waiting_for_checks` and `merge_queued`, in that order, and a run takes as many as its autonomy when it was queued allows: 2 for `diagnose_only`, 4 for `open_pr` (opening the pull request ends it), 6 for `merge` (the merge ends it).
+type LavaflowRunProgress struct {
+	// Stage New stages may appear.
+	Stage LavaflowRunProgressStage `json:"stage"`
+
+	// Step The stage's place among the run's steps, from 1.
+	Step int `json:"step"`
+
+	// Steps How many steps the run takes.
+	Steps int `json:"steps"`
+}
+
+// LavaflowRunProgressStage New stages may appear.
+type LavaflowRunProgressStage string
+
 // LavaflowRunStatus Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 type LavaflowRunStatus string
 
+// LavaflowRunStatusCounts Matching runs in each status, zeros included.
+type LavaflowRunStatusCounts struct {
+	Cancelled  int64 `json:"cancelled"`
+	Completed  int64 `json:"completed"`
+	Diagnosing int64 `json:"diagnosing"`
+	Failed     int64 `json:"failed"`
+	Fixing     int64 `json:"fixing"`
+	PrOpen     int64 `json:"pr_open"`
+	Queued     int64 `json:"queued"`
+	Reviewing  int64 `json:"reviewing"`
+}
+
 // LavaflowRunSummary defines model for LavaflowRunSummary.
 type LavaflowRunSummary struct {
-	CreatedAt  time.Time          `json:"created_at"`
-	FinishedAt *time.Time         `json:"finished_at"`
-	Id         openapi_types.UUID `json:"id"`
-	IssueId    openapi_types.UUID `json:"issue_id"`
-	Merge      *LavaflowMerge     `json:"merge"`
+	// Category A Code Quality run carries its finding's from the start. Any other run's is null until LavaFlow records a diagnosis. Runs from before categories get one when their diagnosis names one or their saved fix's paths imply one, and stay null only when neither does.
+	Category   *LavaflowRunCategory `json:"category"`
+	CreatedAt  time.Time            `json:"created_at"`
+	FinishedAt *time.Time           `json:"finished_at"`
+	Id         openapi_types.UUID   `json:"id"`
+
+	// Issue Null only for a run that works on no issue.
+	Issue   *LavaflowIssueSummary `json:"issue"`
+	IssueId openapi_types.UUID    `json:"issue_id"`
+	Merge   *LavaflowMerge        `json:"merge"`
+
+	// Mode What the run works on: `live` for an issue seen in the project's logs, `code_quality` for a Code Quality finding.
+	Mode LavaflowRunMode `json:"mode"`
+
+	// Progress Where a run LavaFlow is still working on stands; null once it has nothing left to do.
+	Progress *LavaflowRunProgress `json:"progress"`
 
 	// ProjectId The project the run belongs to.
 	ProjectId   openapi_types.UUID   `json:"project_id"`
 	PullRequest *LavaflowPullRequest `json:"pull_request"`
 
-	// PullRequestSkipped Why the run opened no pull request although it may, null when it opened one, when its `max_stage` stops before the pull request, or while it runs.
+	// PullRequestSkipped Why a finished run opened no pull request. A `completed` run without `pull_request` always has one; it is `diagnose_only` when the project's `autonomy` stopped the run at its diagnosis. Null when the run opened a pull request, while it is queued or runs, and when it failed or was cancelled.
 	PullRequestSkipped *LavaflowSkipReason `json:"pull_request_skipped"`
 
-	// Resource The function, durable function or frontend an issue came from.
+	// Resource A function, durable function or frontend in the project, or the project of a user-reported problem.
 	Resource LavaflowResourceReference `json:"resource"`
+
+	// Resources Every resource the run involves: the issue's first, then by name. A run without a recorded diagnosis lists only the issue's. For a run whose report came from what it saved rather than its source, such as one from before involved resources were recorded, the list may leave out frontends and the functions involved through shared code or the build root's dependency files.
+	Resources []LavaflowInvolvedResource `json:"resources"`
 
 	// Status Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 	Status LavaflowRunStatus `json:"status"`
 
-	// Title The title of the fix the run proposed, or its diagnosis' summary. Null while neither is known.
+	// Title Names the problem the run worked on, in at most 80 characters: its diagnosis' title, else the title of the fix it proposed, else the first line or sentence of its diagnosis' summary. Null while none is known.
 	Title *string `json:"title"`
 }
+
+// LavaflowScan One Code Quality scan of the code a project's deploys changed.
+type LavaflowScan struct {
+	// BaseSha The commit the scan compares against, null while waiting or when there was none.
+	BaseSha *string `json:"base_sha"`
+
+	// Billed The scan's findings whose runs were billed.
+	Billed      []LavaflowScanBilledFinding `json:"billed"`
+	CompletedAt *time.Time                  `json:"completed_at"`
+
+	// Counts What the scan did with the problems it found.
+	Counts LavaflowScanCounts `json:"counts"`
+
+	// HeadSha The newest deployed commit the scan covers.
+	HeadSha string `json:"head_sha"`
+
+	// Id The scan's ID, null while it is waiting.
+	Id *openapi_types.UUID `json:"id"`
+
+	// Outcome How a finished scan ended: `scanned`; `no_changes` when the deploy changed nothing since the last scan, as after a redeploy or a rollback; `no_base` when there was no earlier commit to compare against, so the head became the starting point; `unreachable` when the head commit is on neither the project's production branch nor the repository's default branch; `repository_changed`; `failed`; or `cancelled`. Null until it ends.
+	Outcome   *string            `json:"outcome"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// RepositoryId The GitHub repository the scan reads.
+	RepositoryId int64 `json:"repository_id"`
+
+	// RequestedAt When the first deploy the scan covers asked for it.
+	RequestedAt time.Time              `json:"requested_at"`
+	Resources   []LavaflowScanResource `json:"resources"`
+
+	// Source What asked for the scan.
+	Source    LavaflowScanSource `json:"source"`
+	StartedAt *time.Time         `json:"started_at"`
+
+	// Status Where the scan stands. `waiting` is the project's next scan: deploys that went live since the last one, waiting out a short settle window or a bound named by `waiting_reason`.
+	Status LavaflowScanStatus `json:"status"`
+
+	// Truncated Whether the scan reviewed only part of the change. A change too large to review whole keeps the files with the most changed lines, a review that stops early keeps what it found, and a repository too large to read whole skips the files past what it read. No later scan covers the rest.
+	Truncated bool `json:"truncated"`
+
+	// WaitingReason The bound a waiting scan waits at: `findings_limit`, `pull_request_limit`, `spend_limit`, `scan_limit` or `feature_unavailable`. Null while it only waits out its settle window, and for a scan that started. A waiting scan skips no deploy: it covers every commit since the last scan when it starts.
+	WaitingReason *string `json:"waiting_reason"`
+}
+
+// LavaflowScanSource What asked for the scan.
+type LavaflowScanSource string
+
+// LavaflowScanBilledFinding A finding of the scan whose Code Quality runs were billed.
+type LavaflowScanBilledFinding struct {
+	// BillableEvents How many billable events of each kind the finding's runs recorded, keyed by kind, such as `issue_diagnosed` and `pull_request_opened`.
+	BillableEvents map[string]int64 `json:"billable_events"`
+
+	// IssueId The finding's issue. Its `finding` says where the problem is and why.
+	IssueId openapi_types.UUID `json:"issue_id"`
+
+	// Rule The rule the finding is about.
+	Rule  string `json:"rule"`
+	Title string `json:"title"`
+}
+
+// LavaflowScanCounts What the scan did with the problems it found.
+type LavaflowScanCounts struct {
+	// Capped Confirmed findings past the plan's findings per scan, which no later scan reports again.
+	Capped int64 `json:"capped"`
+
+	// Created New issues the scan opened.
+	Created int64 `json:"created"`
+
+	// Duplicate Candidates that matched an issue the project already has, or a finding the scan already kept.
+	Duplicate int64 `json:"duplicate"`
+
+	// Found Candidates the scan found in the changed lines.
+	Found int64 `json:"found"`
+
+	// Rejected Candidates LavaFlow's second check didn't confirm, or that it couldn't report.
+	Rejected int64 `json:"rejected"`
+
+	// Suppressed Candidates a person had already turned down, by closing their pull request or ignoring their issue.
+	Suppressed int64 `json:"suppressed"`
+}
+
+// LavaflowScanResource A resource whose production deploy the scan covers. Only frontend deploys ask for a scan for now.
+type LavaflowScanResource struct {
+	DeploymentId openapi_types.UUID               `json:"deployment_id"`
+	ResourceId   openapi_types.UUID               `json:"resource_id"`
+	ResourceType LavaflowScanResourceResourceType `json:"resource_type"`
+}
+
+// LavaflowScanResourceResourceType defines model for LavaflowScanResource.ResourceType.
+type LavaflowScanResourceResourceType string
+
+// LavaflowScanStatus Where the scan stands. `waiting` is the project's next scan: deploys that went live since the last one, waiting out a short settle window or a bound named by `waiting_reason`.
+type LavaflowScanStatus string
 
 // LavaflowSettings A project's LavaFlow settings. LavaFlow sends this project's logs and source code to an AI service that Volcano operates.
 type LavaflowSettings struct {
@@ -8416,11 +10904,17 @@ type LavaflowSettings struct {
 	// CanUpdate Whether the caller can save the settings: true only for the project's owner with a platform token while the owner's account is active; false for any project access token and for a read-only account.
 	CanUpdate bool `json:"can_update"`
 
+	// CodeQuality LavaFlow Code Quality: whether LavaFlow reviews the code each production deploy changes and opens pull requests that fix what it confirms.
+	CodeQuality LavaflowCodeQualitySettings `json:"code_quality"`
+
 	// CustomContext Context about the project for LavaFlow's runs. Empty when unset. Saved, but runs do not use it yet.
 	CustomContext string `json:"custom_context"`
 
 	// Enabled Whether LavaFlow works on the project's issues. Off by default.
 	Enabled bool `json:"enabled"`
+
+	// FixBlocker What in the project's repository setup stops LavaFlow from fixing issues although it is on. Null when the repository setup doesn't, and while the project's `lavaflow` capability isn't available; null doesn't mean nothing else stops LavaFlow. `message` is text to show as given. `repository_required`: the project has no linked repository. With `autonomy` `open_pr` or `merge`, LavaFlow diagnoses issues but fixes none; turned on for a repository the project no longer links, it starts no runs. Link a repository with `PUT /projects/{id}/git-connection` or `volcano git connect <git-url>`. Turned on with none, LavaFlow fixes issues in the first one linked, unless `message` asks to turn it on again after the link; linking the one it was turned on for resumes it. `repository_changed`: the project is linked to a repository LavaFlow wasn't turned on for. LavaFlow starts no runs until the owner turns it on again, with `{"enabled": true}` or `volcano cloud lavaflow enable`, which makes the linked repository the one it fixes. New codes may appear; show the `message` of one you don't know.
+	FixBlocker *LavaflowFailure `json:"fix_blocker"`
 
 	// MergePolicy Your rules for fixes LavaFlow must never merge. They apply with `autonomy: merge`; at another autonomy they are saved and do nothing.
 	MergePolicy LavaflowMergePolicy `json:"merge_policy"`
@@ -8428,36 +10922,250 @@ type LavaflowSettings struct {
 	// ProjectId The project the settings belong to.
 	ProjectId openapi_types.UUID `json:"project_id"`
 
+	// Repository The GitHub repository the project is linked to, as `GET /projects/{id}/git-connection` reports it. LavaFlow opens fix pull requests there, against `production_branch`. Null when the project has none.
+	Repository *ProjectGitConnectionSummary `json:"repository"`
+
+	// SkillLearning What LavaFlow will do with a skill it learns from a writer's correction of one of its fixes, once learning ships in a later release. `auto`, the default, activates it at once. `review` keeps it `proposed` until the owner activates it. `off` learns none and loads no project skill; the project's skills stay readable and deletable. A writer of the repository can steer LavaFlow through what it learns, outside the repository's history and branch protection, so a repository that protects its guidance, or relays CI output through a bot account with write access, should use `review`. Turning learning up needs the project's `lavaflow.skills` capability.
+	SkillLearning LavaflowSkillLearning `json:"skill_learning"`
+
 	// SystemPrompt Instructions for LavaFlow's runs, to follow after LavaFlow's own, which take precedence. Empty when unset. Saved, but runs do not use it yet.
 	SystemPrompt string `json:"system_prompt"`
 
-	// UpdatedAt When the settings were last saved, null until they first are.
+	// UpdatedAt When the settings were last saved, or last changed by connecting a repository. Null until they first are.
 	UpdatedAt *time.Time `json:"updated_at"`
 
-	// UpdatedBy The user ID of the person who last saved the settings.
+	// UpdatedBy The user ID of the person who made the last save; null when no person made it, such as a project access token.
 	UpdatedBy *string `json:"updated_by"`
 }
 
 // LavaflowSettingsUpdate The project, and at least one field to change. An omitted field keeps its saved value.
 type LavaflowSettingsUpdate struct {
-	// AllowUngatedWorkflows Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner's credentials turns it off. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`.
+	// AllowUngatedWorkflows Turns on opening fixes past ungated workflows, for the repository the project is connected to now; it applies only to that repository. Only the project's owner turns it on, signed in as a person: with a Volcano sign-in session, the platform token `volcano login` stores, or another platform token that expires. Their GitHub account must be able to push to that repository. A project access token, a platform token that never expires, or anyone else gets `403` with `person_required`. Any of the owner's credentials turns it off. Workflows in the repository may then run LavaFlow's pull requests, or put their text into commands, with the repository's secrets before a person reviews them. LavaFlow writes those changes from the project's error logs, which its users can influence. Turn it on only if those workflows keep secrets away from untrusted code; gating them on a label a person adds is safer. While LavaFlow is not available, only `false` is saved, and only with `enabled: false`, `skill_learning: off` or both.
 	AllowUngatedWorkflows *bool `json:"allow_ungated_workflows,omitempty"`
 
 	// Autonomy How far LavaFlow goes on its own. `diagnose_only` stops at a diagnosis. `open_pr` also opens a pull request with a fix, and never merges it. `merge` also merges the fix once LavaFlow's reviewers pass it, its required checks pass, and nothing holds it; a held fix is handed to you for good. Turning on merge lets LavaFlow's fixes, including those from runs it starts on its own, run your CI with the secrets your pull request workflows get. Choosing `merge` needs the project's `lavaflow.merge` capability.
-	Autonomy      *LavaflowAutonomy `json:"autonomy,omitempty"`
-	CustomContext *string           `json:"custom_context,omitempty"`
-	Enabled       *bool             `json:"enabled,omitempty"`
+	Autonomy *LavaflowAutonomy `json:"autonomy,omitempty"`
+
+	// CodeQuality Turns Code Quality on or off. Only the project's owner, signed in, can turn it on; any credential that can save the settings can turn it off.
+	CodeQuality   *LavaflowCodeQualityUpdate `json:"code_quality,omitempty"`
+	CustomContext *string                    `json:"custom_context,omitempty"`
+	Enabled       *bool                      `json:"enabled,omitempty"`
 
 	// MergePolicy The merge policy fields to change. An omitted field keeps its saved value. Send `human_review_paths: []` to clear the paths.
 	MergePolicy *LavaflowMergePolicyUpdate `json:"merge_policy,omitempty"`
 
 	// ProjectId The project whose settings to change.
-	ProjectId    openapi_types.UUID `json:"project_id"`
-	SystemPrompt *string            `json:"system_prompt,omitempty"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// SkillLearning Only the project's owner turns learning up, from `off` to `review` or `auto` or from `review` to `auto`, signed in as a person: with a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, and with a GitHub account that can push to the project's repository. Any other credential gets `403` with code `person_required`. Turning it down or off, or sending the saved value, needs no check. A project access token may send `off` with `project_id`, alone or with `code_quality` turned off, and nothing else; any other save it makes gets `403` with code `person_required`.
+	SkillLearning *LavaflowSkillLearning `json:"skill_learning,omitempty"`
+	SystemPrompt  *string                `json:"system_prompt,omitempty"`
 }
 
-// LavaflowSkipReason Why a run that may open a pull request opened none, with what you can do next. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit; check the project's repository connection and that the commit exists. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. New reasons may appear.
+// LavaflowSkill A project skill with its active version.
+type LavaflowSkill struct {
+	// AppliesTo Where a skill applies. Empty lists apply it to the whole project.
+	AppliesTo LavaflowSkillAppliesTo `json:"applies_to"`
+
+	// Body Markdown, at most 2 KiB.
+	Body      string                  `json:"body"`
+	Citations []LavaflowSkillCitation `json:"citations"`
+
+	// ContentSha256 The hash of the active version's text, as a run records it.
+	ContentSha256 string              `json:"content_sha256"`
+	Counts        LavaflowSkillCounts `json:"counts"`
+	CreatedAt     time.Time           `json:"created_at"`
+
+	// Description When the skill applies.
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// LastRenewedAt When the skill was created, or last renewed by the owner's edit, activation or restore.
+	LastRenewedAt time.Time  `json:"last_renewed_at"`
+	LastUsedAt    *time.Time `json:"last_used_at"`
+
+	// Name Unique in the project.
+	Name      string             `json:"name"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	RetiredAt *time.Time         `json:"retired_at"`
+
+	// RetiredReason Why it retired, null unless `status` is `retired`.
+	RetiredReason *LavaflowSkillRetiredReason `json:"retired_reason"`
+
+	// Scope `project` skills belong to this project and never leave it. `volcano` skills are written by Volcano for every project.
+	Scope LavaflowSkillScope `json:"scope"`
+
+	// Source Where a version came from: a writer's act on a fix's pull request, or the owner's edit.
+	Source LavaflowSkillSource `json:"source"`
+
+	// Status `proposed` waits for the owner to activate it. `active` is in force. `retired` is set aside and can be restored.
+	Status    LavaflowSkillStatus `json:"status"`
+	UpdatedAt time.Time           `json:"updated_at"`
+
+	// Version The active version.
+	Version int64 `json:"version"`
+}
+
+// LavaflowSkillAppliesTo Where a skill applies. Empty lists apply it to the whole project.
+type LavaflowSkillAppliesTo struct {
+	// Paths Repository path globs it applies to, relative to the repository root.
+	Paths []string `json:"paths"`
+
+	// ResourceIds Functions, durable functions and frontends it applies to.
+	ResourceIds []openapi_types.UUID `json:"resource_ids"`
+}
+
+// LavaflowSkillAppliesToUpdate The members of `applies_to` to change. An omitted member keeps its value, and a list you send replaces it, so `[]` clears it.
+type LavaflowSkillAppliesToUpdate struct {
+	// Paths Repository path globs it applies to, relative to the repository root.
+	Paths *[]string `json:"paths,omitempty"`
+
+	// ResourceIds Functions, durable functions and frontends it applies to.
+	ResourceIds *[]openapi_types.UUID `json:"resource_ids,omitempty"`
+}
+
+// LavaflowSkillCitation Repository code a skill rests on: a path and a string the file holds.
+type LavaflowSkillCitation struct {
+	Anchor string `json:"anchor"`
+	Path   string `json:"path"`
+}
+
+// LavaflowSkillCounts defines model for LavaflowSkillCounts.
+type LavaflowSkillCounts struct {
+	// Harmful Fixes that used the skill and a writer corrected or closed, or whose issue came back.
+	Harmful int64 `json:"harmful"`
+
+	// Helpful Fixes that used the skill and merged as LavaFlow left them.
+	Helpful int64 `json:"helpful"`
+
+	// Used Runs that loaded the skill's body.
+	Used int64 `json:"used"`
+}
+
+// LavaflowSkillError An error, with the rules a refused skill failed.
+type LavaflowSkillError struct {
+	// Code `skill_refused` means the skill check refused the text. `feature_unavailable` means the change needs the project's `lavaflow.skills` capability.
+	Code  *string `json:"code,omitempty"`
+	Error string  `json:"error"`
+
+	// Rules With `skill_refused`, the rules the text failed. The answer never repeats the text.
+	Rules *[]LavaflowSkillErrorRules `json:"rules,omitempty"`
+}
+
+// LavaflowSkillErrorRules defines model for LavaflowSkillError.Rules.
+type LavaflowSkillErrorRules string
+
+// LavaflowSkillLearning What LavaFlow will do with a skill it learns from a writer's correction of one of its fixes, once learning ships in a later release. `auto`, the default, activates it at once. `review` keeps it `proposed` until the owner activates it. `off` learns none and loads no project skill; the project's skills stay readable and deletable. A writer of the repository can steer LavaFlow through what it learns, outside the repository's history and branch protection, so a repository that protects its guidance, or relays CI output through a bot account with write access, should use `review`. Turning learning up needs the project's `lavaflow.skills` capability.
+type LavaflowSkillLearning string
+
+// LavaflowSkillList defines model for LavaflowSkillList.
+type LavaflowSkillList struct {
+	Data []LavaflowSkill `json:"data"`
+}
+
+// LavaflowSkillRetiredReason Why a skill retired. `repository_changed`: the project points at another repository, or none. `owner`: the owner retired it. `harmful`, `unused`, `stale` and `gate` are reserved for retirement LavaFlow does on its own, which comes in a later release.
+type LavaflowSkillRetiredReason string
+
+// LavaflowSkillScope `project` skills belong to this project and never leave it. `volcano` skills are written by Volcano for every project.
+type LavaflowSkillScope string
+
+// LavaflowSkillSource Where a version came from: a writer's act on a fix's pull request, or the owner's edit.
+type LavaflowSkillSource struct {
+	// Act The writer's act it came from, for `run`.
+	Act  *LavaflowSkillSourceAct `json:"act"`
+	Kind LavaflowSkillSourceKind `json:"kind"`
+
+	// PullRequest That run's pull request number.
+	PullRequest *int64 `json:"pull_request"`
+
+	// RunId The run whose pull request taught it, for `run`.
+	RunId *openapi_types.UUID `json:"run_id"`
+
+	// UserId The person who edited it, for `person`.
+	UserId *string `json:"user_id"`
+}
+
+// LavaflowSkillSourceAct The writer's act it came from, for `run`.
+type LavaflowSkillSourceAct string
+
+// LavaflowSkillSourceKind defines model for LavaflowSkillSource.Kind.
+type LavaflowSkillSourceKind string
+
+// LavaflowSkillStatus `proposed` waits for the owner to activate it. `active` is in force. `retired` is set aside and can be restored.
+type LavaflowSkillStatus string
+
+// LavaflowSkillUpdate The fields to change. An omitted field keeps its value.
+type LavaflowSkillUpdate struct {
+	// AppliesTo The members of `applies_to` to change. An omitted member keeps its value, and a list you send replaces it, so `[]` clears it.
+	AppliesTo   *LavaflowSkillAppliesToUpdate `json:"applies_to,omitempty"`
+	Body        *string                       `json:"body,omitempty"`
+	Description *string                       `json:"description,omitempty"`
+
+	// Status `active` activates a proposed skill or restores a retired one. `retired` retires it.
+	Status *LavaflowSkillUpdateStatus `json:"status,omitempty"`
+}
+
+// LavaflowSkillUpdateStatus `active` activates a proposed skill or restores a retired one. `retired` retires it.
+type LavaflowSkillUpdateStatus string
+
+// LavaflowSkillVersion defines model for LavaflowSkillVersion.
+type LavaflowSkillVersion struct {
+	// AppliesTo Where a skill applies. Empty lists apply it to the whole project.
+	AppliesTo     LavaflowSkillAppliesTo  `json:"applies_to"`
+	Body          string                  `json:"body"`
+	Citations     []LavaflowSkillCitation `json:"citations"`
+	ContentSha256 string                  `json:"content_sha256"`
+	CreatedAt     time.Time               `json:"created_at"`
+	Description   string                  `json:"description"`
+	ProjectId     openapi_types.UUID      `json:"project_id"`
+	SkillId       openapi_types.UUID      `json:"skill_id"`
+
+	// Source Where a version came from: a writer's act on a fix's pull request, or the owner's edit.
+	Source  LavaflowSkillSource `json:"source"`
+	Version int64               `json:"version"`
+}
+
+// LavaflowSkillVersionList defines model for LavaflowSkillVersionList.
+type LavaflowSkillVersionList struct {
+	Data []LavaflowSkillVersion `json:"data"`
+}
+
+// LavaflowSkipReason Why a finished run opened no pull request, with what you can do next. `diagnose_only`: the project's `autonomy` was `diagnose_only` when the run was queued, or became it before the pull request opened, so LavaFlow only diagnosed the issue; read the diagnosis, and set `autonomy` to `open_pr` or `merge` for later runs to open pull requests. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `convention_unsatisfiable`: LavaFlow would merge the fix, but no title can meet the repository's commit convention, so it kept the fix on the run; apply the fix yourself, or relax the convention. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit, or the production branch no longer holds it; check the project's repository connection and that the commit exists on that branch. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. `lineage_cap`: LavaFlow opened as many pull requests in this fix's lineage as it may; review the lineage's pull requests and fix the rest yourself. `lineage_held`: an earlier pull request in this fix's lineage was held, stopped or closed, so LavaFlow opens no more in it; apply the fix yourself from the diagnosis. `review_unresolved`: LavaFlow's review didn't pass a Code Quality fix; read the diagnosis. `duplicate_in_repository`: another project on the repository has the open Code Quality pull request for the same finding. `security_finding`: the finding has security impact and the repository isn't private, so the fix would disclose it; fix it yourself. New reasons may appear.
 type LavaflowSkipReason string
+
+// LavaflowSlackChannel A Slack channel that reports problems to LavaFlow for a project.
+type LavaflowSlackChannel struct {
+	// ChannelId A Slack channel ID, such as `C0123ABCD`.
+	ChannelId SlackChannelId `json:"channel_id"`
+	CreatedAt time.Time      `json:"created_at"`
+
+	// Id The binding's ID, which removing it takes.
+	Id        openapi_types.UUID `json:"id"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// TeamId A Slack workspace ID, such as `T0123ABCD`.
+	TeamId SlackTeamId `json:"team_id"`
+
+	// TeamName The workspace's name, or empty while the Volcano app is not installed in it.
+	TeamName string `json:"team_name"`
+}
+
+// LavaflowSlackChannelBinding defines model for LavaflowSlackChannelBinding.
+type LavaflowSlackChannelBinding struct {
+	// ChannelId A Slack channel ID, such as `C0123ABCD`.
+	ChannelId SlackChannelId `json:"channel_id"`
+
+	// ProjectId The project the channel reports for.
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// TeamId A Slack workspace ID, such as `T0123ABCD`.
+	TeamId SlackTeamId `json:"team_id"`
+}
+
+// LavaflowSlackChannelsResponse defines model for LavaflowSlackChannelsResponse.
+type LavaflowSlackChannelsResponse struct {
+	Channels []LavaflowSlackChannel `json:"channels"`
+}
 
 // LavaflowSourceCommit The commit a run read its source at.
 type LavaflowSourceCommit struct {
@@ -8485,6 +11193,15 @@ type LavaflowStats struct {
 
 	// WindowStart The first UTC day in the window.
 	WindowStart openapi_types.Date `json:"window_start"`
+}
+
+// LavaflowWorkflowSource A branch or commit whose workflows LavaFlow read, and the commit it read them at.
+type LavaflowWorkflowSource struct {
+	// CommitSha The commit LavaFlow read the workflows at.
+	CommitSha string `json:"commit_sha"`
+
+	// Source The branch, or the commit SHA for a commit.
+	Source string `json:"source"`
 }
 
 // LiveLogLevel Canonical lowercase function runtime log level.
@@ -9112,9 +11829,53 @@ type PaginatedFunctions struct {
 	Total int `json:"total"`
 }
 
+// PaginatedGitDeploymentRuns defines model for PaginatedGitDeploymentRuns.
+type PaginatedGitDeploymentRuns struct {
+	Data []GitDeploymentRun `json:"data"`
+
+	// HasMore Whether a next page exists
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page (present if has_more is true)
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// PaginatedIssues defines model for PaginatedIssues.
+type PaginatedIssues struct {
+	Data []Issue `json:"data"`
+
+	// HasMore Whether a next page exists
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page (present if has_more is true)
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
 // PaginatedLavaflowRuns defines model for PaginatedLavaflowRuns.
 type PaginatedLavaflowRuns struct {
-	Data []LavaflowRunSummary `json:"data"`
+	// Counts Present with `include=counts`.
+	Counts *LavaflowRunCounts   `json:"counts,omitempty"`
+	Data   []LavaflowRunSummary `json:"data"`
+
+	// HasMore Whether a next page exists
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page, present if has_more is true. It works only for the same project_id, caller and order.
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// PaginatedLavaflowScans defines model for PaginatedLavaflowScans.
+type PaginatedLavaflowScans struct {
+	Data []LavaflowScan `json:"data"`
 
 	// HasMore Whether a next page exists
 	HasMore bool `json:"has_more"`
@@ -9246,6 +12007,20 @@ type PaginatedServiceKeys struct {
 
 	// Total Total number of items across all pages
 	Total int `json:"total"`
+}
+
+// PaginatedShareReleases defines model for PaginatedShareReleases.
+type PaginatedShareReleases struct {
+	Data []ShareRelease `json:"data"`
+
+	// HasMore Whether a next page exists
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page, present if has_more is true. It works only for the same share_id and limit.
+	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
 // PaginatedStorageBuckets Cursor-paginated storage buckets (returned only when cursor pagination is requested).
@@ -9603,10 +12378,13 @@ type ProjectConfigAuth struct {
 
 // ProjectConfigAuthCORS defines model for ProjectConfigAuthCORS.
 type ProjectConfigAuthCORS struct {
-	AllowCredentials *bool     `json:"allow_credentials,omitempty"`
-	AllowedOrigins   *[]string `json:"allowed_origins,omitempty"`
-	Enabled          *bool     `json:"enabled,omitempty"`
-	MaxAge           *int      `json:"max_age,omitempty"`
+	AllowCredentials *bool `json:"allow_credentials,omitempty"`
+
+	// AllowFrontendPreviews Allow the origins of the project's own live frontend previews.
+	AllowFrontendPreviews *bool     `json:"allow_frontend_previews,omitempty"`
+	AllowedOrigins        *[]string `json:"allowed_origins,omitempty"`
+	Enabled               *bool     `json:"enabled,omitempty"`
+	MaxAge                *int      `json:"max_age,omitempty"`
 }
 
 // ProjectConfigAuthEmail defines model for ProjectConfigAuthEmail.
@@ -9625,8 +12403,11 @@ type ProjectConfigAuthEmail struct {
 
 // ProjectConfigAuthEmailFrom defines model for ProjectConfigAuthEmailFrom.
 type ProjectConfigAuthEmailFrom struct {
+	// Address Sender email address. New or changed values containing carriage returns or newlines return 422. Unchanged exported values are preserved.
 	Address *string `json:"address,omitempty"`
-	Name    *string `json:"name,omitempty"`
+
+	// Name Sender display name; supports punctuation and Unicode. New or changed values containing carriage returns or newlines return 422. Unchanged exported values are preserved.
+	Name *string `json:"name,omitempty"`
 }
 
 // ProjectConfigAuthEmailPasswordProvider defines model for ProjectConfigAuthEmailPasswordProvider.
@@ -9865,7 +12646,9 @@ type ProjectConfigDatabasePgVersion string
 type ProjectConfigEmailTemplate struct {
 	// HtmlBody HTML body. Max 256 KiB. SUPERAGENT plan required for custom bodies.
 	HtmlBody *string `json:"html_body,omitempty"`
-	Subject  *string `json:"subject,omitempty"`
+
+	// Subject Subject template. For new or changed values, literal interior carriage returns or newlines after Go template whitespace trimming return 422. Outer whitespace and trailing block-scalar newlines are allowed. Unchanged stored subjects are preserved.
+	Subject *string `json:"subject,omitempty"`
 
 	// TextBody Plain-text body. Max 256 KiB. SUPERAGENT plan required for custom bodies.
 	TextBody *string `json:"text_body,omitempty"`
@@ -10159,8 +12942,10 @@ type ProjectConfigVariable struct {
 
 // ProjectDeployment A Function or Frontend deployment attempt in a project-scoped feed.
 type ProjectDeployment struct {
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
+	// Commit The commit a deploy client reported for the deployment's source. Absent when the client reported none. A frontend deployment that publishes another deployment's build carries that deployment's commit.
+	Commit      *DeploymentCommit `json:"commit,omitempty"`
+	CompletedAt *time.Time        `json:"completed_at,omitempty"`
+	CreatedAt   time.Time         `json:"created_at"`
 
 	// DeploySource What initiated this deployment.
 	DeploySource ProjectDeploymentDeploySource `json:"deploy_source"`
@@ -10307,6 +13092,9 @@ type ProjectGitConnectionSummary struct {
 
 // ProjectGitDeploySettings A project's GitHub auto-deploy settings: what a push to the connected repo's production branch deploys. All settings are default-off.
 type ProjectGitDeploySettings struct {
+	// ApplyMigrations Whether a push applies the commit's pending migrations, the SQL files under volcano/migrations, before it deploys anything. Each database gets a migration run with source `git_deploy`; when one fails, nothing from the push deploys and the live version keeps serving. A push starts a migration run only while the project owner's account is `active`; otherwise it starts none, deploys nothing, and fails with code `owner_not_active`. A run an earlier attempt of the push started before the account changed keeps its outcome, but the push still deploys none of its code and fails with `owner_not_active`; its message says the schema changes stay. Nothing retries that push; push again once the account is `active`, and that push skips the migrations already applied. Reads back as saved even where the `databases.migrations` capability is unavailable; there, a push whose commit has migrations deploys nothing.
+	ApplyMigrations bool `json:"apply_migrations"`
+
 	// AutoDeployEnabled Whether a production-branch push triggers a deployment.
 	AutoDeployEnabled bool `json:"auto_deploy_enabled"`
 
@@ -10323,6 +13111,21 @@ type ProjectGitDeploySettings struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// ProjectGitOwnerPush Whether the project owner can push to the project's connected repository.
+type ProjectGitOwnerPush struct {
+	// CanPush True when the project owner's GitHub account can push to the repository.
+	CanPush bool `json:"can_push"`
+
+	// Reason Why `can_push` is false; absent when it is true. `owner_not_connected`: the owner has not connected a GitHub account. `owner_reconnect_required`: the owner's GitHub connection expired or was revoked; the owner reconnects GitHub. `repository_access_lost`: the owner's GitHub account can no longer see the repository. `no_push_permission`: the owner's GitHub account can read the repository but not push to it.
+	Reason *ProjectGitOwnerPushReason `json:"reason,omitempty"`
+
+	// RepositoryId Stable GitHub repository id of the connected repository, the `repo_id` of the project's git connection.
+	RepositoryId int64 `json:"repository_id"`
+}
+
+// ProjectGitOwnerPushReason Why `can_push` is false; absent when it is true. `owner_not_connected`: the owner has not connected a GitHub account. `owner_reconnect_required`: the owner's GitHub connection expired or was revoked; the owner reconnects GitHub. `repository_access_lost`: the owner's GitHub account can no longer see the repository. `no_push_permission`: the owner's GitHub account can read the repository but not push to it.
+type ProjectGitOwnerPushReason string
+
 // ProjectHealthCategory defines model for ProjectHealthCategory.
 type ProjectHealthCategory string
 
@@ -10333,7 +13136,9 @@ type ProjectHealthCheck struct {
 	Id         string                `json:"id"`
 	ReasonCode string                `json:"reason_code"`
 	Scope      ProjectHealthScope    `json:"scope"`
-	Status     ProjectHealthStatus   `json:"status"`
+
+	// Status empty means no functions, frontends, databases, storage, Volcano Auth users, or Sandbox resources are listed. needs_attention means an operation needs review without confirmed service impairment, or a serving frontend whose edge recovery gave up needs a redeploy. degraded means a resource is only partly available or is unavailable for an expected, temporary reason, such as a frontend whose edge synchronization did not complete or a database being restored; critical means use is blocked. A failed workflow or deployment record alone does not establish an outage. Findings remain available for empty projects.
+	Status ProjectHealthStatus `json:"status"`
 }
 
 // ProjectHealthDataStatus defines model for ProjectHealthDataStatus.
@@ -10372,7 +13177,9 @@ type ProjectHealthResponse struct {
 	FreshThrough time.Time            `json:"fresh_through"`
 	ObservedAt   time.Time            `json:"observed_at"`
 	ProjectId    openapi_types.UUID   `json:"project_id"`
-	Status       ProjectHealthStatus  `json:"status"`
+
+	// Status empty means no functions, frontends, databases, storage, Volcano Auth users, or Sandbox resources are listed. needs_attention means an operation needs review without confirmed service impairment, or a serving frontend whose edge recovery gave up needs a redeploy. degraded means a resource is only partly available or is unavailable for an expected, temporary reason, such as a frontend whose edge synchronization did not complete or a database being restored; critical means use is blocked. A failed workflow or deployment record alone does not establish an outage. Findings remain available for empty projects.
+	Status ProjectHealthStatus `json:"status"`
 }
 
 // ProjectHealthScope defines model for ProjectHealthScope.
@@ -10380,11 +13187,12 @@ type ProjectHealthScope struct {
 	Resource ProjectHealthResource `json:"resource"`
 }
 
-// ProjectHealthStatus defines model for ProjectHealthStatus.
+// ProjectHealthStatus empty means no functions, frontends, databases, storage, Volcano Auth users, or Sandbox resources are listed. needs_attention means an operation needs review without confirmed service impairment, or a serving frontend whose edge recovery gave up needs a redeploy. degraded means a resource is only partly available or is unavailable for an expected, temporary reason, such as a frontend whose edge synchronization did not complete or a database being restored; critical means use is blocked. A failed workflow or deployment record alone does not establish an outage. Findings remain available for empty projects.
 type ProjectHealthStatus string
 
 // ProjectHealthSummary defines model for ProjectHealthSummary.
 type ProjectHealthSummary struct {
+	// Status empty means no functions, frontends, databases, storage, Volcano Auth users, or Sandbox resources are listed. needs_attention means an operation needs review without confirmed service impairment, or a serving frontend whose edge recovery gave up needs a redeploy. degraded means a resource is only partly available or is unavailable for an expected, temporary reason, such as a frontend whose edge synchronization did not complete or a database being restored; critical means use is blocked. A failed workflow or deployment record alone does not establish an outage. Findings remain available for empty projects.
 	Status ProjectHealthStatus `json:"status"`
 }
 
@@ -10475,10 +13283,12 @@ type ProjectImportRun struct {
 	// Deployment Stable reference to a Volcano deployment run.
 	Deployment             DeploymentReference `json:"deployment"`
 	DestinationProjectName string              `json:"destination_project_name"`
-	ErrorCode              *string             `json:"error_code,omitempty"`
-	ErrorMessage           *string             `json:"error_message,omitempty"`
-	Id                     string              `json:"id"`
-	Provider               ImportProvider      `json:"provider"`
+
+	// ErrorCode Set when `status` is `failed`: `import.deployment_skipped` when the import's deployment was skipped, otherwise the error code of the Git deployment run the import started (see `GitDeploymentRunError.code`), such as `source_invalid`, `deploy_refused`, `child_deploy_failed`, `child_deploy_not_started`, or `deploy_failed`. Treat a code you do not know as a failure.
+	ErrorCode    *string        `json:"error_code,omitempty"`
+	ErrorMessage *string        `json:"error_message,omitempty"`
+	Id           string         `json:"id"`
+	Provider     ImportProvider `json:"provider"`
 
 	// Resource Stable reference to a Volcano resource.
 	Resource  ResourceReference      `json:"resource"`
@@ -10677,8 +13487,32 @@ type ProjectSourceExportStateMode string
 // Project creation accepts the installation; wait for `ready` before use.
 // A failed installation retains the project for inspection or deletion.
 type ProjectTemplateInstallation struct {
-	Phase  ProjectTemplateInstallationPhase  `json:"phase"`
-	Status ProjectTemplateInstallationStatus `json:"status"`
+	// FailureCode Why the installation failed. Present only when `status` is `failed`, and
+	// absent for installations that failed before Volcano recorded a reason.
+	// New codes can be added, so treat an unknown one as a generic failure.
+	// `source_withdrawn`: the deploy link was switched off or deleted, or its
+	// project is being deleted. `source_invalid`: the source failed Volcano's checks,
+	// such as a release archive whose digest, size or contents are wrong.
+	// `source_access_lost`: Volcano can no longer read the source repository.
+	// `invalid_source_configuration`: the source's `volcano-config.yaml` is
+	// invalid, or it declares a variable the new project does not have.
+	// `nothing_to_deploy`: the source has no function or frontend.
+	// `database_not_supported`: the source ships database SQL.
+	// `function_deploy_refused`: a function in the source cannot be deployed
+	// as defined. `function_quota_exceeded`,
+	// `durable_function_quota_exceeded`, `frontend_quota_exceeded`,
+	// `frontend_deploy_limit` and `build_minutes_exceeded`: the project
+	// reached a plan limit. `build_failed`: a function or frontend from the
+	// source failed to build or deploy; its deployment's build logs say why.
+	// `retry_budget_exhausted`: the installation kept failing and Volcano
+	// stopped retrying. `internal_error`: Volcano failed for a reason of its
+	// own.
+	FailureCode *string                          `json:"failure_code,omitempty"`
+	Phase       ProjectTemplateInstallationPhase `json:"phase"`
+
+	// Source The share release a fork was installed from.
+	Source *ProjectTemplateInstallationSource `json:"source,omitempty"`
+	Status ProjectTemplateInstallationStatus  `json:"status"`
 }
 
 // ProjectTemplateInstallationPhase defines model for ProjectTemplateInstallation.Phase.
@@ -10686,6 +13520,20 @@ type ProjectTemplateInstallationPhase string
 
 // ProjectTemplateInstallationStatus defines model for ProjectTemplateInstallation.Status.
 type ProjectTemplateInstallationStatus string
+
+// ProjectTemplateInstallationSource The share release a fork was installed from.
+type ProjectTemplateInstallationSource struct {
+	Kind ProjectTemplateInstallationSourceKind `json:"kind"`
+
+	// ReleaseId The release the project was installed from.
+	ReleaseId openapi_types.UUID `json:"release_id"`
+
+	// ShareId The share the release belongs to.
+	ShareId string `json:"share_id"`
+}
+
+// ProjectTemplateInstallationSourceKind defines model for ProjectTemplateInstallationSource.Kind.
+type ProjectTemplateInstallationSourceKind string
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse struct {
@@ -10782,6 +13630,24 @@ type RealtimeStats struct {
 
 	// PeakConnections Peak concurrent connections this usage period
 	PeakConnections *int `json:"peak_connections,omitempty"`
+}
+
+// RegisterDurableCallbackRequest defines model for RegisterDurableCallbackRequest.
+type RegisterDurableCallbackRequest struct {
+	// CallbackId Opaque reference to the waiting step, supplied by the SDK.
+	CallbackId string `json:"callback_id"`
+
+	// ExecutionRef Opaque reference to the running execution, supplied by the SDK.
+	ExecutionRef string `json:"execution_ref"`
+
+	// Name The waiting step's name, up to 237 printable ASCII characters.
+	Name string `json:"name"`
+
+	// OperationId The operation an earlier run of the workflow opened the waiting step
+	// under, supplied by the SDK when a replay registers it. Volcano then
+	// looks for the step further back in the execution's history than a
+	// first registration reads.
+	OperationId *string `json:"operation_id,omitempty"`
 }
 
 // RegisterDurableMessageWaitRequest defines model for RegisterDurableMessageWaitRequest.
@@ -10887,18 +13753,32 @@ type SandboxCommandRequest struct {
 	Command     string             `json:"command"`
 	Environment *map[string]string `json:"environment,omitempty"`
 
+	// KeepOutput Set false to keep no output. stdout and stderr are returned once in this response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. Omit it to use the session's `executions.keep_output`. True in a session that keeps no output is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
+	KeepOutput *bool `json:"keep_output,omitempty"`
+
 	// TimeoutSeconds Command execution time from process start. Cloud defaults to 60 seconds and accepts 1–28800; local defaults to 0 (unlimited) and accepts nonnegative values. VM expiry always takes precedence. Cloud synchronous requests must return within the public connection idle limit (1000 seconds); use a session with a background process and short polling requests for longer work.
 	TimeoutSeconds *int `json:"timeout_seconds,omitempty"`
 }
 
 // SandboxCommandResult defines model for SandboxCommandResult.
 type SandboxCommandResult struct {
-	ExitCode        int    `json:"exit_code"`
-	Stderr          string `json:"stderr"`
-	StderrTruncated bool   `json:"stderr_truncated"`
-	Stdout          string `json:"stdout"`
-	StdoutTruncated bool   `json:"stdout_truncated"`
-	TimedOut        bool   `json:"timed_out"`
+	ExitCode int `json:"exit_code"`
+
+	// OutputKept False when the command kept no output. Its streams appear only in the response to the request that ran it, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns them empty.
+	OutputKept bool `json:"output_kept"`
+
+	// Stderr The first 1 MiB (1,048,576 bytes) the command wrote to stderr. Empty in a replay of a command that kept no output.
+	Stderr string `json:"stderr"`
+
+	// StderrTruncated True when the command wrote more than 1 MiB to stderr. False in a replay of a command that kept no output.
+	StderrTruncated bool `json:"stderr_truncated"`
+
+	// Stdout The first 1 MiB (1,048,576 bytes) the command wrote to stdout. Empty in a replay of a command that kept no output.
+	Stdout string `json:"stdout"`
+
+	// StdoutTruncated True when the command wrote more than 1 MiB to stdout. False in a replay of a command that kept no output.
+	StdoutTruncated bool `json:"stdout_truncated"`
+	TimedOut        bool `json:"timed_out"`
 }
 
 // SandboxDeployment defines model for SandboxDeployment.
@@ -10920,16 +13800,22 @@ type SandboxExecutionRequest struct {
 	Command     string             `json:"command"`
 	Environment *map[string]string `json:"environment,omitempty"`
 
+	// KeepOutput Set false to keep no output. stdout and stderr are returned once in this response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with `output_kept` false and empty streams, without running the command again. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
+	KeepOutput *bool `json:"keep_output,omitempty"`
+
 	// MaxDurationSeconds Absolute VM lifetime including startup, bounded by environment capacity policy. Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime. The VM is reclaimed early when the command finishes.
 	MaxDurationSeconds *int `json:"max_duration_seconds,omitempty"`
 
 	// MemoryMb Baseline memory in MiB. Cloud HOBBY supports 1024; SUPERAGENT supports 1024 or 2048. Omission uses the preset or template default; a template requiring more than the plan permits is rejected. Local sessions are exempt from cloud plan limits.
 	MemoryMb *SandboxExecutionRequestMemoryMb `json:"memory_mb,omitempty"`
 
+	// Network Outbound network policy for the session. Omitting `network` is the same as `egress` `default`.
+	Network *SandboxSessionNetworkRequest `json:"network,omitempty"`
+
 	// Preset Preset ID from the available Sandbox preset catalog.
 	Preset *string `json:"preset,omitempty"`
 
-	// Region Region such as `us-east-1`. Region IDs issued by earlier versions of the API are still accepted.
+	// Region Region such as `us-east-1`, from the preset catalog. Region IDs issued by earlier versions of the API are still accepted. A temporarily unavailable region answers 400 with code `sandbox_region_unavailable`.
 	Region    string              `json:"region"`
 	SandboxId *openapi_types.UUID `json:"sandbox_id,omitempty"`
 
@@ -10949,15 +13835,134 @@ type SandboxExecutionRequest1 = interface{}
 
 // SandboxExecutionResult defines model for SandboxExecutionResult.
 type SandboxExecutionResult struct {
-	DurationMs      int64              `json:"duration_ms"`
-	ExitCode        int                `json:"exit_code"`
-	Region          string             `json:"region"`
-	SessionId       openapi_types.UUID `json:"session_id"`
-	Stderr          string             `json:"stderr"`
-	StderrTruncated bool               `json:"stderr_truncated"`
-	Stdout          string             `json:"stdout"`
-	StdoutTruncated bool               `json:"stdout_truncated"`
-	TimedOut        bool               `json:"timed_out"`
+	DurationMs int64 `json:"duration_ms"`
+	ExitCode   int   `json:"exit_code"`
+
+	// OutputKept False when the command kept no output. Its streams appear only in the response to the request that ran it, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns them empty.
+	OutputKept bool               `json:"output_kept"`
+	Region     string             `json:"region"`
+	SessionId  openapi_types.UUID `json:"session_id"`
+
+	// Stderr The first 1 MiB (1,048,576 bytes) the command wrote to stderr. Empty in a replay of a command that kept no output.
+	Stderr string `json:"stderr"`
+
+	// StderrTruncated True when the command wrote more than 1 MiB to stderr. False in a replay of a command that kept no output.
+	StderrTruncated bool `json:"stderr_truncated"`
+
+	// Stdout The first 1 MiB (1,048,576 bytes) the command wrote to stdout. Empty in a replay of a command that kept no output.
+	Stdout string `json:"stdout"`
+
+	// StdoutTruncated True when the command wrote more than 1 MiB to stdout. False in a replay of a command that kept no output.
+	StdoutTruncated bool `json:"stdout_truncated"`
+	TimedOut        bool `json:"timed_out"`
+}
+
+// SandboxFileArchive defines model for SandboxFileArchive.
+type SandboxFileArchive struct {
+	// Bytes Bytes of file content written.
+	Bytes int64 `json:"bytes"`
+
+	// Files Regular files written.
+	Files     int64              `json:"files"`
+	Path      string             `json:"path"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	SessionId openapi_types.UUID `json:"session_id"`
+}
+
+// SandboxFileArchiveForm Send `project_id`, `session_id` and `path`, in any order, then the `archive` part.
+type SandboxFileArchiveForm struct {
+	// Archive A tar archive, optionally gzip-compressed.
+	Archive openapi_types.File `json:"archive"`
+
+	// Path Workspace directory to extract into, relative to `/workspace`. It must name a directory below the workspace root; a path that resolves to the root or to `/`, such as `.`, `./`, `/`, `/workspace` or `/workspace/.`, is refused.
+	Path      string             `json:"path"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	SessionId openapi_types.UUID `json:"session_id"`
+}
+
+// SandboxFileEntry defines model for SandboxFileEntry.
+type SandboxFileEntry struct {
+	// Mode Permission bits, including setuid, setgid and sticky (`st_mode & 07777`). For example, 420 is `0644` and 493 is `0755`.
+	Mode int `json:"mode"`
+
+	// Path Path relative to the workspace root, usable with the read and write file routes.
+	Path string `json:"path"`
+
+	// Sha256 Lowercase hex SHA-256 of a regular file's content, present only when `include_sha256` is true and the file could be hashed.
+	Sha256 *string `json:"sha256,omitempty"`
+
+	// Sha256Skipped Why a regular file has no `sha256` when `include_sha256` is true. `budget` is a file over 256 MiB. `changing` is a file that changed while it was hashed or kept changing; list it again later. `unreadable` is a file the session user doesn't own, whose owner-read bit (`0400`) is clear, or that has more than one hard link. Treat such a file as unverified.
+	Sha256Skipped *SandboxFileEntrySha256Skipped `json:"sha256_skipped,omitempty"`
+
+	// Size Size in bytes of a regular file; 0 for every other type.
+	Size int64 `json:"size"`
+
+	// Type Entry type from the entry itself. A symlink is reported, never followed.
+	Type SandboxFileEntryType `json:"type"`
+
+	// Unreadable True on a directory the session user can't list; the listing doesn't enter it. The user's permission bits on the directory lack read or execute: the owner bits when the user owns it, the group bits when it belongs to the user's group, and the other bits otherwise. Absent on every other entry.
+	Unreadable *bool `json:"unreadable,omitempty"`
+
+	// UnsupportedNames In a recursive listing, how many names directly inside this directory no entry can carry: names that are not UTF-8, or whose path would pass 4096 bytes. The listing skips them and everything below them. Absent when there are none.
+	UnsupportedNames *int `json:"unsupported_names,omitempty"`
+}
+
+// SandboxFileEntrySha256Skipped Why a regular file has no `sha256` when `include_sha256` is true. `budget` is a file over 256 MiB. `changing` is a file that changed while it was hashed or kept changing; list it again later. `unreadable` is a file the session user doesn't own, whose owner-read bit (`0400`) is clear, or that has more than one hard link. Treat such a file as unverified.
+type SandboxFileEntrySha256Skipped string
+
+// SandboxFileEntryType Entry type from the entry itself. A symlink is reported, never followed.
+type SandboxFileEntryType string
+
+// SandboxFileListResult defines model for SandboxFileListResult.
+type SandboxFileListResult struct {
+	// Entries Entries sorted by path, compared one path element at a time by bytes, so a directory comes right before its contents.
+	Entries []SandboxFileEntry `json:"entries"`
+
+	// NextCursor Present when more entries remain. Pass it as `cursor` to get the next page.
+	NextCursor *string `json:"next_cursor,omitempty"`
+
+	// ProjectId The project the session belongs to.
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// SessionId The session listed.
+	SessionId openapi_types.UUID `json:"session_id"`
+
+	// UnsupportedNames How many names directly inside the listed directory no entry can carry: names that are not UTF-8, or whose path would pass 4096 bytes. The listing skips them and everything below them. Every page reports it. Absent when there are none.
+	UnsupportedNames *int `json:"unsupported_names,omitempty"`
+}
+
+// SandboxFilePart defines model for SandboxFilePart.
+type SandboxFilePart struct {
+	// Complete True when this part finished the file and it is now at `path`.
+	Complete  bool               `json:"complete"`
+	Offset    int64              `json:"offset"`
+	Path      string             `json:"path"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// Received Bytes of the file received through the end of this part.
+	Received  int64              `json:"received"`
+	SessionId openapi_types.UUID `json:"session_id"`
+	Size      int64              `json:"size"`
+}
+
+// SandboxFilePartRequest defines model for SandboxFilePartRequest.
+type SandboxFilePartRequest struct {
+	// Data This part's bytes, at most 8 MiB.
+	Data []byte `json:"data"`
+
+	// Offset Byte offset of this part's data in the file.
+	Offset int64 `json:"offset"`
+
+	// Path Workspace file to write, relative to `/workspace`.
+	Path      string             `json:"path"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	SessionId openapi_types.UUID `json:"session_id"`
+
+	// Sha256 Lowercase hex SHA-256 of the whole file.
+	Sha256 string `json:"sha256"`
+
+	// Size Size of the whole file in bytes, at most 1 GiB.
+	Size int64 `json:"size"`
 }
 
 // SandboxFileReadRequest defines model for SandboxFileReadRequest.
@@ -10975,6 +13980,12 @@ type SandboxFileWriteRequest struct {
 	Data []byte `json:"data"`
 	Path string `json:"path"`
 }
+
+// SandboxLimitsApplied `enforced` when every requested cap is enforced, `not_enforced` when the
+// session could not enforce them, and `unknown` until the session reports.
+// Terminate a session that reports anything but `enforced` if you rely on
+// the caps.
+type SandboxLimitsApplied string
 
 // SandboxPagination defines model for SandboxPagination.
 type SandboxPagination struct {
@@ -11005,12 +14016,24 @@ type SandboxSession struct {
 	CreatedAt    time.Time                  `json:"created_at"`
 	DesiredState SandboxSessionDesiredState `json:"desired_state"`
 
+	// Executions How the session's command executions are kept. Fixed when the session is created.
+	Executions SandboxSessionExecutions `json:"executions"`
+
 	// ExpiresAt Absolute VM expiry. Null means unlimited in local mode.
 	ExpiresAt *time.Time         `json:"expires_at"`
 	Id        openapi_types.UUID `json:"id"`
-	MemoryMb  int                `json:"memory_mb"`
-	ProjectId openapi_types.UUID `json:"project_id"`
-	Region    string             `json:"region"`
+
+	// LastErrorCode Last recorded lifecycle reason, such as sandbox_run_hook_timeout or sandbox_authority_or_expiry. Historical information, not a current error; use state for the current session state. Retained when later observations supply no reason, including after termination or recovery. Omitted when no reason is known. Values may be added; this field does not imply whether a command ran or whether it can be retried.
+	LastErrorCode *string `json:"last_error_code,omitempty"`
+
+	// Limits The caps the session enforces, as the session reports them. Present only
+	// when the session was created with `limits`. The session stays
+	// `starting` until `applied` is known.
+	Limits    *SandboxSessionAppliedLimits `json:"limits,omitempty"`
+	MemoryMb  int                          `json:"memory_mb"`
+	Network   SandboxSessionNetwork        `json:"network"`
+	ProjectId openapi_types.UUID           `json:"project_id"`
+	Region    string                       `json:"region"`
 
 	// SandboxId Explicit template used to create the session. Null when created directly from a preset.
 	SandboxId *openapi_types.UUID `json:"sandbox_id"`
@@ -11023,6 +14046,69 @@ type SandboxSessionDesiredState string
 
 // SandboxSessionState defines model for SandboxSession.State.
 type SandboxSessionState string
+
+// SandboxSessionAppliedLimits The caps the session enforces, as the session reports them. Present only
+// when the session was created with `limits`. The session stays
+// `starting` until `applied` is known.
+type SandboxSessionAppliedLimits struct {
+	// Applied `enforced` when every requested cap is enforced, `not_enforced` when the
+	// session could not enforce them, and `unknown` until the session reports.
+	// Terminate a session that reports anything but `enforced` if you rely on
+	// the caps.
+	Applied SandboxLimitsApplied `json:"applied"`
+
+	// DiskMib Enforced disk cap in MiB. Never higher than requested; lower when the session's disk has less free space.
+	DiskMib *int `json:"disk_mib,omitempty"`
+
+	// Vcpus Enforced vCPU cap. Never higher than requested; lower when the session has fewer vCPUs.
+	Vcpus *int `json:"vcpus,omitempty"`
+}
+
+// SandboxSessionExecutions How the session's command executions are kept. Fixed when the session is created.
+type SandboxSessionExecutions struct {
+	// KeepOutput When false, every command in the session keeps no output. stdout and stderr are returned once in the command's response, and Volcano's control plane never stores them in the execution journal, database, logs or traces. This does not cover the Sandbox's memory or a suspended session's snapshot. A retry with the same Idempotency-Key returns the exit code with empty streams. A command in such a session that sets `keep_output` to true is refused with 400 and code `sandbox_session_keeps_no_output`. False is refused with 400 and code `feature_unavailable` while the `sandboxes.output_not_kept` capability is unavailable.
+	KeepOutput bool `json:"keep_output"`
+}
+
+// SandboxSessionLimits Caps the session's code runs under, enforced inside the session. Each
+// cap is an upper bound; the session's own size still bounds both.
+type SandboxSessionLimits struct {
+	// DiskMib Space the session can write beyond its image's contents, in MiB.
+	// It covers every path commands and the template service can write,
+	// including `/workspace` and `/tmp`. A write past it fails with
+	// `ENOSPC`. `/dev/shm` is memory, capped separately at 64 MiB.
+	DiskMib *int `json:"disk_mib,omitempty"`
+
+	// Vcpus CPU time the session's commands and template service may use
+	// together, in vCPUs. A 1024 MiB session has 2 vCPUs and a 2048 MiB
+	// session has 4; asking for more answers 400 with code
+	// `sandbox_limits_exceed_session`.
+	Vcpus *int `json:"vcpus,omitempty"`
+}
+
+// SandboxSessionNetwork defines model for SandboxSessionNetwork.
+type SandboxSessionNetwork struct {
+	// Applied The outbound network policy Volcano last observed on the session's VM, never the request alone. It is `unknown` until the session is first observed, from a suspend or resume request until it is observed again, briefly while Volcano rolls out an update, and whenever the observation does not match the request. A terminated session keeps what Volcano last observed, so a `deny_all` session ended because Volcano observed outbound access reads `default`. A session first reports `state` `running` only once its network has been observed. To depend on `deny_all`, wait for `running`, then terminate the session unless `applied` is `deny_all`. Act on `applied` only while the session is `running`, and on a later `unknown` only while `desired_state` is `running`.
+	Applied SandboxSessionNetworkApplied `json:"applied"`
+
+	// Egress The outbound network policy the session was created with. It never changes.
+	Egress SandboxSessionNetworkEgress `json:"egress"`
+}
+
+// SandboxSessionNetworkApplied The outbound network policy Volcano last observed on the session's VM, never the request alone. It is `unknown` until the session is first observed, from a suspend or resume request until it is observed again, briefly while Volcano rolls out an update, and whenever the observation does not match the request. A terminated session keeps what Volcano last observed, so a `deny_all` session ended because Volcano observed outbound access reads `default`. A session first reports `state` `running` only once its network has been observed. To depend on `deny_all`, wait for `running`, then terminate the session unless `applied` is `deny_all`. Act on `applied` only while the session is `running`, and on a later `unknown` only while `desired_state` is `running`.
+type SandboxSessionNetworkApplied string
+
+// SandboxSessionNetworkEgress The outbound network policy the session was created with. It never changes.
+type SandboxSessionNetworkEgress string
+
+// SandboxSessionNetworkRequest Outbound network policy for the session. Omitting `network` is the same as `egress` `default`.
+type SandboxSessionNetworkRequest struct {
+	// Egress `default` gives the session the region's standard outbound internet access. `deny_all` gives it no outbound network for its whole lifetime: DNS lookups, internet and link-local addresses, and connections back out through Volcano all fail, and the session accepts no port access. Commands, files and the rest of the session API work as usual. The policy cannot be changed after creation; suspend and resume keep it. Check `network.applied` before relying on it. Where `GET /capabilities` lists `sandboxes.network_isolation` as unavailable, `deny_all` answers `400` with code `feature_unavailable`.
+	Egress SandboxSessionNetworkRequestEgress `json:"egress"`
+}
+
+// SandboxSessionNetworkRequestEgress `default` gives the session the region's standard outbound internet access. `deny_all` gives it no outbound network for its whole lifetime: DNS lookups, internet and link-local addresses, and connections back out through Volcano all fail, and the session accepts no port access. Commands, files and the rest of the session API work as usual. The policy cannot be changed after creation; suspend and resume keep it. Check `network.applied` before relying on it. Where `GET /capabilities` lists `sandboxes.network_isolation` as unavailable, `deny_all` answers `400` with code `feature_unavailable`.
+type SandboxSessionNetworkRequestEgress string
 
 // SandboxSessionPage defines model for SandboxSessionPage.
 type SandboxSessionPage struct {
@@ -11100,7 +14186,8 @@ type ServiceKey struct {
 	KeyPrefix string `json:"key_prefix"`
 
 	// KeyValue Full JWT token for Authorization header.
-	// Returned on create, get, and list (decrypted from storage).
+	// Returned on create, get, and list (decrypted from storage). List
+	// responses leave it out for a key that holds `ai.invoke`.
 	// **Store securely - NEVER expose in frontend code!**
 	KeyValue *string `json:"key_value,omitempty"`
 
@@ -11126,6 +14213,384 @@ type SetProjectGitRootDirectoryRequest struct {
 	// RootDirectory Monorepo subdirectory the project builds from, relative to the repository root. An empty string means the repository root.
 	RootDirectory string `json:"root_directory"`
 }
+
+// Share defines model for Share.
+type Share struct {
+	// AllowReshare Whether the projects made from this link, and the projects made from those, may be shared again by their owners. False by default, so a copy of this project cannot create, draft, publish or switch on a deploy link of its own, and its links serve nothing. Read at each request, so switching it off stops copies' links that are already on.
+	AllowReshare bool      `json:"allow_reshare"`
+	CreatedAt    time.Time `json:"created_at"`
+
+	// CurrentRelease The release visitors are offered. Null until the first publish; until then the link's preview answers `404`.
+	CurrentRelease *ShareReleaseRef `json:"current_release"`
+
+	// Description What the project does, in the owner's words, shown to visitors before they deploy. One line of plain text; empty when the owner wrote none.
+	Description string `json:"description"`
+
+	// DisabledReason Why the link is off. Set only while it is disabled. New reasons can be
+	// added, so treat an unknown one as disabled. `owner`: its owner switched
+	// it off. `operator`: Volcano took it down; its owner cannot switch it back
+	// on or delete it (`PATCH` and `DELETE` answer `403` with code
+	// `operator_disabled`), but can still edit it. While it is down, its
+	// project cannot be shared any more (no new link, draft or publish, and no
+	// link switched on), and no project made from it, or from a copy of it, can
+	// be shared either.
+	DisabledReason *string `json:"disabled_reason,omitempty"`
+
+	// Id The link's public identifier. Its address is `https://volcano.dev/deploy/<id>`.
+	Id        string             `json:"id"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// Serving Whether the link's address serves its current release now: it is
+	// `active`, published, and nothing stops it, such as deploy links not being
+	// available in this environment, the project being deleted, the owner's
+	// account not allowing traffic, or the project being a copy that may no
+	// longer be shared. An `active` link that is not serving
+	// answers visitors as one switched off, and switching it on again changes
+	// nothing until what stops it is resolved.
+	Serving bool `json:"serving"`
+
+	// Status Whether the owner, or Volcano, has the link on. An `active` link can still not serve; see `serving`.
+	Status ShareStatus `json:"status"`
+
+	// SuggestedName A project name for clients to offer a visitor as the default. The create request still carries its own `name`; Volcano does not fill one in from the link.
+	SuggestedName string    `json:"suggested_name"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// ShareStatus Whether the owner, or Volcano, has the link on. An `active` link can still not serve; see `serving`.
+type ShareStatus string
+
+// ShareCreateRequest defines model for ShareCreateRequest.
+type ShareCreateRequest struct {
+	// AllowReshare Lets the projects made from this link be shared again by their owners. Defaults to false.
+	AllowReshare *bool `json:"allow_reshare,omitempty"`
+
+	// Description What the project does, shown to visitors before they deploy. One line of plain text with no control characters; surrounding spaces are trimmed.
+	Description *string `json:"description,omitempty"`
+
+	// ProjectId The project to share. A project the caller can't share answers like one that doesn't exist.
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// SuggestedName A project name for clients to offer visitors as the default; the create request still carries its own `name`. It may contain only letters, numbers, underscores and hyphens.
+	SuggestedName *string `json:"suggested_name,omitempty"`
+}
+
+// ShareDailyCount defines model for ShareDailyCount.
+type ShareDailyCount struct {
+	// Day UTC day.
+	Day    openapi_types.Date  `json:"day"`
+	Events int64               `json:"events"`
+	Kind   ShareDailyCountKind `json:"kind"`
+}
+
+// ShareDailyCountKind defines model for ShareDailyCount.Kind.
+type ShareDailyCountKind string
+
+// ShareDraftChangedError defines model for ShareDraftChangedError.
+type ShareDraftChangedError struct {
+	Code  ShareDraftChangedErrorCode `json:"code"`
+	Draft ShareReleaseDraft          `json:"draft"`
+	Error string                     `json:"error"`
+}
+
+// ShareDraftChangedErrorCode defines model for ShareDraftChangedError.Code.
+type ShareDraftChangedErrorCode string
+
+// ShareKindCount defines model for ShareKindCount.
+type ShareKindCount struct {
+	Events int64              `json:"events"`
+	Kind   ShareKindCountKind `json:"kind"`
+
+	// Visitors Unique daily visitors among the events that carried one. A visitor is pseudonymised per day, so one who returns on another day counts again.
+	Visitors int64 `json:"visitors"`
+}
+
+// ShareKindCountKind defines model for ShareKindCount.Kind.
+type ShareKindCountKind string
+
+// SharePreview defines model for SharePreview.
+type SharePreview struct {
+	// Description What the project does, in the owner's words. Plain text; empty when the owner wrote none.
+	Description string `json:"description"`
+	Id          string `json:"id"`
+
+	// Release The release a project created from the link installs.
+	Release SharePreviewRelease `json:"release"`
+
+	// SuggestedName A project name the link's owner suggests, for clients to offer as the default. The create request still carries its own `name`; Volcano does not fill one in from the link.
+	SuggestedName string `json:"suggested_name"`
+}
+
+// SharePreviewRelease The release a project created from the link installs.
+type SharePreviewRelease struct {
+	// Frontends Names of the frontends installing the release creates.
+	Frontends []string `json:"frontends"`
+
+	// Functions Names of the functions installing the release creates.
+	Functions []string `json:"functions"`
+
+	// Id Send it as `release_id` in `POST /forks` to confirm this release.
+	Id openapi_types.UUID `json:"id"`
+
+	// Omissions What the release does not carry. A `database` entry means the new project starts without that database.
+	Omissions   []ShareReleaseOmission `json:"omissions"`
+	PublishedAt time.Time              `json:"published_at"`
+
+	// ServiceKeyFunctions Names of the functions that receive the new project's `VOLCANO_SERVICE_KEY`,
+	// which bypasses row-level security. Show them to the visitor before they
+	// confirm. Empty when no function receives it.
+	ServiceKeyFunctions []string `json:"service_key_functions"`
+
+	// Sha256 The digest of the stored release archive.
+	Sha256 string `json:"sha256"`
+
+	// Variables The project variables the new project gets, sorted by name. A visitor may
+	// give a value for any of them as `variables` when creating
+	// the fork with `POST /forks`; each one left out is created empty, for the visitor to set
+	// later. Volcano's own variables, such as `VOLCANO_API_URL`, are never
+	// listed: the install sets them.
+	Variables []ShareVariable `json:"variables"`
+}
+
+// ShareRelease defines model for ShareRelease.
+type ShareRelease struct {
+	Frontends   []string               `json:"frontends"`
+	Functions   []ShareReleaseFunction `json:"functions"`
+	Id          openapi_types.UUID     `json:"id"`
+	Omissions   []ShareReleaseOmission `json:"omissions"`
+	ProjectId   openapi_types.UUID     `json:"project_id"`
+	PublishedAt time.Time              `json:"published_at"`
+
+	// PublishedBy The id of the user who published the release.
+	PublishedBy         string   `json:"published_by"`
+	ServiceKeyFunctions []string `json:"service_key_functions"`
+
+	// Sha256 The digest of the stored release archive. An install refuses an archive that does not match it.
+	Sha256    string          `json:"sha256"`
+	ShareId   string          `json:"share_id"`
+	SizeBytes int64           `json:"size_bytes"`
+	Variables []ShareVariable `json:"variables"`
+}
+
+// ShareReleaseCreateRequest defines model for ShareReleaseCreateRequest.
+type ShareReleaseCreateRequest struct {
+	// DraftId The `draft_id` of the draft the owner reviewed. If a fresh build of the
+	// project is not that draft, nothing is published and the answer is `409`
+	// `draft_changed` with the new draft.
+	DraftId string `json:"draft_id"`
+
+	// ServiceKeyFunctions The functions that receive the new project's `VOLCANO_SERVICE_KEY`, which
+	// bypasses row-level security. Must be exactly the draft's
+	// `service_key_functions`.
+	ServiceKeyFunctions []string `json:"service_key_functions"`
+
+	// ShareId The share to publish to. Its own project authorizes the publish.
+	ShareId string `json:"share_id"`
+
+	// Variables Every name in the draft's `variables`, which a project created from the
+	// release gets. Values are never carried: each is created empty unless the
+	// visitor gives one.
+	Variables []string `json:"variables"`
+}
+
+// ShareReleaseDraft defines model for ShareReleaseDraft.
+type ShareReleaseDraft struct {
+	// DraftId Opaque. Names exactly what a release built now would carry: each
+	// function's and frontend's current deployment, and everything the draft
+	// lists, including each function's settings (`http_auth_mode`,
+	// `openapi_spec_sha256`, `variable_scope`), the `variables`, the
+	// `frontend_variables` and the `omissions`. It stays the same while those
+	// do, and changes when a function or frontend is redeployed or anything the
+	// draft lists changes. A sandbox is not part of it, since a release does not
+	// carry one: rebuilding only a sandbox leaves it unchanged. Send it with the
+	// publish.
+	DraftId string `json:"draft_id"`
+
+	// FrontendVariables The draft's variables each frontend receives, by frontend name, as your
+	// project's frontend of that name selects them by its variable scope now.
+	// A frontend receives no others.
+	FrontendVariables map[string][]string    `json:"frontend_variables"`
+	Frontends         []string               `json:"frontends"`
+	Functions         []ShareReleaseFunction `json:"functions"`
+	Omissions         []ShareReleaseOmission `json:"omissions"`
+
+	// ServiceKeyFunctions The functions whose code reads `VOLCANO_SERVICE_KEY`. A release gives them the visitor project's service key once the owner confirms them.
+	ServiceKeyFunctions []string `json:"service_key_functions"`
+
+	// Variables The project's variables a visitor could be asked to supply. Volcano's own, such as `VOLCANO_API_URL`, are never listed.
+	Variables []ShareVariable `json:"variables"`
+}
+
+// ShareReleaseFunction defines model for ShareReleaseFunction.
+type ShareReleaseFunction struct {
+	// HttpAuthMode How the function's HTTP invocations authenticate, when its invocation
+	// settings are not the default; omitted means `volcano`. `none` lets
+	// anyone call the function without a credential in every project made from
+	// the release. Releases published before this was recorded omit it.
+	HttpAuthMode *string `json:"http_auth_mode,omitempty"`
+
+	// InvocationMode The function's invocation mode, when it is not the default.
+	InvocationMode *string                  `json:"invocation_mode,omitempty"`
+	Kind           ShareReleaseFunctionKind `json:"kind"`
+	Name           string                   `json:"name"`
+
+	// OpenapiSpecSha256 The SHA-256 of the function's OpenAPI document as the release carries it,
+	// when it has one, so a draft shows when the document changed. Releases
+	// published before this was recorded omit it.
+	OpenapiSpecSha256 *string `json:"openapi_spec_sha256,omitempty"`
+
+	// VariableScope `scoped` when the function receives only the variables it declares, as
+	// your project's function does, listed in `variables`. Omitted when it
+	// receives every variable shared with functions. The service key is not
+	// part of it: `service_key_functions` says which functions receive that.
+	// Releases published before this was recorded omit it.
+	VariableScope *ShareReleaseFunctionVariableScope `json:"variable_scope,omitempty"`
+
+	// Variables For a `scoped` function, the variables it declares that a project made from the release has.
+	Variables *[]string `json:"variables,omitempty"`
+
+	// Visibility The function's invocation visibility, as installed.
+	Visibility *string `json:"visibility,omitempty"`
+}
+
+// ShareReleaseFunctionKind defines model for ShareReleaseFunction.Kind.
+type ShareReleaseFunctionKind string
+
+// ShareReleaseFunctionVariableScope `scoped` when the function receives only the variables it declares, as
+// your project's function does, listed in `variables`. Omitted when it
+// receives every variable shared with functions. The service key is not
+// part of it: `service_key_functions` says which functions receive that.
+// Releases published before this was recorded omit it.
+type ShareReleaseFunctionVariableScope string
+
+// ShareReleaseOmission Something a release does not carry.
+type ShareReleaseOmission struct {
+	// Kind `no_source`: a function or frontend whose current deployment has no stored
+	// source to carry. `database`: a database; a visitor's project starts without
+	// one. `sandbox`: a sandbox, which releases do not deploy. `secret_file`: a
+	// file that may hold credentials, such as a dotenv or `.envrc` file, a tool's
+	// token file like `.netrc` or an `.npmrc` holding a registry credential, a
+	// private key, a credential JSON or a Terraform variables file. `unsupported_entry`: a file that is not a regular file,
+	// such as a symbolic link.
+	Kind ShareReleaseOmissionKind `json:"kind"`
+
+	// Path The file left out, for a file.
+	Path *string `json:"path,omitempty"`
+
+	// Resource The function, frontend, database or sandbox, when there is one.
+	Resource *string `json:"resource,omitempty"`
+}
+
+// ShareReleaseOmissionKind `no_source`: a function or frontend whose current deployment has no stored
+// source to carry. `database`: a database; a visitor's project starts without
+// one. `sandbox`: a sandbox, which releases do not deploy. `secret_file`: a
+// file that may hold credentials, such as a dotenv or `.envrc` file, a tool's
+// token file like `.netrc` or an `.npmrc` holding a registry credential, a
+// private key, a credential JSON or a Terraform variables file. `unsupported_entry`: a file that is not a regular file,
+// such as a symbolic link.
+type ShareReleaseOmissionKind string
+
+// ShareReleaseRef defines model for ShareReleaseRef.
+type ShareReleaseRef struct {
+	Id          openapi_types.UUID `json:"id"`
+	PublishedAt time.Time          `json:"published_at"`
+}
+
+// ShareStats defines model for ShareStats.
+type ShareStats struct {
+	Daily []ShareDailyCount `json:"daily"`
+
+	// Since Start of the counted window.
+	Since  time.Time        `json:"since"`
+	Totals []ShareKindCount `json:"totals"`
+}
+
+// ShareUpdateRequest defines model for ShareUpdateRequest.
+type ShareUpdateRequest struct {
+	// AllowReshare Lets the projects made from this link be shared again by their owners. Switching it off stops their copies, and copies of those, from sharing again, read at each request, including links of theirs that are already on.
+	AllowReshare *bool `json:"allow_reshare,omitempty"`
+
+	// Description What the project does, shown to visitors before they deploy. One line of plain text with no control characters; surrounding spaces are trimmed. Send an empty string to remove it.
+	Description   *string                   `json:"description,omitempty"`
+	Status        *ShareUpdateRequestStatus `json:"status,omitempty"`
+	SuggestedName *string                   `json:"suggested_name,omitempty"`
+}
+
+// ShareUpdateRequestStatus defines model for ShareUpdateRequest.Status.
+type ShareUpdateRequestStatus string
+
+// ShareVariable A project variable a deploy link's release declares. A project created from the link always gets it.
+type ShareVariable struct {
+	// Name The variable's name.
+	Name string `json:"name"`
+
+	// Required Always true: a project created from the link always gets this variable,
+	// created empty when the visitor gives no value. It never means a value must
+	// be given.
+	Required bool `json:"required"`
+
+	// Secret Whether to treat the value as a secret: take it masked and never show it back. Only a
+	// `NEXT_PUBLIC_` name, which a Next.js build copies into the browser, is not secret.
+	Secret bool `json:"secret"`
+
+	// Unshared True when the source project gives the variable only to the scoped
+	// functions that declare it, not to every function, and so does a project
+	// made from the release. Omitted when false.
+	Unshared *bool `json:"unshared,omitempty"`
+}
+
+// SharesResponse defines model for SharesResponse.
+type SharesResponse struct {
+	Shares []Share `json:"shares"`
+}
+
+// SlackAuthorizationResponse defines model for SlackAuthorizationResponse.
+type SlackAuthorizationResponse struct {
+	// AuthorizationUrl The Slack page to send the browser to.
+	AuthorizationUrl string `json:"authorization_url"`
+}
+
+// SlackChannel defines model for SlackChannel.
+type SlackChannel struct {
+	// Id A Slack channel ID, such as `C0123ABCD`.
+	Id        SlackChannelId `json:"id"`
+	IsPrivate bool           `json:"is_private"`
+	Name      string         `json:"name"`
+}
+
+// SlackChannelId A Slack channel ID, such as `C0123ABCD`.
+type SlackChannelId = string
+
+// SlackChannelsResponse defines model for SlackChannelsResponse.
+type SlackChannelsResponse struct {
+	Channels []SlackChannel `json:"channels"`
+}
+
+// SlackConnection A Slack identity connected to the caller's Volcano account.
+type SlackConnection struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Installed Whether the Volcano app is installed in the workspace.
+	Installed bool `json:"installed"`
+
+	// SlackUserId The Slack user ID Slack verified.
+	SlackUserId string `json:"slack_user_id"`
+
+	// TeamId A Slack workspace ID, such as `T0123ABCD`.
+	TeamId SlackTeamId `json:"team_id"`
+
+	// TeamName The workspace's name, or empty until the Volcano app is installed in it.
+	TeamName string `json:"team_name"`
+}
+
+// SlackConnectionsResponse defines model for SlackConnectionsResponse.
+type SlackConnectionsResponse struct {
+	Connections []SlackConnection `json:"connections"`
+}
+
+// SlackTeamId A Slack workspace ID, such as `T0123ABCD`.
+type SlackTeamId = string
 
 // StorageBucket A named container for files within a project.
 // Public access is controlled at the file level via is_public on StorageObject.
@@ -11313,7 +14778,7 @@ type TestEmailRequest struct {
 	TextBody *string `json:"text_body,omitempty"`
 
 	// ToEmail Recipient address for the diagnostic email.
-	ToEmail openapi_types.Email `json:"to_email"`
+	ToEmail string `json:"to_email"`
 }
 
 // TestEmailResponse defines model for TestEmailResponse.
@@ -11362,6 +14827,9 @@ type UpdateAuthConfigRequest struct {
 	AutoLinkVerifiedOauth *bool `json:"auto_link_verified_oauth,omitempty"`
 	CorsAllowCredentials  *bool `json:"cors_allow_credentials,omitempty"`
 
+	// CorsAllowFrontendPreviews Allow the origins of the project's own live frontend previews.
+	CorsAllowFrontendPreviews *bool `json:"cors_allow_frontend_previews,omitempty"`
+
 	// CorsAllowedOrigins Replaces the allowed origins list.
 	CorsAllowedOrigins *[]string `json:"cors_allowed_origins,omitempty"`
 	CorsEnabled        *bool     `json:"cors_enabled,omitempty"`
@@ -11371,19 +14839,29 @@ type UpdateAuthConfigRequest struct {
 	// valid http/https URL (not tied to allowed_redirect_urls). When set,
 	// device-code logins return this URL (with user_code) instead of the
 	// managed device page. Send an empty string to clear the override.
-	DeviceVerificationUrl    *string `json:"device_verification_url,omitempty"`
+	DeviceVerificationUrl *string `json:"device_verification_url,omitempty"`
+
+	// EmailConfirmationSubject Subject template. For new or changed values, literal interior carriage returns or newlines after Go template whitespace trimming return 400. Outer whitespace and trailing block-scalar newlines are allowed. Unchanged stored subjects are preserved.
 	EmailConfirmationSubject *string `json:"email_confirmation_subject,omitempty"`
 
 	// EmailConfirmationTimeout Email confirmation token expiry in seconds.
 	EmailConfirmationTimeout *int `json:"email_confirmation_timeout,omitempty"`
 
 	// EmailEnabled Enable transactional email sending. Cannot be false while require_email_confirmation is true.
-	EmailEnabled                *bool   `json:"email_enabled,omitempty"`
-	EmailFromAddress            *string `json:"email_from_address,omitempty"`
-	EmailFromName               *string `json:"email_from_name,omitempty"`
+	EmailEnabled *bool `json:"email_enabled,omitempty"`
+
+	// EmailFromAddress Sender email address. New or changed values containing carriage returns or newlines return 400. Unchanged stored or exported values are preserved. Leading and trailing whitespace in previously saved settings is ignored when sending.
+	EmailFromAddress *string `json:"email_from_address,omitempty"`
+
+	// EmailFromName Sender display name; supports punctuation and Unicode. New or changed values containing carriage returns or newlines return 400. Unchanged stored or exported values are preserved. Leading and trailing whitespace in previously saved settings is ignored when sending.
+	EmailFromName *string `json:"email_from_name,omitempty"`
+
+	// EmailPasswordChangedSubject Subject template. For new or changed values, literal interior carriage returns or newlines after Go template whitespace trimming return 400. Outer whitespace and trailing block-scalar newlines are allowed. Unchanged stored subjects are preserved.
 	EmailPasswordChangedSubject *string `json:"email_password_changed_subject,omitempty"`
-	EmailPasswordResetSubject   *string `json:"email_password_reset_subject,omitempty"`
-	EnableAnonymousSignins      *bool   `json:"enable_anonymous_signins,omitempty"`
+
+	// EmailPasswordResetSubject Subject template. For new or changed values, literal interior carriage returns or newlines after Go template whitespace trimming return 400. Outer whitespace and trailing block-scalar newlines are allowed. Unchanged stored subjects are preserved.
+	EmailPasswordResetSubject *string `json:"email_password_reset_subject,omitempty"`
+	EnableAnonymousSignins    *bool   `json:"enable_anonymous_signins,omitempty"`
 
 	// EnableEmailPassword Enable/disable email/password provider
 	EnableEmailPassword *bool `json:"enable_email_password,omitempty"`
@@ -11475,6 +14953,8 @@ type UpdateDatabaseTypeRequestDatabaseType string
 // UpdateEmailTemplateRequest defines model for UpdateEmailTemplateRequest.
 type UpdateEmailTemplateRequest struct {
 	HtmlBody *string `json:"html_body,omitempty"`
+
+	// Subject Subject template. For new or changed values, literal interior carriage returns or newlines after Go template whitespace trimming return 400. Outer whitespace and trailing block-scalar newlines are allowed. Unchanged stored subjects are preserved.
 	Subject  *string `json:"subject,omitempty"`
 	TextBody *string `json:"text_body,omitempty"`
 }
@@ -11526,6 +15006,15 @@ type UpdateFunctionSchedulerRequest struct {
 	Schedule *ScheduleRequest        `json:"schedule,omitempty"`
 }
 
+// UpdateIssueRequest defines model for UpdateIssueRequest.
+type UpdateIssueRequest struct {
+	// Status `open` until someone resolves or ignores the issue. A resolved issue
+	// seen again reopens. A reported problem resolves when its LavaFlow fix
+	// merges. Volcano ignores one whose report it deleted before any fix
+	// merged, so it no longer counts toward the project's open issues.
+	Status IssueStatus `json:"status"`
+}
+
 // UpdateNotificationEmail defines model for UpdateNotificationEmail.
 type UpdateNotificationEmail struct {
 	Enabled *bool `json:"enabled,omitempty"`
@@ -11559,15 +15048,17 @@ type UpdateOAuthConfigRequest struct {
 	Scopes       *[]string `json:"scopes,omitempty"`
 }
 
-// UpdateProjectGitDeploySettingsRequest Full replace of a project's Git auto-deploy settings.
+// UpdateProjectGitDeploySettingsRequest Full replace of a project's Git auto-deploy settings, except apply_migrations, which keeps its saved value when omitted.
 type UpdateProjectGitDeploySettingsRequest struct {
-	AutoDeployEnabled bool `json:"auto_deploy_enabled"`
-	DeployFunctions   bool `json:"deploy_functions"`
+	// ApplyMigrations Apply the commit's pending migrations before each push deploys. Anyone who can push to the production branch can then run any SQL as the database owner, so protect that branch first. Off until set. Omit to leave the saved value unchanged. Turning it on answers `400` with code `feature_unavailable` where the `databases.migrations` capability is unavailable; `false`, or the saved `true` sent back, is accepted even there. While the project owner's account is `read_only`, the request answers `403` whatever it sends; an `inactive` owner's credentials answer `401`.
+	ApplyMigrations   *bool `json:"apply_migrations,omitempty"`
+	AutoDeployEnabled bool  `json:"auto_deploy_enabled"`
+	DeployFunctions   bool  `json:"deploy_functions"`
 
 	// FrontendAppRoot App root the frontend builds from. Requires frontend_name; omit for the repo root.
 	FrontendAppRoot *string `json:"frontend_app_root,omitempty"`
 
-	// FrontendName Frontend to deploy on push. Omit or empty to deploy no frontend.
+	// FrontendName Legacy frontend to deploy on push. In Git mode, explicitly send an empty string to stop deploying the selected frontend; omit frontend_app_root too. This keeps the serving frontend and Git handover intact. Omitting an existing selection or renaming it is refused in Git mode. In platform mode, omit or empty to deploy no frontend. Explicit source-layout mappings are independent of this legacy selection.
 	FrontendName *string `json:"frontend_name,omitempty"`
 }
 
@@ -11758,6 +15249,12 @@ type VerifyDomainRequest struct {
 	Domain string `json:"domain"`
 }
 
+// AuthProxyAuthorization defines model for AuthProxyAuthorization.
+type AuthProxyAuthorization = string
+
+// AuthProxyClientIP defines model for AuthProxyClientIP.
+type AuthProxyClientIP = string
+
 // BackupName defines model for BackupName.
 type BackupName = string
 
@@ -11856,8 +15353,20 @@ type IssueId = openapi_types.UUID
 // ItemProjectIdQuery defines model for ItemProjectIdQuery.
 type ItemProjectIdQuery = openapi_types.UUID
 
+// LavaflowCategoryFilter defines model for LavaflowCategoryFilter.
+type LavaflowCategoryFilter string
+
 // LavaflowDays defines model for LavaflowDays.
 type LavaflowDays = int
+
+// LavaflowInvolvedResourceFilter defines model for LavaflowInvolvedResourceFilter.
+type LavaflowInvolvedResourceFilter = openapi_types.UUID
+
+// LavaflowIssueIdFilter defines model for LavaflowIssueIdFilter.
+type LavaflowIssueIdFilter = openapi_types.UUID
+
+// LavaflowPullRequestStateFilter defines model for LavaflowPullRequestStateFilter.
+type LavaflowPullRequestStateFilter string
 
 // LavaflowResourceIdFilter defines model for LavaflowResourceIdFilter.
 type LavaflowResourceIdFilter = openapi_types.UUID
@@ -11865,14 +15374,35 @@ type LavaflowResourceIdFilter = openapi_types.UUID
 // LavaflowRunCursor defines model for LavaflowRunCursor.
 type LavaflowRunCursor = string
 
+// LavaflowRunDays defines model for LavaflowRunDays.
+type LavaflowRunDays = int
+
 // LavaflowRunId defines model for LavaflowRunId.
 type LavaflowRunId = openapi_types.UUID
+
+// LavaflowRunInclude defines model for LavaflowRunInclude.
+type LavaflowRunInclude = []string
 
 // LavaflowRunLimit defines model for LavaflowRunLimit.
 type LavaflowRunLimit = int
 
+// LavaflowRunOrder defines model for LavaflowRunOrder.
+type LavaflowRunOrder string
+
 // LavaflowRunStatusFilter Where a run is. `diagnosing`, `fixing` and `reviewing` are the stages of a running run. `pr_open` means its pull request is open; `completed` means it finished, with no pull request or one that was merged or closed.
 type LavaflowRunStatusFilter = LavaflowRunStatus
+
+// LavaflowScanLimit defines model for LavaflowScanLimit.
+type LavaflowScanLimit = int
+
+// LavaflowSkillId defines model for LavaflowSkillId.
+type LavaflowSkillId = openapi_types.UUID
+
+// LavaflowSkillIdQuery defines model for LavaflowSkillIdQuery.
+type LavaflowSkillIdQuery = openapi_types.UUID
+
+// LavaflowSkillStatusFilter `proposed` waits for the owner to activate it. `active` is in force. `retired` is set aside and can be restored.
+type LavaflowSkillStatusFilter = LavaflowSkillStatus
 
 // Limit defines model for Limit.
 type Limit = int
@@ -11885,6 +15415,9 @@ type LockRequestId = openapi_types.UUID
 
 // LockToken defines model for LockToken.
 type LockToken = openapi_types.UUID
+
+// MigrationRunId defines model for MigrationRunId.
+type MigrationRunId = openapi_types.UUID
 
 // Offset defines model for Offset.
 type Offset = int
@@ -11907,6 +15440,39 @@ type SchedulerId = openapi_types.UUID
 // Search defines model for Search.
 type Search = string
 
+// SessionListCursor defines model for SessionListCursor.
+type SessionListCursor = string
+
+// SessionListEndingBefore defines model for SessionListEndingBefore.
+type SessionListEndingBefore = string
+
+// SessionListLimit defines model for SessionListLimit.
+type SessionListLimit = int
+
+// SessionListOffset defines model for SessionListOffset.
+type SessionListOffset = int
+
+// SessionListPage defines model for SessionListPage.
+type SessionListPage = int
+
+// SessionListSort defines model for SessionListSort.
+type SessionListSort string
+
+// SessionListStatus defines model for SessionListStatus.
+type SessionListStatus string
+
+// ShareId defines model for ShareId.
+type ShareId = string
+
+// ShareIdQuery defines model for ShareIdQuery.
+type ShareIdQuery = string
+
+// ShareReleaseCursor defines model for ShareReleaseCursor.
+type ShareReleaseCursor = string
+
+// SlackRedirect defines model for SlackRedirect.
+type SlackRedirect = string
+
 // TokenId defines model for TokenId.
 type TokenId = openapi_types.UUID
 
@@ -11927,6 +15493,9 @@ type DatabaseQueryCapExceeded = Error
 
 // OpenAPISpecThrottled defines model for OpenAPISpecThrottled.
 type OpenAPISpecThrottled = Error
+
+// StorageRangeNotSatisfiable defines model for StorageRangeNotSatisfiable.
+type StorageRangeNotSatisfiable = Error
 
 // anonKeyContextKey is the context key for AnonKey security scheme
 type anonKeyContextKey string
@@ -11982,10 +15551,48 @@ type AuthForgotPasswordJSONBody struct {
 	Email openapi_types.Email `json:"email"`
 }
 
+// AuthForgotPasswordParams defines parameters for AuthForgotPassword.
+type AuthForgotPasswordParams struct {
+	// XVolcanoProxyAuthorization Trusted server-side auth proxy credential in `Bearer SERVICE_KEY`
+	// form. When supplied, `X-Volcano-Client-IP` is also required. The service
+	// key must belong to the anon key's project and hold this operation's scope:
+	// `auth.signup` for signup and anonymous signup, `auth.signin` for signin
+	// and OAuth code exchange, `auth.refresh` for refresh, `auth.logout` for
+	// logout, and `auth.password_reset` for forgot-password and reset-password.
+	// The password policy accepts any service key for the project. Never expose
+	// a service key to browser code.
+	XVolcanoProxyAuthorization *AuthProxyAuthorization `json:"X-Volcano-Proxy-Authorization,omitempty"`
+
+	// XVolcanoClientIP Original browser IPv4 or IPv6 address supplied by a trusted server-side
+	// auth proxy. The proxy must derive this value from its platform-verified
+	// request metadata, never from a browser-supplied header. Requires a valid
+	// `X-Volcano-Proxy-Authorization` header.
+	XVolcanoClientIP *AuthProxyClientIP `json:"X-Volcano-Client-IP,omitempty"`
+}
+
 // AuthLogoutJSONBody defines parameters for AuthLogout.
 type AuthLogoutJSONBody struct {
 	RefreshToken *string                        `json:"refresh_token,omitempty"`
 	SessionMode  *AuthLogoutJSONBodySessionMode `json:"session_mode,omitempty"`
+}
+
+// AuthLogoutParams defines parameters for AuthLogout.
+type AuthLogoutParams struct {
+	// XVolcanoProxyAuthorization Trusted server-side auth proxy credential in `Bearer SERVICE_KEY`
+	// form. When supplied, `X-Volcano-Client-IP` is also required. The service
+	// key must belong to the anon key's project and hold this operation's scope:
+	// `auth.signup` for signup and anonymous signup, `auth.signin` for signin
+	// and OAuth code exchange, `auth.refresh` for refresh, `auth.logout` for
+	// logout, and `auth.password_reset` for forgot-password and reset-password.
+	// The password policy accepts any service key for the project. Never expose
+	// a service key to browser code.
+	XVolcanoProxyAuthorization *AuthProxyAuthorization `json:"X-Volcano-Proxy-Authorization,omitempty"`
+
+	// XVolcanoClientIP Original browser IPv4 or IPv6 address supplied by a trusted server-side
+	// auth proxy. The proxy must derive this value from its platform-verified
+	// request metadata, never from a browser-supplied header. Requires a valid
+	// `X-Volcano-Proxy-Authorization` header.
+	XVolcanoClientIP *AuthProxyClientIP `json:"X-Volcano-Client-IP,omitempty"`
 }
 
 // AuthLogoutJSONBodySessionMode defines parameters for AuthLogout.
@@ -11995,6 +15602,25 @@ type AuthLogoutJSONBodySessionMode string
 type AuthOAuthExchangeJSONBody struct {
 	Code        string `json:"code"`
 	RedirectUrl string `json:"redirect_url"`
+}
+
+// AuthOAuthExchangeParams defines parameters for AuthOAuthExchange.
+type AuthOAuthExchangeParams struct {
+	// XVolcanoProxyAuthorization Trusted server-side auth proxy credential in `Bearer SERVICE_KEY`
+	// form. When supplied, `X-Volcano-Client-IP` is also required. The service
+	// key must belong to the anon key's project and hold this operation's scope:
+	// `auth.signup` for signup and anonymous signup, `auth.signin` for signin
+	// and OAuth code exchange, `auth.refresh` for refresh, `auth.logout` for
+	// logout, and `auth.password_reset` for forgot-password and reset-password.
+	// The password policy accepts any service key for the project. Never expose
+	// a service key to browser code.
+	XVolcanoProxyAuthorization *AuthProxyAuthorization `json:"X-Volcano-Proxy-Authorization,omitempty"`
+
+	// XVolcanoClientIP Original browser IPv4 or IPv6 address supplied by a trusted server-side
+	// auth proxy. The proxy must derive this value from its platform-verified
+	// request metadata, never from a browser-supplied header. Requires a valid
+	// `X-Volcano-Proxy-Authorization` header.
+	XVolcanoClientIP *AuthProxyClientIP `json:"X-Volcano-Client-IP,omitempty"`
 }
 
 // AuthOAuthAuthorizeParams defines parameters for AuthOAuthAuthorize.
@@ -12090,6 +15716,25 @@ type GetOAuthProviderTokenParamsProvider string
 // AuthUnlinkOAuthProviderParamsProvider defines parameters for AuthUnlinkOAuthProvider.
 type AuthUnlinkOAuthProviderParamsProvider string
 
+// AuthGetPasswordPolicyParams defines parameters for AuthGetPasswordPolicy.
+type AuthGetPasswordPolicyParams struct {
+	// XVolcanoProxyAuthorization Trusted server-side auth proxy credential in `Bearer SERVICE_KEY`
+	// form. When supplied, `X-Volcano-Client-IP` is also required. The service
+	// key must belong to the anon key's project and hold this operation's scope:
+	// `auth.signup` for signup and anonymous signup, `auth.signin` for signin
+	// and OAuth code exchange, `auth.refresh` for refresh, `auth.logout` for
+	// logout, and `auth.password_reset` for forgot-password and reset-password.
+	// The password policy accepts any service key for the project. Never expose
+	// a service key to browser code.
+	XVolcanoProxyAuthorization *AuthProxyAuthorization `json:"X-Volcano-Proxy-Authorization,omitempty"`
+
+	// XVolcanoClientIP Original browser IPv4 or IPv6 address supplied by a trusted server-side
+	// auth proxy. The proxy must derive this value from its platform-verified
+	// request metadata, never from a browser-supplied header. Requires a valid
+	// `X-Volcano-Proxy-Authorization` header.
+	XVolcanoClientIP *AuthProxyClientIP `json:"X-Volcano-Client-IP,omitempty"`
+}
+
 // AuthPlatformExchangeJSONBody defines parameters for AuthPlatformExchange.
 type AuthPlatformExchangeJSONBody struct {
 	ClientId string `json:"client_id"`
@@ -12099,6 +15744,25 @@ type AuthPlatformExchangeJSONBody struct {
 type AuthRefreshJSONBody struct {
 	RefreshToken *string                         `json:"refresh_token,omitempty"`
 	SessionMode  *AuthRefreshJSONBodySessionMode `json:"session_mode,omitempty"`
+}
+
+// AuthRefreshParams defines parameters for AuthRefresh.
+type AuthRefreshParams struct {
+	// XVolcanoProxyAuthorization Trusted server-side auth proxy credential in `Bearer SERVICE_KEY`
+	// form. When supplied, `X-Volcano-Client-IP` is also required. The service
+	// key must belong to the anon key's project and hold this operation's scope:
+	// `auth.signup` for signup and anonymous signup, `auth.signin` for signin
+	// and OAuth code exchange, `auth.refresh` for refresh, `auth.logout` for
+	// logout, and `auth.password_reset` for forgot-password and reset-password.
+	// The password policy accepts any service key for the project. Never expose
+	// a service key to browser code.
+	XVolcanoProxyAuthorization *AuthProxyAuthorization `json:"X-Volcano-Proxy-Authorization,omitempty"`
+
+	// XVolcanoClientIP Original browser IPv4 or IPv6 address supplied by a trusted server-side
+	// auth proxy. The proxy must derive this value from its platform-verified
+	// request metadata, never from a browser-supplied header. Requires a valid
+	// `X-Volcano-Proxy-Authorization` header.
+	XVolcanoClientIP *AuthProxyClientIP `json:"X-Volcano-Client-IP,omitempty"`
 }
 
 // AuthRefreshJSONBodySessionMode defines parameters for AuthRefresh.
@@ -12119,11 +15783,49 @@ type AuthResetPasswordJSONBody struct {
 	Token string `json:"token"`
 }
 
+// AuthResetPasswordParams defines parameters for AuthResetPassword.
+type AuthResetPasswordParams struct {
+	// XVolcanoProxyAuthorization Trusted server-side auth proxy credential in `Bearer SERVICE_KEY`
+	// form. When supplied, `X-Volcano-Client-IP` is also required. The service
+	// key must belong to the anon key's project and hold this operation's scope:
+	// `auth.signup` for signup and anonymous signup, `auth.signin` for signin
+	// and OAuth code exchange, `auth.refresh` for refresh, `auth.logout` for
+	// logout, and `auth.password_reset` for forgot-password and reset-password.
+	// The password policy accepts any service key for the project. Never expose
+	// a service key to browser code.
+	XVolcanoProxyAuthorization *AuthProxyAuthorization `json:"X-Volcano-Proxy-Authorization,omitempty"`
+
+	// XVolcanoClientIP Original browser IPv4 or IPv6 address supplied by a trusted server-side
+	// auth proxy. The proxy must derive this value from its platform-verified
+	// request metadata, never from a browser-supplied header. Requires a valid
+	// `X-Volcano-Proxy-Authorization` header.
+	XVolcanoClientIP *AuthProxyClientIP `json:"X-Volcano-Client-IP,omitempty"`
+}
+
 // AuthSigninJSONBody defines parameters for AuthSignin.
 type AuthSigninJSONBody struct {
 	Email       string                         `json:"email"`
 	Password    string                         `json:"password"`
 	SessionMode *AuthSigninJSONBodySessionMode `json:"session_mode,omitempty"`
+}
+
+// AuthSigninParams defines parameters for AuthSignin.
+type AuthSigninParams struct {
+	// XVolcanoProxyAuthorization Trusted server-side auth proxy credential in `Bearer SERVICE_KEY`
+	// form. When supplied, `X-Volcano-Client-IP` is also required. The service
+	// key must belong to the anon key's project and hold this operation's scope:
+	// `auth.signup` for signup and anonymous signup, `auth.signin` for signin
+	// and OAuth code exchange, `auth.refresh` for refresh, `auth.logout` for
+	// logout, and `auth.password_reset` for forgot-password and reset-password.
+	// The password policy accepts any service key for the project. Never expose
+	// a service key to browser code.
+	XVolcanoProxyAuthorization *AuthProxyAuthorization `json:"X-Volcano-Proxy-Authorization,omitempty"`
+
+	// XVolcanoClientIP Original browser IPv4 or IPv6 address supplied by a trusted server-side
+	// auth proxy. The proxy must derive this value from its platform-verified
+	// request metadata, never from a browser-supplied header. Requires a valid
+	// `X-Volcano-Proxy-Authorization` header.
+	XVolcanoClientIP *AuthProxyClientIP `json:"X-Volcano-Client-IP,omitempty"`
 }
 
 // AuthSigninJSONBodySessionMode defines parameters for AuthSignin.
@@ -12139,10 +15841,48 @@ type AuthSignupJSONBody struct {
 	UserMetadata *map[string]interface{} `json:"user_metadata,omitempty"`
 }
 
+// AuthSignupParams defines parameters for AuthSignup.
+type AuthSignupParams struct {
+	// XVolcanoProxyAuthorization Trusted server-side auth proxy credential in `Bearer SERVICE_KEY`
+	// form. When supplied, `X-Volcano-Client-IP` is also required. The service
+	// key must belong to the anon key's project and hold this operation's scope:
+	// `auth.signup` for signup and anonymous signup, `auth.signin` for signin
+	// and OAuth code exchange, `auth.refresh` for refresh, `auth.logout` for
+	// logout, and `auth.password_reset` for forgot-password and reset-password.
+	// The password policy accepts any service key for the project. Never expose
+	// a service key to browser code.
+	XVolcanoProxyAuthorization *AuthProxyAuthorization `json:"X-Volcano-Proxy-Authorization,omitempty"`
+
+	// XVolcanoClientIP Original browser IPv4 or IPv6 address supplied by a trusted server-side
+	// auth proxy. The proxy must derive this value from its platform-verified
+	// request metadata, never from a browser-supplied header. Requires a valid
+	// `X-Volcano-Proxy-Authorization` header.
+	XVolcanoClientIP *AuthProxyClientIP `json:"X-Volcano-Client-IP,omitempty"`
+}
+
 // AuthSignupAnonymousJSONBody defines parameters for AuthSignupAnonymous.
 type AuthSignupAnonymousJSONBody struct {
 	// UserMetadata Custom user metadata (e.g., display_name, avatar_url)
 	UserMetadata *map[string]interface{} `json:"user_metadata,omitempty"`
+}
+
+// AuthSignupAnonymousParams defines parameters for AuthSignupAnonymous.
+type AuthSignupAnonymousParams struct {
+	// XVolcanoProxyAuthorization Trusted server-side auth proxy credential in `Bearer SERVICE_KEY`
+	// form. When supplied, `X-Volcano-Client-IP` is also required. The service
+	// key must belong to the anon key's project and hold this operation's scope:
+	// `auth.signup` for signup and anonymous signup, `auth.signin` for signin
+	// and OAuth code exchange, `auth.refresh` for refresh, `auth.logout` for
+	// logout, and `auth.password_reset` for forgot-password and reset-password.
+	// The password policy accepts any service key for the project. Never expose
+	// a service key to browser code.
+	XVolcanoProxyAuthorization *AuthProxyAuthorization `json:"X-Volcano-Proxy-Authorization,omitempty"`
+
+	// XVolcanoClientIP Original browser IPv4 or IPv6 address supplied by a trusted server-side
+	// auth proxy. The proxy must derive this value from its platform-verified
+	// request metadata, never from a browser-supplied header. Requires a valid
+	// `X-Volcano-Proxy-Authorization` header.
+	XVolcanoClientIP *AuthProxyClientIP `json:"X-Volcano-Client-IP,omitempty"`
 }
 
 // AuthUpdateUserJSONBody defines parameters for AuthUpdateUser.
@@ -12302,6 +16042,14 @@ type StartDurableExecutionFromApplicationParams struct {
 	XVolcanoExecutionName *string `json:"X-Volcano-Execution-Name,omitempty"`
 }
 
+// GetDurableExecutionFromApplicationParams defines parameters for GetDurableExecutionFromApplication.
+type GetDurableExecutionFromApplicationParams struct {
+	// XVolcanoClientToken The `client_token` the execution's start returned. Lets an anon key, a
+	// service key scoped to a list without `*`, or a user who did not start
+	// the execution, reach it.
+	XVolcanoClientToken *DurableClientToken `json:"X-Volcano-Client-Token,omitempty"`
+}
+
 // ListDurableMessagesFromApplicationParams defines parameters for ListDurableMessagesFromApplication.
 type ListDurableMessagesFromApplicationParams struct {
 	// Direction Return only messages travelling this way.
@@ -12316,20 +16064,31 @@ type ListDurableMessagesFromApplicationParams struct {
 	// Limit Most messages to return.
 	Limit *DurableMessageLimit `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// XVolcanoClientToken The `client_token` the execution's start returned. Lets an anon key,
-	// or a user who did not start the execution, reach it.
+	// XVolcanoClientToken The `client_token` the execution's start returned. Lets an anon key, a
+	// service key scoped to a list without `*`, or a user who did not start
+	// the execution, reach it.
 	XVolcanoClientToken *DurableClientToken `json:"X-Volcano-Client-Token,omitempty"`
 }
 
 // SendDurableMessageFromApplicationParams defines parameters for SendDurableMessageFromApplication.
 type SendDurableMessageFromApplicationParams struct {
-	// IdempotencyKey Makes a send safe to retry. A repeat with a key the execution has
-	// already seen returns the first message and sends nothing. Up to 255
+	// IdempotencyKey Makes a send safe to retry. A repeat with a key the same sender has
+	// used on the execution returns the first message and sends nothing.
+	// Keys of different senders never collide. Up to 255 printable ASCII
 	// characters.
 	IdempotencyKey *DurableMessageIdempotencyKey `json:"Idempotency-Key,omitempty"`
 
-	// XVolcanoClientToken The `client_token` the execution's start returned. Lets an anon key,
-	// or a user who did not start the execution, reach it.
+	// XVolcanoClientToken The `client_token` the execution's start returned. Lets an anon key, a
+	// service key scoped to a list without `*`, or a user who did not start
+	// the execution, reach it.
+	XVolcanoClientToken *DurableClientToken `json:"X-Volcano-Client-Token,omitempty"`
+}
+
+// StopDurableExecutionFromApplicationParams defines parameters for StopDurableExecutionFromApplication.
+type StopDurableExecutionFromApplicationParams struct {
+	// XVolcanoClientToken The `client_token` the execution's start returned. Lets an anon key, a
+	// service key scoped to a list without `*`, or a user who did not start
+	// the execution, reach it.
 	XVolcanoClientToken *DurableClientToken `json:"X-Volcano-Client-Token,omitempty"`
 }
 
@@ -12338,14 +16097,26 @@ type PublishDurableMessageParams struct {
 	// XVolcanoDurableSession The session token the workflow received when its session opened.
 	XVolcanoDurableSession string `json:"X-Volcano-Durable-Session"`
 
-	// IdempotencyKey Makes a send safe to retry. A repeat with a key the execution has
-	// already seen returns the first message and sends nothing. Up to 255
+	// IdempotencyKey Makes a send safe to retry. A repeat with a key the same sender has
+	// used on the execution returns the first message and sends nothing.
+	// Keys of different senders never collide. Up to 255 printable ASCII
 	// characters.
 	IdempotencyKey *DurableMessageIdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
 // GetDefaultEmailTemplateParamsType defines parameters for GetDefaultEmailTemplate.
 type GetDefaultEmailTemplateParamsType string
+
+// CreateForkParams defines parameters for CreateFork.
+type CreateForkParams struct {
+	// IdempotencyKey Makes a fork safe to retry. A repeat with the same key from the same
+	// account answers `201` with the project the first request created, without
+	// confirming, counting or creating anything again. Reusing a key for a
+	// different request (another name, share, release or set of variable names
+	// with a value) answers `409` with code `idempotency_key_reused`. Variable
+	// values are not compared. The key is kept as long as the project exists.
+	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
+}
 
 // ResolveFunctionForInvocationParams defines parameters for ResolveFunctionForInvocation.
 type ResolveFunctionForInvocationParams struct {
@@ -12355,14 +16126,24 @@ type ResolveFunctionForInvocationParams struct {
 
 // GitConnectCallbackParams defines parameters for GitConnectCallback.
 type GitConnectCallbackParams struct {
-	// Code GitHub user authorization code.
+	// Code GitHub user authorization code. Ignored when `state` is absent.
 	Code *string `form:"code,omitempty" json:"code,omitempty"`
 
-	// State Signed connect state generated by startGitConnect.
-	State string `form:"state" json:"state"`
+	// State Signed connect state generated by startGitConnect. Absent when the
+	// install started on GitHub rather than in Volcano.
+	State *string `form:"state,omitempty" json:"state,omitempty"`
 
 	// Error Provider error returned by GitHub.
 	Error *string `form:"error,omitempty" json:"error,omitempty"`
+
+	// InstallationId The GitHub App installation ID GitHub adds to the redirect. Volcano
+	// does not read it; a repository is connected through startGitConnect.
+	InstallationId *string `form:"installation_id,omitempty" json:"installation_id,omitempty"`
+
+	// SetupAction What happened on GitHub: `install`, `update`, or `request`. Without
+	// `state`, one of these values redirects to the dashboard; any other
+	// value, or none, returns 400. With `state`, it is ignored.
+	SetupAction *string `form:"setup_action,omitempty" json:"setup_action,omitempty"`
 }
 
 // CompleteImportConnectParams defines parameters for CompleteImportConnect.
@@ -12400,6 +16181,12 @@ type ListImportSourcesParams struct {
 	ConnectionId openapi_types.UUID `form:"connection_id" json:"connection_id"`
 }
 
+// ListLavaflowGlobalSkillsParams defines parameters for ListLavaflowGlobalSkills.
+type ListLavaflowGlobalSkillsParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+}
+
 // ListLavaflowResourcesParams defines parameters for ListLavaflowResources.
 type ListLavaflowResourcesParams struct {
 	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
@@ -12407,7 +16194,13 @@ type ListLavaflowResourcesParams struct {
 
 	// Days Number of UTC days in the window, ending today.
 	Days *LavaflowDays `form:"days,omitempty" json:"days,omitempty"`
+
+	// Category Only runs in this category; `uncategorized` for runs without one.
+	Category *ListLavaflowResourcesParamsCategory `form:"category,omitempty" json:"category,omitempty"`
 }
+
+// ListLavaflowResourcesParamsCategory defines parameters for ListLavaflowResources.
+type ListLavaflowResourcesParamsCategory string
 
 // ListLavaflowRunsParams defines parameters for ListLavaflowRuns.
 type ListLavaflowRunsParams struct {
@@ -12427,18 +16220,113 @@ type ListLavaflowRunsParams struct {
 
 	// ResourceId Only runs for issues of this resource.
 	ResourceId *LavaflowResourceIdFilter `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+
+	// Category Only runs in this category; `uncategorized` for runs without one.
+	Category *ListLavaflowRunsParamsCategory `form:"category,omitempty" json:"category,omitempty"`
+
+	// InvolvedResourceId Only runs that involve this function, durable function or frontend in any role: the issue came from it, the diagnosis traced the cause to it, or the fix changes it.
+	InvolvedResourceId *LavaflowInvolvedResourceFilter `form:"involved_resource_id,omitempty" json:"involved_resource_id,omitempty"`
+
+	// IssueId Only runs on this issue. An issue the project doesn't have answers `404`, like an unknown issue.
+	IssueId *LavaflowIssueIdFilter `form:"issue_id,omitempty" json:"issue_id,omitempty"`
+
+	// PullRequestState Only runs whose pull request is in this state; `none` for runs without one.
+	PullRequestState *ListLavaflowRunsParamsPullRequestState `form:"pull_request_state,omitempty" json:"pull_request_state,omitempty"`
+
+	// Days Only runs created in the last `days` UTC days, today included. Omit for every run.
+	Days *LavaflowRunDays `form:"days,omitempty" json:"days,omitempty"`
+
+	// Order `created_at.desc` is newest first and `created_at.asc` oldest first. `issue_events.desc` orders by the issue's current `event_count`, most first, then newest first. That count grows as errors arrive or scans see a finding again, so paging this order can skip runs, not only move them between pages. To read every run, for an export say, page `created_at.desc` or `created_at.asc`. A cursor works only with the order it came from.
+	Order *ListLavaflowRunsParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+
+	// Include `counts` adds `counts` to the response. Ask on the first page; the counts don't depend on the cursor.
+	Include *LavaflowRunInclude `form:"include,omitempty" json:"include,omitempty"`
 }
+
+// ListLavaflowRunsParamsCategory defines parameters for ListLavaflowRuns.
+type ListLavaflowRunsParamsCategory string
+
+// ListLavaflowRunsParamsPullRequestState defines parameters for ListLavaflowRuns.
+type ListLavaflowRunsParamsPullRequestState string
+
+// ListLavaflowRunsParamsOrder defines parameters for ListLavaflowRuns.
+type ListLavaflowRunsParamsOrder string
+
+// ListLavaflowRunsParamsInclude defines parameters for ListLavaflowRuns.
+type ListLavaflowRunsParamsInclude string
 
 // GetLavaflowRunParams defines parameters for GetLavaflowRun.
 type GetLavaflowRunParams struct {
-	// ProjectId Optional. The item's own project authorizes the read; when given, the item must belong to this project, or it answers like an unknown one.
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
 	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// ListLavaflowScansParams defines parameters for ListLavaflowScans.
+type ListLavaflowScansParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+
+	// Limit Number of scans per page (max 100)
+	Limit *LavaflowScanLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor from a previous response's `next_cursor`. Pages forward,
+	// and works only for the same `project_id` and caller; keep the same
+	// filters while paging.
+	Cursor *LavaflowRunCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // GetLavaflowSettingsParams defines parameters for GetLavaflowSettings.
 type GetLavaflowSettingsParams struct {
 	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
 	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+}
+
+// ListLavaflowSkillVersionsParams defines parameters for ListLavaflowSkillVersions.
+type ListLavaflowSkillVersionsParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+
+	// SkillId The skill whose versions to list.
+	SkillId LavaflowSkillIdQuery `form:"skill_id" json:"skill_id"`
+}
+
+// ListLavaflowSkillsParams defines parameters for ListLavaflowSkills.
+type ListLavaflowSkillsParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+
+	// Status Only skills in this status.
+	Status *LavaflowSkillStatusFilter `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// DeleteLavaflowSkillParams defines parameters for DeleteLavaflowSkill.
+type DeleteLavaflowSkillParams struct {
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// GetLavaflowSkillParams defines parameters for GetLavaflowSkill.
+type GetLavaflowSkillParams struct {
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// UpdateLavaflowSkillParams defines parameters for UpdateLavaflowSkill.
+type UpdateLavaflowSkillParams struct {
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// ListLavaflowSlackChannelsParams defines parameters for ListLavaflowSlackChannels.
+type ListLavaflowSlackChannelsParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+}
+
+// UnbindLavaflowSlackChannelParams defines parameters for UnbindLavaflowSlackChannel.
+type UnbindLavaflowSlackChannelParams struct {
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
 // GetLavaflowStatsParams defines parameters for GetLavaflowStats.
@@ -12448,7 +16336,13 @@ type GetLavaflowStatsParams struct {
 
 	// Days Number of UTC days in the window, ending today.
 	Days *LavaflowDays `form:"days,omitempty" json:"days,omitempty"`
+
+	// Category Only runs in this category; `uncategorized` for runs without one.
+	Category *GetLavaflowStatsParamsCategory `form:"category,omitempty" json:"category,omitempty"`
 }
+
+// GetLavaflowStatsParamsCategory defines parameters for GetLavaflowStats.
+type GetLavaflowStatsParamsCategory string
 
 // ForceReleaseProjectLockParams defines parameters for ForceReleaseProjectLock.
 type ForceReleaseProjectLockParams struct {
@@ -12904,6 +16798,14 @@ type ListDatabasesParams struct {
 // ListDatabasesParamsStatus defines parameters for ListDatabases.
 type ListDatabasesParamsStatus string
 
+// CreateDatabaseMigrationRunParams defines parameters for CreateDatabaseMigrationRun.
+type CreateDatabaseMigrationRunParams struct {
+	// IdempotencyKey Makes the request safe to retry. A repeat with a key this database
+	// has seen returns the run it started. Reusing a key for different
+	// files answers `409`. Up to 255 printable ASCII characters.
+	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
+}
+
 // GetProjectDatabaseQueriesParams defines parameters for GetProjectDatabaseQueries.
 type GetProjectDatabaseQueriesParams struct {
 	// Limit Maximum number of queries to return.
@@ -13098,7 +17000,7 @@ type CreateDurableFunctionMultipartBody struct {
 	// Code ZIP or tar.gz archive containing function source code plus dependency manifests/lockfiles.
 	Code openapi_types.File `json:"code"`
 
-	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. All three fields are required, and fields Volcano does not know are ignored. An empty value, `null`, or `""` reports no commit. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano records a function's commit with `commit.verified: false`.
+	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. All three fields are required, and fields Volcano does not know are ignored. An empty value, `null`, or `""` reports no commit. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano records a function's commit with `commit.verified: false`; a clean commit of the project's connected repository that its production branch holds gets `commit.verification: repository`.
 	Commit *string `json:"commit,omitempty"`
 
 	// Handler The name of the function to invoke. Defaults to "handler" if not specified.
@@ -13206,8 +17108,9 @@ type ListDurableMessagesParams struct {
 
 // SendDurableMessageParams defines parameters for SendDurableMessage.
 type SendDurableMessageParams struct {
-	// IdempotencyKey Makes a send safe to retry. A repeat with a key the execution has
-	// already seen returns the first message and sends nothing. Up to 255
+	// IdempotencyKey Makes a send safe to retry. A repeat with a key the same sender has
+	// used on the execution returns the first message and sends nothing.
+	// Keys of different senders never collide. Up to 255 printable ASCII
 	// characters.
 	IdempotencyKey *DurableMessageIdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
@@ -13390,12 +17293,12 @@ type CreateFunctionMultipartBody struct {
 	// Code ZIP or tar.gz archive containing function source code plus dependency manifests/lockfiles. The API enforces SOURCE_ARCHIVE_SIZE_LIMIT_MB and stores a normalized tar.gz source archive.
 	Code openapi_types.File `json:"code"`
 
-	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. All three fields are required, and fields Volcano does not know are ignored. An empty value, `null`, or `""` reports no commit. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano records a function's commit with `commit.verified: false`.
+	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. All three fields are required, and fields Volcano does not know are ignored. An empty value, `null`, or `""` reports no commit. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano records a function's commit with `commit.verified: false`; a clean commit of the project's connected repository that its production branch holds gets `commit.verification: repository`.
 	Commit *string `json:"commit,omitempty"`
 
 	// Handler The name of the function to invoke. Defaults to "handler" if not specified.
 	// Your code must export/define a function with this name:
-	// - Node.js: exports.handler (in index.js)
+	// - Node.js: exports.handler (in index.js, index.mjs or index.cjs, or in TypeScript in index.ts, index.mts or index.cts, which the build compiles without type-checking)
 	// - Python: def handler() (in main.py)
 	// - Ruby: def handler() (in main.rb)
 	Handler *string `json:"handler,omitempty"`
@@ -13425,6 +17328,8 @@ type CreateFunctionMultipartBody struct {
 	// - Node.js: nodejs22.x, nodejs24.x
 	// - Python: python3.10, python3.11, python3.12, python3.13, python3.14
 	// - Ruby: ruby3.3, ruby3.4, ruby4.0
+	//
+	// python3.10 is deprecated: it still deploys, and Volcano will remove it before 2027-08-31.
 	Runtime CreateFunctionMultipartBodyRuntime `json:"runtime"`
 
 	// VariableScope Which project variables this function receives. `all` (the default) gives it only project variables marked `shared: true`; `scoped` gives it only the variables it selects. Omitting this leaves an existing function's scope unchanged.
@@ -13468,6 +17373,38 @@ type ListFunctionDeploymentsParams struct {
 
 	// Limit Number of items per page (max 100)
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListGitDeploymentRunsParams defines parameters for ListGitDeploymentRuns.
+type ListGitDeploymentRunsParams struct {
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor from a previous response's `next_cursor`. Pages forward;
+	// keep the same filters while paging.
+	Cursor *IssueCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Status Return only runs in this status.
+	Status *GitDeploymentRunStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Branch Return only runs for pushes to this branch.
+	Branch *string `form:"branch,omitempty" json:"branch,omitempty"`
+}
+
+// ListIssuesParams defines parameters for ListIssues.
+type ListIssuesParams struct {
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor from a previous response's `next_cursor`. Pages forward;
+	// keep the same filters while paging.
+	Cursor *IssueCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Status Return only issues in this status.
+	Status *IssueStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// ResourceId Return only issues raised by this function or frontend.
+	ResourceId *openapi_types.UUID `form:"resource_id,omitempty" json:"resource_id,omitempty"`
 }
 
 // UploadProjectLogoMultipartBody defines parameters for UploadProjectLogo.
@@ -13680,7 +17617,18 @@ type CreateServiceKeyJSONBody struct {
 	// for backward compatibility. Provide an explicit list (e.g.
 	// ["functions.invoke", "locks.manage"]) to restrict the key; "*"
 	// grants everything. Scope enforcement applies to function invocation,
-	// storage object operations, and project locks.
+	// storage object operations, project locks, sandboxes, and server-side auth proxy
+	// metadata (auth.signin, auth.signup, auth.refresh, auth.logout,
+	// auth.password_reset). A key scoped to a list without "*" reads, stops,
+	// and messages a durable execution only with the `client_token` its
+	// start returned. Today the scope doesn't restrict the database API, and
+	// restricts realtime only on a durable run's channel: every service key
+	// queries every table with RLS bypassed, subscribes to every other channel,
+	// and publishes on broadcast channels. Once Volcano applies scopes to the
+	// database API and realtime, a key without "*" gets 403 from the database
+	// API, needs realtime.subscribe for broadcast and presence channels and
+	// realtime.publish to publish, and needs "*" for table changes. `ai.invoke`
+	// is reserved: this route refuses it with 400, and "*" doesn't include it.
 	Permissions *[]string `json:"permissions,omitempty"`
 }
 
@@ -13805,9 +17753,106 @@ type ListVariablesParams struct {
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// ListSandboxSessionFilesParams defines parameters for ListSandboxSessionFiles.
+type ListSandboxSessionFilesParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+
+	// SessionId The session to list. A session outside `project_id` answers like one that doesn't exist.
+	SessionId openapi_types.UUID `form:"session_id" json:"session_id"`
+
+	// Path Workspace directory to list, such as `src` or `/workspace/src`. Omit it, or pass `.` or `/workspace`, to list the workspace root. The path must be a directory; it is never reached through a symlink.
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
+
+	// Recursive List every entry below the directory. When false, list only its direct entries.
+	Recursive *bool `form:"recursive,omitempty" json:"recursive,omitempty"`
+
+	// IncludeSha256 Add the SHA-256 digest of each regular file's content. A call reads at most 256 MiB to hash; a page ends early, with `next_cursor`, before a file that would pass that budget. A file without a digest says why in `sha256_skipped`.
+	IncludeSha256 *bool `form:"include_sha256,omitempty" json:"include_sha256,omitempty"`
+
+	// Limit Most entries to return. A page can hold fewer, so continue while `next_cursor` is present.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor from the previous page's `next_cursor`. It is valid only for the same project and session; send the same `path` and `recursive` with it.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ExecuteSandboxSessionParams defines parameters for ExecuteSandboxSession.
 type ExecuteSandboxSessionParams struct {
 	IdempotencyKey openapi_types.UUID `json:"Idempotency-Key"`
+}
+
+// GetShareReleaseDraftParams defines parameters for GetShareReleaseDraft.
+type GetShareReleaseDraftParams struct {
+	// ShareId The share to read. The share's own project authorizes the read; a share the caller can't read answers like one that doesn't exist.
+	ShareId ShareIdQuery `form:"share_id" json:"share_id"`
+
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// ListShareReleasesParams defines parameters for ListShareReleases.
+type ListShareReleasesParams struct {
+	// ShareId The share to read. The share's own project authorizes the read; a share the caller can't read answers like one that doesn't exist.
+	ShareId ShareIdQuery `form:"share_id" json:"share_id"`
+
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor from a previous response's `next_cursor`. Pages forward, and
+	// works only for the same `share_id` and `limit`.
+	Cursor *ShareReleaseCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// GetShareStatsParams defines parameters for GetShareStats.
+type GetShareStatsParams struct {
+	// ShareId The share to read. The share's own project authorizes the read; a share the caller can't read answers like one that doesn't exist.
+	ShareId ShareIdQuery `form:"share_id" json:"share_id"`
+
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+
+	// Days How many days back to count. Defaults to 30.
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
+}
+
+// ListSharesParams defines parameters for ListShares.
+type ListSharesParams struct {
+	// ProjectId The project to read. A project the caller can't read answers like one that doesn't exist.
+	ProjectId ProjectIdQuery `form:"project_id" json:"project_id"`
+}
+
+// DeleteShareParams defines parameters for DeleteShare.
+type DeleteShareParams struct {
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// GetShareParams defines parameters for GetShare.
+type GetShareParams struct {
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// UpdateShareParams defines parameters for UpdateShare.
+type UpdateShareParams struct {
+	// ProjectId Optional. The item's own project authorizes the request; when given, the item must belong to this project, or it answers like an unknown one.
+	ProjectId *ItemProjectIdQuery `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
+// SlackCallbackParams defines parameters for SlackCallback.
+type SlackCallbackParams struct {
+	// Code Slack's authorization code
+	Code *string `form:"code,omitempty" json:"code,omitempty"`
+
+	// State The signed state the flow's start returned
+	State string `form:"state" json:"state"`
+
+	// Error Slack's error, such as `access_denied`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
 // ListStorageObjectsParams defines parameters for ListStorageObjects.
@@ -13876,10 +17921,10 @@ type StartGitConnectParams struct {
 	// Provider Git provider to connect. Defaults to github.
 	Provider *StartGitConnectParamsProvider `form:"provider,omitempty" json:"provider,omitempty"`
 
-	// Redirect URL to redirect the browser to after the provider callback completes.
+	// Redirect URL to redirect the browser to after the provider callback completes. It must be on the Volcano dashboard's origin, or `http` to `127.0.0.1` or `[::1]` with a port.
 	Redirect *string `form:"redirect,omitempty" json:"redirect,omitempty"`
 
-	// CallbackUrl Same-origin browser callback used to relay provider parameters before completing the connection.
+	// CallbackUrl Same-origin browser callback used to relay provider parameters before completing the connection. It must be on the Volcano dashboard's origin, or `http` to `127.0.0.1` or `[::1]` with a port.
 	CallbackUrl *string `form:"callback_url,omitempty" json:"callback_url,omitempty"`
 }
 
@@ -13891,11 +17936,69 @@ type StartImportConnectParams struct {
 	// Provider Import provider to connect. Defaults to Vercel.
 	Provider *ImportProvider `form:"provider,omitempty" json:"provider,omitempty"`
 
-	// Redirect Validated application URL used after the provider callback.
+	// Redirect Application URL used after the provider callback. It must be on the Volcano dashboard's origin, or `http` to `127.0.0.1` or `[::1]` with a port.
 	Redirect *string `form:"redirect,omitempty" json:"redirect,omitempty"`
 
-	// CallbackUrl Same-origin browser callback used to relay provider parameters before completing the connection.
+	// CallbackUrl Same-origin browser callback used to relay provider parameters before completing the connection. It must be on the Volcano dashboard's origin, or `http` to `127.0.0.1` or `[::1]` with a port.
 	CallbackUrl *string `form:"callback_url,omitempty" json:"callback_url,omitempty"`
+}
+
+// ListAccountSessionsParams defines parameters for ListAccountSessions.
+type ListAccountSessionsParams struct {
+	// Page Page number (1-indexed). Omit it for the first page, and always with
+	// `cursor` or `ending_before`.
+	Page *SessionListPage `form:"page,omitempty" json:"page,omitempty"`
+
+	// Limit Number of sessions per page (max 100, default 20)
+	Limit *SessionListLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Sort Sort key. `last_activity` (default) orders by most recent activity and
+	// supports offset pagination only. `created_at` orders by session start
+	// and supports both offset and cursor pagination.
+	Sort *ListAccountSessionsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Status Filter by whether the session can still be refreshed. Omit for every
+	// stored session, including expired ones. `expired` is not supported
+	// with cursor pagination.
+	Status *ListAccountSessionsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Cursor Opaque keyset cursor from a previous response's `next_cursor`. Requires
+	// `sort=created_at`; mutually exclusive with `page` and `ending_before`.
+	Cursor *SessionListCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// EndingBefore Opaque keyset cursor from a previous response's `prev_cursor`, paging
+	// backward. Requires `sort=created_at`; mutually exclusive with `page`
+	// and `cursor`.
+	EndingBefore *SessionListEndingBefore `form:"ending_before,omitempty" json:"ending_before,omitempty"`
+
+	// Offset Bounded number of rows to skip past the cursor anchor (the hybrid
+	// jump, maximum 100000). Ignored unless `cursor` or `ending_before` is
+	// supplied.
+	Offset *SessionListOffset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListAccountSessionsParamsSort defines parameters for ListAccountSessions.
+type ListAccountSessionsParamsSort string
+
+// ListAccountSessionsParamsStatus defines parameters for ListAccountSessions.
+type ListAccountSessionsParamsStatus string
+
+// ListSlackChannelsParams defines parameters for ListSlackChannels.
+type ListSlackChannelsParams struct {
+	// TeamId The Slack workspace. The app must be installed in it, and one of the caller's connected Slack identities must belong to it.
+	TeamId SlackTeamId `form:"team_id" json:"team_id"`
+}
+
+// StartSlackConnectParams defines parameters for StartSlackConnect.
+type StartSlackConnectParams struct {
+	// Redirect Where to send the browser after Slack's callback. It must be on the Volcano dashboard's origin, or `http` to `127.0.0.1` or `[::1]` with a port.
+	Redirect *SlackRedirect `form:"redirect,omitempty" json:"redirect,omitempty"`
+}
+
+// StartSlackInstallParams defines parameters for StartSlackInstall.
+type StartSlackInstallParams struct {
+	// Redirect Where to send the browser after Slack's callback. It must be on the Volcano dashboard's origin, or `http` to `127.0.0.1` or `[::1]` with a port.
+	Redirect *SlackRedirect `form:"redirect,omitempty" json:"redirect,omitempty"`
 }
 
 // AuthConfirmEmailJSONRequestBody defines body for AuthConfirmEmail for application/json ContentType.
@@ -13982,6 +18085,9 @@ type QueryDatabaseUpdateJSONRequestBody = DatabaseUpdateRequest
 // RequestDurableApprovalJSONRequestBody defines body for RequestDurableApproval for application/json ContentType.
 type RequestDurableApprovalJSONRequestBody = RequestDurableApprovalRequest
 
+// RegisterDurableCallbackJSONRequestBody defines body for RegisterDurableCallback for application/json ContentType.
+type RegisterDurableCallbackJSONRequestBody = RegisterDurableCallbackRequest
+
 // FailDurableCallbackJSONRequestBody defines body for FailDurableCallback for application/json ContentType.
 type FailDurableCallbackJSONRequestBody = FailDurableCallbackRequest
 
@@ -14006,6 +18112,9 @@ type OpenDurableMessageSessionJSONRequestBody = OpenDurableMessageSessionRequest
 // RegisterDurableMessageWaitJSONRequestBody defines body for RegisterDurableMessageWait for application/json ContentType.
 type RegisterDurableMessageWaitJSONRequestBody = RegisterDurableMessageWaitRequest
 
+// CreateForkJSONRequestBody defines body for CreateFork for application/json ContentType.
+type CreateForkJSONRequestBody = ForkCreateRequest
+
 // InvokeFunctionJSONRequestBody defines body for InvokeFunction for application/json ContentType.
 type InvokeFunctionJSONRequestBody = FunctionInvocationRequest
 
@@ -14015,11 +18124,23 @@ type PreflightProjectImportJSONRequestBody = ProjectImportPreflightRequest
 // StartProjectImportJSONRequestBody defines body for StartProjectImport for application/json ContentType.
 type StartProjectImportJSONRequestBody = ProjectImportStartRequest
 
+// CreateLavaflowHeldFixOpenJSONRequestBody defines body for CreateLavaflowHeldFixOpen for application/json ContentType.
+type CreateLavaflowHeldFixOpenJSONRequestBody = LavaflowHeldFixOpen
+
 // CreateLavaflowRunJSONRequestBody defines body for CreateLavaflowRun for application/json ContentType.
 type CreateLavaflowRunJSONRequestBody = LavaflowRunCreate
 
+// PatchLavaflowSettingsJSONRequestBody defines body for PatchLavaflowSettings for application/json ContentType.
+type PatchLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
+
 // UpdateLavaflowSettingsJSONRequestBody defines body for UpdateLavaflowSettings for application/json ContentType.
 type UpdateLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
+
+// UpdateLavaflowSkillJSONRequestBody defines body for UpdateLavaflowSkill for application/json ContentType.
+type UpdateLavaflowSkillJSONRequestBody = LavaflowSkillUpdate
+
+// BindLavaflowSlackChannelJSONRequestBody defines body for BindLavaflowSlackChannel for application/json ContentType.
+type BindLavaflowSlackChannelJSONRequestBody = LavaflowSlackChannelBinding
 
 // RenewProjectLockJSONRequestBody defines body for RenewProjectLock for application/json ContentType.
 type RenewProjectLockJSONRequestBody = ProjectLockLeaseRequest
@@ -14086,6 +18207,12 @@ type CreateDatabaseBranchJSONRequestBody = CreateDatabaseBranchRequest
 
 // UpdateDatabaseBranchJSONRequestBody defines body for UpdateDatabaseBranch for application/json ContentType.
 type UpdateDatabaseBranchJSONRequestBody = UpdateDatabaseBranchRequest
+
+// CreateDatabaseMigrationRunJSONRequestBody defines body for CreateDatabaseMigrationRun for application/json ContentType.
+type CreateDatabaseMigrationRunJSONRequestBody = DatabaseMigrationFilesRequest
+
+// BaselineDatabaseMigrationsJSONRequestBody defines body for BaselineDatabaseMigrations for application/json ContentType.
+type BaselineDatabaseMigrationsJSONRequestBody = DatabaseMigrationFilesRequest
 
 // CreateDatabaseRestoreJSONRequestBody defines body for CreateDatabaseRestore for application/json ContentType.
 type CreateDatabaseRestoreJSONRequestBody = CreateDatabaseRestoreRequest
@@ -14189,6 +18316,9 @@ type SetProjectGitRootDirectoryJSONRequestBody = SetProjectGitRootDirectoryReque
 // UpdateProjectGitDeploySettingsJSONRequestBody defines body for UpdateProjectGitDeploySettings for application/json ContentType.
 type UpdateProjectGitDeploySettingsJSONRequestBody = UpdateProjectGitDeploySettingsRequest
 
+// UpdateIssueJSONRequestBody defines body for UpdateIssue for application/json ContentType.
+type UpdateIssueJSONRequestBody = UpdateIssueRequest
+
 // UploadProjectLogoMultipartRequestBody defines body for UploadProjectLogo for multipart/form-data ContentType.
 type UploadProjectLogoMultipartRequestBody UploadProjectLogoMultipartBody
 
@@ -14261,6 +18391,12 @@ type CreateVariableJSONRequestBody = CreateVariableRequest
 // UpdateVariableJSONRequestBody defines body for UpdateVariable for application/json ContentType.
 type UpdateVariableJSONRequestBody = UpdateVariableRequest
 
+// CreateSandboxFileArchiveMultipartRequestBody defines body for CreateSandboxFileArchive for multipart/form-data ContentType.
+type CreateSandboxFileArchiveMultipartRequestBody = SandboxFileArchiveForm
+
+// CreateSandboxFilePartJSONRequestBody defines body for CreateSandboxFilePart for application/json ContentType.
+type CreateSandboxFilePartJSONRequestBody = SandboxFilePartRequest
+
 // CreateSandboxSessionAccessJSONRequestBody defines body for CreateSandboxSessionAccess for application/json ContentType.
 type CreateSandboxSessionAccessJSONRequestBody = SandboxAccessRequest
 
@@ -14275,6 +18411,15 @@ type WriteSandboxSessionFileJSONRequestBody = SandboxFileWriteRequest
 
 // GrantSandboxSessionJSONRequestBody defines body for GrantSandboxSession for application/json ContentType.
 type GrantSandboxSessionJSONRequestBody = SandboxSubjectGrantRequest
+
+// PublishShareReleaseJSONRequestBody defines body for PublishShareRelease for application/json ContentType.
+type PublishShareReleaseJSONRequestBody = ShareReleaseCreateRequest
+
+// CreateShareJSONRequestBody defines body for CreateShare for application/json ContentType.
+type CreateShareJSONRequestBody = ShareCreateRequest
+
+// UpdateShareJSONRequestBody defines body for UpdateShare for application/json ContentType.
+type UpdateShareJSONRequestBody = ShareUpdateRequest
 
 // CopyStorageObjectJSONRequestBody defines body for CopyStorageObject for application/json ContentType.
 type CopyStorageObjectJSONRequestBody = StorageCopyRequest
@@ -14359,6 +18504,20 @@ func (t CreateSandboxSessionRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	if t.Executions != nil {
+		object["executions"], err = json.Marshal(t.Executions)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'executions': %w", err)
+		}
+	}
+
+	if t.Limits != nil {
+		object["limits"], err = json.Marshal(t.Limits)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'limits': %w", err)
+		}
+	}
+
 	if t.MaxDurationSeconds != nil {
 		object["max_duration_seconds"], err = json.Marshal(t.MaxDurationSeconds)
 		if err != nil {
@@ -14370,6 +18529,13 @@ func (t CreateSandboxSessionRequest) MarshalJSON() ([]byte, error) {
 		object["memory_mb"], err = json.Marshal(t.MemoryMb)
 		if err != nil {
 			return nil, fmt.Errorf("error marshaling 'memory_mb': %w", err)
+		}
+	}
+
+	if t.Network != nil {
+		object["network"], err = json.Marshal(t.Network)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'network': %w", err)
 		}
 	}
 
@@ -14406,6 +18572,20 @@ func (t *CreateSandboxSessionRequest) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	if raw, found := object["executions"]; found {
+		err = json.Unmarshal(raw, &t.Executions)
+		if err != nil {
+			return fmt.Errorf("error reading 'executions': %w", err)
+		}
+	}
+
+	if raw, found := object["limits"]; found {
+		err = json.Unmarshal(raw, &t.Limits)
+		if err != nil {
+			return fmt.Errorf("error reading 'limits': %w", err)
+		}
+	}
+
 	if raw, found := object["max_duration_seconds"]; found {
 		err = json.Unmarshal(raw, &t.MaxDurationSeconds)
 		if err != nil {
@@ -14417,6 +18597,13 @@ func (t *CreateSandboxSessionRequest) UnmarshalJSON(b []byte) error {
 		err = json.Unmarshal(raw, &t.MemoryMb)
 		if err != nil {
 			return fmt.Errorf("error reading 'memory_mb': %w", err)
+		}
+	}
+
+	if raw, found := object["network"]; found {
+		err = json.Unmarshal(raw, &t.Network)
+		if err != nil {
+			return fmt.Errorf("error reading 'network': %w", err)
 		}
 	}
 
@@ -15184,6 +19371,13 @@ func (t SandboxExecutionRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	if t.KeepOutput != nil {
+		object["keep_output"], err = json.Marshal(t.KeepOutput)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'keep_output': %w", err)
+		}
+	}
+
 	if t.MaxDurationSeconds != nil {
 		object["max_duration_seconds"], err = json.Marshal(t.MaxDurationSeconds)
 		if err != nil {
@@ -15195,6 +19389,13 @@ func (t SandboxExecutionRequest) MarshalJSON() ([]byte, error) {
 		object["memory_mb"], err = json.Marshal(t.MemoryMb)
 		if err != nil {
 			return nil, fmt.Errorf("error marshaling 'memory_mb': %w", err)
+		}
+	}
+
+	if t.Network != nil {
+		object["network"], err = json.Marshal(t.Network)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'network': %w", err)
 		}
 	}
 
@@ -15252,6 +19453,13 @@ func (t *SandboxExecutionRequest) UnmarshalJSON(b []byte) error {
 		}
 	}
 
+	if raw, found := object["keep_output"]; found {
+		err = json.Unmarshal(raw, &t.KeepOutput)
+		if err != nil {
+			return fmt.Errorf("error reading 'keep_output': %w", err)
+		}
+	}
+
 	if raw, found := object["max_duration_seconds"]; found {
 		err = json.Unmarshal(raw, &t.MaxDurationSeconds)
 		if err != nil {
@@ -15263,6 +19471,13 @@ func (t *SandboxExecutionRequest) UnmarshalJSON(b []byte) error {
 		err = json.Unmarshal(raw, &t.MemoryMb)
 		if err != nil {
 			return fmt.Errorf("error reading 'memory_mb': %w", err)
+		}
+	}
+
+	if raw, found := object["network"]; found {
+		err = json.Unmarshal(raw, &t.Network)
+		if err != nil {
+			return fmt.Errorf("error reading 'network': %w", err)
 		}
 	}
 
@@ -15639,19 +19854,19 @@ type ClientInterface interface {
 	AuthDeviceVerify(ctx context.Context, body AuthDeviceVerifyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthForgotPasswordWithBody request with any body
-	AuthForgotPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthForgotPasswordWithBody(ctx context.Context, params *AuthForgotPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AuthForgotPassword(ctx context.Context, body AuthForgotPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthForgotPassword(ctx context.Context, params *AuthForgotPasswordParams, body AuthForgotPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthLogoutWithBody request with any body
-	AuthLogoutWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthLogoutWithBody(ctx context.Context, params *AuthLogoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AuthLogout(ctx context.Context, body AuthLogoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthLogout(ctx context.Context, params *AuthLogoutParams, body AuthLogoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthOAuthExchangeWithBody request with any body
-	AuthOAuthExchangeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthOAuthExchangeWithBody(ctx context.Context, params *AuthOAuthExchangeParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AuthOAuthExchange(ctx context.Context, body AuthOAuthExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthOAuthExchange(ctx context.Context, params *AuthOAuthExchangeParams, body AuthOAuthExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthListOAuthProviders request
 	AuthListOAuthProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -15680,7 +19895,7 @@ type ClientInterface interface {
 	AuthUnlinkOAuthProvider(ctx context.Context, provider AuthUnlinkOAuthProviderParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthGetPasswordPolicy request
-	AuthGetPasswordPolicy(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthGetPasswordPolicy(ctx context.Context, params *AuthGetPasswordPolicyParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthPlatformExchangeWithBody request with any body
 	AuthPlatformExchangeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -15688,9 +19903,9 @@ type ClientInterface interface {
 	AuthPlatformExchange(ctx context.Context, body AuthPlatformExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthRefreshWithBody request with any body
-	AuthRefreshWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthRefreshWithBody(ctx context.Context, params *AuthRefreshParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AuthRefresh(ctx context.Context, body AuthRefreshJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthRefresh(ctx context.Context, params *AuthRefreshParams, body AuthRefreshJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthResendConfirmationWithBody request with any body
 	AuthResendConfirmationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -15698,24 +19913,24 @@ type ClientInterface interface {
 	AuthResendConfirmation(ctx context.Context, body AuthResendConfirmationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthResetPasswordWithBody request with any body
-	AuthResetPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthResetPasswordWithBody(ctx context.Context, params *AuthResetPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AuthResetPassword(ctx context.Context, body AuthResetPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthResetPassword(ctx context.Context, params *AuthResetPasswordParams, body AuthResetPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthSigninWithBody request with any body
-	AuthSigninWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthSigninWithBody(ctx context.Context, params *AuthSigninParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AuthSignin(ctx context.Context, body AuthSigninJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthSignin(ctx context.Context, params *AuthSigninParams, body AuthSigninJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthSignupWithBody request with any body
-	AuthSignupWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthSignupWithBody(ctx context.Context, params *AuthSignupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AuthSignup(ctx context.Context, body AuthSignupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthSignup(ctx context.Context, params *AuthSignupParams, body AuthSignupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthSignupAnonymousWithBody request with any body
-	AuthSignupAnonymousWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthSignupAnonymousWithBody(ctx context.Context, params *AuthSignupAnonymousParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AuthSignupAnonymous(ctx context.Context, body AuthSignupAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AuthSignupAnonymous(ctx context.Context, params *AuthSignupAnonymousParams, body AuthSignupAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthGetUser request
 	AuthGetUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -15827,6 +20042,11 @@ type ClientInterface interface {
 
 	RequestDurableApproval(ctx context.Context, body RequestDurableApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// RegisterDurableCallbackWithBody request with any body
+	RegisterDurableCallbackWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RegisterDurableCallback(ctx context.Context, body RegisterDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// FailDurableCallbackWithBody request with any body
 	FailDurableCallbackWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -15847,6 +20067,9 @@ type ClientInterface interface {
 
 	StartDurableExecutionFromApplication(ctx context.Context, functionId DurableFunctionId, params *StartDurableExecutionFromApplicationParams, body StartDurableExecutionFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetDurableExecutionFromApplication request
+	GetDurableExecutionFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *GetDurableExecutionFromApplicationParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListDurableMessagesFromApplication request
 	ListDurableMessagesFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesFromApplicationParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -15854,6 +20077,9 @@ type ClientInterface interface {
 	SendDurableMessageFromApplicationWithBody(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SendDurableMessageFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, body SendDurableMessageFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StopDurableExecutionFromApplication request
+	StopDurableExecutionFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *StopDurableExecutionFromApplicationParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PublishDurableMessageWithBody request with any body
 	PublishDurableMessageWithBody(ctx context.Context, params *PublishDurableMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -15875,6 +20101,11 @@ type ClientInterface interface {
 
 	// GetDefaultEmailTemplate request
 	GetDefaultEmailTemplate(ctx context.Context, pType GetDefaultEmailTemplateParamsType, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateForkWithBody request with any body
+	CreateForkWithBody(ctx context.Context, params *CreateForkParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateFork(ctx context.Context, params *CreateForkParams, body CreateForkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFunctionRegions request
 	ListFunctionRegions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -15915,6 +20146,14 @@ type ClientInterface interface {
 	// ListImportSources request
 	ListImportSources(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListLavaflowGlobalSkills request
+	ListLavaflowGlobalSkills(ctx context.Context, params *ListLavaflowGlobalSkillsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLavaflowHeldFixOpenWithBody request with any body
+	CreateLavaflowHeldFixOpenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateLavaflowHeldFixOpen(ctx context.Context, body CreateLavaflowHeldFixOpenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListLavaflowResources request
 	ListLavaflowResources(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -15929,13 +20168,49 @@ type ClientInterface interface {
 	// GetLavaflowRun request
 	GetLavaflowRun(ctx context.Context, runId LavaflowRunId, params *GetLavaflowRunParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListLavaflowScans request
+	ListLavaflowScans(ctx context.Context, params *ListLavaflowScansParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetLavaflowSettings request
 	GetLavaflowSettings(ctx context.Context, params *GetLavaflowSettingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchLavaflowSettingsWithBody request with any body
+	PatchLavaflowSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PatchLavaflowSettings(ctx context.Context, body PatchLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateLavaflowSettingsWithBody request with any body
 	UpdateLavaflowSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateLavaflowSettings(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLavaflowSkillVersions request
+	ListLavaflowSkillVersions(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLavaflowSkills request
+	ListLavaflowSkills(ctx context.Context, params *ListLavaflowSkillsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteLavaflowSkill request
+	DeleteLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *DeleteLavaflowSkillParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLavaflowSkill request
+	GetLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *GetLavaflowSkillParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateLavaflowSkillWithBody request with any body
+	UpdateLavaflowSkillWithBody(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, body UpdateLavaflowSkillJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLavaflowSlackChannels request
+	ListLavaflowSlackChannels(ctx context.Context, params *ListLavaflowSlackChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// BindLavaflowSlackChannelWithBody request with any body
+	BindLavaflowSlackChannelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	BindLavaflowSlackChannel(ctx context.Context, body BindLavaflowSlackChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnbindLavaflowSlackChannel request
+	UnbindLavaflowSlackChannel(ctx context.Context, bindingId openapi_types.UUID, params *UnbindLavaflowSlackChannelParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLavaflowStats request
 	GetLavaflowStats(ctx context.Context, params *GetLavaflowStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -16205,6 +20480,25 @@ type ClientInterface interface {
 
 	// ResetDatabaseBranchPassword request
 	ResetDatabaseBranchPassword(ctx context.Context, id ProjectId, databaseName DatabaseName, branchName BranchName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDatabaseMigrationRuns request
+	ListDatabaseMigrationRuns(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDatabaseMigrationRunWithBody request with any body
+	CreateDatabaseMigrationRunWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateDatabaseMigrationRun(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, body CreateDatabaseMigrationRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDatabaseMigrationRun request
+	GetDatabaseMigrationRun(ctx context.Context, id ProjectId, databaseName DatabaseName, runId MigrationRunId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDatabaseMigrations request
+	GetDatabaseMigrations(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// BaselineDatabaseMigrationsWithBody request with any body
+	BaselineDatabaseMigrationsWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	BaselineDatabaseMigrations(ctx context.Context, id ProjectId, databaseName DatabaseName, body BaselineDatabaseMigrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectDatabaseQueries request
 	GetProjectDatabaseQueries(ctx context.Context, id ProjectId, databaseName DatabaseName, params *GetProjectDatabaseQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -16514,6 +20808,9 @@ type ClientInterface interface {
 
 	ConnectProjectGit(ctx context.Context, id ProjectId, body ConnectProjectGitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetProjectGitOwnerPush request
+	GetProjectGitOwnerPush(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SetProjectGitProductionBranchWithBody request with any body
 	SetProjectGitProductionBranchWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -16532,8 +20829,25 @@ type ClientInterface interface {
 
 	UpdateProjectGitDeploySettings(ctx context.Context, id ProjectId, body UpdateProjectGitDeploySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListGitDeploymentRuns request
+	ListGitDeploymentRuns(ctx context.Context, id ProjectId, params *ListGitDeploymentRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGitDeploymentRun request
+	GetGitDeploymentRun(ctx context.Context, id ProjectId, runId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetProjectHealth request
 	GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListIssues request
+	ListIssues(ctx context.Context, id ProjectId, params *ListIssuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIssue request
+	GetIssue(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateIssueWithBody request with any body
+	UpdateIssueWithBody(ctx context.Context, id ProjectId, issueId IssueId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateIssue(ctx context.Context, id ProjectId, issueId IssueId, body UpdateIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteProjectLogo request
 	DeleteProjectLogo(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -16774,6 +21088,17 @@ type ClientInterface interface {
 	// DownloadPublicFile request
 	DownloadPublicFile(ctx context.Context, projectId openapi_types.UUID, bucketName BucketName, path string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateSandboxFileArchiveWithBody request with any body
+	CreateSandboxFileArchiveWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSandboxFilePartWithBody request with any body
+	CreateSandboxFilePartWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateSandboxFilePart(ctx context.Context, body CreateSandboxFilePartJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSandboxSessionFiles request
+	ListSandboxSessionFiles(ctx context.Context, params *ListSandboxSessionFilesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// TerminateSandboxSession request
 	TerminateSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -16816,6 +21141,45 @@ type ClientInterface interface {
 
 	// ListSandboxPresets request
 	ListSandboxPresets(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSharePreview request
+	GetSharePreview(ctx context.Context, shareId ShareId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetShareReleaseDraft request
+	GetShareReleaseDraft(ctx context.Context, params *GetShareReleaseDraftParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListShareReleases request
+	ListShareReleases(ctx context.Context, params *ListShareReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PublishShareReleaseWithBody request with any body
+	PublishShareReleaseWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PublishShareRelease(ctx context.Context, body PublishShareReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetShareStats request
+	GetShareStats(ctx context.Context, params *GetShareStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListShares request
+	ListShares(ctx context.Context, params *ListSharesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateShareWithBody request with any body
+	CreateShareWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateShare(ctx context.Context, body CreateShareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteShare request
+	DeleteShare(ctx context.Context, shareId ShareId, params *DeleteShareParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetShare request
+	GetShare(ctx context.Context, shareId ShareId, params *GetShareParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateShareWithBody request with any body
+	UpdateShareWithBody(ctx context.Context, shareId ShareId, params *UpdateShareParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateShare(ctx context.Context, shareId ShareId, params *UpdateShareParams, body UpdateShareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SlackCallback request
+	SlackCallback(ctx context.Context, params *SlackCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListStorageObjects request
 	ListStorageObjects(ctx context.Context, bucketName BucketName, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -16883,6 +21247,33 @@ type ClientInterface interface {
 
 	// DeleteImportConnection request
 	DeleteImportConnection(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeOtherAccountSessions request
+	RevokeOtherAccountSessions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAccountSessions request
+	ListAccountSessions(ctx context.Context, params *ListAccountSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeAccountSession request
+	RevokeAccountSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSlackChannels request
+	ListSlackChannels(ctx context.Context, params *ListSlackChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSlackConnections request
+	ListSlackConnections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartSlackConnect request
+	StartSlackConnect(ctx context.Context, params *StartSlackConnectParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteSlackConnection request
+	DeleteSlackConnection(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartSlackInstall request
+	StartSlackInstall(ctx context.Context, params *StartSlackInstallParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeCurrentUserToken request
+	RevokeCurrentUserToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) AuthConfirmEmailWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -16981,8 +21372,8 @@ func (c *Client) AuthDeviceVerify(ctx context.Context, body AuthDeviceVerifyJSON
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthForgotPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthForgotPasswordRequestWithBody(c.Server, contentType, body)
+func (c *Client) AuthForgotPasswordWithBody(ctx context.Context, params *AuthForgotPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthForgotPasswordRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -16993,8 +21384,8 @@ func (c *Client) AuthForgotPasswordWithBody(ctx context.Context, contentType str
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthForgotPassword(ctx context.Context, body AuthForgotPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthForgotPasswordRequest(c.Server, body)
+func (c *Client) AuthForgotPassword(ctx context.Context, params *AuthForgotPasswordParams, body AuthForgotPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthForgotPasswordRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17005,8 +21396,8 @@ func (c *Client) AuthForgotPassword(ctx context.Context, body AuthForgotPassword
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthLogoutWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthLogoutRequestWithBody(c.Server, contentType, body)
+func (c *Client) AuthLogoutWithBody(ctx context.Context, params *AuthLogoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthLogoutRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17017,8 +21408,8 @@ func (c *Client) AuthLogoutWithBody(ctx context.Context, contentType string, bod
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthLogout(ctx context.Context, body AuthLogoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthLogoutRequest(c.Server, body)
+func (c *Client) AuthLogout(ctx context.Context, params *AuthLogoutParams, body AuthLogoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthLogoutRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17029,8 +21420,8 @@ func (c *Client) AuthLogout(ctx context.Context, body AuthLogoutJSONRequestBody,
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthOAuthExchangeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthOAuthExchangeRequestWithBody(c.Server, contentType, body)
+func (c *Client) AuthOAuthExchangeWithBody(ctx context.Context, params *AuthOAuthExchangeParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthOAuthExchangeRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17041,8 +21432,8 @@ func (c *Client) AuthOAuthExchangeWithBody(ctx context.Context, contentType stri
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthOAuthExchange(ctx context.Context, body AuthOAuthExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthOAuthExchangeRequest(c.Server, body)
+func (c *Client) AuthOAuthExchange(ctx context.Context, params *AuthOAuthExchangeParams, body AuthOAuthExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthOAuthExchangeRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17161,8 +21552,8 @@ func (c *Client) AuthUnlinkOAuthProvider(ctx context.Context, provider AuthUnlin
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthGetPasswordPolicy(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthGetPasswordPolicyRequest(c.Server)
+func (c *Client) AuthGetPasswordPolicy(ctx context.Context, params *AuthGetPasswordPolicyParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthGetPasswordPolicyRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -17197,8 +21588,8 @@ func (c *Client) AuthPlatformExchange(ctx context.Context, body AuthPlatformExch
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthRefreshWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthRefreshRequestWithBody(c.Server, contentType, body)
+func (c *Client) AuthRefreshWithBody(ctx context.Context, params *AuthRefreshParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthRefreshRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17209,8 +21600,8 @@ func (c *Client) AuthRefreshWithBody(ctx context.Context, contentType string, bo
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthRefresh(ctx context.Context, body AuthRefreshJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthRefreshRequest(c.Server, body)
+func (c *Client) AuthRefresh(ctx context.Context, params *AuthRefreshParams, body AuthRefreshJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthRefreshRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17245,8 +21636,8 @@ func (c *Client) AuthResendConfirmation(ctx context.Context, body AuthResendConf
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthResetPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthResetPasswordRequestWithBody(c.Server, contentType, body)
+func (c *Client) AuthResetPasswordWithBody(ctx context.Context, params *AuthResetPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthResetPasswordRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17257,8 +21648,8 @@ func (c *Client) AuthResetPasswordWithBody(ctx context.Context, contentType stri
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthResetPassword(ctx context.Context, body AuthResetPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthResetPasswordRequest(c.Server, body)
+func (c *Client) AuthResetPassword(ctx context.Context, params *AuthResetPasswordParams, body AuthResetPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthResetPasswordRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17269,8 +21660,8 @@ func (c *Client) AuthResetPassword(ctx context.Context, body AuthResetPasswordJS
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthSigninWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthSigninRequestWithBody(c.Server, contentType, body)
+func (c *Client) AuthSigninWithBody(ctx context.Context, params *AuthSigninParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthSigninRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17281,8 +21672,8 @@ func (c *Client) AuthSigninWithBody(ctx context.Context, contentType string, bod
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthSignin(ctx context.Context, body AuthSigninJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthSigninRequest(c.Server, body)
+func (c *Client) AuthSignin(ctx context.Context, params *AuthSigninParams, body AuthSigninJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthSigninRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17293,8 +21684,8 @@ func (c *Client) AuthSignin(ctx context.Context, body AuthSigninJSONRequestBody,
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthSignupWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthSignupRequestWithBody(c.Server, contentType, body)
+func (c *Client) AuthSignupWithBody(ctx context.Context, params *AuthSignupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthSignupRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17305,8 +21696,8 @@ func (c *Client) AuthSignupWithBody(ctx context.Context, contentType string, bod
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthSignup(ctx context.Context, body AuthSignupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthSignupRequest(c.Server, body)
+func (c *Client) AuthSignup(ctx context.Context, params *AuthSignupParams, body AuthSignupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthSignupRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17317,8 +21708,8 @@ func (c *Client) AuthSignup(ctx context.Context, body AuthSignupJSONRequestBody,
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthSignupAnonymousWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthSignupAnonymousRequestWithBody(c.Server, contentType, body)
+func (c *Client) AuthSignupAnonymousWithBody(ctx context.Context, params *AuthSignupAnonymousParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthSignupAnonymousRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17329,8 +21720,8 @@ func (c *Client) AuthSignupAnonymousWithBody(ctx context.Context, contentType st
 	return c.Client.Do(req)
 }
 
-func (c *Client) AuthSignupAnonymous(ctx context.Context, body AuthSignupAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAuthSignupAnonymousRequest(c.Server, body)
+func (c *Client) AuthSignupAnonymous(ctx context.Context, params *AuthSignupAnonymousParams, body AuthSignupAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthSignupAnonymousRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17833,6 +22224,30 @@ func (c *Client) RequestDurableApproval(ctx context.Context, body RequestDurable
 	return c.Client.Do(req)
 }
 
+func (c *Client) RegisterDurableCallbackWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDurableCallbackRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDurableCallback(ctx context.Context, body RegisterDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDurableCallbackRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) FailDurableCallbackWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewFailDurableCallbackRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -17929,6 +22344,18 @@ func (c *Client) StartDurableExecutionFromApplication(ctx context.Context, funct
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetDurableExecutionFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *GetDurableExecutionFromApplicationParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDurableExecutionFromApplicationRequest(c.Server, functionId, executionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListDurableMessagesFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesFromApplicationParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListDurableMessagesFromApplicationRequest(c.Server, functionId, executionId, params)
 	if err != nil {
@@ -17955,6 +22382,18 @@ func (c *Client) SendDurableMessageFromApplicationWithBody(ctx context.Context, 
 
 func (c *Client) SendDurableMessageFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, body SendDurableMessageFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSendDurableMessageFromApplicationRequest(c.Server, functionId, executionId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StopDurableExecutionFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *StopDurableExecutionFromApplicationParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStopDurableExecutionFromApplicationRequest(c.Server, functionId, executionId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -18051,6 +22490,30 @@ func (c *Client) GetDefaultEmailTemplates(ctx context.Context, reqEditors ...Req
 
 func (c *Client) GetDefaultEmailTemplate(ctx context.Context, pType GetDefaultEmailTemplateParamsType, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDefaultEmailTemplateRequest(c.Server, pType)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateForkWithBody(ctx context.Context, params *CreateForkParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateForkRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFork(ctx context.Context, params *CreateForkParams, body CreateForkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateForkRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -18229,6 +22692,42 @@ func (c *Client) ListImportSources(ctx context.Context, provider ImportProvider,
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListLavaflowGlobalSkills(ctx context.Context, params *ListLavaflowGlobalSkillsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaflowGlobalSkillsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLavaflowHeldFixOpenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLavaflowHeldFixOpenRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLavaflowHeldFixOpen(ctx context.Context, body CreateLavaflowHeldFixOpenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLavaflowHeldFixOpenRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListLavaflowResources(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListLavaflowResourcesRequest(c.Server, params)
 	if err != nil {
@@ -18289,8 +22788,44 @@ func (c *Client) GetLavaflowRun(ctx context.Context, runId LavaflowRunId, params
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListLavaflowScans(ctx context.Context, params *ListLavaflowScansParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaflowScansRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetLavaflowSettings(ctx context.Context, params *GetLavaflowSettingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLavaflowSettingsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchLavaflowSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchLavaflowSettingsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchLavaflowSettings(ctx context.Context, body PatchLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchLavaflowSettingsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -18315,6 +22850,126 @@ func (c *Client) UpdateLavaflowSettingsWithBody(ctx context.Context, contentType
 
 func (c *Client) UpdateLavaflowSettings(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateLavaflowSettingsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLavaflowSkillVersions(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaflowSkillVersionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLavaflowSkills(ctx context.Context, params *ListLavaflowSkillsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaflowSkillsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *DeleteLavaflowSkillParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLavaflowSkillRequest(c.Server, skillId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *GetLavaflowSkillParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLavaflowSkillRequest(c.Server, skillId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateLavaflowSkillWithBody(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLavaflowSkillRequestWithBody(c.Server, skillId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateLavaflowSkill(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, body UpdateLavaflowSkillJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLavaflowSkillRequest(c.Server, skillId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLavaflowSlackChannels(ctx context.Context, params *ListLavaflowSlackChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaflowSlackChannelsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) BindLavaflowSlackChannelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBindLavaflowSlackChannelRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) BindLavaflowSlackChannel(ctx context.Context, body BindLavaflowSlackChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBindLavaflowSlackChannelRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UnbindLavaflowSlackChannel(ctx context.Context, bindingId openapi_types.UUID, params *UnbindLavaflowSlackChannelParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnbindLavaflowSlackChannelRequest(c.Server, bindingId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -19479,6 +24134,90 @@ func (c *Client) ResetDatabaseBranch(ctx context.Context, id ProjectId, database
 
 func (c *Client) ResetDatabaseBranchPassword(ctx context.Context, id ProjectId, databaseName DatabaseName, branchName BranchName, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewResetDatabaseBranchPasswordRequest(c.Server, id, databaseName, branchName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDatabaseMigrationRuns(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDatabaseMigrationRunsRequest(c.Server, id, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDatabaseMigrationRunWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDatabaseMigrationRunRequestWithBody(c.Server, id, databaseName, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDatabaseMigrationRun(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, body CreateDatabaseMigrationRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDatabaseMigrationRunRequest(c.Server, id, databaseName, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDatabaseMigrationRun(ctx context.Context, id ProjectId, databaseName DatabaseName, runId MigrationRunId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDatabaseMigrationRunRequest(c.Server, id, databaseName, runId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDatabaseMigrations(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDatabaseMigrationsRequest(c.Server, id, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) BaselineDatabaseMigrationsWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBaselineDatabaseMigrationsRequestWithBody(c.Server, id, databaseName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) BaselineDatabaseMigrations(ctx context.Context, id ProjectId, databaseName DatabaseName, body BaselineDatabaseMigrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBaselineDatabaseMigrationsRequest(c.Server, id, databaseName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -20821,6 +25560,18 @@ func (c *Client) ConnectProjectGit(ctx context.Context, id ProjectId, body Conne
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetProjectGitOwnerPush(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectGitOwnerPushRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) SetProjectGitProductionBranchWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetProjectGitProductionBranchRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
@@ -20905,8 +25656,80 @@ func (c *Client) UpdateProjectGitDeploySettings(ctx context.Context, id ProjectI
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListGitDeploymentRuns(ctx context.Context, id ProjectId, params *ListGitDeploymentRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGitDeploymentRunsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGitDeploymentRun(ctx context.Context, id ProjectId, runId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGitDeploymentRunRequest(c.Server, id, runId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectHealthRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListIssues(ctx context.Context, id ProjectId, params *ListIssuesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIssuesRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIssue(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIssueRequest(c.Server, id, issueId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateIssueWithBody(ctx context.Context, id ProjectId, issueId IssueId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIssueRequestWithBody(c.Server, id, issueId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateIssue(ctx context.Context, id ProjectId, issueId IssueId, body UpdateIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIssueRequest(c.Server, id, issueId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -21961,6 +26784,54 @@ func (c *Client) DownloadPublicFile(ctx context.Context, projectId openapi_types
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateSandboxFileArchiveWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxFileArchiveRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxFilePartWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxFilePartRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxFilePart(ctx context.Context, body CreateSandboxFilePartJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxFilePartRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSandboxSessionFiles(ctx context.Context, params *ListSandboxSessionFilesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSandboxSessionFilesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) TerminateSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTerminateSandboxSessionRequest(c.Server, sessionId)
 	if err != nil {
@@ -22143,6 +27014,174 @@ func (c *Client) SuspendSandboxSession(ctx context.Context, sessionId openapi_ty
 
 func (c *Client) ListSandboxPresets(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSandboxPresetsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSharePreview(ctx context.Context, shareId ShareId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSharePreviewRequest(c.Server, shareId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetShareReleaseDraft(ctx context.Context, params *GetShareReleaseDraftParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetShareReleaseDraftRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListShareReleases(ctx context.Context, params *ListShareReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListShareReleasesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PublishShareReleaseWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishShareReleaseRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PublishShareRelease(ctx context.Context, body PublishShareReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishShareReleaseRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetShareStats(ctx context.Context, params *GetShareStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetShareStatsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListShares(ctx context.Context, params *ListSharesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSharesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateShareWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateShareRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateShare(ctx context.Context, body CreateShareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateShareRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteShare(ctx context.Context, shareId ShareId, params *DeleteShareParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteShareRequest(c.Server, shareId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetShare(ctx context.Context, shareId ShareId, params *GetShareParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetShareRequest(c.Server, shareId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateShareWithBody(ctx context.Context, shareId ShareId, params *UpdateShareParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateShareRequestWithBody(c.Server, shareId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateShare(ctx context.Context, shareId ShareId, params *UpdateShareParams, body UpdateShareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateShareRequest(c.Server, shareId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SlackCallback(ctx context.Context, params *SlackCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSlackCallbackRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -22441,6 +27480,114 @@ func (c *Client) DeleteImportConnection(ctx context.Context, connectionId openap
 	return c.Client.Do(req)
 }
 
+func (c *Client) RevokeOtherAccountSessions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeOtherAccountSessionsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListAccountSessions(ctx context.Context, params *ListAccountSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAccountSessionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RevokeAccountSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeAccountSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSlackChannels(ctx context.Context, params *ListSlackChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSlackChannelsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSlackConnections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSlackConnectionsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartSlackConnect(ctx context.Context, params *StartSlackConnectParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartSlackConnectRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteSlackConnection(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSlackConnectionRequest(c.Server, connectionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartSlackInstall(ctx context.Context, params *StartSlackInstallParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartSlackInstallRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RevokeCurrentUserToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeCurrentUserTokenRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // NewAuthConfirmEmailRequest calls the generic AuthConfirmEmail builder with application/json body
 func NewAuthConfirmEmailRequest(server string, body AuthConfirmEmailJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -22602,18 +27749,18 @@ func NewAuthDeviceVerifyRequestWithBody(server string, contentType string, body 
 }
 
 // NewAuthForgotPasswordRequest calls the generic AuthForgotPassword builder with application/json body
-func NewAuthForgotPasswordRequest(server string, body AuthForgotPasswordJSONRequestBody) (*http.Request, error) {
+func NewAuthForgotPasswordRequest(server string, params *AuthForgotPasswordParams, body AuthForgotPasswordJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAuthForgotPasswordRequestWithBody(server, "application/json", bodyReader)
+	return NewAuthForgotPasswordRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewAuthForgotPasswordRequestWithBody generates requests for AuthForgotPassword with any type of body
-func NewAuthForgotPasswordRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewAuthForgotPasswordRequestWithBody(server string, params *AuthForgotPasswordParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -22638,22 +27785,48 @@ func NewAuthForgotPasswordRequestWithBody(server string, contentType string, bod
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		if params.XVolcanoProxyAuthorization != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Proxy-Authorization", *params.XVolcanoProxyAuthorization, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Proxy-Authorization", headerParam0)
+		}
+
+		if params.XVolcanoClientIP != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-IP", *params.XVolcanoClientIP, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-IP", headerParam1)
+		}
+
+	}
+
 	return req, nil
 }
 
 // NewAuthLogoutRequest calls the generic AuthLogout builder with application/json body
-func NewAuthLogoutRequest(server string, body AuthLogoutJSONRequestBody) (*http.Request, error) {
+func NewAuthLogoutRequest(server string, params *AuthLogoutParams, body AuthLogoutJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAuthLogoutRequestWithBody(server, "application/json", bodyReader)
+	return NewAuthLogoutRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewAuthLogoutRequestWithBody generates requests for AuthLogout with any type of body
-func NewAuthLogoutRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewAuthLogoutRequestWithBody(server string, params *AuthLogoutParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -22678,22 +27851,48 @@ func NewAuthLogoutRequestWithBody(server string, contentType string, body io.Rea
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		if params.XVolcanoProxyAuthorization != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Proxy-Authorization", *params.XVolcanoProxyAuthorization, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Proxy-Authorization", headerParam0)
+		}
+
+		if params.XVolcanoClientIP != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-IP", *params.XVolcanoClientIP, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-IP", headerParam1)
+		}
+
+	}
+
 	return req, nil
 }
 
 // NewAuthOAuthExchangeRequest calls the generic AuthOAuthExchange builder with application/json body
-func NewAuthOAuthExchangeRequest(server string, body AuthOAuthExchangeJSONRequestBody) (*http.Request, error) {
+func NewAuthOAuthExchangeRequest(server string, params *AuthOAuthExchangeParams, body AuthOAuthExchangeJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAuthOAuthExchangeRequestWithBody(server, "application/json", bodyReader)
+	return NewAuthOAuthExchangeRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewAuthOAuthExchangeRequestWithBody generates requests for AuthOAuthExchange with any type of body
-func NewAuthOAuthExchangeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewAuthOAuthExchangeRequestWithBody(server string, params *AuthOAuthExchangeParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -22717,6 +27916,32 @@ func NewAuthOAuthExchangeRequestWithBody(server string, contentType string, body
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XVolcanoProxyAuthorization != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Proxy-Authorization", *params.XVolcanoProxyAuthorization, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Proxy-Authorization", headerParam0)
+		}
+
+		if params.XVolcanoClientIP != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-IP", *params.XVolcanoClientIP, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-IP", headerParam1)
+		}
+
+	}
 
 	return req, nil
 }
@@ -23153,7 +28378,7 @@ func NewAuthUnlinkOAuthProviderRequest(server string, provider AuthUnlinkOAuthPr
 }
 
 // NewAuthGetPasswordPolicyRequest generates requests for AuthGetPasswordPolicy
-func NewAuthGetPasswordPolicyRequest(server string) (*http.Request, error) {
+func NewAuthGetPasswordPolicyRequest(server string, params *AuthGetPasswordPolicyParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -23174,6 +28399,32 @@ func NewAuthGetPasswordPolicyRequest(server string) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XVolcanoProxyAuthorization != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Proxy-Authorization", *params.XVolcanoProxyAuthorization, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Proxy-Authorization", headerParam0)
+		}
+
+		if params.XVolcanoClientIP != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-IP", *params.XVolcanoClientIP, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-IP", headerParam1)
+		}
+
 	}
 
 	return req, nil
@@ -23220,18 +28471,18 @@ func NewAuthPlatformExchangeRequestWithBody(server string, contentType string, b
 }
 
 // NewAuthRefreshRequest calls the generic AuthRefresh builder with application/json body
-func NewAuthRefreshRequest(server string, body AuthRefreshJSONRequestBody) (*http.Request, error) {
+func NewAuthRefreshRequest(server string, params *AuthRefreshParams, body AuthRefreshJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAuthRefreshRequestWithBody(server, "application/json", bodyReader)
+	return NewAuthRefreshRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewAuthRefreshRequestWithBody generates requests for AuthRefresh with any type of body
-func NewAuthRefreshRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewAuthRefreshRequestWithBody(server string, params *AuthRefreshParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -23255,6 +28506,32 @@ func NewAuthRefreshRequestWithBody(server string, contentType string, body io.Re
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XVolcanoProxyAuthorization != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Proxy-Authorization", *params.XVolcanoProxyAuthorization, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Proxy-Authorization", headerParam0)
+		}
+
+		if params.XVolcanoClientIP != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-IP", *params.XVolcanoClientIP, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-IP", headerParam1)
+		}
+
+	}
 
 	return req, nil
 }
@@ -23300,18 +28577,18 @@ func NewAuthResendConfirmationRequestWithBody(server string, contentType string,
 }
 
 // NewAuthResetPasswordRequest calls the generic AuthResetPassword builder with application/json body
-func NewAuthResetPasswordRequest(server string, body AuthResetPasswordJSONRequestBody) (*http.Request, error) {
+func NewAuthResetPasswordRequest(server string, params *AuthResetPasswordParams, body AuthResetPasswordJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAuthResetPasswordRequestWithBody(server, "application/json", bodyReader)
+	return NewAuthResetPasswordRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewAuthResetPasswordRequestWithBody generates requests for AuthResetPassword with any type of body
-func NewAuthResetPasswordRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewAuthResetPasswordRequestWithBody(server string, params *AuthResetPasswordParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -23336,22 +28613,48 @@ func NewAuthResetPasswordRequestWithBody(server string, contentType string, body
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		if params.XVolcanoProxyAuthorization != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Proxy-Authorization", *params.XVolcanoProxyAuthorization, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Proxy-Authorization", headerParam0)
+		}
+
+		if params.XVolcanoClientIP != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-IP", *params.XVolcanoClientIP, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-IP", headerParam1)
+		}
+
+	}
+
 	return req, nil
 }
 
 // NewAuthSigninRequest calls the generic AuthSignin builder with application/json body
-func NewAuthSigninRequest(server string, body AuthSigninJSONRequestBody) (*http.Request, error) {
+func NewAuthSigninRequest(server string, params *AuthSigninParams, body AuthSigninJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAuthSigninRequestWithBody(server, "application/json", bodyReader)
+	return NewAuthSigninRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewAuthSigninRequestWithBody generates requests for AuthSignin with any type of body
-func NewAuthSigninRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewAuthSigninRequestWithBody(server string, params *AuthSigninParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -23376,22 +28679,48 @@ func NewAuthSigninRequestWithBody(server string, contentType string, body io.Rea
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		if params.XVolcanoProxyAuthorization != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Proxy-Authorization", *params.XVolcanoProxyAuthorization, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Proxy-Authorization", headerParam0)
+		}
+
+		if params.XVolcanoClientIP != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-IP", *params.XVolcanoClientIP, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-IP", headerParam1)
+		}
+
+	}
+
 	return req, nil
 }
 
 // NewAuthSignupRequest calls the generic AuthSignup builder with application/json body
-func NewAuthSignupRequest(server string, body AuthSignupJSONRequestBody) (*http.Request, error) {
+func NewAuthSignupRequest(server string, params *AuthSignupParams, body AuthSignupJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAuthSignupRequestWithBody(server, "application/json", bodyReader)
+	return NewAuthSignupRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewAuthSignupRequestWithBody generates requests for AuthSignup with any type of body
-func NewAuthSignupRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewAuthSignupRequestWithBody(server string, params *AuthSignupParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -23416,22 +28745,48 @@ func NewAuthSignupRequestWithBody(server string, contentType string, body io.Rea
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		if params.XVolcanoProxyAuthorization != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Proxy-Authorization", *params.XVolcanoProxyAuthorization, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Proxy-Authorization", headerParam0)
+		}
+
+		if params.XVolcanoClientIP != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-IP", *params.XVolcanoClientIP, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-IP", headerParam1)
+		}
+
+	}
+
 	return req, nil
 }
 
 // NewAuthSignupAnonymousRequest calls the generic AuthSignupAnonymous builder with application/json body
-func NewAuthSignupAnonymousRequest(server string, body AuthSignupAnonymousJSONRequestBody) (*http.Request, error) {
+func NewAuthSignupAnonymousRequest(server string, params *AuthSignupAnonymousParams, body AuthSignupAnonymousJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAuthSignupAnonymousRequestWithBody(server, "application/json", bodyReader)
+	return NewAuthSignupAnonymousRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewAuthSignupAnonymousRequestWithBody generates requests for AuthSignupAnonymous with any type of body
-func NewAuthSignupAnonymousRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewAuthSignupAnonymousRequestWithBody(server string, params *AuthSignupAnonymousParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -23455,6 +28810,32 @@ func NewAuthSignupAnonymousRequestWithBody(server string, contentType string, bo
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XVolcanoProxyAuthorization != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Proxy-Authorization", *params.XVolcanoProxyAuthorization, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Proxy-Authorization", headerParam0)
+		}
+
+		if params.XVolcanoClientIP != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-IP", *params.XVolcanoClientIP, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-IP", headerParam1)
+		}
+
+	}
 
 	return req, nil
 }
@@ -24768,6 +30149,46 @@ func NewRequestDurableApprovalRequestWithBody(server string, contentType string,
 	return req, nil
 }
 
+// NewRegisterDurableCallbackRequest calls the generic RegisterDurableCallback builder with application/json body
+func NewRegisterDurableCallbackRequest(server string, body RegisterDurableCallbackJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterDurableCallbackRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRegisterDurableCallbackRequestWithBody generates requests for RegisterDurableCallback with any type of body
+func NewRegisterDurableCallbackRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/durable-callbacks")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewFailDurableCallbackRequest calls the generic FailDurableCallback builder with application/json body
 func NewFailDurableCallbackRequest(server string, body FailDurableCallbackJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -24943,6 +30364,62 @@ func NewStartDurableExecutionFromApplicationRequestWithBody(server string, funct
 			}
 
 			req.Header.Set("X-Volcano-Execution-Name", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetDurableExecutionFromApplicationRequest generates requests for GetDurableExecutionFromApplication
+func NewGetDurableExecutionFromApplicationRequest(server string, functionId DurableFunctionId, executionId DurableExecutionId, params *GetDurableExecutionFromApplicationParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "executionId", executionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/durable-functions/%s/executions/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XVolcanoClientToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-Token", *params.XVolcanoClientToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-Token", headerParam0)
 		}
 
 	}
@@ -25142,6 +30619,62 @@ func NewSendDurableMessageFromApplicationRequestWithBody(server string, function
 			}
 
 			req.Header.Set("X-Volcano-Client-Token", headerParam1)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewStopDurableExecutionFromApplicationRequest generates requests for StopDurableExecutionFromApplication
+func NewStopDurableExecutionFromApplicationRequest(server string, functionId DurableFunctionId, executionId DurableExecutionId, params *StopDurableExecutionFromApplicationParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "executionId", executionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/durable-functions/%s/executions/%s/stop", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XVolcanoClientToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-Token", *params.XVolcanoClientToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-Token", headerParam0)
 		}
 
 	}
@@ -25354,6 +30887,61 @@ func NewGetDefaultEmailTemplateRequest(server string, pType GetDefaultEmailTempl
 	return req, nil
 }
 
+// NewCreateForkRequest calls the generic CreateFork builder with application/json body
+func NewCreateForkRequest(server string, params *CreateForkParams, body CreateForkJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateForkRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateForkRequestWithBody generates requests for CreateFork with any type of body
+func NewCreateForkRequestWithBody(server string, params *CreateForkParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/forks")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListFunctionRegionsRequest generates requests for ListFunctionRegions
 func NewListFunctionRegionsRequest(server string) (*http.Request, error) {
 	var err error
@@ -25545,17 +31133,45 @@ func NewGitConnectCallbackRequest(server string, params *GitConnectCallbackParam
 
 		}
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else {
-			for _, qp := range strings.Split(queryFrag, "&") {
-				rawQueryFragments = append(rawQueryFragments, qp)
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
 			}
+
 		}
 
 		if params.Error != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "error", *params.Error, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.InstallationId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "installation_id", *params.InstallationId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.SetupAction != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "setup_action", *params.SetupAction, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -25940,6 +31556,96 @@ func NewListImportSourcesRequest(server string, provider ImportProvider, params 
 	return req, nil
 }
 
+// NewListLavaflowGlobalSkillsRequest generates requests for ListLavaflowGlobalSkills
+func NewListLavaflowGlobalSkillsRequest(server string, params *ListLavaflowGlobalSkillsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/global-skills")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateLavaflowHeldFixOpenRequest calls the generic CreateLavaflowHeldFixOpen builder with application/json body
+func NewCreateLavaflowHeldFixOpenRequest(server string, body CreateLavaflowHeldFixOpenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateLavaflowHeldFixOpenRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateLavaflowHeldFixOpenRequestWithBody generates requests for CreateLavaflowHeldFixOpen with any type of body
+func NewCreateLavaflowHeldFixOpenRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/held-fix-opens")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListLavaflowResourcesRequest generates requests for ListLavaflowResources
 func NewListLavaflowResourcesRequest(server string, params *ListLavaflowResourcesParams) (*http.Request, error) {
 	var err error
@@ -25979,6 +31685,18 @@ func NewListLavaflowResourcesRequest(server string, params *ListLavaflowResource
 		if params.Days != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "days", *params.Days, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Category != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "category", *params.Category, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -26077,6 +31795,90 @@ func NewListLavaflowRunsRequest(server string, params *ListLavaflowRunsParams) (
 		if params.ResourceId != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_id", *params.ResourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Category != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "category", *params.Category, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.InvolvedResourceId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "involved_resource_id", *params.InvolvedResourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.IssueId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "issue_id", *params.IssueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PullRequestState != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "pull_request_state", *params.PullRequestState, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Days != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "days", *params.Days, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Include != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "include", *params.Include, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -26201,6 +32003,80 @@ func NewGetLavaflowRunRequest(server string, runId LavaflowRunId, params *GetLav
 	return req, nil
 }
 
+// NewListLavaflowScansRequest generates requests for ListLavaflowScans
+func NewListLavaflowScansRequest(server string, params *ListLavaflowScansParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/scans")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetLavaflowSettingsRequest generates requests for GetLavaflowSettings
 func NewGetLavaflowSettingsRequest(server string, params *GetLavaflowSettingsParams) (*http.Request, error) {
 	var err error
@@ -26251,6 +32127,46 @@ func NewGetLavaflowSettingsRequest(server string, params *GetLavaflowSettingsPar
 	return req, nil
 }
 
+// NewPatchLavaflowSettingsRequest calls the generic PatchLavaflowSettings builder with application/json body
+func NewPatchLavaflowSettingsRequest(server string, body PatchLavaflowSettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPatchLavaflowSettingsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPatchLavaflowSettingsRequestWithBody generates requests for PatchLavaflowSettings with any type of body
+func NewPatchLavaflowSettingsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewUpdateLavaflowSettingsRequest calls the generic UpdateLavaflowSettings builder with application/json body
 func NewUpdateLavaflowSettingsRequest(server string, body UpdateLavaflowSettingsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -26287,6 +32203,473 @@ func NewUpdateLavaflowSettingsRequestWithBody(server string, contentType string,
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListLavaflowSkillVersionsRequest generates requests for ListLavaflowSkillVersions
+func NewListLavaflowSkillVersionsRequest(server string, params *ListLavaflowSkillVersionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/skill-versions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "skill_id", params.SkillId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListLavaflowSkillsRequest generates requests for ListLavaflowSkills
+func NewListLavaflowSkillsRequest(server string, params *ListLavaflowSkillsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/skills")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteLavaflowSkillRequest generates requests for DeleteLavaflowSkill
+func NewDeleteLavaflowSkillRequest(server string, skillId LavaflowSkillId, params *DeleteLavaflowSkillParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "skill_id", skillId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/skills/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLavaflowSkillRequest generates requests for GetLavaflowSkill
+func NewGetLavaflowSkillRequest(server string, skillId LavaflowSkillId, params *GetLavaflowSkillParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "skill_id", skillId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/skills/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateLavaflowSkillRequest calls the generic UpdateLavaflowSkill builder with application/json body
+func NewUpdateLavaflowSkillRequest(server string, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, body UpdateLavaflowSkillJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateLavaflowSkillRequestWithBody(server, skillId, params, "application/json", bodyReader)
+}
+
+// NewUpdateLavaflowSkillRequestWithBody generates requests for UpdateLavaflowSkill with any type of body
+func NewUpdateLavaflowSkillRequestWithBody(server string, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "skill_id", skillId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/skills/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListLavaflowSlackChannelsRequest generates requests for ListLavaflowSlackChannels
+func NewListLavaflowSlackChannelsRequest(server string, params *ListLavaflowSlackChannelsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/slack-channels")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewBindLavaflowSlackChannelRequest calls the generic BindLavaflowSlackChannel builder with application/json body
+func NewBindLavaflowSlackChannelRequest(server string, body BindLavaflowSlackChannelJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewBindLavaflowSlackChannelRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewBindLavaflowSlackChannelRequestWithBody generates requests for BindLavaflowSlackChannel with any type of body
+func NewBindLavaflowSlackChannelRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/slack-channels")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUnbindLavaflowSlackChannelRequest generates requests for UnbindLavaflowSlackChannel
+func NewUnbindLavaflowSlackChannelRequest(server string, bindingId openapi_types.UUID, params *UnbindLavaflowSlackChannelParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "binding_id", bindingId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/lavaflow/slack-channels/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -26330,6 +32713,18 @@ func NewGetLavaflowStatsRequest(server string, params *GetLavaflowStatsParams) (
 		if params.Days != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "days", *params.Days, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Category != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "category", *params.Category, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -30389,6 +36784,259 @@ func NewResetDatabaseBranchPasswordRequest(server string, id ProjectId, database
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListDatabaseMigrationRunsRequest generates requests for ListDatabaseMigrationRuns
+func NewListDatabaseMigrationRunsRequest(server string, id ProjectId, databaseName DatabaseName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/migration-runs", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDatabaseMigrationRunRequest calls the generic CreateDatabaseMigrationRun builder with application/json body
+func NewCreateDatabaseMigrationRunRequest(server string, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, body CreateDatabaseMigrationRunJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDatabaseMigrationRunRequestWithBody(server, id, databaseName, params, "application/json", bodyReader)
+}
+
+// NewCreateDatabaseMigrationRunRequestWithBody generates requests for CreateDatabaseMigrationRun with any type of body
+func NewCreateDatabaseMigrationRunRequestWithBody(server string, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/migration-runs", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetDatabaseMigrationRunRequest generates requests for GetDatabaseMigrationRun
+func NewGetDatabaseMigrationRunRequest(server string, id ProjectId, databaseName DatabaseName, runId MigrationRunId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "runId", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/migration-runs/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDatabaseMigrationsRequest generates requests for GetDatabaseMigrations
+func NewGetDatabaseMigrationsRequest(server string, id ProjectId, databaseName DatabaseName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/migrations", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewBaselineDatabaseMigrationsRequest calls the generic BaselineDatabaseMigrations builder with application/json body
+func NewBaselineDatabaseMigrationsRequest(server string, id ProjectId, databaseName DatabaseName, body BaselineDatabaseMigrationsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewBaselineDatabaseMigrationsRequestWithBody(server, id, databaseName, "application/json", bodyReader)
+}
+
+// NewBaselineDatabaseMigrationsRequestWithBody generates requests for BaselineDatabaseMigrations with any type of body
+func NewBaselineDatabaseMigrationsRequestWithBody(server string, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/migrations/baseline", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -35308,6 +41956,40 @@ func NewConnectProjectGitRequestWithBody(server string, id ProjectId, contentTyp
 	return req, nil
 }
 
+// NewGetProjectGitOwnerPushRequest generates requests for GetProjectGitOwnerPush
+func NewGetProjectGitOwnerPushRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-connection/owner-push", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewSetProjectGitProductionBranchRequest calls the generic SetProjectGitProductionBranch builder with application/json body
 func NewSetProjectGitProductionBranchRequest(server string, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -35483,6 +42165,144 @@ func NewUpdateProjectGitDeploySettingsRequestWithBody(server string, id ProjectI
 	return req, nil
 }
 
+// NewListGitDeploymentRunsRequest generates requests for ListGitDeploymentRuns
+func NewListGitDeploymentRunsRequest(server string, id ProjectId, params *ListGitDeploymentRunsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-deployment-runs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Branch != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", *params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGitDeploymentRunRequest generates requests for GetGitDeploymentRun
+func NewGetGitDeploymentRunRequest(server string, id ProjectId, runId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "runId", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-deployment-runs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetProjectHealthRequest generates requests for GetProjectHealth
 func NewGetProjectHealthRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -35513,6 +42333,198 @@ func NewGetProjectHealthRequest(server string, id ProjectId) (*http.Request, err
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListIssuesRequest generates requests for ListIssues
+func NewListIssuesRequest(server string, id ProjectId, params *ListIssuesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/issues", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.ResourceId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_id", *params.ResourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetIssueRequest generates requests for GetIssue
+func NewGetIssueRequest(server string, id ProjectId, issueId IssueId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "issueId", issueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/issues/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateIssueRequest calls the generic UpdateIssue builder with application/json body
+func NewUpdateIssueRequest(server string, id ProjectId, issueId IssueId, body UpdateIssueJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateIssueRequestWithBody(server, id, issueId, "application/json", bodyReader)
+}
+
+// NewUpdateIssueRequestWithBody generates requests for UpdateIssue with any type of body
+func NewUpdateIssueRequestWithBody(server string, id ProjectId, issueId IssueId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "issueId", issueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/issues/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -39027,6 +46039,193 @@ func NewDownloadPublicFileRequest(server string, projectId openapi_types.UUID, b
 	return req, nil
 }
 
+// NewCreateSandboxFileArchiveRequestWithBody generates requests for CreateSandboxFileArchive with any type of body
+func NewCreateSandboxFileArchiveRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-file-archives")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCreateSandboxFilePartRequest calls the generic CreateSandboxFilePart builder with application/json body
+func NewCreateSandboxFilePartRequest(server string, body CreateSandboxFilePartJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSandboxFilePartRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateSandboxFilePartRequestWithBody generates requests for CreateSandboxFilePart with any type of body
+func NewCreateSandboxFilePartRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-file-parts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListSandboxSessionFilesRequest generates requests for ListSandboxSessionFiles
+func NewListSandboxSessionFilesRequest(server string, params *ListSandboxSessionFilesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-session-files")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "session_id", params.SessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Path != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", *params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Recursive != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "recursive", *params.Recursive, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.IncludeSha256 != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_sha256", *params.IncludeSha256, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewTerminateSandboxSessionRequest generates requests for TerminateSandboxSession
 func NewTerminateSandboxSessionRequest(server string, sessionId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -39476,6 +46675,662 @@ func NewListSandboxPresetsRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSharePreviewRequest generates requests for GetSharePreview
+func NewGetSharePreviewRequest(server string, shareId ShareId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "share_id", shareId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/share-previews/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetShareReleaseDraftRequest generates requests for GetShareReleaseDraft
+func NewGetShareReleaseDraftRequest(server string, params *GetShareReleaseDraftParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/share-release-drafts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "share_id", params.ShareId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListShareReleasesRequest generates requests for ListShareReleases
+func NewListShareReleasesRequest(server string, params *ListShareReleasesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/share-releases")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "share_id", params.ShareId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPublishShareReleaseRequest calls the generic PublishShareRelease builder with application/json body
+func NewPublishShareReleaseRequest(server string, body PublishShareReleaseJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPublishShareReleaseRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPublishShareReleaseRequestWithBody generates requests for PublishShareRelease with any type of body
+func NewPublishShareReleaseRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/share-releases")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetShareStatsRequest generates requests for GetShareStats
+func NewGetShareStatsRequest(server string, params *GetShareStatsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/share-stats")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "share_id", params.ShareId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Days != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "days", *params.Days, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListSharesRequest generates requests for ListShares
+func NewListSharesRequest(server string, params *ListSharesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/shares")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateShareRequest calls the generic CreateShare builder with application/json body
+func NewCreateShareRequest(server string, body CreateShareJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateShareRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateShareRequestWithBody generates requests for CreateShare with any type of body
+func NewCreateShareRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/shares")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteShareRequest generates requests for DeleteShare
+func NewDeleteShareRequest(server string, shareId ShareId, params *DeleteShareParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "share_id", shareId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/shares/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetShareRequest generates requests for GetShare
+func NewGetShareRequest(server string, shareId ShareId, params *GetShareParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "share_id", shareId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/shares/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateShareRequest calls the generic UpdateShare builder with application/json body
+func NewUpdateShareRequest(server string, shareId ShareId, params *UpdateShareParams, body UpdateShareJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateShareRequestWithBody(server, shareId, params, "application/json", bodyReader)
+}
+
+// NewUpdateShareRequestWithBody generates requests for UpdateShare with any type of body
+func NewUpdateShareRequestWithBody(server string, shareId ShareId, params *UpdateShareParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "share_id", shareId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/shares/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSlackCallbackRequest generates requests for SlackCallback
+func NewSlackCallbackRequest(server string, params *SlackCallbackParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/slack/callback")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Code != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "code", *params.Code, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Error != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "error", *params.Error, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -40441,6 +48296,439 @@ func NewDeleteImportConnectionRequest(server string, connectionId openapi_types.
 	return req, nil
 }
 
+// NewRevokeOtherAccountSessionsRequest generates requests for RevokeOtherAccountSessions
+func NewRevokeOtherAccountSessionsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAccountSessionsRequest generates requests for ListAccountSessions
+func NewListAccountSessionsRequest(server string, params *ListAccountSessionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EndingBefore != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ending_before", *params.EndingBefore, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRevokeAccountSessionRequest generates requests for RevokeAccountSession
+func NewRevokeAccountSessionRequest(server string, sessionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/sessions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListSlackChannelsRequest generates requests for ListSlackChannels
+func NewListSlackChannelsRequest(server string, params *ListSlackChannelsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/slack/channels")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "team_id", params.TeamId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListSlackConnectionsRequest generates requests for ListSlackConnections
+func NewListSlackConnectionsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/slack/connections")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartSlackConnectRequest generates requests for StartSlackConnect
+func NewStartSlackConnectRequest(server string, params *StartSlackConnectParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/slack/connections")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Redirect != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "redirect", *params.Redirect, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteSlackConnectionRequest generates requests for DeleteSlackConnection
+func NewDeleteSlackConnectionRequest(server string, connectionId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "connectionId", connectionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/slack/connections/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartSlackInstallRequest generates requests for StartSlackInstall
+func NewStartSlackInstallRequest(server string, params *StartSlackInstallParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/slack/installations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Redirect != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "redirect", *params.Redirect, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRevokeCurrentUserTokenRequest generates requests for RevokeCurrentUserToken
+func NewRevokeCurrentUserTokenRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/tokens/current")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -40505,19 +48793,19 @@ type ClientWithResponsesInterface interface {
 	AuthDeviceVerifyWithResponse(ctx context.Context, body AuthDeviceVerifyJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthDeviceVerifyClientResponse, error)
 
 	// AuthForgotPasswordWithBodyWithResponse request with any body
-	AuthForgotPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthForgotPasswordClientResponse, error)
+	AuthForgotPasswordWithBodyWithResponse(ctx context.Context, params *AuthForgotPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthForgotPasswordClientResponse, error)
 
-	AuthForgotPasswordWithResponse(ctx context.Context, body AuthForgotPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthForgotPasswordClientResponse, error)
+	AuthForgotPasswordWithResponse(ctx context.Context, params *AuthForgotPasswordParams, body AuthForgotPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthForgotPasswordClientResponse, error)
 
 	// AuthLogoutWithBodyWithResponse request with any body
-	AuthLogoutWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthLogoutClientResponse, error)
+	AuthLogoutWithBodyWithResponse(ctx context.Context, params *AuthLogoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthLogoutClientResponse, error)
 
-	AuthLogoutWithResponse(ctx context.Context, body AuthLogoutJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthLogoutClientResponse, error)
+	AuthLogoutWithResponse(ctx context.Context, params *AuthLogoutParams, body AuthLogoutJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthLogoutClientResponse, error)
 
 	// AuthOAuthExchangeWithBodyWithResponse request with any body
-	AuthOAuthExchangeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthOAuthExchangeClientResponse, error)
+	AuthOAuthExchangeWithBodyWithResponse(ctx context.Context, params *AuthOAuthExchangeParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthOAuthExchangeClientResponse, error)
 
-	AuthOAuthExchangeWithResponse(ctx context.Context, body AuthOAuthExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthOAuthExchangeClientResponse, error)
+	AuthOAuthExchangeWithResponse(ctx context.Context, params *AuthOAuthExchangeParams, body AuthOAuthExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthOAuthExchangeClientResponse, error)
 
 	// AuthListOAuthProvidersWithResponse request
 	AuthListOAuthProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthListOAuthProvidersClientResponse, error)
@@ -40546,7 +48834,7 @@ type ClientWithResponsesInterface interface {
 	AuthUnlinkOAuthProviderWithResponse(ctx context.Context, provider AuthUnlinkOAuthProviderParamsProvider, reqEditors ...RequestEditorFn) (*AuthUnlinkOAuthProviderClientResponse, error)
 
 	// AuthGetPasswordPolicyWithResponse request
-	AuthGetPasswordPolicyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthGetPasswordPolicyClientResponse, error)
+	AuthGetPasswordPolicyWithResponse(ctx context.Context, params *AuthGetPasswordPolicyParams, reqEditors ...RequestEditorFn) (*AuthGetPasswordPolicyClientResponse, error)
 
 	// AuthPlatformExchangeWithBodyWithResponse request with any body
 	AuthPlatformExchangeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthPlatformExchangeClientResponse, error)
@@ -40554,9 +48842,9 @@ type ClientWithResponsesInterface interface {
 	AuthPlatformExchangeWithResponse(ctx context.Context, body AuthPlatformExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthPlatformExchangeClientResponse, error)
 
 	// AuthRefreshWithBodyWithResponse request with any body
-	AuthRefreshWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthRefreshClientResponse, error)
+	AuthRefreshWithBodyWithResponse(ctx context.Context, params *AuthRefreshParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthRefreshClientResponse, error)
 
-	AuthRefreshWithResponse(ctx context.Context, body AuthRefreshJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthRefreshClientResponse, error)
+	AuthRefreshWithResponse(ctx context.Context, params *AuthRefreshParams, body AuthRefreshJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthRefreshClientResponse, error)
 
 	// AuthResendConfirmationWithBodyWithResponse request with any body
 	AuthResendConfirmationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthResendConfirmationClientResponse, error)
@@ -40564,24 +48852,24 @@ type ClientWithResponsesInterface interface {
 	AuthResendConfirmationWithResponse(ctx context.Context, body AuthResendConfirmationJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthResendConfirmationClientResponse, error)
 
 	// AuthResetPasswordWithBodyWithResponse request with any body
-	AuthResetPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthResetPasswordClientResponse, error)
+	AuthResetPasswordWithBodyWithResponse(ctx context.Context, params *AuthResetPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthResetPasswordClientResponse, error)
 
-	AuthResetPasswordWithResponse(ctx context.Context, body AuthResetPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthResetPasswordClientResponse, error)
+	AuthResetPasswordWithResponse(ctx context.Context, params *AuthResetPasswordParams, body AuthResetPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthResetPasswordClientResponse, error)
 
 	// AuthSigninWithBodyWithResponse request with any body
-	AuthSigninWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSigninClientResponse, error)
+	AuthSigninWithBodyWithResponse(ctx context.Context, params *AuthSigninParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSigninClientResponse, error)
 
-	AuthSigninWithResponse(ctx context.Context, body AuthSigninJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSigninClientResponse, error)
+	AuthSigninWithResponse(ctx context.Context, params *AuthSigninParams, body AuthSigninJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSigninClientResponse, error)
 
 	// AuthSignupWithBodyWithResponse request with any body
-	AuthSignupWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSignupClientResponse, error)
+	AuthSignupWithBodyWithResponse(ctx context.Context, params *AuthSignupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSignupClientResponse, error)
 
-	AuthSignupWithResponse(ctx context.Context, body AuthSignupJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSignupClientResponse, error)
+	AuthSignupWithResponse(ctx context.Context, params *AuthSignupParams, body AuthSignupJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSignupClientResponse, error)
 
 	// AuthSignupAnonymousWithBodyWithResponse request with any body
-	AuthSignupAnonymousWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSignupAnonymousClientResponse, error)
+	AuthSignupAnonymousWithBodyWithResponse(ctx context.Context, params *AuthSignupAnonymousParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSignupAnonymousClientResponse, error)
 
-	AuthSignupAnonymousWithResponse(ctx context.Context, body AuthSignupAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSignupAnonymousClientResponse, error)
+	AuthSignupAnonymousWithResponse(ctx context.Context, params *AuthSignupAnonymousParams, body AuthSignupAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSignupAnonymousClientResponse, error)
 
 	// AuthGetUserWithResponse request
 	AuthGetUserWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthGetUserClientResponse, error)
@@ -40693,6 +48981,11 @@ type ClientWithResponsesInterface interface {
 
 	RequestDurableApprovalWithResponse(ctx context.Context, body RequestDurableApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*RequestDurableApprovalClientResponse, error)
 
+	// RegisterDurableCallbackWithBodyWithResponse request with any body
+	RegisterDurableCallbackWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDurableCallbackClientResponse, error)
+
+	RegisterDurableCallbackWithResponse(ctx context.Context, body RegisterDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDurableCallbackClientResponse, error)
+
 	// FailDurableCallbackWithBodyWithResponse request with any body
 	FailDurableCallbackWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FailDurableCallbackClientResponse, error)
 
@@ -40713,6 +49006,9 @@ type ClientWithResponsesInterface interface {
 
 	StartDurableExecutionFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, params *StartDurableExecutionFromApplicationParams, body StartDurableExecutionFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*StartDurableExecutionFromApplicationClientResponse, error)
 
+	// GetDurableExecutionFromApplicationWithResponse request
+	GetDurableExecutionFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *GetDurableExecutionFromApplicationParams, reqEditors ...RequestEditorFn) (*GetDurableExecutionFromApplicationClientResponse, error)
+
 	// ListDurableMessagesFromApplicationWithResponse request
 	ListDurableMessagesFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesFromApplicationParams, reqEditors ...RequestEditorFn) (*ListDurableMessagesFromApplicationClientResponse, error)
 
@@ -40720,6 +49016,9 @@ type ClientWithResponsesInterface interface {
 	SendDurableMessageFromApplicationWithBodyWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendDurableMessageFromApplicationClientResponse, error)
 
 	SendDurableMessageFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, body SendDurableMessageFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*SendDurableMessageFromApplicationClientResponse, error)
+
+	// StopDurableExecutionFromApplicationWithResponse request
+	StopDurableExecutionFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *StopDurableExecutionFromApplicationParams, reqEditors ...RequestEditorFn) (*StopDurableExecutionFromApplicationClientResponse, error)
 
 	// PublishDurableMessageWithBodyWithResponse request with any body
 	PublishDurableMessageWithBodyWithResponse(ctx context.Context, params *PublishDurableMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishDurableMessageClientResponse, error)
@@ -40741,6 +49040,11 @@ type ClientWithResponsesInterface interface {
 
 	// GetDefaultEmailTemplateWithResponse request
 	GetDefaultEmailTemplateWithResponse(ctx context.Context, pType GetDefaultEmailTemplateParamsType, reqEditors ...RequestEditorFn) (*GetDefaultEmailTemplateClientResponse, error)
+
+	// CreateForkWithBodyWithResponse request with any body
+	CreateForkWithBodyWithResponse(ctx context.Context, params *CreateForkParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateForkClientResponse, error)
+
+	CreateForkWithResponse(ctx context.Context, params *CreateForkParams, body CreateForkJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateForkClientResponse, error)
 
 	// ListFunctionRegionsWithResponse request
 	ListFunctionRegionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFunctionRegionsClientResponse, error)
@@ -40781,6 +49085,14 @@ type ClientWithResponsesInterface interface {
 	// ListImportSourcesWithResponse request
 	ListImportSourcesWithResponse(ctx context.Context, provider ImportProvider, params *ListImportSourcesParams, reqEditors ...RequestEditorFn) (*ListImportSourcesClientResponse, error)
 
+	// ListLavaflowGlobalSkillsWithResponse request
+	ListLavaflowGlobalSkillsWithResponse(ctx context.Context, params *ListLavaflowGlobalSkillsParams, reqEditors ...RequestEditorFn) (*ListLavaflowGlobalSkillsClientResponse, error)
+
+	// CreateLavaflowHeldFixOpenWithBodyWithResponse request with any body
+	CreateLavaflowHeldFixOpenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowHeldFixOpenClientResponse, error)
+
+	CreateLavaflowHeldFixOpenWithResponse(ctx context.Context, body CreateLavaflowHeldFixOpenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLavaflowHeldFixOpenClientResponse, error)
+
 	// ListLavaflowResourcesWithResponse request
 	ListLavaflowResourcesWithResponse(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*ListLavaflowResourcesClientResponse, error)
 
@@ -40795,13 +49107,49 @@ type ClientWithResponsesInterface interface {
 	// GetLavaflowRunWithResponse request
 	GetLavaflowRunWithResponse(ctx context.Context, runId LavaflowRunId, params *GetLavaflowRunParams, reqEditors ...RequestEditorFn) (*GetLavaflowRunClientResponse, error)
 
+	// ListLavaflowScansWithResponse request
+	ListLavaflowScansWithResponse(ctx context.Context, params *ListLavaflowScansParams, reqEditors ...RequestEditorFn) (*ListLavaflowScansClientResponse, error)
+
 	// GetLavaflowSettingsWithResponse request
 	GetLavaflowSettingsWithResponse(ctx context.Context, params *GetLavaflowSettingsParams, reqEditors ...RequestEditorFn) (*GetLavaflowSettingsClientResponse, error)
+
+	// PatchLavaflowSettingsWithBodyWithResponse request with any body
+	PatchLavaflowSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchLavaflowSettingsClientResponse, error)
+
+	PatchLavaflowSettingsWithResponse(ctx context.Context, body PatchLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchLavaflowSettingsClientResponse, error)
 
 	// UpdateLavaflowSettingsWithBodyWithResponse request with any body
 	UpdateLavaflowSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
 
 	UpdateLavaflowSettingsWithResponse(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
+
+	// ListLavaflowSkillVersionsWithResponse request
+	ListLavaflowSkillVersionsWithResponse(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillVersionsClientResponse, error)
+
+	// ListLavaflowSkillsWithResponse request
+	ListLavaflowSkillsWithResponse(ctx context.Context, params *ListLavaflowSkillsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillsClientResponse, error)
+
+	// DeleteLavaflowSkillWithResponse request
+	DeleteLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *DeleteLavaflowSkillParams, reqEditors ...RequestEditorFn) (*DeleteLavaflowSkillClientResponse, error)
+
+	// GetLavaflowSkillWithResponse request
+	GetLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *GetLavaflowSkillParams, reqEditors ...RequestEditorFn) (*GetLavaflowSkillClientResponse, error)
+
+	// UpdateLavaflowSkillWithBodyWithResponse request with any body
+	UpdateLavaflowSkillWithBodyWithResponse(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSkillClientResponse, error)
+
+	UpdateLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, body UpdateLavaflowSkillJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSkillClientResponse, error)
+
+	// ListLavaflowSlackChannelsWithResponse request
+	ListLavaflowSlackChannelsWithResponse(ctx context.Context, params *ListLavaflowSlackChannelsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSlackChannelsClientResponse, error)
+
+	// BindLavaflowSlackChannelWithBodyWithResponse request with any body
+	BindLavaflowSlackChannelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BindLavaflowSlackChannelClientResponse, error)
+
+	BindLavaflowSlackChannelWithResponse(ctx context.Context, body BindLavaflowSlackChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*BindLavaflowSlackChannelClientResponse, error)
+
+	// UnbindLavaflowSlackChannelWithResponse request
+	UnbindLavaflowSlackChannelWithResponse(ctx context.Context, bindingId openapi_types.UUID, params *UnbindLavaflowSlackChannelParams, reqEditors ...RequestEditorFn) (*UnbindLavaflowSlackChannelClientResponse, error)
 
 	// GetLavaflowStatsWithResponse request
 	GetLavaflowStatsWithResponse(ctx context.Context, params *GetLavaflowStatsParams, reqEditors ...RequestEditorFn) (*GetLavaflowStatsClientResponse, error)
@@ -41071,6 +49419,25 @@ type ClientWithResponsesInterface interface {
 
 	// ResetDatabaseBranchPasswordWithResponse request
 	ResetDatabaseBranchPasswordWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, branchName BranchName, reqEditors ...RequestEditorFn) (*ResetDatabaseBranchPasswordClientResponse, error)
+
+	// ListDatabaseMigrationRunsWithResponse request
+	ListDatabaseMigrationRunsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ListDatabaseMigrationRunsClientResponse, error)
+
+	// CreateDatabaseMigrationRunWithBodyWithResponse request with any body
+	CreateDatabaseMigrationRunWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDatabaseMigrationRunClientResponse, error)
+
+	CreateDatabaseMigrationRunWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, body CreateDatabaseMigrationRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDatabaseMigrationRunClientResponse, error)
+
+	// GetDatabaseMigrationRunWithResponse request
+	GetDatabaseMigrationRunWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, runId MigrationRunId, reqEditors ...RequestEditorFn) (*GetDatabaseMigrationRunClientResponse, error)
+
+	// GetDatabaseMigrationsWithResponse request
+	GetDatabaseMigrationsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*GetDatabaseMigrationsClientResponse, error)
+
+	// BaselineDatabaseMigrationsWithBodyWithResponse request with any body
+	BaselineDatabaseMigrationsWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BaselineDatabaseMigrationsClientResponse, error)
+
+	BaselineDatabaseMigrationsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body BaselineDatabaseMigrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*BaselineDatabaseMigrationsClientResponse, error)
 
 	// GetProjectDatabaseQueriesWithResponse request
 	GetProjectDatabaseQueriesWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *GetProjectDatabaseQueriesParams, reqEditors ...RequestEditorFn) (*GetProjectDatabaseQueriesClientResponse, error)
@@ -41380,6 +49747,9 @@ type ClientWithResponsesInterface interface {
 
 	ConnectProjectGitWithResponse(ctx context.Context, id ProjectId, body ConnectProjectGitJSONRequestBody, reqEditors ...RequestEditorFn) (*ConnectProjectGitClientResponse, error)
 
+	// GetProjectGitOwnerPushWithResponse request
+	GetProjectGitOwnerPushWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectGitOwnerPushClientResponse, error)
+
 	// SetProjectGitProductionBranchWithBodyWithResponse request with any body
 	SetProjectGitProductionBranchWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error)
 
@@ -41398,8 +49768,25 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProjectGitDeploySettingsWithResponse(ctx context.Context, id ProjectId, body UpdateProjectGitDeploySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectGitDeploySettingsClientResponse, error)
 
+	// ListGitDeploymentRunsWithResponse request
+	ListGitDeploymentRunsWithResponse(ctx context.Context, id ProjectId, params *ListGitDeploymentRunsParams, reqEditors ...RequestEditorFn) (*ListGitDeploymentRunsClientResponse, error)
+
+	// GetGitDeploymentRunWithResponse request
+	GetGitDeploymentRunWithResponse(ctx context.Context, id ProjectId, runId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetGitDeploymentRunClientResponse, error)
+
 	// GetProjectHealthWithResponse request
 	GetProjectHealthWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectHealthClientResponse, error)
+
+	// ListIssuesWithResponse request
+	ListIssuesWithResponse(ctx context.Context, id ProjectId, params *ListIssuesParams, reqEditors ...RequestEditorFn) (*ListIssuesClientResponse, error)
+
+	// GetIssueWithResponse request
+	GetIssueWithResponse(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*GetIssueClientResponse, error)
+
+	// UpdateIssueWithBodyWithResponse request with any body
+	UpdateIssueWithBodyWithResponse(ctx context.Context, id ProjectId, issueId IssueId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIssueClientResponse, error)
+
+	UpdateIssueWithResponse(ctx context.Context, id ProjectId, issueId IssueId, body UpdateIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIssueClientResponse, error)
 
 	// DeleteProjectLogoWithResponse request
 	DeleteProjectLogoWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*DeleteProjectLogoClientResponse, error)
@@ -41640,6 +50027,17 @@ type ClientWithResponsesInterface interface {
 	// DownloadPublicFileWithResponse request
 	DownloadPublicFileWithResponse(ctx context.Context, projectId openapi_types.UUID, bucketName BucketName, path string, reqEditors ...RequestEditorFn) (*DownloadPublicFileClientResponse, error)
 
+	// CreateSandboxFileArchiveWithBodyWithResponse request with any body
+	CreateSandboxFileArchiveWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxFileArchiveClientResponse, error)
+
+	// CreateSandboxFilePartWithBodyWithResponse request with any body
+	CreateSandboxFilePartWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxFilePartClientResponse, error)
+
+	CreateSandboxFilePartWithResponse(ctx context.Context, body CreateSandboxFilePartJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxFilePartClientResponse, error)
+
+	// ListSandboxSessionFilesWithResponse request
+	ListSandboxSessionFilesWithResponse(ctx context.Context, params *ListSandboxSessionFilesParams, reqEditors ...RequestEditorFn) (*ListSandboxSessionFilesClientResponse, error)
+
 	// TerminateSandboxSessionWithResponse request
 	TerminateSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*TerminateSandboxSessionClientResponse, error)
 
@@ -41682,6 +50080,45 @@ type ClientWithResponsesInterface interface {
 
 	// ListSandboxPresetsWithResponse request
 	ListSandboxPresetsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSandboxPresetsClientResponse, error)
+
+	// GetSharePreviewWithResponse request
+	GetSharePreviewWithResponse(ctx context.Context, shareId ShareId, reqEditors ...RequestEditorFn) (*GetSharePreviewClientResponse, error)
+
+	// GetShareReleaseDraftWithResponse request
+	GetShareReleaseDraftWithResponse(ctx context.Context, params *GetShareReleaseDraftParams, reqEditors ...RequestEditorFn) (*GetShareReleaseDraftClientResponse, error)
+
+	// ListShareReleasesWithResponse request
+	ListShareReleasesWithResponse(ctx context.Context, params *ListShareReleasesParams, reqEditors ...RequestEditorFn) (*ListShareReleasesClientResponse, error)
+
+	// PublishShareReleaseWithBodyWithResponse request with any body
+	PublishShareReleaseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishShareReleaseClientResponse, error)
+
+	PublishShareReleaseWithResponse(ctx context.Context, body PublishShareReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishShareReleaseClientResponse, error)
+
+	// GetShareStatsWithResponse request
+	GetShareStatsWithResponse(ctx context.Context, params *GetShareStatsParams, reqEditors ...RequestEditorFn) (*GetShareStatsClientResponse, error)
+
+	// ListSharesWithResponse request
+	ListSharesWithResponse(ctx context.Context, params *ListSharesParams, reqEditors ...RequestEditorFn) (*ListSharesClientResponse, error)
+
+	// CreateShareWithBodyWithResponse request with any body
+	CreateShareWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateShareClientResponse, error)
+
+	CreateShareWithResponse(ctx context.Context, body CreateShareJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateShareClientResponse, error)
+
+	// DeleteShareWithResponse request
+	DeleteShareWithResponse(ctx context.Context, shareId ShareId, params *DeleteShareParams, reqEditors ...RequestEditorFn) (*DeleteShareClientResponse, error)
+
+	// GetShareWithResponse request
+	GetShareWithResponse(ctx context.Context, shareId ShareId, params *GetShareParams, reqEditors ...RequestEditorFn) (*GetShareClientResponse, error)
+
+	// UpdateShareWithBodyWithResponse request with any body
+	UpdateShareWithBodyWithResponse(ctx context.Context, shareId ShareId, params *UpdateShareParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateShareClientResponse, error)
+
+	UpdateShareWithResponse(ctx context.Context, shareId ShareId, params *UpdateShareParams, body UpdateShareJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateShareClientResponse, error)
+
+	// SlackCallbackWithResponse request
+	SlackCallbackWithResponse(ctx context.Context, params *SlackCallbackParams, reqEditors ...RequestEditorFn) (*SlackCallbackClientResponse, error)
 
 	// ListStorageObjectsWithResponse request
 	ListStorageObjectsWithResponse(ctx context.Context, bucketName BucketName, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*ListStorageObjectsClientResponse, error)
@@ -41749,6 +50186,33 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteImportConnectionWithResponse request
 	DeleteImportConnectionWithResponse(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteImportConnectionClientResponse, error)
+
+	// RevokeOtherAccountSessionsWithResponse request
+	RevokeOtherAccountSessionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RevokeOtherAccountSessionsClientResponse, error)
+
+	// ListAccountSessionsWithResponse request
+	ListAccountSessionsWithResponse(ctx context.Context, params *ListAccountSessionsParams, reqEditors ...RequestEditorFn) (*ListAccountSessionsClientResponse, error)
+
+	// RevokeAccountSessionWithResponse request
+	RevokeAccountSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*RevokeAccountSessionClientResponse, error)
+
+	// ListSlackChannelsWithResponse request
+	ListSlackChannelsWithResponse(ctx context.Context, params *ListSlackChannelsParams, reqEditors ...RequestEditorFn) (*ListSlackChannelsClientResponse, error)
+
+	// ListSlackConnectionsWithResponse request
+	ListSlackConnectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSlackConnectionsClientResponse, error)
+
+	// StartSlackConnectWithResponse request
+	StartSlackConnectWithResponse(ctx context.Context, params *StartSlackConnectParams, reqEditors ...RequestEditorFn) (*StartSlackConnectClientResponse, error)
+
+	// DeleteSlackConnectionWithResponse request
+	DeleteSlackConnectionWithResponse(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSlackConnectionClientResponse, error)
+
+	// StartSlackInstallWithResponse request
+	StartSlackInstallWithResponse(ctx context.Context, params *StartSlackInstallParams, reqEditors ...RequestEditorFn) (*StartSlackInstallClientResponse, error)
+
+	// RevokeCurrentUserTokenWithResponse request
+	RevokeCurrentUserTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RevokeCurrentUserTokenClientResponse, error)
 }
 
 type AuthConfirmEmailClientResponse struct {
@@ -41886,6 +50350,7 @@ type AuthForgotPasswordClientResponse struct {
 	JSON200      *struct {
 		Message *string `json:"message,omitempty"`
 	}
+	JSON401 *Error
 	JSON403 *Error
 	JSON429 *Error
 }
@@ -41917,6 +50382,7 @@ func (r AuthForgotPasswordClientResponse) ContentType() string {
 type AuthLogoutClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON401      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -41978,9 +50444,19 @@ type AuthListOAuthProvidersClientResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *struct {
 		Providers *[]struct {
-			LinkedAt  *time.Time `json:"linked_at,omitempty"`
-			Provider  *string    `json:"provider,omitempty"`
-			UpdatedAt *time.Time `json:"updated_at,omitempty"`
+			LinkedAt time.Time `json:"linked_at"`
+			Provider string    `json:"provider"`
+
+			// ProviderLogin The account's login at the provider when it was
+			// linked, such as a GitHub username. It isn't updated
+			// when the user renames the account. Omitted for
+			// providers without logins.
+			ProviderLogin *string `json:"provider_login,omitempty"`
+
+			// ProviderUserId The user's account ID at the provider, as a string.
+			// It stays the same when the user renames the account.
+			ProviderUserId string    `json:"provider_user_id"`
+			UpdatedAt      time.Time `json:"updated_at"`
 		} `json:"providers,omitempty"`
 	}
 	JSON401 *Error
@@ -42387,6 +50863,7 @@ type AuthResetPasswordClientResponse struct {
 	JSON200      *struct {
 		Message *string `json:"message,omitempty"`
 	}
+	JSON403 *Error
 	JSON503 *Error
 }
 
@@ -42479,6 +50956,7 @@ type AuthSignupAnonymousClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *AuthTokenResponse
+	JSON401      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -42546,6 +51024,7 @@ type AuthUpdateUserClientResponse struct {
 	}
 	JSON400 *Error
 	JSON401 *Error
+	JSON403 *Error
 	JSON503 *Error
 }
 
@@ -43495,6 +51974,43 @@ func (r RequestDurableApprovalClientResponse) ContentType() string {
 	return ""
 }
 
+type RegisterDurableCallbackClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableCallbackRegistration
+	JSON201      *DurableCallbackRegistration
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterDurableCallbackClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterDurableCallbackClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RegisterDurableCallbackClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type FailDurableCallbackClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -43644,6 +52160,41 @@ func (r StartDurableExecutionFromApplicationClientResponse) ContentType() string
 	return ""
 }
 
+type GetDurableExecutionFromApplicationClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableExecution
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDurableExecutionFromApplicationClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDurableExecutionFromApplicationClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDurableExecutionFromApplicationClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListDurableMessagesFromApplicationClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -43652,6 +52203,8 @@ type ListDurableMessagesFromApplicationClientResponse struct {
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON429      *Error
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -43690,6 +52243,7 @@ type SendDurableMessageFromApplicationClientResponse struct {
 	JSON409      *Error
 	JSON413      *Error
 	JSON429      *Error
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -43710,6 +52264,42 @@ func (r SendDurableMessageFromApplicationClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SendDurableMessageFromApplicationClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StopDurableExecutionFromApplicationClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableExecution
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StopDurableExecutionFromApplicationClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StopDurableExecutionFromApplicationClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StopDurableExecutionFromApplicationClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -43829,7 +52419,7 @@ type GetDefaultEmailTemplatesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
-		Data *[]EmailTemplate `json:"data,omitempty"`
+		Data *[]DefaultEmailTemplate `json:"data,omitempty"`
 	}
 }
 
@@ -43860,7 +52450,8 @@ func (r GetDefaultEmailTemplatesClientResponse) ContentType() string {
 type GetDefaultEmailTemplateClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *EmailTemplate
+	JSON200      *DefaultEmailTemplate
+	JSON404      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -43881,6 +52472,46 @@ func (r GetDefaultEmailTemplateClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetDefaultEmailTemplateClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateForkClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Project
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON422      *Error
+	JSON429      *Error
+	JSON451      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateForkClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateForkClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateForkClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -44262,6 +52893,78 @@ func (r ListImportSourcesClientResponse) ContentType() string {
 	return ""
 }
 
+type ListLavaflowGlobalSkillsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowGlobalSkillList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLavaflowGlobalSkillsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLavaflowGlobalSkillsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLavaflowGlobalSkillsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateLavaflowHeldFixOpenClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *LavaflowRun
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLavaflowHeldFixOpenClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLavaflowHeldFixOpenClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateLavaflowHeldFixOpenClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListLavaflowResourcesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -44401,6 +53104,40 @@ func (r GetLavaflowRunClientResponse) ContentType() string {
 	return ""
 }
 
+type ListLavaflowScansClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedLavaflowScans
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLavaflowScansClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLavaflowScansClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLavaflowScansClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetLavaflowSettingsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -44429,6 +53166,44 @@ func (r GetLavaflowSettingsClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetLavaflowSettingsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PatchLavaflowSettingsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSettings
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PatchLavaflowSettingsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PatchLavaflowSettingsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PatchLavaflowSettingsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -44467,6 +53242,282 @@ func (r UpdateLavaflowSettingsClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateLavaflowSettingsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListLavaflowSkillVersionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSkillVersionList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLavaflowSkillVersionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLavaflowSkillVersionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLavaflowSkillVersionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListLavaflowSkillsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSkillList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLavaflowSkillsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLavaflowSkillsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLavaflowSkillsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteLavaflowSkillClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteLavaflowSkillClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteLavaflowSkillClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteLavaflowSkillClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetLavaflowSkillClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSkill
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLavaflowSkillClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLavaflowSkillClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetLavaflowSkillClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateLavaflowSkillClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSkill
+	JSON400      *LavaflowSkillError
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateLavaflowSkillClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateLavaflowSkillClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateLavaflowSkillClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListLavaflowSlackChannelsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSlackChannelsResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLavaflowSlackChannelsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLavaflowSlackChannelsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLavaflowSlackChannelsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type BindLavaflowSlackChannelClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaflowSlackChannel
+	JSON201      *LavaflowSlackChannel
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON502      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r BindLavaflowSlackChannelClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r BindLavaflowSlackChannelClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r BindLavaflowSlackChannelClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UnbindLavaflowSlackChannelClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UnbindLavaflowSlackChannelClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnbindLavaflowSlackChannelClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnbindLavaflowSlackChannelClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -45256,6 +54307,8 @@ type CreateAnonKeyClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *AnonKey
+	JSON400      *Error
+	JSON409      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -45347,6 +54400,7 @@ type RegenerateAnonKeyClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *AnonKey
+	JSON404      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -45377,6 +54431,7 @@ type SetDefaultAnonKeyClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *AnonKey
+	JSON404      *Error
 	JSON500      *Error
 }
 
@@ -45438,6 +54493,7 @@ type UpdateAuthConfigClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *AuthConfig
+	JSON400      *Error
 	JSON403      *Error
 }
 
@@ -46962,6 +56018,171 @@ func (r ResetDatabaseBranchPasswordClientResponse) ContentType() string {
 	return ""
 }
 
+type ListDatabaseMigrationRunsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseMigrationRunList
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDatabaseMigrationRunsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDatabaseMigrationRunsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDatabaseMigrationRunsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateDatabaseMigrationRunClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseMigrationRun
+	JSON202      *DatabaseMigrationRun
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *DatabaseMigrationConflictError
+	JSON413      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDatabaseMigrationRunClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDatabaseMigrationRunClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateDatabaseMigrationRunClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDatabaseMigrationRunClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseMigrationRun
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDatabaseMigrationRunClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDatabaseMigrationRunClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDatabaseMigrationRunClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDatabaseMigrationsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseMigrations
+	JSON404      *Error
+	JSON409      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDatabaseMigrationsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDatabaseMigrationsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDatabaseMigrationsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type BaselineDatabaseMigrationsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseMigrationBaseline
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *DatabaseMigrationConflictError
+	JSON413      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r BaselineDatabaseMigrationsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r BaselineDatabaseMigrationsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r BaselineDatabaseMigrationsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetProjectDatabaseQueriesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -47081,7 +56302,7 @@ type CreateDatabaseRestoreClientResponse struct {
 	JSON400      *Error
 	JSON403      *Error
 	JSON404      *Error
-	JSON409      *Error
+	JSON409      *DatabaseRestoreConflictError
 	JSON503      *Error
 }
 
@@ -47179,7 +56400,12 @@ type UpdateDatabaseTypeClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Database
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
 	JSON409      *Error
+	JSON500      *Error
 	JSON503      *Error
 }
 
@@ -47801,6 +57027,7 @@ type SendDurableMessageClientResponse struct {
 	JSON200      *DurableMessage
 	JSON201      *DurableMessage
 	JSON400      *Error
+	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
 	JSON413      *Error
@@ -48183,6 +57410,7 @@ type UpdateEmailTemplateClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *EmailTemplate
+	JSON400      *Error
 	JSON403      *Error
 }
 
@@ -48687,6 +57915,7 @@ type DeleteFrontendCustomDomainClientResponse struct {
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON500      *Error
 }
 
@@ -49874,6 +59103,42 @@ func (r ConnectProjectGitClientResponse) ContentType() string {
 	return ""
 }
 
+type GetProjectGitOwnerPushClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectGitOwnerPush
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectGitOwnerPushClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectGitOwnerPushClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectGitOwnerPushClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type SetProjectGitProductionBranchClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -50017,6 +59282,73 @@ func (r UpdateProjectGitDeploySettingsClientResponse) ContentType() string {
 	return ""
 }
 
+type ListGitDeploymentRunsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedGitDeploymentRuns
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGitDeploymentRunsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGitDeploymentRunsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListGitDeploymentRunsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetGitDeploymentRunClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *GitDeploymentRun
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGitDeploymentRunClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGitDeploymentRunClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetGitDeploymentRunClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetProjectHealthClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -50045,6 +59377,101 @@ func (r GetProjectHealthClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetProjectHealthClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListIssuesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedIssues
+	JSON400      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListIssuesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListIssuesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListIssuesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetIssueClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Issue
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIssueClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIssueClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetIssueClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateIssueClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Issue
+	JSON400      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateIssueClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateIssueClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateIssueClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -51168,6 +60595,8 @@ type CreateServiceKeyClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *ServiceKey
+	JSON400      *Error
+	JSON409      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -51227,6 +60656,7 @@ type GetServiceKeyClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ServiceKey
+	JSON403      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -51257,6 +60687,7 @@ type RegenerateServiceKeyClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ServiceKey
+	JSON403      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -51638,6 +61069,7 @@ func (r CreateStoragePolicyClientResponse) ContentType() string {
 type DeleteStoragePolicyClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON404      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -52101,6 +61533,7 @@ func (r UpdateVariableClientResponse) ContentType() string {
 type DownloadPublicFileClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON416      *StorageRangeNotSatisfiable
 	JSON429      *BandwidthCapExceeded
 }
 
@@ -52122,6 +61555,99 @@ func (r DownloadPublicFileClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DownloadPublicFileClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateSandboxFileArchiveClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *SandboxFileArchive
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSandboxFileArchiveClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSandboxFileArchiveClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateSandboxFileArchiveClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateSandboxFilePartClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *SandboxFilePart
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSandboxFilePartClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSandboxFilePartClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateSandboxFilePartClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSandboxSessionFilesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxFileListResult
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSandboxSessionFilesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSandboxSessionFilesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSandboxSessionFilesClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -52466,6 +61992,393 @@ func (r ListSandboxPresetsClientResponse) ContentType() string {
 	return ""
 }
 
+type GetSharePreviewClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SharePreview
+	JSON400      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON429      *Error
+	JSON451      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSharePreviewClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSharePreviewClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSharePreviewClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetShareReleaseDraftClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ShareReleaseDraft
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON422      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetShareReleaseDraftClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetShareReleaseDraftClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetShareReleaseDraftClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListShareReleasesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedShareReleases
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListShareReleasesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListShareReleasesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListShareReleasesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PublishShareReleaseClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ShareRelease
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *ShareDraftChangedError
+	JSON422      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PublishShareReleaseClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PublishShareReleaseClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PublishShareReleaseClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetShareStatsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ShareStats
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetShareStatsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetShareStatsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetShareStatsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSharesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SharesResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSharesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSharesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSharesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateShareClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Share
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateShareClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateShareClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateShareClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteShareClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteShareClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteShareClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteShareClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetShareClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Share
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetShareClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetShareClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetShareClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateShareClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Share
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateShareClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateShareClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateShareClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SlackCallbackClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON404      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SlackCallbackClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SlackCallbackClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SlackCallbackClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListStorageObjectsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -52593,6 +62506,7 @@ type DownloadStorageObjectClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *UploadSessionStatusResponse
+	JSON416      *StorageRangeNotSatisfiable
 	JSON429      *BandwidthCapExceeded
 }
 
@@ -53088,6 +63002,304 @@ func (r DeleteImportConnectionClientResponse) ContentType() string {
 	return ""
 }
 
+type RevokeOtherAccountSessionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeOtherAccountSessionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeOtherAccountSessionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeOtherAccountSessionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAccountSessionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AccountSessionList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAccountSessionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAccountSessionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAccountSessionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeAccountSessionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeAccountSessionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeAccountSessionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeAccountSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSlackChannelsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SlackChannelsResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+	JSON502      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSlackChannelsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSlackChannelsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSlackChannelsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSlackConnectionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SlackConnectionsResponse
+	JSON401      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSlackConnectionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSlackConnectionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSlackConnectionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartSlackConnectClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SlackAuthorizationResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StartSlackConnectClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartSlackConnectClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartSlackConnectClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteSlackConnectionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSlackConnectionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSlackConnectionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteSlackConnectionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartSlackInstallClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SlackAuthorizationResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StartSlackInstallClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartSlackInstallClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartSlackInstallClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeCurrentUserTokenClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeCurrentUserTokenClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeCurrentUserTokenClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeCurrentUserTokenClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // AuthConfirmEmailWithBodyWithResponse request with arbitrary body returning *AuthConfirmEmailClientResponse
 func (c *ClientWithResponses) AuthConfirmEmailWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthConfirmEmailClientResponse, error) {
 	rsp, err := c.AuthConfirmEmailWithBody(ctx, contentType, body, reqEditors...)
@@ -53157,16 +63369,16 @@ func (c *ClientWithResponses) AuthDeviceVerifyWithResponse(ctx context.Context, 
 }
 
 // AuthForgotPasswordWithBodyWithResponse request with arbitrary body returning *AuthForgotPasswordClientResponse
-func (c *ClientWithResponses) AuthForgotPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthForgotPasswordClientResponse, error) {
-	rsp, err := c.AuthForgotPasswordWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) AuthForgotPasswordWithBodyWithResponse(ctx context.Context, params *AuthForgotPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthForgotPasswordClientResponse, error) {
+	rsp, err := c.AuthForgotPasswordWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseAuthForgotPasswordClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) AuthForgotPasswordWithResponse(ctx context.Context, body AuthForgotPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthForgotPasswordClientResponse, error) {
-	rsp, err := c.AuthForgotPassword(ctx, body, reqEditors...)
+func (c *ClientWithResponses) AuthForgotPasswordWithResponse(ctx context.Context, params *AuthForgotPasswordParams, body AuthForgotPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthForgotPasswordClientResponse, error) {
+	rsp, err := c.AuthForgotPassword(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53174,16 +63386,16 @@ func (c *ClientWithResponses) AuthForgotPasswordWithResponse(ctx context.Context
 }
 
 // AuthLogoutWithBodyWithResponse request with arbitrary body returning *AuthLogoutClientResponse
-func (c *ClientWithResponses) AuthLogoutWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthLogoutClientResponse, error) {
-	rsp, err := c.AuthLogoutWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) AuthLogoutWithBodyWithResponse(ctx context.Context, params *AuthLogoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthLogoutClientResponse, error) {
+	rsp, err := c.AuthLogoutWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseAuthLogoutClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) AuthLogoutWithResponse(ctx context.Context, body AuthLogoutJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthLogoutClientResponse, error) {
-	rsp, err := c.AuthLogout(ctx, body, reqEditors...)
+func (c *ClientWithResponses) AuthLogoutWithResponse(ctx context.Context, params *AuthLogoutParams, body AuthLogoutJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthLogoutClientResponse, error) {
+	rsp, err := c.AuthLogout(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53191,16 +63403,16 @@ func (c *ClientWithResponses) AuthLogoutWithResponse(ctx context.Context, body A
 }
 
 // AuthOAuthExchangeWithBodyWithResponse request with arbitrary body returning *AuthOAuthExchangeClientResponse
-func (c *ClientWithResponses) AuthOAuthExchangeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthOAuthExchangeClientResponse, error) {
-	rsp, err := c.AuthOAuthExchangeWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) AuthOAuthExchangeWithBodyWithResponse(ctx context.Context, params *AuthOAuthExchangeParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthOAuthExchangeClientResponse, error) {
+	rsp, err := c.AuthOAuthExchangeWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseAuthOAuthExchangeClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) AuthOAuthExchangeWithResponse(ctx context.Context, body AuthOAuthExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthOAuthExchangeClientResponse, error) {
-	rsp, err := c.AuthOAuthExchange(ctx, body, reqEditors...)
+func (c *ClientWithResponses) AuthOAuthExchangeWithResponse(ctx context.Context, params *AuthOAuthExchangeParams, body AuthOAuthExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthOAuthExchangeClientResponse, error) {
+	rsp, err := c.AuthOAuthExchange(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53288,8 +63500,8 @@ func (c *ClientWithResponses) AuthUnlinkOAuthProviderWithResponse(ctx context.Co
 }
 
 // AuthGetPasswordPolicyWithResponse request returning *AuthGetPasswordPolicyClientResponse
-func (c *ClientWithResponses) AuthGetPasswordPolicyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthGetPasswordPolicyClientResponse, error) {
-	rsp, err := c.AuthGetPasswordPolicy(ctx, reqEditors...)
+func (c *ClientWithResponses) AuthGetPasswordPolicyWithResponse(ctx context.Context, params *AuthGetPasswordPolicyParams, reqEditors ...RequestEditorFn) (*AuthGetPasswordPolicyClientResponse, error) {
+	rsp, err := c.AuthGetPasswordPolicy(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53314,16 +63526,16 @@ func (c *ClientWithResponses) AuthPlatformExchangeWithResponse(ctx context.Conte
 }
 
 // AuthRefreshWithBodyWithResponse request with arbitrary body returning *AuthRefreshClientResponse
-func (c *ClientWithResponses) AuthRefreshWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthRefreshClientResponse, error) {
-	rsp, err := c.AuthRefreshWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) AuthRefreshWithBodyWithResponse(ctx context.Context, params *AuthRefreshParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthRefreshClientResponse, error) {
+	rsp, err := c.AuthRefreshWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseAuthRefreshClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) AuthRefreshWithResponse(ctx context.Context, body AuthRefreshJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthRefreshClientResponse, error) {
-	rsp, err := c.AuthRefresh(ctx, body, reqEditors...)
+func (c *ClientWithResponses) AuthRefreshWithResponse(ctx context.Context, params *AuthRefreshParams, body AuthRefreshJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthRefreshClientResponse, error) {
+	rsp, err := c.AuthRefresh(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53348,16 +63560,16 @@ func (c *ClientWithResponses) AuthResendConfirmationWithResponse(ctx context.Con
 }
 
 // AuthResetPasswordWithBodyWithResponse request with arbitrary body returning *AuthResetPasswordClientResponse
-func (c *ClientWithResponses) AuthResetPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthResetPasswordClientResponse, error) {
-	rsp, err := c.AuthResetPasswordWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) AuthResetPasswordWithBodyWithResponse(ctx context.Context, params *AuthResetPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthResetPasswordClientResponse, error) {
+	rsp, err := c.AuthResetPasswordWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseAuthResetPasswordClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) AuthResetPasswordWithResponse(ctx context.Context, body AuthResetPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthResetPasswordClientResponse, error) {
-	rsp, err := c.AuthResetPassword(ctx, body, reqEditors...)
+func (c *ClientWithResponses) AuthResetPasswordWithResponse(ctx context.Context, params *AuthResetPasswordParams, body AuthResetPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthResetPasswordClientResponse, error) {
+	rsp, err := c.AuthResetPassword(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53365,16 +63577,16 @@ func (c *ClientWithResponses) AuthResetPasswordWithResponse(ctx context.Context,
 }
 
 // AuthSigninWithBodyWithResponse request with arbitrary body returning *AuthSigninClientResponse
-func (c *ClientWithResponses) AuthSigninWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSigninClientResponse, error) {
-	rsp, err := c.AuthSigninWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) AuthSigninWithBodyWithResponse(ctx context.Context, params *AuthSigninParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSigninClientResponse, error) {
+	rsp, err := c.AuthSigninWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseAuthSigninClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) AuthSigninWithResponse(ctx context.Context, body AuthSigninJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSigninClientResponse, error) {
-	rsp, err := c.AuthSignin(ctx, body, reqEditors...)
+func (c *ClientWithResponses) AuthSigninWithResponse(ctx context.Context, params *AuthSigninParams, body AuthSigninJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSigninClientResponse, error) {
+	rsp, err := c.AuthSignin(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53382,16 +63594,16 @@ func (c *ClientWithResponses) AuthSigninWithResponse(ctx context.Context, body A
 }
 
 // AuthSignupWithBodyWithResponse request with arbitrary body returning *AuthSignupClientResponse
-func (c *ClientWithResponses) AuthSignupWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSignupClientResponse, error) {
-	rsp, err := c.AuthSignupWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) AuthSignupWithBodyWithResponse(ctx context.Context, params *AuthSignupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSignupClientResponse, error) {
+	rsp, err := c.AuthSignupWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseAuthSignupClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) AuthSignupWithResponse(ctx context.Context, body AuthSignupJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSignupClientResponse, error) {
-	rsp, err := c.AuthSignup(ctx, body, reqEditors...)
+func (c *ClientWithResponses) AuthSignupWithResponse(ctx context.Context, params *AuthSignupParams, body AuthSignupJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSignupClientResponse, error) {
+	rsp, err := c.AuthSignup(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53399,16 +63611,16 @@ func (c *ClientWithResponses) AuthSignupWithResponse(ctx context.Context, body A
 }
 
 // AuthSignupAnonymousWithBodyWithResponse request with arbitrary body returning *AuthSignupAnonymousClientResponse
-func (c *ClientWithResponses) AuthSignupAnonymousWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSignupAnonymousClientResponse, error) {
-	rsp, err := c.AuthSignupAnonymousWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) AuthSignupAnonymousWithBodyWithResponse(ctx context.Context, params *AuthSignupAnonymousParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthSignupAnonymousClientResponse, error) {
+	rsp, err := c.AuthSignupAnonymousWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseAuthSignupAnonymousClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) AuthSignupAnonymousWithResponse(ctx context.Context, body AuthSignupAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSignupAnonymousClientResponse, error) {
-	rsp, err := c.AuthSignupAnonymous(ctx, body, reqEditors...)
+func (c *ClientWithResponses) AuthSignupAnonymousWithResponse(ctx context.Context, params *AuthSignupAnonymousParams, body AuthSignupAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthSignupAnonymousClientResponse, error) {
+	rsp, err := c.AuthSignupAnonymous(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53771,6 +63983,23 @@ func (c *ClientWithResponses) RequestDurableApprovalWithResponse(ctx context.Con
 	return ParseRequestDurableApprovalClientResponse(rsp)
 }
 
+// RegisterDurableCallbackWithBodyWithResponse request with arbitrary body returning *RegisterDurableCallbackClientResponse
+func (c *ClientWithResponses) RegisterDurableCallbackWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDurableCallbackClientResponse, error) {
+	rsp, err := c.RegisterDurableCallbackWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDurableCallbackClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) RegisterDurableCallbackWithResponse(ctx context.Context, body RegisterDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDurableCallbackClientResponse, error) {
+	rsp, err := c.RegisterDurableCallback(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDurableCallbackClientResponse(rsp)
+}
+
 // FailDurableCallbackWithBodyWithResponse request with arbitrary body returning *FailDurableCallbackClientResponse
 func (c *ClientWithResponses) FailDurableCallbackWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FailDurableCallbackClientResponse, error) {
 	rsp, err := c.FailDurableCallbackWithBody(ctx, contentType, body, reqEditors...)
@@ -53839,6 +64068,15 @@ func (c *ClientWithResponses) StartDurableExecutionFromApplicationWithResponse(c
 	return ParseStartDurableExecutionFromApplicationClientResponse(rsp)
 }
 
+// GetDurableExecutionFromApplicationWithResponse request returning *GetDurableExecutionFromApplicationClientResponse
+func (c *ClientWithResponses) GetDurableExecutionFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *GetDurableExecutionFromApplicationParams, reqEditors ...RequestEditorFn) (*GetDurableExecutionFromApplicationClientResponse, error) {
+	rsp, err := c.GetDurableExecutionFromApplication(ctx, functionId, executionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDurableExecutionFromApplicationClientResponse(rsp)
+}
+
 // ListDurableMessagesFromApplicationWithResponse request returning *ListDurableMessagesFromApplicationClientResponse
 func (c *ClientWithResponses) ListDurableMessagesFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesFromApplicationParams, reqEditors ...RequestEditorFn) (*ListDurableMessagesFromApplicationClientResponse, error) {
 	rsp, err := c.ListDurableMessagesFromApplication(ctx, functionId, executionId, params, reqEditors...)
@@ -53863,6 +64101,15 @@ func (c *ClientWithResponses) SendDurableMessageFromApplicationWithResponse(ctx 
 		return nil, err
 	}
 	return ParseSendDurableMessageFromApplicationClientResponse(rsp)
+}
+
+// StopDurableExecutionFromApplicationWithResponse request returning *StopDurableExecutionFromApplicationClientResponse
+func (c *ClientWithResponses) StopDurableExecutionFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *StopDurableExecutionFromApplicationParams, reqEditors ...RequestEditorFn) (*StopDurableExecutionFromApplicationClientResponse, error) {
+	rsp, err := c.StopDurableExecutionFromApplication(ctx, functionId, executionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStopDurableExecutionFromApplicationClientResponse(rsp)
 }
 
 // PublishDurableMessageWithBodyWithResponse request with arbitrary body returning *PublishDurableMessageClientResponse
@@ -53932,6 +64179,23 @@ func (c *ClientWithResponses) GetDefaultEmailTemplateWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseGetDefaultEmailTemplateClientResponse(rsp)
+}
+
+// CreateForkWithBodyWithResponse request with arbitrary body returning *CreateForkClientResponse
+func (c *ClientWithResponses) CreateForkWithBodyWithResponse(ctx context.Context, params *CreateForkParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateForkClientResponse, error) {
+	rsp, err := c.CreateForkWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateForkClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateForkWithResponse(ctx context.Context, params *CreateForkParams, body CreateForkJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateForkClientResponse, error) {
+	rsp, err := c.CreateFork(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateForkClientResponse(rsp)
 }
 
 // ListFunctionRegionsWithResponse request returning *ListFunctionRegionsClientResponse
@@ -54057,6 +64321,32 @@ func (c *ClientWithResponses) ListImportSourcesWithResponse(ctx context.Context,
 	return ParseListImportSourcesClientResponse(rsp)
 }
 
+// ListLavaflowGlobalSkillsWithResponse request returning *ListLavaflowGlobalSkillsClientResponse
+func (c *ClientWithResponses) ListLavaflowGlobalSkillsWithResponse(ctx context.Context, params *ListLavaflowGlobalSkillsParams, reqEditors ...RequestEditorFn) (*ListLavaflowGlobalSkillsClientResponse, error) {
+	rsp, err := c.ListLavaflowGlobalSkills(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLavaflowGlobalSkillsClientResponse(rsp)
+}
+
+// CreateLavaflowHeldFixOpenWithBodyWithResponse request with arbitrary body returning *CreateLavaflowHeldFixOpenClientResponse
+func (c *ClientWithResponses) CreateLavaflowHeldFixOpenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLavaflowHeldFixOpenClientResponse, error) {
+	rsp, err := c.CreateLavaflowHeldFixOpenWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLavaflowHeldFixOpenClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateLavaflowHeldFixOpenWithResponse(ctx context.Context, body CreateLavaflowHeldFixOpenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLavaflowHeldFixOpenClientResponse, error) {
+	rsp, err := c.CreateLavaflowHeldFixOpen(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLavaflowHeldFixOpenClientResponse(rsp)
+}
+
 // ListLavaflowResourcesWithResponse request returning *ListLavaflowResourcesClientResponse
 func (c *ClientWithResponses) ListLavaflowResourcesWithResponse(ctx context.Context, params *ListLavaflowResourcesParams, reqEditors ...RequestEditorFn) (*ListLavaflowResourcesClientResponse, error) {
 	rsp, err := c.ListLavaflowResources(ctx, params, reqEditors...)
@@ -54101,6 +64391,15 @@ func (c *ClientWithResponses) GetLavaflowRunWithResponse(ctx context.Context, ru
 	return ParseGetLavaflowRunClientResponse(rsp)
 }
 
+// ListLavaflowScansWithResponse request returning *ListLavaflowScansClientResponse
+func (c *ClientWithResponses) ListLavaflowScansWithResponse(ctx context.Context, params *ListLavaflowScansParams, reqEditors ...RequestEditorFn) (*ListLavaflowScansClientResponse, error) {
+	rsp, err := c.ListLavaflowScans(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLavaflowScansClientResponse(rsp)
+}
+
 // GetLavaflowSettingsWithResponse request returning *GetLavaflowSettingsClientResponse
 func (c *ClientWithResponses) GetLavaflowSettingsWithResponse(ctx context.Context, params *GetLavaflowSettingsParams, reqEditors ...RequestEditorFn) (*GetLavaflowSettingsClientResponse, error) {
 	rsp, err := c.GetLavaflowSettings(ctx, params, reqEditors...)
@@ -54108,6 +64407,23 @@ func (c *ClientWithResponses) GetLavaflowSettingsWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetLavaflowSettingsClientResponse(rsp)
+}
+
+// PatchLavaflowSettingsWithBodyWithResponse request with arbitrary body returning *PatchLavaflowSettingsClientResponse
+func (c *ClientWithResponses) PatchLavaflowSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchLavaflowSettingsClientResponse, error) {
+	rsp, err := c.PatchLavaflowSettingsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchLavaflowSettingsClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) PatchLavaflowSettingsWithResponse(ctx context.Context, body PatchLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchLavaflowSettingsClientResponse, error) {
+	rsp, err := c.PatchLavaflowSettings(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchLavaflowSettingsClientResponse(rsp)
 }
 
 // UpdateLavaflowSettingsWithBodyWithResponse request with arbitrary body returning *UpdateLavaflowSettingsClientResponse
@@ -54125,6 +64441,94 @@ func (c *ClientWithResponses) UpdateLavaflowSettingsWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseUpdateLavaflowSettingsClientResponse(rsp)
+}
+
+// ListLavaflowSkillVersionsWithResponse request returning *ListLavaflowSkillVersionsClientResponse
+func (c *ClientWithResponses) ListLavaflowSkillVersionsWithResponse(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillVersionsClientResponse, error) {
+	rsp, err := c.ListLavaflowSkillVersions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLavaflowSkillVersionsClientResponse(rsp)
+}
+
+// ListLavaflowSkillsWithResponse request returning *ListLavaflowSkillsClientResponse
+func (c *ClientWithResponses) ListLavaflowSkillsWithResponse(ctx context.Context, params *ListLavaflowSkillsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillsClientResponse, error) {
+	rsp, err := c.ListLavaflowSkills(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLavaflowSkillsClientResponse(rsp)
+}
+
+// DeleteLavaflowSkillWithResponse request returning *DeleteLavaflowSkillClientResponse
+func (c *ClientWithResponses) DeleteLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *DeleteLavaflowSkillParams, reqEditors ...RequestEditorFn) (*DeleteLavaflowSkillClientResponse, error) {
+	rsp, err := c.DeleteLavaflowSkill(ctx, skillId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteLavaflowSkillClientResponse(rsp)
+}
+
+// GetLavaflowSkillWithResponse request returning *GetLavaflowSkillClientResponse
+func (c *ClientWithResponses) GetLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *GetLavaflowSkillParams, reqEditors ...RequestEditorFn) (*GetLavaflowSkillClientResponse, error) {
+	rsp, err := c.GetLavaflowSkill(ctx, skillId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLavaflowSkillClientResponse(rsp)
+}
+
+// UpdateLavaflowSkillWithBodyWithResponse request with arbitrary body returning *UpdateLavaflowSkillClientResponse
+func (c *ClientWithResponses) UpdateLavaflowSkillWithBodyWithResponse(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSkillClientResponse, error) {
+	rsp, err := c.UpdateLavaflowSkillWithBody(ctx, skillId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLavaflowSkillClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateLavaflowSkillWithResponse(ctx context.Context, skillId LavaflowSkillId, params *UpdateLavaflowSkillParams, body UpdateLavaflowSkillJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSkillClientResponse, error) {
+	rsp, err := c.UpdateLavaflowSkill(ctx, skillId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLavaflowSkillClientResponse(rsp)
+}
+
+// ListLavaflowSlackChannelsWithResponse request returning *ListLavaflowSlackChannelsClientResponse
+func (c *ClientWithResponses) ListLavaflowSlackChannelsWithResponse(ctx context.Context, params *ListLavaflowSlackChannelsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSlackChannelsClientResponse, error) {
+	rsp, err := c.ListLavaflowSlackChannels(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLavaflowSlackChannelsClientResponse(rsp)
+}
+
+// BindLavaflowSlackChannelWithBodyWithResponse request with arbitrary body returning *BindLavaflowSlackChannelClientResponse
+func (c *ClientWithResponses) BindLavaflowSlackChannelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BindLavaflowSlackChannelClientResponse, error) {
+	rsp, err := c.BindLavaflowSlackChannelWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBindLavaflowSlackChannelClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) BindLavaflowSlackChannelWithResponse(ctx context.Context, body BindLavaflowSlackChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*BindLavaflowSlackChannelClientResponse, error) {
+	rsp, err := c.BindLavaflowSlackChannel(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBindLavaflowSlackChannelClientResponse(rsp)
+}
+
+// UnbindLavaflowSlackChannelWithResponse request returning *UnbindLavaflowSlackChannelClientResponse
+func (c *ClientWithResponses) UnbindLavaflowSlackChannelWithResponse(ctx context.Context, bindingId openapi_types.UUID, params *UnbindLavaflowSlackChannelParams, reqEditors ...RequestEditorFn) (*UnbindLavaflowSlackChannelClientResponse, error) {
+	rsp, err := c.UnbindLavaflowSlackChannel(ctx, bindingId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnbindLavaflowSlackChannelClientResponse(rsp)
 }
 
 // GetLavaflowStatsWithResponse request returning *GetLavaflowStatsClientResponse
@@ -54976,6 +65380,67 @@ func (c *ClientWithResponses) ResetDatabaseBranchPasswordWithResponse(ctx contex
 		return nil, err
 	}
 	return ParseResetDatabaseBranchPasswordClientResponse(rsp)
+}
+
+// ListDatabaseMigrationRunsWithResponse request returning *ListDatabaseMigrationRunsClientResponse
+func (c *ClientWithResponses) ListDatabaseMigrationRunsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ListDatabaseMigrationRunsClientResponse, error) {
+	rsp, err := c.ListDatabaseMigrationRuns(ctx, id, databaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDatabaseMigrationRunsClientResponse(rsp)
+}
+
+// CreateDatabaseMigrationRunWithBodyWithResponse request with arbitrary body returning *CreateDatabaseMigrationRunClientResponse
+func (c *ClientWithResponses) CreateDatabaseMigrationRunWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDatabaseMigrationRunClientResponse, error) {
+	rsp, err := c.CreateDatabaseMigrationRunWithBody(ctx, id, databaseName, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDatabaseMigrationRunClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateDatabaseMigrationRunWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, body CreateDatabaseMigrationRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDatabaseMigrationRunClientResponse, error) {
+	rsp, err := c.CreateDatabaseMigrationRun(ctx, id, databaseName, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDatabaseMigrationRunClientResponse(rsp)
+}
+
+// GetDatabaseMigrationRunWithResponse request returning *GetDatabaseMigrationRunClientResponse
+func (c *ClientWithResponses) GetDatabaseMigrationRunWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, runId MigrationRunId, reqEditors ...RequestEditorFn) (*GetDatabaseMigrationRunClientResponse, error) {
+	rsp, err := c.GetDatabaseMigrationRun(ctx, id, databaseName, runId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDatabaseMigrationRunClientResponse(rsp)
+}
+
+// GetDatabaseMigrationsWithResponse request returning *GetDatabaseMigrationsClientResponse
+func (c *ClientWithResponses) GetDatabaseMigrationsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*GetDatabaseMigrationsClientResponse, error) {
+	rsp, err := c.GetDatabaseMigrations(ctx, id, databaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDatabaseMigrationsClientResponse(rsp)
+}
+
+// BaselineDatabaseMigrationsWithBodyWithResponse request with arbitrary body returning *BaselineDatabaseMigrationsClientResponse
+func (c *ClientWithResponses) BaselineDatabaseMigrationsWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BaselineDatabaseMigrationsClientResponse, error) {
+	rsp, err := c.BaselineDatabaseMigrationsWithBody(ctx, id, databaseName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBaselineDatabaseMigrationsClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) BaselineDatabaseMigrationsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body BaselineDatabaseMigrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*BaselineDatabaseMigrationsClientResponse, error) {
+	rsp, err := c.BaselineDatabaseMigrations(ctx, id, databaseName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBaselineDatabaseMigrationsClientResponse(rsp)
 }
 
 // GetProjectDatabaseQueriesWithResponse request returning *GetProjectDatabaseQueriesClientResponse
@@ -55952,6 +66417,15 @@ func (c *ClientWithResponses) ConnectProjectGitWithResponse(ctx context.Context,
 	return ParseConnectProjectGitClientResponse(rsp)
 }
 
+// GetProjectGitOwnerPushWithResponse request returning *GetProjectGitOwnerPushClientResponse
+func (c *ClientWithResponses) GetProjectGitOwnerPushWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectGitOwnerPushClientResponse, error) {
+	rsp, err := c.GetProjectGitOwnerPush(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectGitOwnerPushClientResponse(rsp)
+}
+
 // SetProjectGitProductionBranchWithBodyWithResponse request with arbitrary body returning *SetProjectGitProductionBranchClientResponse
 func (c *ClientWithResponses) SetProjectGitProductionBranchWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error) {
 	rsp, err := c.SetProjectGitProductionBranchWithBody(ctx, id, contentType, body, reqEditors...)
@@ -56012,6 +66486,24 @@ func (c *ClientWithResponses) UpdateProjectGitDeploySettingsWithResponse(ctx con
 	return ParseUpdateProjectGitDeploySettingsClientResponse(rsp)
 }
 
+// ListGitDeploymentRunsWithResponse request returning *ListGitDeploymentRunsClientResponse
+func (c *ClientWithResponses) ListGitDeploymentRunsWithResponse(ctx context.Context, id ProjectId, params *ListGitDeploymentRunsParams, reqEditors ...RequestEditorFn) (*ListGitDeploymentRunsClientResponse, error) {
+	rsp, err := c.ListGitDeploymentRuns(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGitDeploymentRunsClientResponse(rsp)
+}
+
+// GetGitDeploymentRunWithResponse request returning *GetGitDeploymentRunClientResponse
+func (c *ClientWithResponses) GetGitDeploymentRunWithResponse(ctx context.Context, id ProjectId, runId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetGitDeploymentRunClientResponse, error) {
+	rsp, err := c.GetGitDeploymentRun(ctx, id, runId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGitDeploymentRunClientResponse(rsp)
+}
+
 // GetProjectHealthWithResponse request returning *GetProjectHealthClientResponse
 func (c *ClientWithResponses) GetProjectHealthWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectHealthClientResponse, error) {
 	rsp, err := c.GetProjectHealth(ctx, id, reqEditors...)
@@ -56019,6 +66511,41 @@ func (c *ClientWithResponses) GetProjectHealthWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetProjectHealthClientResponse(rsp)
+}
+
+// ListIssuesWithResponse request returning *ListIssuesClientResponse
+func (c *ClientWithResponses) ListIssuesWithResponse(ctx context.Context, id ProjectId, params *ListIssuesParams, reqEditors ...RequestEditorFn) (*ListIssuesClientResponse, error) {
+	rsp, err := c.ListIssues(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListIssuesClientResponse(rsp)
+}
+
+// GetIssueWithResponse request returning *GetIssueClientResponse
+func (c *ClientWithResponses) GetIssueWithResponse(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*GetIssueClientResponse, error) {
+	rsp, err := c.GetIssue(ctx, id, issueId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIssueClientResponse(rsp)
+}
+
+// UpdateIssueWithBodyWithResponse request with arbitrary body returning *UpdateIssueClientResponse
+func (c *ClientWithResponses) UpdateIssueWithBodyWithResponse(ctx context.Context, id ProjectId, issueId IssueId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIssueClientResponse, error) {
+	rsp, err := c.UpdateIssueWithBody(ctx, id, issueId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIssueClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateIssueWithResponse(ctx context.Context, id ProjectId, issueId IssueId, body UpdateIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIssueClientResponse, error) {
+	rsp, err := c.UpdateIssue(ctx, id, issueId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIssueClientResponse(rsp)
 }
 
 // DeleteProjectLogoWithResponse request returning *DeleteProjectLogoClientResponse
@@ -56782,6 +67309,41 @@ func (c *ClientWithResponses) DownloadPublicFileWithResponse(ctx context.Context
 	return ParseDownloadPublicFileClientResponse(rsp)
 }
 
+// CreateSandboxFileArchiveWithBodyWithResponse request with arbitrary body returning *CreateSandboxFileArchiveClientResponse
+func (c *ClientWithResponses) CreateSandboxFileArchiveWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxFileArchiveClientResponse, error) {
+	rsp, err := c.CreateSandboxFileArchiveWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxFileArchiveClientResponse(rsp)
+}
+
+// CreateSandboxFilePartWithBodyWithResponse request with arbitrary body returning *CreateSandboxFilePartClientResponse
+func (c *ClientWithResponses) CreateSandboxFilePartWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxFilePartClientResponse, error) {
+	rsp, err := c.CreateSandboxFilePartWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxFilePartClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateSandboxFilePartWithResponse(ctx context.Context, body CreateSandboxFilePartJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxFilePartClientResponse, error) {
+	rsp, err := c.CreateSandboxFilePart(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxFilePartClientResponse(rsp)
+}
+
+// ListSandboxSessionFilesWithResponse request returning *ListSandboxSessionFilesClientResponse
+func (c *ClientWithResponses) ListSandboxSessionFilesWithResponse(ctx context.Context, params *ListSandboxSessionFilesParams, reqEditors ...RequestEditorFn) (*ListSandboxSessionFilesClientResponse, error) {
+	rsp, err := c.ListSandboxSessionFiles(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSandboxSessionFilesClientResponse(rsp)
+}
+
 // TerminateSandboxSessionWithResponse request returning *TerminateSandboxSessionClientResponse
 func (c *ClientWithResponses) TerminateSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*TerminateSandboxSessionClientResponse, error) {
 	rsp, err := c.TerminateSandboxSession(ctx, sessionId, reqEditors...)
@@ -56919,6 +67481,129 @@ func (c *ClientWithResponses) ListSandboxPresetsWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseListSandboxPresetsClientResponse(rsp)
+}
+
+// GetSharePreviewWithResponse request returning *GetSharePreviewClientResponse
+func (c *ClientWithResponses) GetSharePreviewWithResponse(ctx context.Context, shareId ShareId, reqEditors ...RequestEditorFn) (*GetSharePreviewClientResponse, error) {
+	rsp, err := c.GetSharePreview(ctx, shareId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSharePreviewClientResponse(rsp)
+}
+
+// GetShareReleaseDraftWithResponse request returning *GetShareReleaseDraftClientResponse
+func (c *ClientWithResponses) GetShareReleaseDraftWithResponse(ctx context.Context, params *GetShareReleaseDraftParams, reqEditors ...RequestEditorFn) (*GetShareReleaseDraftClientResponse, error) {
+	rsp, err := c.GetShareReleaseDraft(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetShareReleaseDraftClientResponse(rsp)
+}
+
+// ListShareReleasesWithResponse request returning *ListShareReleasesClientResponse
+func (c *ClientWithResponses) ListShareReleasesWithResponse(ctx context.Context, params *ListShareReleasesParams, reqEditors ...RequestEditorFn) (*ListShareReleasesClientResponse, error) {
+	rsp, err := c.ListShareReleases(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListShareReleasesClientResponse(rsp)
+}
+
+// PublishShareReleaseWithBodyWithResponse request with arbitrary body returning *PublishShareReleaseClientResponse
+func (c *ClientWithResponses) PublishShareReleaseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishShareReleaseClientResponse, error) {
+	rsp, err := c.PublishShareReleaseWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishShareReleaseClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) PublishShareReleaseWithResponse(ctx context.Context, body PublishShareReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishShareReleaseClientResponse, error) {
+	rsp, err := c.PublishShareRelease(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishShareReleaseClientResponse(rsp)
+}
+
+// GetShareStatsWithResponse request returning *GetShareStatsClientResponse
+func (c *ClientWithResponses) GetShareStatsWithResponse(ctx context.Context, params *GetShareStatsParams, reqEditors ...RequestEditorFn) (*GetShareStatsClientResponse, error) {
+	rsp, err := c.GetShareStats(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetShareStatsClientResponse(rsp)
+}
+
+// ListSharesWithResponse request returning *ListSharesClientResponse
+func (c *ClientWithResponses) ListSharesWithResponse(ctx context.Context, params *ListSharesParams, reqEditors ...RequestEditorFn) (*ListSharesClientResponse, error) {
+	rsp, err := c.ListShares(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSharesClientResponse(rsp)
+}
+
+// CreateShareWithBodyWithResponse request with arbitrary body returning *CreateShareClientResponse
+func (c *ClientWithResponses) CreateShareWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateShareClientResponse, error) {
+	rsp, err := c.CreateShareWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateShareClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateShareWithResponse(ctx context.Context, body CreateShareJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateShareClientResponse, error) {
+	rsp, err := c.CreateShare(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateShareClientResponse(rsp)
+}
+
+// DeleteShareWithResponse request returning *DeleteShareClientResponse
+func (c *ClientWithResponses) DeleteShareWithResponse(ctx context.Context, shareId ShareId, params *DeleteShareParams, reqEditors ...RequestEditorFn) (*DeleteShareClientResponse, error) {
+	rsp, err := c.DeleteShare(ctx, shareId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteShareClientResponse(rsp)
+}
+
+// GetShareWithResponse request returning *GetShareClientResponse
+func (c *ClientWithResponses) GetShareWithResponse(ctx context.Context, shareId ShareId, params *GetShareParams, reqEditors ...RequestEditorFn) (*GetShareClientResponse, error) {
+	rsp, err := c.GetShare(ctx, shareId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetShareClientResponse(rsp)
+}
+
+// UpdateShareWithBodyWithResponse request with arbitrary body returning *UpdateShareClientResponse
+func (c *ClientWithResponses) UpdateShareWithBodyWithResponse(ctx context.Context, shareId ShareId, params *UpdateShareParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateShareClientResponse, error) {
+	rsp, err := c.UpdateShareWithBody(ctx, shareId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateShareClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateShareWithResponse(ctx context.Context, shareId ShareId, params *UpdateShareParams, body UpdateShareJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateShareClientResponse, error) {
+	rsp, err := c.UpdateShare(ctx, shareId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateShareClientResponse(rsp)
+}
+
+// SlackCallbackWithResponse request returning *SlackCallbackClientResponse
+func (c *ClientWithResponses) SlackCallbackWithResponse(ctx context.Context, params *SlackCallbackParams, reqEditors ...RequestEditorFn) (*SlackCallbackClientResponse, error) {
+	rsp, err := c.SlackCallback(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSlackCallbackClientResponse(rsp)
 }
 
 // ListStorageObjectsWithResponse request returning *ListStorageObjectsClientResponse
@@ -57132,6 +67817,87 @@ func (c *ClientWithResponses) DeleteImportConnectionWithResponse(ctx context.Con
 	return ParseDeleteImportConnectionClientResponse(rsp)
 }
 
+// RevokeOtherAccountSessionsWithResponse request returning *RevokeOtherAccountSessionsClientResponse
+func (c *ClientWithResponses) RevokeOtherAccountSessionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RevokeOtherAccountSessionsClientResponse, error) {
+	rsp, err := c.RevokeOtherAccountSessions(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeOtherAccountSessionsClientResponse(rsp)
+}
+
+// ListAccountSessionsWithResponse request returning *ListAccountSessionsClientResponse
+func (c *ClientWithResponses) ListAccountSessionsWithResponse(ctx context.Context, params *ListAccountSessionsParams, reqEditors ...RequestEditorFn) (*ListAccountSessionsClientResponse, error) {
+	rsp, err := c.ListAccountSessions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAccountSessionsClientResponse(rsp)
+}
+
+// RevokeAccountSessionWithResponse request returning *RevokeAccountSessionClientResponse
+func (c *ClientWithResponses) RevokeAccountSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*RevokeAccountSessionClientResponse, error) {
+	rsp, err := c.RevokeAccountSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeAccountSessionClientResponse(rsp)
+}
+
+// ListSlackChannelsWithResponse request returning *ListSlackChannelsClientResponse
+func (c *ClientWithResponses) ListSlackChannelsWithResponse(ctx context.Context, params *ListSlackChannelsParams, reqEditors ...RequestEditorFn) (*ListSlackChannelsClientResponse, error) {
+	rsp, err := c.ListSlackChannels(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSlackChannelsClientResponse(rsp)
+}
+
+// ListSlackConnectionsWithResponse request returning *ListSlackConnectionsClientResponse
+func (c *ClientWithResponses) ListSlackConnectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSlackConnectionsClientResponse, error) {
+	rsp, err := c.ListSlackConnections(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSlackConnectionsClientResponse(rsp)
+}
+
+// StartSlackConnectWithResponse request returning *StartSlackConnectClientResponse
+func (c *ClientWithResponses) StartSlackConnectWithResponse(ctx context.Context, params *StartSlackConnectParams, reqEditors ...RequestEditorFn) (*StartSlackConnectClientResponse, error) {
+	rsp, err := c.StartSlackConnect(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartSlackConnectClientResponse(rsp)
+}
+
+// DeleteSlackConnectionWithResponse request returning *DeleteSlackConnectionClientResponse
+func (c *ClientWithResponses) DeleteSlackConnectionWithResponse(ctx context.Context, connectionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSlackConnectionClientResponse, error) {
+	rsp, err := c.DeleteSlackConnection(ctx, connectionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSlackConnectionClientResponse(rsp)
+}
+
+// StartSlackInstallWithResponse request returning *StartSlackInstallClientResponse
+func (c *ClientWithResponses) StartSlackInstallWithResponse(ctx context.Context, params *StartSlackInstallParams, reqEditors ...RequestEditorFn) (*StartSlackInstallClientResponse, error) {
+	rsp, err := c.StartSlackInstall(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartSlackInstallClientResponse(rsp)
+}
+
+// RevokeCurrentUserTokenWithResponse request returning *RevokeCurrentUserTokenClientResponse
+func (c *ClientWithResponses) RevokeCurrentUserTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RevokeCurrentUserTokenClientResponse, error) {
+	rsp, err := c.RevokeCurrentUserToken(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeCurrentUserTokenClientResponse(rsp)
+}
+
 // ParseAuthConfirmEmailClientResponse parses an HTTP response from a AuthConfirmEmailWithResponse call
 func ParseAuthConfirmEmailClientResponse(rsp *http.Response) (*AuthConfirmEmailClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -57292,6 +68058,13 @@ func ParseAuthForgotPasswordClientResponse(rsp *http.Response) (*AuthForgotPassw
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -57322,6 +68095,16 @@ func ParseAuthLogoutClientResponse(rsp *http.Response) (*AuthLogoutClientRespons
 	response := &AuthLogoutClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	}
 
 	return response, nil
@@ -57370,9 +68153,19 @@ func ParseAuthListOAuthProvidersClientResponse(rsp *http.Response) (*AuthListOAu
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
 			Providers *[]struct {
-				LinkedAt  *time.Time `json:"linked_at,omitempty"`
-				Provider  *string    `json:"provider,omitempty"`
-				UpdatedAt *time.Time `json:"updated_at,omitempty"`
+				LinkedAt time.Time `json:"linked_at"`
+				Provider string    `json:"provider"`
+
+				// ProviderLogin The account's login at the provider when it was
+				// linked, such as a GitHub username. It isn't updated
+				// when the user renames the account. Omitted for
+				// providers without logins.
+				ProviderLogin *string `json:"provider_login,omitempty"`
+
+				// ProviderUserId The user's account ID at the provider, as a string.
+				// It stays the same when the user renames the account.
+				ProviderUserId string    `json:"provider_user_id"`
+				UpdatedAt      time.Time `json:"updated_at"`
 			} `json:"providers,omitempty"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -57877,6 +68670,13 @@ func ParseAuthResetPasswordClientResponse(rsp *http.Response) (*AuthResetPasswor
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -57969,6 +68769,13 @@ func ParseAuthSignupAnonymousClientResponse(rsp *http.Response) (*AuthSignupAnon
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	}
 
 	return response, nil
@@ -58045,6 +68852,13 @@ func ParseAuthUpdateUserClientResponse(rsp *http.Response) (*AuthUpdateUserClien
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
@@ -59392,6 +70206,81 @@ func ParseRequestDurableApprovalClientResponse(rsp *http.Response) (*RequestDura
 	return response, nil
 }
 
+// ParseRegisterDurableCallbackClientResponse parses an HTTP response from a RegisterDurableCallbackWithResponse call
+func ParseRegisterDurableCallbackClientResponse(rsp *http.Response) (*RegisterDurableCallbackClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterDurableCallbackClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableCallbackRegistration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DurableCallbackRegistration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseFailDurableCallbackClientResponse parses an HTTP response from a FailDurableCallbackWithResponse call
 func ParseFailDurableCallbackClientResponse(rsp *http.Response) (*FailDurableCallbackClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -59699,6 +70588,67 @@ func ParseStartDurableExecutionFromApplicationClientResponse(rsp *http.Response)
 	return response, nil
 }
 
+// ParseGetDurableExecutionFromApplicationClientResponse parses an HTTP response from a GetDurableExecutionFromApplicationWithResponse call
+func ParseGetDurableExecutionFromApplicationClientResponse(rsp *http.Response) (*GetDurableExecutionFromApplicationClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDurableExecutionFromApplicationClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableExecution
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListDurableMessagesFromApplicationClientResponse parses an HTTP response from a ListDurableMessagesFromApplicationWithResponse call
 func ParseListDurableMessagesFromApplicationClientResponse(rsp *http.Response) (*ListDurableMessagesFromApplicationClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -59747,6 +70697,20 @@ func ParseListDurableMessagesFromApplicationClientResponse(rsp *http.Response) (
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -59829,6 +70793,81 @@ func ParseSendDurableMessageFromApplicationClientResponse(rsp *http.Response) (*
 			return nil, err
 		}
 		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStopDurableExecutionFromApplicationClientResponse parses an HTTP response from a StopDurableExecutionFromApplicationWithResponse call
+func ParseStopDurableExecutionFromApplicationClientResponse(rsp *http.Response) (*StopDurableExecutionFromApplicationClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StopDurableExecutionFromApplicationClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableExecution
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -60062,7 +71101,7 @@ func ParseGetDefaultEmailTemplatesClientResponse(rsp *http.Response) (*GetDefaul
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			Data *[]EmailTemplate `json:"data,omitempty"`
+			Data *[]DefaultEmailTemplate `json:"data,omitempty"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -60089,11 +71128,114 @@ func ParseGetDefaultEmailTemplateClientResponse(rsp *http.Response) (*GetDefault
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest EmailTemplate
+		var dest DefaultEmailTemplate
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateForkClientResponse parses an HTTP response from a CreateForkWithResponse call
+func ParseCreateForkClientResponse(rsp *http.Response) (*CreateForkClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateForkClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Project
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 451:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON451 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -60698,6 +71840,142 @@ func ParseListImportSourcesClientResponse(rsp *http.Response) (*ListImportSource
 	return response, nil
 }
 
+// ParseListLavaflowGlobalSkillsClientResponse parses an HTTP response from a ListLavaflowGlobalSkillsWithResponse call
+func ParseListLavaflowGlobalSkillsClientResponse(rsp *http.Response) (*ListLavaflowGlobalSkillsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLavaflowGlobalSkillsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowGlobalSkillList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateLavaflowHeldFixOpenClientResponse parses an HTTP response from a CreateLavaflowHeldFixOpenWithResponse call
+func ParseCreateLavaflowHeldFixOpenClientResponse(rsp *http.Response) (*CreateLavaflowHeldFixOpenClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLavaflowHeldFixOpenClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest LavaflowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListLavaflowResourcesClientResponse parses an HTTP response from a ListLavaflowResourcesWithResponse call
 func ParseListLavaflowResourcesClientResponse(rsp *http.Response) (*ListLavaflowResourcesClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -60935,6 +72213,60 @@ func ParseGetLavaflowRunClientResponse(rsp *http.Response) (*GetLavaflowRunClien
 	return response, nil
 }
 
+// ParseListLavaflowScansClientResponse parses an HTTP response from a ListLavaflowScansWithResponse call
+func ParseListLavaflowScansClientResponse(rsp *http.Response) (*ListLavaflowScansClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLavaflowScansClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedLavaflowScans
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetLavaflowSettingsClientResponse parses an HTTP response from a GetLavaflowSettingsWithResponse call
 func ParseGetLavaflowSettingsClientResponse(rsp *http.Response) (*GetLavaflowSettingsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -60983,6 +72315,88 @@ func ParseGetLavaflowSettingsClientResponse(rsp *http.Response) (*GetLavaflowSet
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePatchLavaflowSettingsClientResponse parses an HTTP response from a PatchLavaflowSettingsWithResponse call
+func ParsePatchLavaflowSettingsClientResponse(rsp *http.Response) (*PatchLavaflowSettingsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PatchLavaflowSettingsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -61065,6 +72479,466 @@ func ParseUpdateLavaflowSettingsClientResponse(rsp *http.Response) (*UpdateLavaf
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLavaflowSkillVersionsClientResponse parses an HTTP response from a ListLavaflowSkillVersionsWithResponse call
+func ParseListLavaflowSkillVersionsClientResponse(rsp *http.Response) (*ListLavaflowSkillVersionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLavaflowSkillVersionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSkillVersionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLavaflowSkillsClientResponse parses an HTTP response from a ListLavaflowSkillsWithResponse call
+func ParseListLavaflowSkillsClientResponse(rsp *http.Response) (*ListLavaflowSkillsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLavaflowSkillsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSkillList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteLavaflowSkillClientResponse parses an HTTP response from a DeleteLavaflowSkillWithResponse call
+func ParseDeleteLavaflowSkillClientResponse(rsp *http.Response) (*DeleteLavaflowSkillClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteLavaflowSkillClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLavaflowSkillClientResponse parses an HTTP response from a GetLavaflowSkillWithResponse call
+func ParseGetLavaflowSkillClientResponse(rsp *http.Response) (*GetLavaflowSkillClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLavaflowSkillClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSkill
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateLavaflowSkillClientResponse parses an HTTP response from a UpdateLavaflowSkillWithResponse call
+func ParseUpdateLavaflowSkillClientResponse(rsp *http.Response) (*UpdateLavaflowSkillClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateLavaflowSkillClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSkill
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest LavaflowSkillError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLavaflowSlackChannelsClientResponse parses an HTTP response from a ListLavaflowSlackChannelsWithResponse call
+func ParseListLavaflowSlackChannelsClientResponse(rsp *http.Response) (*ListLavaflowSlackChannelsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLavaflowSlackChannelsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSlackChannelsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseBindLavaflowSlackChannelClientResponse parses an HTTP response from a BindLavaflowSlackChannelWithResponse call
+func ParseBindLavaflowSlackChannelClientResponse(rsp *http.Response) (*BindLavaflowSlackChannelClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &BindLavaflowSlackChannelClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaflowSlackChannel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest LavaflowSlackChannel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUnbindLavaflowSlackChannelClientResponse parses an HTTP response from a UnbindLavaflowSlackChannelWithResponse call
+func ParseUnbindLavaflowSlackChannelClientResponse(rsp *http.Response) (*UnbindLavaflowSlackChannelClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnbindLavaflowSlackChannelClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
@@ -62169,6 +74043,20 @@ func ParseCreateAnonKeyClientResponse(rsp *http.Response) (*CreateAnonKeyClientR
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil
@@ -62254,6 +74142,13 @@ func ParseRegenerateAnonKeyClientResponse(rsp *http.Response) (*RegenerateAnonKe
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	}
 
 	return response, nil
@@ -62279,6 +74174,13 @@ func ParseSetDefaultAnonKeyClientResponse(rsp *http.Response) (*SetDefaultAnonKe
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
@@ -62338,6 +74240,13 @@ func ParseUpdateAuthConfigClientResponse(rsp *http.Response) (*UpdateAuthConfigC
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error
@@ -64205,6 +76114,241 @@ func ParseResetDatabaseBranchPasswordClientResponse(rsp *http.Response) (*ResetD
 	return response, nil
 }
 
+// ParseListDatabaseMigrationRunsClientResponse parses an HTTP response from a ListDatabaseMigrationRunsWithResponse call
+func ParseListDatabaseMigrationRunsClientResponse(rsp *http.Response) (*ListDatabaseMigrationRunsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDatabaseMigrationRunsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseMigrationRunList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDatabaseMigrationRunClientResponse parses an HTTP response from a CreateDatabaseMigrationRunWithResponse call
+func ParseCreateDatabaseMigrationRunClientResponse(rsp *http.Response) (*CreateDatabaseMigrationRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDatabaseMigrationRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseMigrationRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest DatabaseMigrationRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DatabaseMigrationConflictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDatabaseMigrationRunClientResponse parses an HTTP response from a GetDatabaseMigrationRunWithResponse call
+func ParseGetDatabaseMigrationRunClientResponse(rsp *http.Response) (*GetDatabaseMigrationRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDatabaseMigrationRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseMigrationRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDatabaseMigrationsClientResponse parses an HTTP response from a GetDatabaseMigrationsWithResponse call
+func ParseGetDatabaseMigrationsClientResponse(rsp *http.Response) (*GetDatabaseMigrationsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDatabaseMigrationsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseMigrations
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseBaselineDatabaseMigrationsClientResponse parses an HTTP response from a BaselineDatabaseMigrationsWithResponse call
+func ParseBaselineDatabaseMigrationsClientResponse(rsp *http.Response) (*BaselineDatabaseMigrationsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &BaselineDatabaseMigrationsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseMigrationBaseline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DatabaseMigrationConflictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetProjectDatabaseQueriesClientResponse parses an HTTP response from a GetProjectDatabaseQueriesWithResponse call
 func ParseGetProjectDatabaseQueriesClientResponse(rsp *http.Response) (*GetProjectDatabaseQueriesClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -64420,7 +76564,7 @@ func ParseCreateDatabaseRestoreClientResponse(rsp *http.Response) (*CreateDataba
 		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Error
+		var dest DatabaseRestoreConflictError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -64553,12 +76697,47 @@ func ParseUpdateDatabaseTypeClientResponse(rsp *http.Response) (*UpdateDatabaseT
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
@@ -65411,6 +77590,13 @@ func ParseSendDurableMessageClientResponse(rsp *http.Response) (*SendDurableMess
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -65864,6 +78050,13 @@ func ParseUpdateEmailTemplateClientResponse(rsp *http.Response) (*UpdateEmailTem
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error
@@ -66816,6 +79009,13 @@ func ParseDeleteFrontendCustomDomainClientResponse(rsp *http.Response) (*DeleteF
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
@@ -68693,6 +80893,74 @@ func ParseConnectProjectGitClientResponse(rsp *http.Response) (*ConnectProjectGi
 	return response, nil
 }
 
+// ParseGetProjectGitOwnerPushClientResponse parses an HTTP response from a GetProjectGitOwnerPushWithResponse call
+func ParseGetProjectGitOwnerPushClientResponse(rsp *http.Response) (*GetProjectGitOwnerPushClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectGitOwnerPushClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectGitOwnerPush
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseSetProjectGitProductionBranchClientResponse parses an HTTP response from a SetProjectGitProductionBranchWithResponse call
 func ParseSetProjectGitProductionBranchClientResponse(rsp *http.Response) (*SetProjectGitProductionBranchClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -68958,6 +81226,107 @@ func ParseUpdateProjectGitDeploySettingsClientResponse(rsp *http.Response) (*Upd
 	return response, nil
 }
 
+// ParseListGitDeploymentRunsClientResponse parses an HTTP response from a ListGitDeploymentRunsWithResponse call
+func ParseListGitDeploymentRunsClientResponse(rsp *http.Response) (*ListGitDeploymentRunsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGitDeploymentRunsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedGitDeploymentRuns
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGitDeploymentRunClientResponse parses an HTTP response from a GetGitDeploymentRunWithResponse call
+func ParseGetGitDeploymentRunClientResponse(rsp *http.Response) (*GetGitDeploymentRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGitDeploymentRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GitDeploymentRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetProjectHealthClientResponse parses an HTTP response from a GetProjectHealthWithResponse call
 func ParseGetProjectHealthClientResponse(rsp *http.Response) (*GetProjectHealthClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -69006,6 +81375,119 @@ func ParseGetProjectHealthClientResponse(rsp *http.Response) (*GetProjectHealthC
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListIssuesClientResponse parses an HTTP response from a ListIssuesWithResponse call
+func ParseListIssuesClientResponse(rsp *http.Response) (*ListIssuesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListIssuesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedIssues
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetIssueClientResponse parses an HTTP response from a GetIssueWithResponse call
+func ParseGetIssueClientResponse(rsp *http.Response) (*GetIssueClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIssueClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Issue
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateIssueClientResponse parses an HTTP response from a UpdateIssueWithResponse call
+func ParseUpdateIssueClientResponse(rsp *http.Response) (*UpdateIssueClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateIssueClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Issue
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
@@ -70333,6 +82815,20 @@ func ParseCreateServiceKeyClientResponse(rsp *http.Response) (*CreateServiceKeyC
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil
@@ -70375,6 +82871,13 @@ func ParseGetServiceKeyClientResponse(rsp *http.Response) (*GetServiceKeyClientR
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	}
 
 	return response, nil
@@ -70400,6 +82903,13 @@ func ParseRegenerateServiceKeyClientResponse(rsp *http.Response) (*RegenerateSer
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 
@@ -70854,6 +83364,16 @@ func ParseDeleteStoragePolicyClientResponse(rsp *http.Response) (*DeleteStorageP
 	response := &DeleteStoragePolicyClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	}
 
 	return response, nil
@@ -71447,12 +83967,118 @@ func ParseDownloadPublicFileClientResponse(rsp *http.Response) (*DownloadPublicF
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 416:
+		var dest StorageRangeNotSatisfiable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON416 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
 		var dest BandwidthCapExceeded
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSandboxFileArchiveClientResponse parses an HTTP response from a CreateSandboxFileArchiveWithResponse call
+func ParseCreateSandboxFileArchiveClientResponse(rsp *http.Response) (*CreateSandboxFileArchiveClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSandboxFileArchiveClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SandboxFileArchive
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSandboxFilePartClientResponse parses an HTTP response from a CreateSandboxFilePartWithResponse call
+func ParseCreateSandboxFilePartClientResponse(rsp *http.Response) (*CreateSandboxFilePartClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSandboxFilePartClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SandboxFilePart
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSandboxSessionFilesClientResponse parses an HTTP response from a ListSandboxSessionFilesWithResponse call
+func ParseListSandboxSessionFilesClientResponse(rsp *http.Response) (*ListSandboxSessionFilesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSandboxSessionFilesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxFileListResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -71801,6 +84427,691 @@ func ParseListSandboxPresetsClientResponse(rsp *http.Response) (*ListSandboxPres
 	return response, nil
 }
 
+// ParseGetSharePreviewClientResponse parses an HTTP response from a GetSharePreviewWithResponse call
+func ParseGetSharePreviewClientResponse(rsp *http.Response) (*GetSharePreviewClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSharePreviewClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SharePreview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 451:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON451 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetShareReleaseDraftClientResponse parses an HTTP response from a GetShareReleaseDraftWithResponse call
+func ParseGetShareReleaseDraftClientResponse(rsp *http.Response) (*GetShareReleaseDraftClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetShareReleaseDraftClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ShareReleaseDraft
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListShareReleasesClientResponse parses an HTTP response from a ListShareReleasesWithResponse call
+func ParseListShareReleasesClientResponse(rsp *http.Response) (*ListShareReleasesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListShareReleasesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedShareReleases
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePublishShareReleaseClientResponse parses an HTTP response from a PublishShareReleaseWithResponse call
+func ParsePublishShareReleaseClientResponse(rsp *http.Response) (*PublishShareReleaseClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PublishShareReleaseClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ShareRelease
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ShareDraftChangedError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetShareStatsClientResponse parses an HTTP response from a GetShareStatsWithResponse call
+func ParseGetShareStatsClientResponse(rsp *http.Response) (*GetShareStatsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetShareStatsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ShareStats
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSharesClientResponse parses an HTTP response from a ListSharesWithResponse call
+func ParseListSharesClientResponse(rsp *http.Response) (*ListSharesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSharesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SharesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateShareClientResponse parses an HTTP response from a CreateShareWithResponse call
+func ParseCreateShareClientResponse(rsp *http.Response) (*CreateShareClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateShareClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Share
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteShareClientResponse parses an HTTP response from a DeleteShareWithResponse call
+func ParseDeleteShareClientResponse(rsp *http.Response) (*DeleteShareClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteShareClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetShareClientResponse parses an HTTP response from a GetShareWithResponse call
+func ParseGetShareClientResponse(rsp *http.Response) (*GetShareClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetShareClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Share
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateShareClientResponse parses an HTTP response from a UpdateShareWithResponse call
+func ParseUpdateShareClientResponse(rsp *http.Response) (*UpdateShareClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateShareClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Share
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSlackCallbackClientResponse parses an HTTP response from a SlackCallbackWithResponse call
+func ParseSlackCallbackClientResponse(rsp *http.Response) (*SlackCallbackClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SlackCallbackClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListStorageObjectsClientResponse parses an HTTP response from a ListStorageObjectsWithResponse call
 func ParseListStorageObjectsClientResponse(rsp *http.Response) (*ListStorageObjectsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -71946,6 +85257,13 @@ func ParseDownloadStorageObjectClientResponse(rsp *http.Response) (*DownloadStor
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 416:
+		var dest StorageRangeNotSatisfiable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON416 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
 		var dest BandwidthCapExceeded
@@ -72656,6 +85974,436 @@ func ParseDeleteImportConnectionClientResponse(rsp *http.Response) (*DeleteImpor
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeOtherAccountSessionsClientResponse parses an HTTP response from a RevokeOtherAccountSessionsWithResponse call
+func ParseRevokeOtherAccountSessionsClientResponse(rsp *http.Response) (*RevokeOtherAccountSessionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeOtherAccountSessionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAccountSessionsClientResponse parses an HTTP response from a ListAccountSessionsWithResponse call
+func ParseListAccountSessionsClientResponse(rsp *http.Response) (*ListAccountSessionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAccountSessionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccountSessionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeAccountSessionClientResponse parses an HTTP response from a RevokeAccountSessionWithResponse call
+func ParseRevokeAccountSessionClientResponse(rsp *http.Response) (*RevokeAccountSessionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeAccountSessionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSlackChannelsClientResponse parses an HTTP response from a ListSlackChannelsWithResponse call
+func ParseListSlackChannelsClientResponse(rsp *http.Response) (*ListSlackChannelsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSlackChannelsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SlackChannelsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSlackConnectionsClientResponse parses an HTTP response from a ListSlackConnectionsWithResponse call
+func ParseListSlackConnectionsClientResponse(rsp *http.Response) (*ListSlackConnectionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSlackConnectionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SlackConnectionsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartSlackConnectClientResponse parses an HTTP response from a StartSlackConnectWithResponse call
+func ParseStartSlackConnectClientResponse(rsp *http.Response) (*StartSlackConnectClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartSlackConnectClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SlackAuthorizationResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteSlackConnectionClientResponse parses an HTTP response from a DeleteSlackConnectionWithResponse call
+func ParseDeleteSlackConnectionClientResponse(rsp *http.Response) (*DeleteSlackConnectionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSlackConnectionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartSlackInstallClientResponse parses an HTTP response from a StartSlackInstallWithResponse call
+func ParseStartSlackInstallClientResponse(rsp *http.Response) (*StartSlackInstallClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartSlackInstallClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SlackAuthorizationResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeCurrentUserTokenClientResponse parses an HTTP response from a RevokeCurrentUserTokenWithResponse call
+func ParseRevokeCurrentUserTokenClientResponse(rsp *http.Response) (*RevokeCurrentUserTokenClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeCurrentUserTokenClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 

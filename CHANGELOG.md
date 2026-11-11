@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.75.3](https://github.com/Kong/volcano-cli/compare/v0.75.2...v0.75.3) (2026-11-10)
+
+
+### Bug Fixes
+
+* **localmode:** serve HTTP-mode functions on *.functions.localhost ([#467](https://github.com/Kong/volcano-cli/issues/467)) ([378ebcb](https://github.com/Kong/volcano-cli/commit/378ebcbae8b032aedfb70716e4f05a6230413df0))
+
+## [0.75.2](https://github.com/Kong/volcano-cli/compare/v0.75.1...v0.75.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* **deploy:** say the config step applies declared visibility instead of pointing at config deploy ([#469](https://github.com/Kong/volcano-cli/issues/469)) ([3687ef0](https://github.com/Kong/volcano-cli/commit/3687ef0ebe1273b592ffce40b8e570357a156309))
+
+## [0.75.1](https://github.com/Kong/volcano-cli/compare/v0.75.0...v0.75.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **localmode:** check for the Docker Compose plugin before start and restart ([#407](https://github.com/Kong/volcano-cli/issues/407)) ([21f9db8](https://github.com/Kong/volcano-cli/commit/21f9db8e936db6b92681458fb5096f849256a931))
+
+## [0.75.0](https://github.com/Kong/volcano-cli/compare/v0.74.0...v0.75.0) (2026-11-07)
+
+
+### Features
+
+* **share:** volcano share and volcano fork on the /shares and /forks API ([#355](https://github.com/Kong/volcano-cli/issues/355)) ([6d65c70](https://github.com/Kong/volcano-cli/commit/6d65c70fe25a18c8d830fa810ce913252dd1e871))
+
+## [0.74.0](https://github.com/Kong/volcano-cli/compare/v0.73.0...v0.74.0) (2026-11-07)
+
+
+### Features
+
+* **lavaflow:** say why a fix's review stopped and whether its tests ran ([#460](https://github.com/Kong/volcano-cli/issues/460)) ([65ed9e0](https://github.com/Kong/volcano-cli/commit/65ed9e0b5bffba4b49517c3453463d9735ee603b))
+
+## [0.73.0](https://github.com/Kong/volcano-cli/compare/v0.72.2...v0.73.0) (2026-11-06)
+
+
+### Features
+
+* **deployments:** show the commit a deployment reported ([#456](https://github.com/Kong/volcano-cli/issues/456)) ([1d5cd0c](https://github.com/Kong/volcano-cli/commit/1d5cd0c7b24c7c072f9bfd5d24291021caffce6f))
+
 ## [0.72.2](https://github.com/Kong/volcano-cli/compare/v0.72.1...v0.72.2) (2026-11-06)
 
 
