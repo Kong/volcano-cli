@@ -130,7 +130,7 @@ func requireAPIE2EServedPreviewRefusals(t *testing.T, env *apiE2E) {
 	env.runCloudCLI(t, "functions", "preview", "promote", "hello", "next").
 		requireFailure(t, "failed to promote preview \"next\"", "the candidate already serves")
 	env.runCloudCLI(t, "functions", "preview", "delete", "hello", "next", "--yes").
-		requireFailure(t, "failed to delete preview \"next\"", "the preview is what its frontend or function runs")
+		requireFailure(t, "failed to delete preview \"next\"", "the preview is what its frontend or function serves")
 	writeAPIE2EFunctionVersion(t, env.projectDir, "preview-v3")
 	env.runCloudCLI(t, "functions", "preview", "deploy", "hello", "next").
 		requireFailure(t, "failed to deploy preview \"next\"", "the target serves or is kept for a rollback")
