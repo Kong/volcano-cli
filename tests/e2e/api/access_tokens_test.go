@@ -46,6 +46,9 @@ func TestAPIE2ESmokeAccessTokens(t *testing.T) {
 
 	// The minted token authenticates project-scoped commands...
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "variables", "list").requireSuccess(t)
+	// ...a job that never ran `volcano use` names the project per command...
+	env.runCloudCLIWithEnv(t, []string{"HOME=" + t.TempDir(), "VOLCANO_TOKEN=" + secret},
+		"variables", "list", "--project", env.projectID).requireSuccess(t)
 	// ...and the deprecated VOLCANO_PROJECT_ID still selects its project, with
 	// a warning.
 	deprecatedEnv := []string{"HOME=" + t.TempDir(), "VOLCANO_TOKEN=" + secret, "VOLCANO_PROJECT_ID=" + env.projectID}
