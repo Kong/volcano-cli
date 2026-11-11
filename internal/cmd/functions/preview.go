@@ -351,10 +351,8 @@ func functionSource(ctx context.Context, service clifunction.Service, baseDir, n
 	if err != nil {
 		return clifunction.SourceInfo{}, fmt.Errorf("failed to scan functions: %w", err)
 	}
-	for _, source := range sources {
-		if clifunction.MatchesTarget(source, name, baseDir) {
-			return source, nil
-		}
+	if source, found := clifunction.FindTarget(sources, name, baseDir); found {
+		return source, nil
 	}
 	return clifunction.SourceInfo{}, fmt.Errorf("no source for function %q under %s", name, filepath.Join(baseDir, "volcano", "functions"))
 }
