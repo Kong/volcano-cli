@@ -29,12 +29,22 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cloud",
 		Short: "Manage cloud resources",
-		Long:  "Manage resources in the current Volcano cloud project.",
-		Args:  cobra.NoArgs,
+		Long: `Manage resources in the current Volcano cloud project.
+
+Every cloud command takes --project <name-or-id> to run against another
+project for that one command, without changing the active project.`,
+		Example: `  volcano cloud functions list --project my-app
+  volcano cloud lavaflow status --project eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}
+	project := &projectFlag{}
+	// The flag is resolved with the unwrapped loader: resolving it needs only
+	// the credential, not a project.
+	project.register(cmd, deps)
+	deps.ConfigLoader = project.configLoader(deps.ConfigLoader)
 	cmd.AddCommand(NewResourceCommands(deps)...)
 	return cmd
 }

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -468,6 +469,30 @@ func TestProjectIDFromEnvRecordsAUse(t *testing.T) {
 	(&Config{}).ProjectID()
 	assert.True(t, ConsumeProjectEnvUse())
 	assert.False(t, ConsumeProjectEnvUse(), "consuming clears the record")
+}
+
+// The --project flag outranks VOLCANO_PROJECT_ID, the link, and the saved
+// project, and reading it is not a use of the deprecated variable.
+func TestProjectOverrideOutranksEverySelection(t *testing.T) {
+	ConsumeProjectEnvUse()
+	t.Cleanup(func() { ConsumeProjectEnvUse() })
+	t.Setenv(envProjectID, "env-project")
+
+	override := &ProjectConfig{ID: "flag-project", Name: "Flag"}
+	cfg := &Config{
+		CurrentProject:  &ProjectConfig{ID: "saved-project"},
+		Link:            &Link{Project: ProjectConfig{ID: "linked-project"}},
+		ProjectOverride: override,
+	}
+	assert.Equal(t, "flag-project", cfg.ProjectID())
+	assert.Equal(t, "flag-project", cfg.SelectedProjectID())
+	assert.Equal(t, override, cfg.Project())
+	require.NoError(t, cfg.RequireProject())
+	assert.False(t, ConsumeProjectEnvUse())
+
+	data, err := json.Marshal(cfg)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "flag-project", "the override is never saved")
 }
 
 func TestIsProjectToken(t *testing.T) {

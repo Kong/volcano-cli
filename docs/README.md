@@ -146,6 +146,19 @@ suggests `volcano projects create <name>`.
 Inside a directory linked with `volcano connect`, commands use the linked
 project. See [connect.md](connect.md#linked-directories).
 
+To run one `volcano cloud` command against another project, pass
+`--project <name-or-id>`. Every `volcano cloud` subcommand accepts it, and it
+leaves the active project and any link unchanged:
+
+```bash
+volcano cloud functions list --project my-app
+volcano cloud lavaflow status --project eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
+```
+
+`--project` takes an exact project name or ID, like `volcano use`. A project
+it does not find fails the command before it runs, and exits `4`. Local
+commands refuse `--project`: local development has one project.
+
 ### Create a project from a cloud template
 
 Use `--template` to install a complete app in a new cloud project:

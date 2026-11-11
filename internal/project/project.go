@@ -216,6 +216,17 @@ func (s Service) Use(ctx context.Context, identifier string) (UseResult, error) 
 	return UseResult{Project: selected, SavedTo: "~/.volcano/config.json"}, saveCurrentProject(selected)
 }
 
+// Resolve finds the project an exact ID or exact name names, as Use does,
+// without selecting it. It fails the same way Use does for a project that is
+// not there.
+func (s Service) Resolve(ctx context.Context, identifier string) (*apiclient.Project, error) {
+	authenticated, err := s.sessions.Authenticated()
+	if err != nil {
+		return nil, err
+	}
+	return resolveProject(ctx, authenticated, strings.TrimSpace(identifier))
+}
+
 // CheckProjectOverride refuses to relink a directory while VOLCANO_PROJECT_ID
 // names a project other than selectedID. Commands would keep running against
 // that project, and the cloud env file would deploy the selected project's

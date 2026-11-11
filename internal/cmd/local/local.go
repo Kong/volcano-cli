@@ -3,6 +3,7 @@ package local
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -47,7 +48,7 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 	// Project usage requires the local user token, not the Sandbox service key.
 	usageDeps.LocalMode = false
 
-	return []*cobra.Command{
+	return refuseProjectFlag([]*cobra.Command{
 		sandboxescmd.NewLocal(withLocalSandboxConfig(deps, cache), usageDeps),
 		databasescmd.NewLocalWithOptions(localDeps, databasescmd.LocalOptions{
 			CreateDefaults: cache.databaseCreateDefaults,
@@ -67,7 +68,32 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 		domainscmd.NewCloudOnly(),
 		lavaflowcmd.NewCloudOnly(),
 		newReset(deps),
+	})
+}
+
+// errLocalProjectFlag is a local command's answer to --project.
+var errLocalProjectFlag = errors.New("--project selects a cloud project, and local development has only one project. " +
+	"Drop --project, or run the command under 'volcano cloud' to use a cloud project")
+
+// refuseProjectFlag gives each local command a hidden --project that fails
+// with errLocalProjectFlag, so `volcano cloud --project` used on a local
+// command says why instead of reporting an unknown flag. Cloud-only commands
+// parse no flags and refuse on their own.
+func refuseProjectFlag(cmds []*cobra.Command) []*cobra.Command {
+	for _, cmd := range cmds {
+		if cmd.DisableFlagParsing {
+			continue
+		}
+		cmd.PersistentFlags().String("project", "", "")
+		_ = cmd.PersistentFlags().MarkHidden("project")
+		cmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+			if cmd.Flags().Changed("project") {
+				return errLocalProjectFlag
+			}
+			return nil
+		}
 	}
+	return cmds
 }
 
 // New returns the deprecated local command tree.

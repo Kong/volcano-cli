@@ -71,6 +71,10 @@ type Config struct {
 	AnonKey        string         `json:"-"`
 	ServiceKey     string         `json:"-"`
 	CurrentProject *ProjectConfig `json:"current_project,omitempty"`
+	// ProjectOverride is the project `volcano cloud --project` chose for this
+	// run. It outranks every other selection and is never saved, so the flag
+	// leaves the project `volcano use` saved, and any link, unchanged.
+	ProjectOverride *ProjectConfig `json:"-"`
 	// Link is the working directory's project link, found by Load. It is never
 	// saved here: the link lives in the linked directory.
 	Link *Link `json:"-"`
@@ -358,9 +362,14 @@ func (c *Config) FunctionInvokeToken() string {
 	return c.Token()
 }
 
-// ProjectID returns the current project ID, with VOLCANO_PROJECT_ID taking precedence unless env overrides are disabled.
-// Precedence: env > the working directory's link > the project `volcano use` saved.
+// ProjectID returns the current project ID.
+// Precedence: the --project flag > VOLCANO_PROJECT_ID (unless env overrides
+// are disabled) > the working directory's link > the project `volcano use`
+// saved.
 func (c *Config) ProjectID() string {
+	if c.ProjectOverride != nil {
+		return c.ProjectOverride.ID
+	}
 	if projectID := c.ProjectIDFromEnv(); projectID != "" {
 		return projectID
 	}
@@ -375,6 +384,9 @@ func (c *Config) ProjectID() string {
 // rather than running against it. A recorded use prints the deprecation
 // warning after the command.
 func (c *Config) SelectedProjectID() string {
+	if c.ProjectOverride != nil {
+		return c.ProjectOverride.ID
+	}
 	if projectID := c.envProjectID(); projectID != "" {
 		return projectID
 	}
@@ -385,9 +397,13 @@ func (c *Config) SelectedProjectID() string {
 }
 
 // Project returns the selected project without the VOLCANO_PROJECT_ID
-// override: the working directory's link, else the project `volcano use`
-// saved. Nil when neither is set.
+// override: the project the --project flag chose, else the working
+// directory's link, else the project `volcano use` saved. Nil when none is
+// set.
 func (c *Config) Project() *ProjectConfig {
+	if c.ProjectOverride != nil {
+		return c.ProjectOverride
+	}
 	if c.Link != nil {
 		return &c.Link.Project
 	}
