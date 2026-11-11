@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.76.0](https://github.com/Kong/volcano-cli/compare/v0.75.3...v0.76.0) (2026-11-11)
+
+
+### Features
+
+* **cli:** add --project to every volcano cloud command ([#474](https://github.com/Kong/volcano-cli/issues/474)) ([a7e498e](https://github.com/Kong/volcano-cli/commit/a7e498eb58ba3e8bb07ef8cf7e988ef9092567c2))
+* **functions:** deploy TypeScript function handlers ([#428](https://github.com/Kong/volcano-cli/issues/428)) ([ddabc5e](https://github.com/Kong/volcano-cli/commit/ddabc5eda991d526616e0867db1eb87455a56d8c))
+
 ## [0.75.3](https://github.com/Kong/volcano-cli/compare/v0.75.2...v0.75.3) (2026-11-10)
 
 
