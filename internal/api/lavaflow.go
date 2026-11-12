@@ -44,8 +44,8 @@ func (c *Client) GetLavaflowSettings(ctx context.Context, projectID uuid.UUID) (
 // UpdateLavaflowSettings changes a project's LavaFlow settings, naming the
 // project in the body, with PATCH. An omitted field keeps its value. Only
 // the project's owner may, with a platform token: a project access token can
-// only turn Code Quality or skill learning off, and gets 403 person_required
-// for anything else.
+// only turn Code Quality off, and gets 403 person_required for anything
+// else.
 func (c *Client) UpdateLavaflowSettings(
 	ctx context.Context, projectID uuid.UUID, body apiclient.LavaflowSettingsUpdate,
 ) (*apiclient.LavaflowSettings, error) {
