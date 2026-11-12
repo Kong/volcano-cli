@@ -106,8 +106,8 @@ project access token. See
 
 ### Delegated grants
 
-A delegated grant (`pg-`) is what a Volcano app, such as the Builder, uses to
-act on a project you consented to. It reaches one project, lasts minutes, and
+A delegated grant (`pg-`) is what a Volcano app uses to act on a project you
+consented to. It reaches one project, lasts minutes, and
 works only for what you consented to, such as deploys, config, variable
 writes, and migrations. Pass it in `VOLCANO_TOKEN`; `volcano login --token`
 refuses one, because it would outlast the run it was made for. Commands outside
