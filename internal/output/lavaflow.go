@@ -392,13 +392,6 @@ func lavaflowAllowedWorkflow(workflow apiclient.LavaflowAllowedWorkflow) string 
 	}
 }
 
-func setOrNot(text string) string {
-	if strings.TrimSpace(text) == "" {
-		return "not set"
-	}
-	return fmt.Sprintf("set (%d characters)", len([]rune(text)))
-}
-
 // lavaflowMergeAvailability says whether LavaFlow can merge its fixes. The
 // API gives no reason when it can't. While LavaFlow is on and available at
 // autonomy merge, merging was on and is paused: a waiting fix merges once
