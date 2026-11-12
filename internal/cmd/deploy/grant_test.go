@@ -2,7 +2,6 @@ package deploy
 
 import (
 	"net/http"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -16,8 +15,9 @@ import (
 
 // grantRouteTable is Hosting's delegated grant route table, copied from
 // DefaultGrantRoutes() in internal/middleware/delegated_grant_routes.go at
-// Kong/volcano-hosting 1749144404 (C3, #3313). A pg- grant is refused on any
-// other route with 403 grant_route_not_allowed. Update it with that file.
+// Kong/volcano-hosting cf392bf5e5 (tkkhq/grant-acceptance-routes, C2, #3312).
+// A pg- grant is refused on any other route with 403 grant_route_not_allowed.
+// Update it with that file.
 var grantRouteTable = []string{
 	"GET /projects/{id}", "GET /projects/{id}/capabilities", "GET /projects/{id}/config",
 	"GET /projects/{id}/deployments", "POST /projects/{id}/logs/search", "POST /projects/{id}/logs/stream",
@@ -27,6 +27,7 @@ var grantRouteTable = []string{
 	"GET /projects/{id}/durable-functions", "GET /projects/{id}/durable-functions/{functionId}",
 	"GET /projects/{id}/frontends", "GET /projects/{id}/frontends/{frontendId}",
 	"GET /projects/{id}/frontends/{frontendId}/deployments", "GET /projects/{id}/frontends/{frontendId}/serving",
+	"GET /projects/{id}/source-export",
 	"POST /projects/{id}/functions", "POST /projects/{id}/functions/batch", "PATCH /projects/{id}/functions/{functionId}",
 	"POST /projects/{id}/functions/{functionId}/schedulers",
 	"PATCH /projects/{id}/functions/{functionId}/schedulers/{schedulerId}",
@@ -37,6 +38,7 @@ var grantRouteTable = []string{
 	"GET /projects/{id}/databases/{databaseName}/migrations", "GET /projects/{id}/databases/{databaseName}/migration-runs",
 	"GET /projects/{id}/databases/{databaseName}/migration-runs/{runId}",
 	"POST /projects/{id}/databases/{databaseName}/migration-runs",
+	"POST /projects/{id}/databases/{databaseName}/migrations/baseline",
 	"POST /projects/{id}/frontends", "POST /projects/{id}/frontends/{frontendId}/deployments",
 	"POST /projects/{id}/frontends/{frontendId}/redeploy",
 }
@@ -74,15 +76,13 @@ type grantGate struct {
 	mu      sync.Mutex
 	refused []string
 	auth    []string
-	// also lets a grant call these "METHOD path" requests too.
-	also []string
-	next http.HandlerFunc
+	next    http.HandlerFunc
 }
 
 func (g *grantGate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	g.mu.Lock()
 	g.auth = append(g.auth, r.Header.Get("Authorization"))
-	if !grantMayCall(r.Method, r.URL.Path) && !slices.Contains(g.also, r.Method+" "+r.URL.Path) {
+	if !grantMayCall(r.Method, r.URL.Path) {
 		g.refused = append(g.refused, r.Method+" "+r.URL.Path)
 		g.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
@@ -94,37 +94,14 @@ func (g *grantGate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	g.next(w, r)
 }
 
-// sourceExportRead is the read `volcano cloud deploy` makes before deploying
-// code, to refuse a project that deploys from Git. It is not on the grant
-// table yet, so a whole-project deploy fails under a grant until Hosting adds
-// it (as project.read). Per-resource deploys don't make it.
-const sourceExportRead = "GET /projects/" + deployProjectID + "/source-export"
-
-func TestDeployUnderAGrantIsRefusedTheSourceModeRead(t *testing.T) {
+// Every request a whole-project deploy makes, the source mode read and
+// migrations included, is on the grant table, and carries the grant.
+func TestDeployUnderAGrantCallsOnlyGrantRoutes(t *testing.T) {
 	setDeployCommandTestHome(t)
 	t.Setenv("VOLCANO_TOKEN", cliconfig.DelegatedGrantPrefix+"grant-secret")
 	writeFullProject(t)
 	fake := newFakeVolcano(t)
 	gate := &grantGate{next: fake.serve}
-	server := fake.start()
-	server.Config.Handler = gate
-
-	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)))
-	require.Error(t, err)
-	assert.Equal(t, []string{sourceExportRead}, gate.refused)
-	assert.Empty(t, fake.recorded(), "refused before any change")
-	assert.NotContains(t, out, "grant-secret")
-}
-
-// With the source mode read allowed, every other request a whole-project
-// deploy makes, migrations included, is on the grant table, and carries the
-// grant.
-func TestDeployUnderAGrantCallsOnlyGrantRoutesOtherwise(t *testing.T) {
-	setDeployCommandTestHome(t)
-	t.Setenv("VOLCANO_TOKEN", cliconfig.DelegatedGrantPrefix+"grant-secret")
-	writeFullProject(t)
-	fake := newFakeVolcano(t)
-	gate := &grantGate{next: fake.serve, also: []string{sourceExportRead}}
 	server := fake.start()
 	server.Config.Handler = gate
 
@@ -148,7 +125,7 @@ func TestDeployWithMigrationsUnderAGrantUsesAMigrationRun(t *testing.T) {
 	runs := "/projects/" + deployProjectID + "/databases/app/migration-runs"
 	const runID = "44444444-4444-4444-8444-444444444444"
 	var runCalls []string
-	gate := &grantGate{also: []string{sourceExportRead}, next: func(w http.ResponseWriter, r *http.Request) {
+	gate := &grantGate{next: func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, runs) {
 			runCalls = append(runCalls, r.Method+" "+r.URL.Path)
 			w.Header().Set("Content-Type", "application/json")
@@ -189,7 +166,7 @@ func TestDeployUnderAGrantKeepsTheBudgetRefusalOnEveryMutation(t *testing.T) {
 			writeFullProject(t)
 			fake := newFakeVolcano(t)
 			var hit bool
-			gate := &grantGate{also: []string{sourceExportRead}, next: func(w http.ResponseWriter, r *http.Request) {
+			gate := &grantGate{next: func(w http.ResponseWriter, r *http.Request) {
 				// The config step's dry run is a read in all but method.
 				if r.Method+" "+r.URL.Path == route && r.URL.Query().Get("dry_run") != "true" {
 					hit = true
