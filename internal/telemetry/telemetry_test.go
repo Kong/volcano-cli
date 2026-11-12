@@ -815,10 +815,9 @@ func TestAnnounceFeedback_Off(t *testing.T) {
 	assert.Zero(t, h.store.saves)
 }
 
-// A project-bound token names no account, so it never leaves the machine on a
-// telemetry request, from the detached flush or anywhere else.
-func TestFlush_ProjectBoundTokenSendsNoAuthorization(t *testing.T) {
-	for _, token := range []string{config.DelegatedGrantPrefix + "grant-secret", config.ProjectTokenPrefix + "token-secret"} {
+// A delegated grant never leaves the machine on a telemetry request.
+func TestFlush_DelegatedGrantSendsNoAuthorization(t *testing.T) {
+	for _, token := range []string{config.DelegatedGrantPrefix + "grant-secret"} {
 		t.Run(token[:3], func(t *testing.T) {
 			var gotAuth string
 			var gotBody []byte

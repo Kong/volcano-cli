@@ -320,7 +320,7 @@ func TestFeedback_ProjectTokenSendsNothing(t *testing.T) {
 
 	stdout, _, err = run(t, "status")
 	require.NoError(t, err)
-	assert.Equal(t, "Feedback is enabled, but a project access token or delegated grant cannot send reports. Log in with `volcano login`.\n", stdout)
+	assert.Equal(t, "Feedback is enabled, but a project access token cannot send reports. Log in with `volcano login`.\n", stdout)
 
 	_, stderr, err = run(t, append([]string{"--dry-run"}, reportArgs...)...)
 	require.NoError(t, err)

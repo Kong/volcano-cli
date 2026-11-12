@@ -227,7 +227,7 @@ func TestSendExplainsARefusal(t *testing.T) {
 			name: "full queue", status: http.StatusConflict,
 			body: map[string]any{"error": "too many queued messages", "code": "too_many_queued_messages"},
 			want: `failed to send a message to durable execution "` + executionID +
-				`" of durable function "order-pipeline": HTTP 409 (too_many_queued_messages): too many queued messages`,
+				`" of durable function "order-pipeline": HTTP 409: too many queued messages`,
 		},
 		{
 			name: "read-only token", status: http.StatusForbidden,

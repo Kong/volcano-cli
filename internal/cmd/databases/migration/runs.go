@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/config"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
 
@@ -43,10 +43,6 @@ var runWaitLimit = 60 * time.Minute
 // maxRunReadFailures is how many reads in a row may fail on the network before
 // the command stops following a run.
 const maxRunReadFailures = 5
-
-// trackedMigrationName is the name rule the API applies to a top-level file:
-// lowercase ".sql", no directory.
-var trackedMigrationName = regexp.MustCompile(`^[^/\\]+\.sql$`)
 
 // usesMigrationRuns reports whether up applies files through migration runs:
 // when the credential is a delegated grant.
@@ -87,9 +83,6 @@ func migrationRunFiles(files []string) ([]apiclient.DatabaseMigrationFile, error
 	request := make([]apiclient.DatabaseMigrationFile, 0, len(files))
 	for _, file := range files {
 		name := filepath.Base(file)
-		if !trackedMigrationName.MatchString(name) {
-			return nil, fmt.Errorf("migration %s: a migration run takes only names ending in lowercase .sql; rename it", name)
-		}
 		content, err := os.ReadFile(file)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read migration %s: %w", name, err)
@@ -99,35 +92,18 @@ func migrationRunFiles(files []string) ([]apiclient.DatabaseMigrationFile, error
 	return request, nil
 }
 
-// startRun starts the run. When the database already has a run going, it
-// follows that run to its end and then starts this one: a run started by an
-// earlier command whose grant expired while it waited ends first, and the new
-// run skips whatever it applied.
+// startRun starts the run. A run already going on the database is the API's
+// 409, which names it; the caller waits for it and runs the command again.
 func startRun(
 	ctx context.Context, project *clisession.ProjectSession, database string, files []apiclient.DatabaseMigrationFile, out io.Writer,
 ) (*apiclient.DatabaseMigrationRun, error) {
-	// One key per command: a retried request returns the run this command
-	// started, and running the command again starts a new one.
-	key := uuid.NewString()
-	for attempt := 0; ; attempt++ {
-		run, err := project.API.CreateDatabaseMigrationRun(ctx, project.ProjectID, database, key, files)
-		if err == nil {
-			fmt.Fprintf(out, "Started migration run %s.\n", run.Id)
-			return run, nil
-		}
-		inProgress, ok := errors.AsType[*api.MigrationRunInProgressError](err)
-		if !ok || attempt > 0 {
-			return nil, migrationRunStartError(database, err)
-		}
-		fmt.Fprintf(out, "Migration run %s is already running on %s; waiting for it to end first.\n", inProgress.RunID, database)
-		earlier, err := project.API.GetDatabaseMigrationRun(ctx, project.ProjectID, database, inProgress.RunID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read migration run %s: %w", inProgress.RunID, err)
-		}
-		if _, err := followRun(ctx, project, database, earlier, out); err != nil {
-			return nil, err
-		}
+	// A retried request with this key returns the run it started.
+	run, err := project.API.CreateDatabaseMigrationRun(ctx, project.ProjectID, database, uuid.NewString(), files)
+	if err != nil {
+		return nil, migrationRunStartError(database, err)
 	}
+	fmt.Fprintf(out, "Started migration run %s.\n", run.Id)
+	return run, nil
 }
 
 // migrationRunStartError says why a run did not start.
@@ -194,8 +170,10 @@ func sleep(ctx context.Context, d time.Duration) error {
 }
 
 // reportRun prints each file's outcome and the run's warnings, and returns an
-// error for a failed run. A file's database error is printed, never put in the
-// returned error: it can quote SQL and data.
+// error for a failed run. That error carries each failed file's own database
+// error, from the rehearsal or the database, which names the object, so the
+// caller can decide what to baseline. It is marked sensitive: it can quote SQL
+// and data, so usage telemetry never sends it.
 func reportRun(run *apiclient.DatabaseMigrationRun, out io.Writer) error {
 	fmt.Fprintln(out)
 	if run.Files != nil {
@@ -216,10 +194,31 @@ func reportRun(run *apiclient.DatabaseMigrationRun, out io.Writer) error {
 		fmt.Fprintln(out, "Migrations deployed!")
 		return nil
 	}
+	summary := fmt.Sprintf("migration run %s failed in %s", run.Id, run.Phase)
 	if run.Error != nil {
-		return fmt.Errorf("migration run %s failed in %s: %s: %s", run.Id, run.Phase, run.Error.Code, run.Error.Message)
+		summary += fmt.Sprintf(": %s: %s", run.Error.Code, run.Error.Message)
 	}
-	return fmt.Errorf("migration run %s failed in %s", run.Id, run.Phase)
+	details := failedFileDetails(run)
+	if details == "" {
+		return errors.New(summary)
+	}
+	return fmt.Errorf("%s\n%w", summary, sensitive.Wrap(errors.New(details)))
+}
+
+// failedFileDetails is each failed file's database error, which names the
+// object, so the caller can decide what to baseline.
+func failedFileDetails(run *apiclient.DatabaseMigrationRun) string {
+	if run.Files == nil {
+		return ""
+	}
+	var lines []string
+	for _, file := range *run.Files {
+		if file.Error == nil {
+			continue
+		}
+		lines = append(lines, "  "+file.Name+": "+fileErrorText(file.Error))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func fileErrorText(fileErr *apiclient.DatabaseMigrationFileError) string {

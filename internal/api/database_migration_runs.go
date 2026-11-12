@@ -55,16 +55,42 @@ func (c *Client) CreateDatabaseMigrationRun(
 	case resp.JSON200 != nil:
 		return resp.JSON200, nil
 	case resp.JSON409 != nil:
-		apiErr := &Error{StatusCode: http.StatusConflict, Message: strings.TrimSpace(resp.JSON409.Error), fromAPI: true}
-		if resp.JSON409.Code != nil {
-			apiErr.Code = *resp.JSON409.Code
-		}
-		if apiErr.Code == MigrationRunInProgressCode && resp.JSON409.RunId != nil {
-			return nil, &MigrationRunInProgressError{Err: apiErr, RunID: *resp.JSON409.RunId}
-		}
-		return nil, apiErr
+		return nil, migrationConflictError(resp.JSON409)
 	}
 	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON413)
+}
+
+// BaselineDatabaseMigrations records files in databaseName's migration
+// history as applied, without running them. The server skips files it already
+// records with the same checksum, and refuses one recorded with another.
+func (c *Client) BaselineDatabaseMigrations(
+	ctx context.Context, projectID uuid.UUID, databaseName string, files []apiclient.DatabaseMigrationFile,
+) (*apiclient.DatabaseMigrationBaseline, error) {
+	resp, err := c.client.BaselineDatabaseMigrationsWithResponse(ctx, projectID, strings.TrimSpace(databaseName),
+		apiclient.BaselineDatabaseMigrationsJSONRequestBody{Files: files})
+	if err != nil {
+		return nil, err
+	}
+	if resp.JSON200 != nil {
+		return resp.JSON200, nil
+	}
+	if resp.JSON409 != nil {
+		return nil, migrationConflictError(resp.JSON409)
+	}
+	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON413, resp.JSON503)
+}
+
+// migrationConflictError is the error for a migration 409, naming the run in
+// progress when that is the reason.
+func migrationConflictError(conflict *apiclient.DatabaseMigrationConflictError) error {
+	apiErr := &Error{StatusCode: http.StatusConflict, Message: strings.TrimSpace(conflict.Error), fromAPI: true}
+	if conflict.Code != nil {
+		apiErr.Code = *conflict.Code
+	}
+	if apiErr.Code == MigrationRunInProgressCode && conflict.RunId != nil {
+		return &MigrationRunInProgressError{Err: apiErr, RunID: *conflict.RunId}
+	}
+	return apiErr
 }
 
 // GetDatabaseMigrationRun returns one migration run with its files.

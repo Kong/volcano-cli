@@ -52,6 +52,7 @@ func newWithExecutor(deps cliruntime.Deps, executor sqlExecutor) *cobra.Command 
 		Long:  "Apply SQL migrations from the volcano/migrations directory.",
 	}
 	cmd.AddCommand(newUp(deps, executor))
+	cmd.AddCommand(newBaseline(deps))
 	return cmd
 }
 

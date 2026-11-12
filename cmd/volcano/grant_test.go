@@ -113,50 +113,30 @@ func TestGrantCallsProjectRoutesWithTheGrant(t *testing.T) {
 	assert.NotContains(t, run.stderr, "VOLCANO_PROJECT_ID is deprecated", "the link file chose the project")
 }
 
+// Hosting's refusals keep their exit codes and messages. Only a spent budget
+// gets its own code, because a new grant is the fix.
 func TestGrantRefusalsExitCodes(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		status int
 		body   string
 		code   int
-		hint   string
+		want   string
 	}{
-		{
-			name:   "route not allowed",
-			status: http.StatusForbidden,
-			body:   `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`,
-			code:   exitPermissionDenied,
-			hint:   "Delegated grants cannot call GET " + projectFunctionsPath + ", so this command does not work with one.",
-		},
-		{
-			name:   "permission missing",
-			status: http.StatusForbidden,
-			body:   `{"error":"the delegated grant does not carry the permission this endpoint needs","code":"grant_permission_missing"}`,
-			code:   exitPermissionDenied,
-			hint:   "The delegated grant lacks the permission GET " + projectFunctionsPath + " needs.",
-		},
-		{
-			name:   "budget exhausted",
-			status: http.StatusTooManyRequests,
-			body:   `{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`,
-			code:   exitGrantBudgetExhausted,
-			hint:   "Error: failed to list functions: HTTP 429 (grant_budget_exhausted): the delegated grant has no mutations left; ask the app for a new grant",
-		},
-		{
-			// Any other 429, such as the per-grant rate limit, is not the
-			// budget: retrying after a pause works, a new grant is not needed.
-			name:   "rate limited",
-			status: http.StatusTooManyRequests,
-			body:   `{"error":"rate limit exceeded","code":"rate_limit_exceeded"}`,
-			code:   exitFailure,
-		},
-		{
-			name:   "expired or revoked",
-			status: http.StatusUnauthorized,
-			body:   `{"error":"invalid or expired token"}`,
-			code:   exitNotAuthenticated,
-			hint:   "The delegated grant has expired or was revoked. Get a new grant and run the command again.",
-		},
+		{"route not allowed", http.StatusForbidden,
+			`{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`,
+			exitPermissionDenied, "delegated grants cannot be used on this endpoint"},
+		{"permission missing", http.StatusForbidden,
+			`{"error":"the delegated grant does not carry the permission this endpoint needs","code":"grant_permission_missing"}`,
+			exitPermissionDenied, "the delegated grant does not carry the permission this endpoint needs"},
+		{"budget exhausted", http.StatusTooManyRequests,
+			`{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`,
+			exitGrantBudgetExhausted, "the delegated grant has no mutations left; ask the app for a new grant"},
+		// Any other 429, such as the per-grant rate limit, is not the budget.
+		{"rate limited", http.StatusTooManyRequests,
+			`{"error":"rate limit exceeded","code":"rate_limit_exceeded"}`, exitFailure, "rate limit exceeded"},
+		{"expired or revoked", http.StatusUnauthorized,
+			`{"error":"invalid or expired token"}`, exitNotAuthenticated, "invalid or expired token"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
@@ -164,16 +144,13 @@ func TestGrantRefusalsExitCodes(t *testing.T) {
 			}, "cloud", "functions", "list")
 
 			assert.Equal(t, tc.code, run.code, run.stderr)
-			if tc.hint != "" {
-				assert.Contains(t, run.stderr, tc.hint)
-			}
-			assert.NotContains(t, run.stderr, "only works on the project it was", "not a project mismatch")
+			assert.Contains(t, run.stderr, tc.want)
 		})
 	}
 }
 
 // A grant was an unknown prefix, so an account token, before the CLI knew it.
-// Account commands now refuse it before any request.
+// Account commands now refuse it before any request, as they refuse a pt-.
 func TestGrantIsRefusedOnAccountCommandsBeforeAnyRequest(t *testing.T) {
 	for _, args := range [][]string{
 		{"projects", "list"},
@@ -186,20 +163,10 @@ func TestGrantIsRefusedOnAccountCommandsBeforeAnyRequest(t *testing.T) {
 			}, args...)
 
 			assert.Equal(t, exitPermissionDenied, run.code, run.stderr)
-			assert.Contains(t, run.stderr, "delegated grant (pg-)")
+			assert.Contains(t, run.stderr, "this command needs an account token")
 			assert.Empty(t, run.requests)
 		})
 	}
-}
-
-// The wrong-project 403 gets the mismatch hint, worded for a grant.
-func TestGrantMismatchHintNamesTheGrant(t *testing.T) {
-	run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
-		respondExitTestJSON(w, http.StatusForbidden, `{"error":"project access token is not valid for this project"}`)
-	}, "cloud", "functions", "list")
-
-	assert.Equal(t, exitPermissionDenied, run.code, run.stderr)
-	assert.Contains(t, run.stderr, "A delegated grant only works on the project it was granted for")
 }
 
 // testFunctionID is the function the invoke tests call.
@@ -221,19 +188,6 @@ func TestGrantInvokesWithTheGrantAndNoServiceKey(t *testing.T) {
 	assert.Equal(t, []string{"POST /functions/" + testFunctionID + "/invoke"}, run.requests)
 	assert.Equal(t, []string{"Bearer " + testGrant}, run.auth)
 	assert.JSONEq(t, `{"ok":true}`, run.stdout)
-}
-
-// Storage object commands need the CLI's service key, so a grant refuses them
-// before any request.
-func TestGrantRefusesStorageObjectCommandsBeforeAnyRequest(t *testing.T) {
-	run := runAsWorker(t, func(w http.ResponseWriter, r *http.Request) {
-		t.Errorf("a storage object command reached the API: %s %s", r.Method, r.URL.Path)
-		respondExitTestJSON(w, http.StatusForbidden, `{"error":"forbidden"}`)
-	}, "cloud", "storage", "object", "list", "uploads")
-
-	assert.Equal(t, exitPermissionDenied, run.code, run.stderr)
-	assert.Contains(t, run.stderr, "storage object commands do not work with a delegated grant (pg-)")
-	assert.Empty(t, run.requests)
 }
 
 // Migrations under a grant go through a server-side run. The CLI never reads
@@ -267,6 +221,39 @@ func TestGrantMigrationUpUsesAMigrationRun(t *testing.T) {
 	}
 }
 
+// Baseline under a grant goes through Hosting's baseline route, with the files
+// the caller names, and exits like other commands when Hosting refuses it.
+func TestGrantBaselineUsesTheBaselineRoute(t *testing.T) {
+	baselinePath := "/projects/" + mainTestProjectAlpha + "/databases/app/migrations/baseline"
+	writeMigration := func() {
+		require.NoError(t, os.MkdirAll(filepath.Join("volcano", "migrations"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "001_init.sql"), []byte("CREATE TABLE t();"), 0o644))
+	}
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+		code   int
+	}{
+		{"recorded", http.StatusOK, `{"recorded":["001_init.sql"]}`, 0},
+		{"refused", http.StatusForbidden, `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`, exitPermissionDenied},
+		{"budget", http.StatusTooManyRequests, `{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`, exitGrantBudgetExhausted},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			run := runAsWorkerWith(t, writeMigration, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost && r.URL.Path == baselinePath {
+					respondExitTestJSON(w, tc.status, tc.body)
+					return
+				}
+				respondExitTestJSON(w, http.StatusForbidden, `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`)
+			}, "cloud", "databases", "migration", "baseline", "-d", "app", "-f", "001_init", "--yes")
+
+			assert.Equal(t, tc.code, run.code, run.stderr)
+			assert.Equal(t, []string{"POST " + baselinePath}, run.requests)
+		})
+	}
+}
+
 // The worker can pass the grant on a descriptor instead of VOLCANO_TOKEN, so
 // it is never in the CLI's environment. main adopts it before the command runs.
 func TestGrantFromATokenDescriptor(t *testing.T) {
@@ -288,4 +275,26 @@ func TestGrantFromATokenDescriptor(t *testing.T) {
 	assert.Equal(t, 0, run.code, run.stderr)
 	assert.Equal(t, []string{"Bearer " + testGrant}, run.auth)
 	assert.Empty(t, os.Getenv("VOLCANO_TOKEN"))
+}
+
+// Under a grant, the API's code follows the error on its own line.
+func TestGrantErrorPrintsTheAPICode(t *testing.T) {
+	run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
+		respondExitTestJSON(w, http.StatusTooManyRequests,
+			`{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`)
+	}, "cloud", "functions", "list")
+
+	assert.Equal(t, exitGrantBudgetExhausted, run.code, run.stderr)
+	assert.Contains(t, run.stderr, "Error: failed to list functions: HTTP 429: the delegated grant has no mutations left; "+
+		"ask the app for a new grant\nError code: grant_budget_exhausted\n")
+}
+
+// Any other credential sees the error as before, without the code line.
+func TestNonGrantErrorPrintsNoCodeLine(t *testing.T) {
+	code, stderr := runAgainst(t, "test-token", func(w http.ResponseWriter, _ *http.Request) {
+		respondExitTestJSON(w, http.StatusForbidden, `{"error":"feature is not available on this plan","code":"plan_required"}`)
+	}, "cloud", "functions", "list")
+
+	assert.Equal(t, exitPermissionDenied, code, stderr)
+	assert.NotContains(t, stderr, "Error code:")
 }

@@ -84,14 +84,10 @@ func (e *Error) Error() string {
 	if e.StatusCode == 0 {
 		return e.Message
 	}
-	status := fmt.Sprintf("HTTP %d", e.StatusCode)
-	if e.Code != "" {
-		status += " (" + e.Code + ")"
-	}
 	if e.Message == "" {
-		return status
+		return fmt.Sprintf("HTTP %d", e.StatusCode)
 	}
-	return status + ": " + e.Message
+	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Message)
 }
 
 // OwnershipVerificationRequired is the code of a refusal the user resolves by
@@ -114,11 +110,8 @@ func (e *OwnershipRequiredError) Unwrap() error { return e.Err }
 
 // conflictError keeps the record an ownership refusal names.
 func conflictError(statusCode int, conflict *apiclient.FrontendCustomDomainConflictError) error {
-	apiErr := &Error{StatusCode: statusCode, Message: strings.TrimSpace(conflict.Error), fromAPI: true}
-	if conflict.Code != nil {
-		apiErr.Code = *conflict.Code
-	}
-	if apiErr.Code == OwnershipVerificationRequired && conflict.RequiredRecord != nil {
+	apiErr := &Error{StatusCode: statusCode, Message: strings.TrimSpace(conflict.Error)}
+	if conflict.Code != nil && *conflict.Code == OwnershipVerificationRequired && conflict.RequiredRecord != nil {
 		return &OwnershipRequiredError{Err: apiErr, Record: *conflict.RequiredRecord}
 	}
 	return apiErr

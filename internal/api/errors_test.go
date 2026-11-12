@@ -78,18 +78,3 @@ func TestRouteMissingOnlyForA404TheAPIDidNotSend(t *testing.T) {
 		assert.Equal(t, tc.want, RouteMissing(tc.err), name)
 	}
 }
-
-// The API's code is printed with the status, so a script or agent can branch
-// on it without matching the message text.
-func TestErrorPrintsTheAPICode(t *testing.T) {
-	err := apiError(429, []byte(`{"error":"the delegated grant has no mutations left","code":"grant_budget_exhausted"}`))
-	if got, want := err.Error(), "HTTP 429 (grant_budget_exhausted): the delegated grant has no mutations left"; got != want {
-		t.Fatalf("Error() = %q, want %q", got, want)
-	}
-	if got, want := apiError(500, []byte(`{"error":"boom"}`)).Error(), "HTTP 500: boom"; got != want {
-		t.Fatalf("Error() = %q, want %q", got, want)
-	}
-	if got, want := (&Error{StatusCode: 403, Code: "grant_route_not_allowed"}).Error(), "HTTP 403 (grant_route_not_allowed)"; got != want {
-		t.Fatalf("Error() = %q, want %q", got, want)
-	}
-}
