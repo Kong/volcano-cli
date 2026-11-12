@@ -236,6 +236,40 @@ func TestDeployApplyErrorsExitNonZero(t *testing.T) {
 	assert.Contains(t, out, "Error: realtime: provider unavailable")
 }
 
+// A function a promoted preview serves keeps its environment until it
+// returns to its own build. The API reports that as a notice with a code, not
+// an error, so the deploy still succeeds.
+func TestDeployReportsAServedFunctionAsANoticeAndExitsZero(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte("version: 1\nrealtime:\n  enabled: true\n"), 0o644))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeConfigCommandJSON(t, w, http.StatusOK, map[string]any{
+			"results": []any{
+				map[string]any{
+					"section": "functions", "name": "api", "action": "unchanged", "code": "function_served_by_candidate",
+					"notice": "a preview serves this function; its own build gets the change when it is rolled back to production",
+				},
+			},
+			"skipped": []any{},
+			"missing": []any{},
+			"summary": map[string]any{
+				"created": 0, "updated": 0, "deleted": 0, "unchanged": 1,
+				"errors": 0, "skipped": 0, "missing": 0,
+			},
+		})
+	}))
+	defer server.Close()
+
+	out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy")
+	require.NoError(t, err)
+	assert.Contains(t, out, `functions "api": a preview serves this function`)
+	assert.NotContains(t, out, "Error:")
+}
+
 func TestDeployMissingEnvVarFailsBeforeUpload(t *testing.T) {
 	dir := chdirToTemp(t)
 	setConfigCommandTestHome(t)

@@ -1610,16 +1610,16 @@ func (e FrontendVariableScope) Valid() bool {
 
 // Defines values for FrontendCandidateConfigurationStatus.
 const (
-	Changed FrontendCandidateConfigurationStatus = "changed"
-	Current FrontendCandidateConfigurationStatus = "current"
+	FrontendCandidateConfigurationStatusChanged FrontendCandidateConfigurationStatus = "changed"
+	FrontendCandidateConfigurationStatusCurrent FrontendCandidateConfigurationStatus = "current"
 )
 
 // Valid indicates whether the value is a known member of the FrontendCandidateConfigurationStatus enum.
 func (e FrontendCandidateConfigurationStatus) Valid() bool {
 	switch e {
-	case Changed:
+	case FrontendCandidateConfigurationStatusChanged:
 		return true
-	case Current:
+	case FrontendCandidateConfigurationStatusCurrent:
 		return true
 	default:
 		return false
@@ -1950,6 +1950,102 @@ func (e FunctionStatus) Valid() bool {
 	}
 }
 
+// Defines values for FunctionCandidateConfigurationStatus.
+const (
+	FunctionCandidateConfigurationStatusChanged FunctionCandidateConfigurationStatus = "changed"
+	FunctionCandidateConfigurationStatusCurrent FunctionCandidateConfigurationStatus = "current"
+)
+
+// Valid indicates whether the value is a known member of the FunctionCandidateConfigurationStatus enum.
+func (e FunctionCandidateConfigurationStatus) Valid() bool {
+	switch e {
+	case FunctionCandidateConfigurationStatusChanged:
+		return true
+	case FunctionCandidateConfigurationStatusCurrent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionCandidateExposure.
+const (
+	Private FunctionCandidateExposure = "private"
+)
+
+// Valid indicates whether the value is a known member of the FunctionCandidateExposure enum.
+func (e FunctionCandidateExposure) Valid() bool {
+	switch e {
+	case Private:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionCandidateStatus.
+const (
+	FunctionCandidateStatusCreating FunctionCandidateStatus = "creating"
+	FunctionCandidateStatusDeleting FunctionCandidateStatus = "deleting"
+	FunctionCandidateStatusError    FunctionCandidateStatus = "error"
+	FunctionCandidateStatusReady    FunctionCandidateStatus = "ready"
+)
+
+// Valid indicates whether the value is a known member of the FunctionCandidateStatus enum.
+func (e FunctionCandidateStatus) Valid() bool {
+	switch e {
+	case FunctionCandidateStatusCreating:
+		return true
+	case FunctionCandidateStatusDeleting:
+		return true
+	case FunctionCandidateStatusError:
+		return true
+	case FunctionCandidateStatusReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionCandidateDeploymentOperation.
+const (
+	FunctionCandidateDeploymentOperationDeploy   FunctionCandidateDeploymentOperation = "deploy"
+	FunctionCandidateDeploymentOperationRedeploy FunctionCandidateDeploymentOperation = "redeploy"
+)
+
+// Valid indicates whether the value is a known member of the FunctionCandidateDeploymentOperation enum.
+func (e FunctionCandidateDeploymentOperation) Valid() bool {
+	switch e {
+	case FunctionCandidateDeploymentOperationDeploy:
+		return true
+	case FunctionCandidateDeploymentOperationRedeploy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionCandidateDeploymentStatus.
+const (
+	FunctionCandidateDeploymentStatusActive       FunctionCandidateDeploymentStatus = "active"
+	FunctionCandidateDeploymentStatusFailed       FunctionCandidateDeploymentStatus = "failed"
+	FunctionCandidateDeploymentStatusProvisioning FunctionCandidateDeploymentStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the FunctionCandidateDeploymentStatus enum.
+func (e FunctionCandidateDeploymentStatus) Valid() bool {
+	switch e {
+	case FunctionCandidateDeploymentStatusActive:
+		return true
+	case FunctionCandidateDeploymentStatusFailed:
+		return true
+	case FunctionCandidateDeploymentStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FunctionDeploymentDeploySource.
 const (
 	FunctionDeploymentDeploySourceApi     FunctionDeploymentDeploySource = "api"
@@ -2106,6 +2202,24 @@ func (e FunctionKindFilter) Valid() bool {
 	}
 }
 
+// Defines values for FunctionProductionEnvironmentStatus.
+const (
+	FunctionProductionEnvironmentStatusCurrent   FunctionProductionEnvironmentStatus = "current"
+	FunctionProductionEnvironmentStatusOutOfDate FunctionProductionEnvironmentStatus = "out_of_date"
+)
+
+// Valid indicates whether the value is a known member of the FunctionProductionEnvironmentStatus enum.
+func (e FunctionProductionEnvironmentStatus) Valid() bool {
+	switch e {
+	case FunctionProductionEnvironmentStatusCurrent:
+		return true
+	case FunctionProductionEnvironmentStatusOutOfDate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FunctionSchedulerHealth.
 const (
 	FunctionSchedulerHealthFailing FunctionSchedulerHealth = "failing"
@@ -2151,6 +2265,42 @@ const (
 func (e FunctionSchedulerScheduleKind) Valid() bool {
 	switch e {
 	case FunctionSchedulerScheduleKindCron:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionServingActivationKind.
+const (
+	FunctionServingActivationKindDeploy    FunctionServingActivationKind = "deploy"
+	FunctionServingActivationKindPromotion FunctionServingActivationKind = "promotion"
+	FunctionServingActivationKindRollback  FunctionServingActivationKind = "rollback"
+)
+
+// Valid indicates whether the value is a known member of the FunctionServingActivationKind enum.
+func (e FunctionServingActivationKind) Valid() bool {
+	switch e {
+	case FunctionServingActivationKindDeploy:
+		return true
+	case FunctionServingActivationKindPromotion:
+		return true
+	case FunctionServingActivationKindRollback:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionServingActivationStatus.
+const (
+	Applied FunctionServingActivationStatus = "applied"
+)
+
+// Valid indicates whether the value is a known member of the FunctionServingActivationStatus enum.
+func (e FunctionServingActivationStatus) Valid() bool {
+	switch e {
+	case Applied:
 		return true
 	default:
 		return false
@@ -9772,10 +9922,16 @@ type Function struct {
 	ProjectId           openapi_types.UUID  `json:"project_id"`
 
 	// ProvisioningStartedAt Timestamp when the current provisioning phase started
-	ProvisioningStartedAt *time.Time     `json:"provisioning_started_at,omitempty"`
-	Runtime               *string        `json:"runtime,omitempty"`
-	Status                FunctionStatus `json:"status"`
-	UpdatedAt             time.Time      `json:"updated_at"`
+	ProvisioningStartedAt *time.Time `json:"provisioning_started_at,omitempty"`
+	Runtime               *string    `json:"runtime,omitempty"`
+
+	// ServingCandidateId The promoted preview whose runtime receives this function's traffic, the same as
+	// `candidate_id` in `serving`. Null when the function runs its own build. While it is set,
+	// `current_deployment_id` and `status` describe the function's own build, which receives no
+	// traffic until the function is rolled back.
+	ServingCandidateId *openapi_types.UUID `json:"serving_candidate_id,omitempty"`
+	Status             FunctionStatus      `json:"status"`
+	UpdatedAt          time.Time           `json:"updated_at"`
 
 	// Visibility Who can invoke the function. Each level admits everything the one
 	// before it does.
@@ -9791,6 +9947,109 @@ type Function struct {
 
 // FunctionStatus defines model for Function.Status.
 type FunctionStatus string
+
+// FunctionCandidate A copy of an ordinary function built from an uploaded source with the function's own variables,
+// run on a runtime of its own and invoked at its own host with the project's service key only, so it
+// can be checked before it is promoted. It has none of the function's schedules or warmers. Fields
+// that do not apply yet are absent.
+type FunctionCandidate struct {
+	// ConfigurationStatus Present while the preview serves a deployment. `current` means that deployment was built with
+	// the variables, runtime and handler the function would give that source now; `changed` means
+	// they differ, or can no longer be resolved. Promotion refuses a preview whose status is
+	// `changed`.
+	ConfigurationStatus *FunctionCandidateConfigurationStatus `json:"configuration_status,omitempty"`
+	CreatedAt           time.Time                             `json:"created_at"`
+
+	// CreatedBy The user who created the preview, when a user did.
+	CreatedBy *string `json:"created_by,omitempty"`
+
+	// CurrentDeploymentId The deployment the preview serves. Absent until its first deployment succeeds. It differs from
+	// `deployment` while a redeploy runs or after one failed.
+	CurrentDeploymentId *openapi_types.UUID          `json:"current_deployment_id,omitempty"`
+	Deployment          *FunctionCandidateDeployment `json:"deployment,omitempty"`
+
+	// ExpiresAt When the preview is deleted on its own. Absent when it is kept until deleted. A preview the function runs, or keeps for a rollback, is not deleted then; it expires once it is neither.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+
+	// Exposure A function preview is always private. Only the project's service key, with `functions.invoke`, can invoke it; signed-in users, anon keys and access tokens are refused.
+	Exposure   FunctionCandidateExposure `json:"exposure"`
+	FunctionId openapi_types.UUID        `json:"function_id"`
+	Id         openapi_types.UUID        `json:"id"`
+
+	// KeptForRollback A rollback of the function returns to this preview's build.
+	KeptForRollback bool   `json:"kept_for_rollback"`
+	Name            string `json:"name"`
+
+	// Serving The function runs this preview's build.
+	Serving bool   `json:"serving"`
+	Slug    string `json:"slug"`
+
+	// Status `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while its
+	// runtime is removed, and `error` when its deletion gave up and needs an operator. A deleted
+	// preview answers `404`.
+	Status    FunctionCandidateStatus `json:"status"`
+	UpdatedAt time.Time               `json:"updated_at"`
+
+	// Url Where the preview is invoked. Absent until its first deployment succeeds.
+	Url *string `json:"url,omitempty"`
+}
+
+// FunctionCandidateConfigurationStatus Present while the preview serves a deployment. `current` means that deployment was built with
+// the variables, runtime and handler the function would give that source now; `changed` means
+// they differ, or can no longer be resolved. Promotion refuses a preview whose status is
+// `changed`.
+type FunctionCandidateConfigurationStatus string
+
+// FunctionCandidateExposure A function preview is always private. Only the project's service key, with `functions.invoke`, can invoke it; signed-in users, anon keys and access tokens are refused.
+type FunctionCandidateExposure string
+
+// FunctionCandidateStatus `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while its
+// runtime is removed, and `error` when its deletion gave up and needs an operator. A deleted
+// preview answers `404`.
+type FunctionCandidateStatus string
+
+// FunctionCandidateDeployment defines model for FunctionCandidateDeployment.
+type FunctionCandidateDeployment struct {
+	// CompletedAt Set once the deployment is no longer provisioning.
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+
+	// ConfigurationDigest Identifies the variables the build used without carrying any value.
+	ConfigurationDigest string    `json:"configuration_digest"`
+	CreatedAt           time.Time `json:"created_at"`
+
+	// ErrorMessage Why a failed deployment failed.
+	ErrorMessage *string            `json:"error_message,omitempty"`
+	Id           openapi_types.UUID `json:"id"`
+
+	// ImageDigests The digest of the image this deployment published, per region. Present once the deployment
+	// succeeded. A promotion points the function at this image and deploys nothing.
+	ImageDigests *[]FunctionImageDigest               `json:"image_digests,omitempty"`
+	Operation    FunctionCandidateDeploymentOperation `json:"operation"`
+	Regions      []string                             `json:"regions"`
+
+	// Status `provisioning` while the build and deploy run, `active` once the preview serves this
+	// deployment, and `failed` when it could not be built or deployed. A failed deployment of a
+	// preview that already served keeps the previous deployment serving.
+	Status FunctionCandidateDeploymentStatus `json:"status"`
+}
+
+// FunctionCandidateDeploymentOperation defines model for FunctionCandidateDeployment.Operation.
+type FunctionCandidateDeploymentOperation string
+
+// FunctionCandidateDeploymentStatus `provisioning` while the build and deploy run, `active` once the preview serves this
+// deployment, and `failed` when it could not be built or deployed. A failed deployment of a
+// preview that already served keeps the previous deployment serving.
+type FunctionCandidateDeploymentStatus string
+
+// FunctionCandidateDeploymentList defines model for FunctionCandidateDeploymentList.
+type FunctionCandidateDeploymentList struct {
+	Data []FunctionCandidateDeployment `json:"data"`
+}
+
+// FunctionCandidateList defines model for FunctionCandidateList.
+type FunctionCandidateList struct {
+	Data []FunctionCandidate `json:"data"`
+}
 
 // FunctionDeployment defines model for FunctionDeployment.
 type FunctionDeployment struct {
@@ -9841,6 +10100,14 @@ type FunctionDeploymentStatus string
 // externally signed webhooks.
 type FunctionHTTPAuthMode string
 
+// FunctionImageDigest The content digest of a function image in one region. It names no registry or account.
+type FunctionImageDigest struct {
+	Digest string `json:"digest"`
+
+	// Region The region the image was published to. Absent when the build published one image for every region.
+	Region *string `json:"region,omitempty"`
+}
+
 // FunctionInvocationMode Invocation contract. `rpc` preserves the existing POST `{payload: ...}` contract;
 // `http` forwards HTTP request semantics to the function runtime.
 type FunctionInvocationMode string
@@ -9881,6 +10148,28 @@ type FunctionKind string
 // default: omitting the filter includes both kinds.
 type FunctionKindFilter string
 
+// FunctionProductionEnvironment Whether the function's own build has the project's current variables. While a preview serves the
+// function, `volcano config deploy` and replacing the shared variable list skip the function, so its
+// own build keeps the values it had. A rollback to the function's own build starts synchronizing them
+// as it returns the traffic, and the status reads `current` once that synchronization completes or a
+// deployment of the function activates. A synchronization that fails leaves it `out_of_date`.
+type FunctionProductionEnvironment struct {
+	// OutOfDateSince When the latest skipped change was stored. Absent while `status` is `current`.
+	OutOfDateSince *time.Time `json:"out_of_date_since,omitempty"`
+
+	// Status `out_of_date`: a stored variable change skipped the function while a preview served it.
+	Status FunctionProductionEnvironmentStatus `json:"status"`
+}
+
+// FunctionProductionEnvironmentStatus `out_of_date`: a stored variable change skipped the function while a preview served it.
+type FunctionProductionEnvironmentStatus string
+
+// FunctionPromotionRequest defines model for FunctionPromotionRequest.
+type FunctionPromotionRequest struct {
+	// ExpectedRevision The `revision` the caller read from `serving`. Refuses the promotion with `stale_revision` unless what the function runs is still at this revision.
+	ExpectedRevision int64 `json:"expected_revision"`
+}
+
 // FunctionRegion defines model for FunctionRegion.
 type FunctionRegion struct {
 	// Code Region identifier accepted by function APIs.
@@ -9891,6 +10180,15 @@ type FunctionRegion struct {
 
 	// Label Human-readable region label suitable for display in pickers.
 	Label string `json:"label"`
+}
+
+// FunctionRollbackRequest defines model for FunctionRollbackRequest.
+type FunctionRollbackRequest struct {
+	// ExpectedRevision The `revision` the caller read from `serving`. Refuses the rollback with `stale_revision` unless what the function runs is still at this revision, so a retried rollback cannot undo itself.
+	ExpectedRevision int64 `json:"expected_revision"`
+
+	// ToProduction Return to the function's own build whatever it ran before.
+	ToProduction *bool `json:"to_production,omitempty"`
 }
 
 // FunctionRuntimeDeployment defines model for FunctionRuntimeDeployment.
@@ -9999,6 +10297,60 @@ type FunctionSchedulerListResponse struct {
 	PrevCursor *string `json:"prev_cursor,omitempty"`
 	Total      int     `json:"total"`
 }
+
+// FunctionServing What a function runs. Until a preview is promoted it runs its own build and `candidate_id` is
+// null. After a promotion, the function's traffic runs on that preview's runtime, nothing is rebuilt
+// or deployed, and `previous_candidate_id` is what a rollback returns to (null when that is the
+// function's own build). A preview the function runs cannot be deleted and does not expire. One kept
+// only as what a rollback returns to does not expire either, but it can be deleted, which gives up
+// that rollback; the function's own build stays one `to_production` rollback away.
+type FunctionServing struct {
+	// Activation The latest change to what serves the function's traffic: a promotion, a rollback, or a deployment
+	// of the function that returned its traffic to its own build. Each takes effect at once. Absent until
+	// the function's first promotion.
+	Activation *FunctionServingActivation `json:"activation,omitempty"`
+
+	// CandidateId The preview whose build the function runs; null for its own.
+	CandidateId *openapi_types.UUID `json:"candidate_id"`
+
+	// PreviousCandidateId The preview a rollback returns to; null for the function's own build.
+	PreviousCandidateId *openapi_types.UUID `json:"previous_candidate_id"`
+
+	// ProductionEnvironment Whether the function's own build has the project's current variables. While a preview serves the
+	// function, `volcano config deploy` and replacing the shared variable list skip the function, so its
+	// own build keeps the values it had. A rollback to the function's own build starts synchronizing them
+	// as it returns the traffic, and the status reads `current` once that synchronization completes or a
+	// deployment of the function activates. A synchronization that fails leaves it `out_of_date`.
+	ProductionEnvironment FunctionProductionEnvironment `json:"production_environment"`
+
+	// Revision Counts changes to what the function runs or can roll back to — promotions, rollbacks, a deployment that returns the traffic to the function's own build, and deleting the preview kept for a rollback. A promotion or rollback names the revision it read, so one that read before such a change fails with `409` (`stale_revision`) instead of overwriting it; read the serving state again and retry.
+	Revision int64 `json:"revision"`
+}
+
+// FunctionServingActivation The latest change to what serves the function's traffic: a promotion, a rollback, or a deployment
+// of the function that returned its traffic to its own build. Each takes effect at once. Absent until
+// the function's first promotion.
+type FunctionServingActivation struct {
+	// CandidateId The preview the activation pointed the function at. Absent for the function's own build.
+	CandidateId *openapi_types.UUID `json:"candidate_id,omitempty"`
+	Id          openapi_types.UUID  `json:"id"`
+
+	// ImageDigests The digests of the image the activation pointed the function at. Absent for the function's own build.
+	ImageDigests *[]FunctionImageDigest `json:"image_digests,omitempty"`
+
+	// Kind `deploy`: a successful deployment of the function cleared the preview pointers.
+	Kind     FunctionServingActivationKind `json:"kind"`
+	Revision int64                         `json:"revision"`
+
+	// Status `applied`: the change takes effect when it is recorded.
+	Status FunctionServingActivationStatus `json:"status"`
+}
+
+// FunctionServingActivationKind `deploy`: a successful deployment of the function cleared the preview pointers.
+type FunctionServingActivationKind string
+
+// FunctionServingActivationStatus `applied`: the change takes effect when it is recorded.
+type FunctionServingActivationStatus string
 
 // FunctionVisibility Who can invoke the function. Each level admits everything the one
 // before it does.
@@ -12330,6 +12682,12 @@ type ProjectConfigApplyResult struct {
 type ProjectConfigApplyResultEntry struct {
 	Action ProjectConfigApplyResultEntryAction `json:"action"`
 
+	// Code Machine-readable reason for a `notice`, when it has one. Clients must accept codes not listed
+	// here. `function_served_by_candidate` - a promoted preview serves the function and keeps the
+	// variables it was built with, so the apply did not synchronize the function's variables; the
+	// entry's action is `unchanged`, and the rest of the apply succeeded.
+	Code *string `json:"code,omitempty"`
+
 	// Error Error detail when action is `error`.
 	Error *string `json:"error,omitempty"`
 
@@ -14539,9 +14897,32 @@ type ShareVariable struct {
 	Unshared *bool `json:"unshared,omitempty"`
 }
 
+// SharedVariablesReplaceResult defines model for SharedVariablesReplaceResult.
+type SharedVariablesReplaceResult struct {
+	// SkippedFunctions Functions the replacement changes whose variables were not synchronized.
+	SkippedFunctions []SkippedServedFunction `json:"skipped_functions"`
+}
+
 // SharesResponse defines model for SharesResponse.
 type SharesResponse struct {
 	Shares []Share `json:"shares"`
+}
+
+// SkippedServedFunction defines model for SkippedServedFunction.
+type SkippedServedFunction struct {
+	// Code Why the function was left out. Clients must accept codes not listed here.
+	// `function_served_by_candidate` - a promoted preview serves the function and keeps the
+	// variables it was built with.
+	Code string `json:"code"`
+
+	// Id Function ID.
+	Id openapi_types.UUID `json:"id"`
+
+	// Message What brings the function in line.
+	Message string `json:"message"`
+
+	// Name Function name.
+	Name string `json:"name"`
 }
 
 // SlackAuthorizationResponse defines model for SlackAuthorizationResponse.
@@ -15337,6 +15718,9 @@ type FrontendId = openapi_types.UUID
 
 // FrontendRouteId defines model for FrontendRouteId.
 type FrontendRouteId = openapi_types.UUID
+
+// FunctionCandidateId defines model for FunctionCandidateId.
+type FunctionCandidateId = openapi_types.UUID
 
 // FunctionId defines model for FunctionId.
 type FunctionId = openapi_types.UUID
@@ -17362,6 +17746,24 @@ type CreateFunctionsBatchMultipartBody struct {
 	Functions string `json:"functions"`
 }
 
+// CreateFunctionCandidateMultipartBody defines parameters for CreateFunctionCandidate.
+type CreateFunctionCandidateMultipartBody struct {
+	// Code The function's source archive, as for deploying the function. Built with the function's runtime and handler.
+	Code openapi_types.File `json:"code"`
+
+	// Name Names the preview within the function. Cannot be `production`.
+	Name string `json:"name"`
+
+	// TtlSeconds Deletes the preview this many seconds after it is created, at most 30 days. Omit to keep it until deleted.
+	TtlSeconds *int `json:"ttl_seconds,omitempty"`
+}
+
+// RedeployFunctionCandidateMultipartBody defines parameters for RedeployFunctionCandidate.
+type RedeployFunctionCandidateMultipartBody struct {
+	// Code The function's source archive, as for deploying the function. Built with the function's runtime and handler.
+	Code openapi_types.File `json:"code"`
+}
+
 // ListFunctionDeploymentsParams defines parameters for ListFunctionDeployments.
 type ListFunctionDeploymentsParams struct {
 	// Page Page number (1-indexed) for offset pagination. Declares no schema
@@ -18298,11 +18700,23 @@ type CreateFunctionsBatchMultipartRequestBody CreateFunctionsBatchMultipartBody
 // UpdateFunctionJSONRequestBody defines body for UpdateFunction for application/json ContentType.
 type UpdateFunctionJSONRequestBody = UpdateFunctionRequest
 
+// CreateFunctionCandidateMultipartRequestBody defines body for CreateFunctionCandidate for multipart/form-data ContentType.
+type CreateFunctionCandidateMultipartRequestBody CreateFunctionCandidateMultipartBody
+
+// RedeployFunctionCandidateMultipartRequestBody defines body for RedeployFunctionCandidate for multipart/form-data ContentType.
+type RedeployFunctionCandidateMultipartRequestBody RedeployFunctionCandidateMultipartBody
+
+// PromoteFunctionCandidateJSONRequestBody defines body for PromoteFunctionCandidate for application/json ContentType.
+type PromoteFunctionCandidateJSONRequestBody = FunctionPromotionRequest
+
 // CreateFunctionSchedulerJSONRequestBody defines body for CreateFunctionScheduler for application/json ContentType.
 type CreateFunctionSchedulerJSONRequestBody = CreateFunctionSchedulerRequest
 
 // UpdateFunctionSchedulerJSONRequestBody defines body for UpdateFunctionScheduler for application/json ContentType.
 type UpdateFunctionSchedulerJSONRequestBody = UpdateFunctionSchedulerRequest
+
+// RollbackFunctionServingJSONRequestBody defines body for RollbackFunctionServing for application/json ContentType.
+type RollbackFunctionServingJSONRequestBody = FunctionRollbackRequest
 
 // ConnectProjectGitJSONRequestBody defines body for ConnectProjectGit for application/json ContentType.
 type ConnectProjectGitJSONRequestBody = ConnectProjectGitRequest
@@ -20775,6 +21189,29 @@ type ClientInterface interface {
 
 	UpdateFunction(ctx context.Context, id ProjectId, functionId FunctionId, body UpdateFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListFunctionCandidates request
+	ListFunctionCandidates(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateFunctionCandidateWithBody request with any body
+	CreateFunctionCandidateWithBody(ctx context.Context, id ProjectId, functionId FunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteFunctionCandidate request
+	DeleteFunctionCandidate(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFunctionCandidate request
+	GetFunctionCandidate(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListFunctionCandidateDeployments request
+	ListFunctionCandidateDeployments(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RedeployFunctionCandidateWithBody request with any body
+	RedeployFunctionCandidateWithBody(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PromoteFunctionCandidateWithBody request with any body
+	PromoteFunctionCandidateWithBody(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PromoteFunctionCandidate(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, body PromoteFunctionCandidateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListFunctionDeployments request
 	ListFunctionDeployments(ctx context.Context, id ProjectId, functionId FunctionId, params *ListFunctionDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -20796,6 +21233,14 @@ type ClientInterface interface {
 	UpdateFunctionSchedulerWithBody(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateFunctionScheduler(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFunctionServing request
+	GetFunctionServing(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RollbackFunctionServingWithBody request with any body
+	RollbackFunctionServingWithBody(ctx context.Context, id ProjectId, functionId FunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RollbackFunctionServing(ctx context.Context, id ProjectId, functionId FunctionId, body RollbackFunctionServingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DisconnectProjectGit request
 	DisconnectProjectGit(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -25416,6 +25861,102 @@ func (c *Client) UpdateFunction(ctx context.Context, id ProjectId, functionId Fu
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListFunctionCandidates(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFunctionCandidatesRequest(c.Server, id, functionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFunctionCandidateWithBody(ctx context.Context, id ProjectId, functionId FunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFunctionCandidateRequestWithBody(c.Server, id, functionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteFunctionCandidate(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFunctionCandidateRequest(c.Server, id, functionId, candidateId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetFunctionCandidate(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFunctionCandidateRequest(c.Server, id, functionId, candidateId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListFunctionCandidateDeployments(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFunctionCandidateDeploymentsRequest(c.Server, id, functionId, candidateId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RedeployFunctionCandidateWithBody(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRedeployFunctionCandidateRequestWithBody(c.Server, id, functionId, candidateId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PromoteFunctionCandidateWithBody(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPromoteFunctionCandidateRequestWithBody(c.Server, id, functionId, candidateId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PromoteFunctionCandidate(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, body PromoteFunctionCandidateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPromoteFunctionCandidateRequest(c.Server, id, functionId, candidateId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListFunctionDeployments(ctx context.Context, id ProjectId, functionId FunctionId, params *ListFunctionDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListFunctionDeploymentsRequest(c.Server, id, functionId, params)
 	if err != nil {
@@ -25502,6 +26043,42 @@ func (c *Client) UpdateFunctionSchedulerWithBody(ctx context.Context, id Project
 
 func (c *Client) UpdateFunctionScheduler(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateFunctionSchedulerRequest(c.Server, id, functionId, schedulerId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetFunctionServing(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFunctionServingRequest(c.Server, id, functionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RollbackFunctionServingWithBody(ctx context.Context, id ProjectId, functionId FunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRollbackFunctionServingRequestWithBody(c.Server, id, functionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RollbackFunctionServing(ctx context.Context, id ProjectId, functionId FunctionId, body RollbackFunctionServingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRollbackFunctionServingRequest(c.Server, id, functionId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -41509,6 +42086,345 @@ func NewUpdateFunctionRequestWithBody(server string, id ProjectId, functionId Fu
 	return req, nil
 }
 
+// NewListFunctionCandidatesRequest generates requests for ListFunctionCandidates
+func NewListFunctionCandidatesRequest(server string, id ProjectId, functionId FunctionId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/functions/%s/candidates", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateFunctionCandidateRequestWithBody generates requests for CreateFunctionCandidate with any type of body
+func NewCreateFunctionCandidateRequestWithBody(server string, id ProjectId, functionId FunctionId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/functions/%s/candidates", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteFunctionCandidateRequest generates requests for DeleteFunctionCandidate
+func NewDeleteFunctionCandidateRequest(server string, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "candidateId", candidateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/functions/%s/candidates/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetFunctionCandidateRequest generates requests for GetFunctionCandidate
+func NewGetFunctionCandidateRequest(server string, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "candidateId", candidateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/functions/%s/candidates/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListFunctionCandidateDeploymentsRequest generates requests for ListFunctionCandidateDeployments
+func NewListFunctionCandidateDeploymentsRequest(server string, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "candidateId", candidateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/functions/%s/candidates/%s/deployments", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRedeployFunctionCandidateRequestWithBody generates requests for RedeployFunctionCandidate with any type of body
+func NewRedeployFunctionCandidateRequestWithBody(server string, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "candidateId", candidateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/functions/%s/candidates/%s/deployments", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPromoteFunctionCandidateRequest calls the generic PromoteFunctionCandidate builder with application/json body
+func NewPromoteFunctionCandidateRequest(server string, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, body PromoteFunctionCandidateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPromoteFunctionCandidateRequestWithBody(server, id, functionId, candidateId, "application/json", bodyReader)
+}
+
+// NewPromoteFunctionCandidateRequestWithBody generates requests for PromoteFunctionCandidate with any type of body
+func NewPromoteFunctionCandidateRequestWithBody(server string, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "candidateId", candidateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/functions/%s/candidates/%s/promote", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListFunctionDeploymentsRequest generates requests for ListFunctionDeployments
 func NewListFunctionDeploymentsRequest(server string, id ProjectId, functionId FunctionId, params *ListFunctionDeploymentsParams) (*http.Request, error) {
 	var err error
@@ -41832,6 +42748,101 @@ func NewUpdateFunctionSchedulerRequestWithBody(server string, id ProjectId, func
 	}
 
 	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetFunctionServingRequest generates requests for GetFunctionServing
+func NewGetFunctionServingRequest(server string, id ProjectId, functionId FunctionId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/functions/%s/serving", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRollbackFunctionServingRequest calls the generic RollbackFunctionServing builder with application/json body
+func NewRollbackFunctionServingRequest(server string, id ProjectId, functionId FunctionId, body RollbackFunctionServingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRollbackFunctionServingRequestWithBody(server, id, functionId, "application/json", bodyReader)
+}
+
+// NewRollbackFunctionServingRequestWithBody generates requests for RollbackFunctionServing with any type of body
+func NewRollbackFunctionServingRequestWithBody(server string, id ProjectId, functionId FunctionId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/functions/%s/serving/rollback", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -49714,6 +50725,29 @@ type ClientWithResponsesInterface interface {
 
 	UpdateFunctionWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, body UpdateFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFunctionClientResponse, error)
 
+	// ListFunctionCandidatesWithResponse request
+	ListFunctionCandidatesWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*ListFunctionCandidatesClientResponse, error)
+
+	// CreateFunctionCandidateWithBodyWithResponse request with any body
+	CreateFunctionCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFunctionCandidateClientResponse, error)
+
+	// DeleteFunctionCandidateWithResponse request
+	DeleteFunctionCandidateWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*DeleteFunctionCandidateClientResponse, error)
+
+	// GetFunctionCandidateWithResponse request
+	GetFunctionCandidateWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*GetFunctionCandidateClientResponse, error)
+
+	// ListFunctionCandidateDeploymentsWithResponse request
+	ListFunctionCandidateDeploymentsWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*ListFunctionCandidateDeploymentsClientResponse, error)
+
+	// RedeployFunctionCandidateWithBodyWithResponse request with any body
+	RedeployFunctionCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RedeployFunctionCandidateClientResponse, error)
+
+	// PromoteFunctionCandidateWithBodyWithResponse request with any body
+	PromoteFunctionCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PromoteFunctionCandidateClientResponse, error)
+
+	PromoteFunctionCandidateWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, body PromoteFunctionCandidateJSONRequestBody, reqEditors ...RequestEditorFn) (*PromoteFunctionCandidateClientResponse, error)
+
 	// ListFunctionDeploymentsWithResponse request
 	ListFunctionDeploymentsWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, params *ListFunctionDeploymentsParams, reqEditors ...RequestEditorFn) (*ListFunctionDeploymentsClientResponse, error)
 
@@ -49735,6 +50769,14 @@ type ClientWithResponsesInterface interface {
 	UpdateFunctionSchedulerWithBodyWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFunctionSchedulerClientResponse, error)
 
 	UpdateFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFunctionSchedulerClientResponse, error)
+
+	// GetFunctionServingWithResponse request
+	GetFunctionServingWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*GetFunctionServingClientResponse, error)
+
+	// RollbackFunctionServingWithBodyWithResponse request with any body
+	RollbackFunctionServingWithBodyWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RollbackFunctionServingClientResponse, error)
+
+	RollbackFunctionServingWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, body RollbackFunctionServingJSONRequestBody, reqEditors ...RequestEditorFn) (*RollbackFunctionServingClientResponse, error)
 
 	// DisconnectProjectGitWithResponse request
 	DisconnectProjectGitWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*DisconnectProjectGitClientResponse, error)
@@ -58810,6 +59852,261 @@ func (r UpdateFunctionClientResponse) ContentType() string {
 	return ""
 }
 
+type ListFunctionCandidatesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionCandidateList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFunctionCandidatesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFunctionCandidatesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFunctionCandidatesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateFunctionCandidateClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *FunctionCandidate
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateFunctionCandidateClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateFunctionCandidateClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateFunctionCandidateClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteFunctionCandidateClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteFunctionCandidateClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteFunctionCandidateClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteFunctionCandidateClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFunctionCandidateClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionCandidate
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFunctionCandidateClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFunctionCandidateClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFunctionCandidateClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListFunctionCandidateDeploymentsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionCandidateDeploymentList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFunctionCandidateDeploymentsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFunctionCandidateDeploymentsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFunctionCandidateDeploymentsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RedeployFunctionCandidateClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *FunctionCandidateDeployment
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RedeployFunctionCandidateClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RedeployFunctionCandidateClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RedeployFunctionCandidateClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PromoteFunctionCandidateClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionServing
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PromoteFunctionCandidateClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PromoteFunctionCandidateClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PromoteFunctionCandidateClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListFunctionDeploymentsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -58992,6 +60289,78 @@ func (r UpdateFunctionSchedulerClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFunctionServingClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionServing
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFunctionServingClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFunctionServingClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFunctionServingClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RollbackFunctionServingClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionServing
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RollbackFunctionServingClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RollbackFunctionServingClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RollbackFunctionServingClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -60717,6 +62086,7 @@ func (r RegenerateServiceKeyClientResponse) ContentType() string {
 type ReplaceSharedVariablesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *SharedVariablesReplaceResult
 	JSON400      *Error
 	JSON409      *Error
 	JSON413      *Error
@@ -61409,6 +62779,7 @@ type CreateVariableClientResponse struct {
 	HTTPResponse *http.Response
 	JSON201      *Variable
 	JSON400      *Error
+	JSON409      *Error
 	JSON503      *Error
 }
 
@@ -61440,6 +62811,7 @@ type DeleteVariableClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON404      *Error
+	JSON409      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -61503,6 +62875,7 @@ type UpdateVariableClientResponse struct {
 	JSON200      *Variable
 	JSON400      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON503      *Error
 }
 
@@ -66312,6 +67685,77 @@ func (c *ClientWithResponses) UpdateFunctionWithResponse(ctx context.Context, id
 	return ParseUpdateFunctionClientResponse(rsp)
 }
 
+// ListFunctionCandidatesWithResponse request returning *ListFunctionCandidatesClientResponse
+func (c *ClientWithResponses) ListFunctionCandidatesWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*ListFunctionCandidatesClientResponse, error) {
+	rsp, err := c.ListFunctionCandidates(ctx, id, functionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFunctionCandidatesClientResponse(rsp)
+}
+
+// CreateFunctionCandidateWithBodyWithResponse request with arbitrary body returning *CreateFunctionCandidateClientResponse
+func (c *ClientWithResponses) CreateFunctionCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFunctionCandidateClientResponse, error) {
+	rsp, err := c.CreateFunctionCandidateWithBody(ctx, id, functionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFunctionCandidateClientResponse(rsp)
+}
+
+// DeleteFunctionCandidateWithResponse request returning *DeleteFunctionCandidateClientResponse
+func (c *ClientWithResponses) DeleteFunctionCandidateWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*DeleteFunctionCandidateClientResponse, error) {
+	rsp, err := c.DeleteFunctionCandidate(ctx, id, functionId, candidateId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteFunctionCandidateClientResponse(rsp)
+}
+
+// GetFunctionCandidateWithResponse request returning *GetFunctionCandidateClientResponse
+func (c *ClientWithResponses) GetFunctionCandidateWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*GetFunctionCandidateClientResponse, error) {
+	rsp, err := c.GetFunctionCandidate(ctx, id, functionId, candidateId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFunctionCandidateClientResponse(rsp)
+}
+
+// ListFunctionCandidateDeploymentsWithResponse request returning *ListFunctionCandidateDeploymentsClientResponse
+func (c *ClientWithResponses) ListFunctionCandidateDeploymentsWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, reqEditors ...RequestEditorFn) (*ListFunctionCandidateDeploymentsClientResponse, error) {
+	rsp, err := c.ListFunctionCandidateDeployments(ctx, id, functionId, candidateId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFunctionCandidateDeploymentsClientResponse(rsp)
+}
+
+// RedeployFunctionCandidateWithBodyWithResponse request with arbitrary body returning *RedeployFunctionCandidateClientResponse
+func (c *ClientWithResponses) RedeployFunctionCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RedeployFunctionCandidateClientResponse, error) {
+	rsp, err := c.RedeployFunctionCandidateWithBody(ctx, id, functionId, candidateId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRedeployFunctionCandidateClientResponse(rsp)
+}
+
+// PromoteFunctionCandidateWithBodyWithResponse request with arbitrary body returning *PromoteFunctionCandidateClientResponse
+func (c *ClientWithResponses) PromoteFunctionCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PromoteFunctionCandidateClientResponse, error) {
+	rsp, err := c.PromoteFunctionCandidateWithBody(ctx, id, functionId, candidateId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePromoteFunctionCandidateClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) PromoteFunctionCandidateWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, candidateId FunctionCandidateId, body PromoteFunctionCandidateJSONRequestBody, reqEditors ...RequestEditorFn) (*PromoteFunctionCandidateClientResponse, error) {
+	rsp, err := c.PromoteFunctionCandidate(ctx, id, functionId, candidateId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePromoteFunctionCandidateClientResponse(rsp)
+}
+
 // ListFunctionDeploymentsWithResponse request returning *ListFunctionDeploymentsClientResponse
 func (c *ClientWithResponses) ListFunctionDeploymentsWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, params *ListFunctionDeploymentsParams, reqEditors ...RequestEditorFn) (*ListFunctionDeploymentsClientResponse, error) {
 	rsp, err := c.ListFunctionDeployments(ctx, id, functionId, params, reqEditors...)
@@ -66380,6 +67824,32 @@ func (c *ClientWithResponses) UpdateFunctionSchedulerWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseUpdateFunctionSchedulerClientResponse(rsp)
+}
+
+// GetFunctionServingWithResponse request returning *GetFunctionServingClientResponse
+func (c *ClientWithResponses) GetFunctionServingWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*GetFunctionServingClientResponse, error) {
+	rsp, err := c.GetFunctionServing(ctx, id, functionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFunctionServingClientResponse(rsp)
+}
+
+// RollbackFunctionServingWithBodyWithResponse request with arbitrary body returning *RollbackFunctionServingClientResponse
+func (c *ClientWithResponses) RollbackFunctionServingWithBodyWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RollbackFunctionServingClientResponse, error) {
+	rsp, err := c.RollbackFunctionServingWithBody(ctx, id, functionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRollbackFunctionServingClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) RollbackFunctionServingWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, body RollbackFunctionServingJSONRequestBody, reqEditors ...RequestEditorFn) (*RollbackFunctionServingClientResponse, error) {
+	rsp, err := c.RollbackFunctionServing(ctx, id, functionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRollbackFunctionServingClientResponse(rsp)
 }
 
 // DisconnectProjectGitWithResponse request returning *DisconnectProjectGitClientResponse
@@ -80498,6 +81968,503 @@ func ParseUpdateFunctionClientResponse(rsp *http.Response) (*UpdateFunctionClien
 	return response, nil
 }
 
+// ParseListFunctionCandidatesClientResponse parses an HTTP response from a ListFunctionCandidatesWithResponse call
+func ParseListFunctionCandidatesClientResponse(rsp *http.Response) (*ListFunctionCandidatesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFunctionCandidatesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionCandidateList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateFunctionCandidateClientResponse parses an HTTP response from a CreateFunctionCandidateWithResponse call
+func ParseCreateFunctionCandidateClientResponse(rsp *http.Response) (*CreateFunctionCandidateClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateFunctionCandidateClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest FunctionCandidate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteFunctionCandidateClientResponse parses an HTTP response from a DeleteFunctionCandidateWithResponse call
+func ParseDeleteFunctionCandidateClientResponse(rsp *http.Response) (*DeleteFunctionCandidateClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteFunctionCandidateClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFunctionCandidateClientResponse parses an HTTP response from a GetFunctionCandidateWithResponse call
+func ParseGetFunctionCandidateClientResponse(rsp *http.Response) (*GetFunctionCandidateClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFunctionCandidateClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionCandidate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListFunctionCandidateDeploymentsClientResponse parses an HTTP response from a ListFunctionCandidateDeploymentsWithResponse call
+func ParseListFunctionCandidateDeploymentsClientResponse(rsp *http.Response) (*ListFunctionCandidateDeploymentsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFunctionCandidateDeploymentsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionCandidateDeploymentList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRedeployFunctionCandidateClientResponse parses an HTTP response from a RedeployFunctionCandidateWithResponse call
+func ParseRedeployFunctionCandidateClientResponse(rsp *http.Response) (*RedeployFunctionCandidateClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RedeployFunctionCandidateClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest FunctionCandidateDeployment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePromoteFunctionCandidateClientResponse parses an HTTP response from a PromoteFunctionCandidateWithResponse call
+func ParsePromoteFunctionCandidateClientResponse(rsp *http.Response) (*PromoteFunctionCandidateClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PromoteFunctionCandidateClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionServing
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListFunctionDeploymentsClientResponse parses an HTTP response from a ListFunctionDeploymentsWithResponse call
 func ParseListFunctionDeploymentsClientResponse(rsp *http.Response) (*ListFunctionDeploymentsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -80704,6 +82671,142 @@ func ParseUpdateFunctionSchedulerClientResponse(rsp *http.Response) (*UpdateFunc
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFunctionServingClientResponse parses an HTTP response from a GetFunctionServingWithResponse call
+func ParseGetFunctionServingClientResponse(rsp *http.Response) (*GetFunctionServingClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFunctionServingClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionServing
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRollbackFunctionServingClientResponse parses an HTTP response from a RollbackFunctionServingWithResponse call
+func ParseRollbackFunctionServingClientResponse(rsp *http.Response) (*RollbackFunctionServingClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RollbackFunctionServingClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionServing
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -82930,6 +85033,13 @@ func ParseReplaceSharedVariablesClientResponse(rsp *http.Response) (*ReplaceShar
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SharedVariablesReplaceResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -83835,6 +85945,13 @@ func ParseCreateVariableClientResponse(rsp *http.Response) (*CreateVariableClien
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -83867,6 +85984,13 @@ func ParseDeleteVariableClientResponse(rsp *http.Response) (*DeleteVariableClien
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 
@@ -83940,6 +86064,13 @@ func ParseUpdateVariableClientResponse(rsp *http.Response) (*UpdateVariableClien
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error

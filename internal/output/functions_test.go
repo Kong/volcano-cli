@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -110,4 +111,16 @@ func TestFunctionShowsTheRoutesThatReachIt(t *testing.T) {
 	var unrouted bytes.Buffer
 	Function(&unrouted, &fn, nil)
 	assert.NotContains(t, unrouted.String(), "Routed from")
+}
+
+func TestFunctionShowsThePreviewThatServesIt(t *testing.T) {
+	var serving bytes.Buffer
+	preview := uuid.MustParse("77777777-7777-4777-8777-777777777777")
+	Function(&serving, &apiclient.Function{Name: "api", ServingCandidateId: &preview}, nil)
+	assert.Contains(t, serving.String(), "77777777-7777-4777-8777-777777777777")
+	assert.Contains(t, serving.String(), "Serving Preview")
+
+	var own bytes.Buffer
+	Function(&own, &apiclient.Function{Name: "api"}, nil)
+	assert.NotContains(t, own.String(), "Serving Preview")
 }

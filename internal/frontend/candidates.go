@@ -25,7 +25,10 @@ type CandidateRequest struct {
 type CandidateDeploy struct {
 	Frontend  string
 	Candidate string
-	Archive   []byte
+	// Package returns the archive to upload. It runs once the frontend and the
+	// Candidate are found, so a missing preview is reported before any
+	// packaging.
+	Package func() ([]byte, error)
 }
 
 // CreateCandidate uploads a source archive and starts the Candidate's first
@@ -76,28 +79,39 @@ func (s Service) DeployCandidate(ctx context.Context, request CandidateDeploy) (
 	if err != nil {
 		return nil, nil, err
 	}
+	packaged, err := request.Package()
+	if err != nil {
+		return nil, nil, err
+	}
 	deployment, err := authenticated.API.RedeployFrontendCandidate(ctx, authenticated.ProjectID, frontend.Id, candidate.Id,
-		api.FrontendCandidateInput{Archive: request.Archive})
+		api.FrontendCandidateInput{Archive: packaged})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to deploy to preview %q: %w", candidate.Name, err)
 	}
 	return candidate, deployment, nil
 }
 
-// DeleteCandidate starts deleting a Candidate.
-func (s Service) DeleteCandidate(ctx context.Context, frontendIdentifier, candidateIdentifier string) (*apiclient.FrontendCandidate, error) {
+// DeleteCandidate starts deleting a Candidate once confirm, when set, agrees
+// to delete the Candidate it found. It reports whether it deleted it.
+func (s Service) DeleteCandidate(ctx context.Context, frontendIdentifier, candidateIdentifier string, confirm func(*apiclient.FrontendCandidate) (bool, error)) (*apiclient.FrontendCandidate, bool, error) {
 	authenticated, frontend, err := s.currentFrontend(ctx, frontendIdentifier)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	candidate, err := resolveCandidate(ctx, authenticated, frontend, candidateIdentifier)
 	if err != nil {
-		return nil, err
+		return nil, false, err
+	}
+	if confirm != nil {
+		confirmed, err := confirm(candidate)
+		if err != nil || !confirmed {
+			return candidate, false, err
+		}
 	}
 	if err := authenticated.API.DeleteFrontendCandidate(ctx, authenticated.ProjectID, frontend.Id, candidate.Id); err != nil {
-		return nil, fmt.Errorf("failed to delete preview %q: %w", candidate.Name, err)
+		return nil, false, fmt.Errorf("failed to delete preview %q: %w", candidate.Name, err)
 	}
-	return candidate, nil
+	return candidate, true, nil
 }
 
 // Serving reports what a frontend serves.

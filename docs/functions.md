@@ -97,6 +97,8 @@ build compiles it.
 | Deployable regions | `volcano functions regions [--json]` |
 | Aliases | `volcano functions alias set\|list\|delete …` |
 | Schedulers | `volcano functions schedulers create\|list\|enable\|disable\|delete …` |
+| Previews | `volcano cloud functions preview create\|list\|get\|deploy\|deployments\|delete\|promote …` |
+| What a function runs, roll back | `volcano cloud functions serving <name>`, `volcano cloud functions rollback <name> [--to-production]` |
 
 Prefix with `cloud` (e.g. `volcano cloud functions deploy`) to target cloud.
 Without the prefix, function commands always target local development.
@@ -196,3 +198,59 @@ volcano functions invoke hello
 failed, and the last error of a failing one. A run fails when Volcano cannot
 invoke the function; an error the function itself returns does not count. To be
 alerted when a scheduler keeps failing, see [notifications.md](notifications.md).
+
+## Previews
+
+A preview is a copy of an ordinary function deployed to its own runtime and URL,
+so you can check a change with the function's real variables before it replaces
+what the function runs. Previews run in the cloud only; the local development
+server answers `feature_unavailable`.
+
+```bash
+# Deploy a preview of api from volcano/functions in the current project
+volcano cloud functions preview create api --name checkout-v2 --ttl 72h
+volcano cloud functions preview get api checkout-v2
+volcano cloud functions preview list api
+volcano cloud functions preview deployments api checkout-v2
+
+# Deploy a newer build to the same preview
+volcano cloud functions preview deploy api checkout-v2
+
+# Point api's traffic at the preview, check it, and undo it
+volcano cloud functions preview promote api checkout-v2
+volcano cloud functions serving api
+volcano cloud functions rollback api
+
+# Remove the preview
+volcano cloud functions preview delete api checkout-v2
+```
+
+A preview is private: only a project service key can invoke its URL;
+signed-in users and access tokens are refused. It gets
+none of the function's schedules or warmers. `--name` is required and unique
+within the function; `--ttl` deletes the preview after that long, at most 720
+hours, unless the function is running it or keeping it for a rollback; it then
+expires once it is neither. A function can have 20 live previews; durable functions have none.
+
+Promotion points the function's traffic at the preview's runtime, without
+deploying or rebuilding anything, so it takes effect at once and the function
+keeps its URL, visibility, schedules, usage and logs. It is refused while a
+deployment of the function runs, and when the preview was built with different
+variables, runtime or handler than the function has now. While a preview
+serves, setting or deleting a variable the function reads, shared or not
+(including through `volcano cloud variables deploy`), is refused: roll back or
+deploy the function first. `config deploy` and replacing the project's list of
+shared variable names store the change for the whole project, so they skip the
+function instead and say so in a notice, without failing; `serving` then shows
+that the function's own build has out-of-date variables, and
+`rollback --to-production` brings them up to date.
+`promote` and `rollback` name the revision the CLI just read, so one that races
+another is refused instead of overwriting it. `rollback --to-production`
+returns to the function's own build. A preview the function runs cannot
+be deleted; roll back first. While the project deploys from a connected Git
+repository, promoting a preview, and a rollback that would return to one, are
+refused: deploy from the repository instead. `preview delete` asks first; `--yes` skips the
+prompt. `preview list`, `preview get` and `serving` take `--json`. Creating,
+deploying to and promoting a preview are behind a release gate, and the CLI
+says function previews aren't available for the project while it is off. See
+[Function previews](/platform/functions/previews).
