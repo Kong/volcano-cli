@@ -45,8 +45,6 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 		kv(w, on, "Repository", "none connected")
 	}
 	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
-	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
-	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	if !settings.CanUpdate {
 		kv(w, on, "You can change it", "no: only the project's owner can, from their own session while their account is active")
@@ -77,8 +75,7 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	}
 }
 
-// LavaflowSettings renders every setting, with the custom context and system
-// prompt in full. available and mergeAvailable are whether LavaFlow takes
+// LavaflowSettings renders every setting. available and mergeAvailable are whether LavaFlow takes
 // changes and can merge its fixes for the project; a nil mergeAvailable
 // leaves the Merging line out.
 func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings, available, mergeAvailable *bool) {
@@ -91,8 +88,6 @@ func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings, availab
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
-	block(w, on, "Custom context", settings.CustomContext)
-	block(w, on, "System prompt", settings.SystemPrompt)
 }
 
 // LavaflowSettingsSaved renders the settings a change left.
@@ -103,8 +98,6 @@ func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.Lava
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
-	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
-	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 }
 
 // LavaflowStats renders the issues LavaFlow took on and the fix pull requests
@@ -397,13 +390,6 @@ func lavaflowAllowedWorkflow(workflow apiclient.LavaflowAllowedWorkflow) string 
 	default:
 		return line + ": couldn't be read"
 	}
-}
-
-func setOrNot(text string) string {
-	if strings.TrimSpace(text) == "" {
-		return "not set"
-	}
-	return fmt.Sprintf("set (%d characters)", len([]rune(text)))
 }
 
 // lavaflowMergeAvailability says whether LavaFlow can merge its fixes. The

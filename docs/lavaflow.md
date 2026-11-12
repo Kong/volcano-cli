@@ -55,7 +55,7 @@ the same when the owner's plan couldn't be read.
 | Turn LavaFlow on | `volcano cloud lavaflow enable [--yes] [--json]` |
 | Turn LavaFlow off | `volcano cloud lavaflow disable [--json]` |
 | Show the settings in full | `volcano cloud lavaflow settings [--json]` |
-| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--human-review-path p]... [--clear-human-review-paths] [--custom-context t \| --custom-context-file f] [--system-prompt t \| --system-prompt-file f] [--allow-ungated-workflows true\|false] [--yes] [--json]` |
+| Change the settings | `volcano cloud lavaflow settings set [--autonomy a] [--human-review-path p]... [--clear-human-review-paths] [--allow-ungated-workflows true\|false] [--yes] [--json]` |
 | Show issues and fix pull requests per day | `volcano cloud lavaflow stats [--days n] [--json]` |
 | Show what LavaFlow did for each resource | `volcano cloud lavaflow resources [--days n] [--json]` |
 | List runs | `volcano cloud lavaflow list [--status s] [--resource id] [--limit n] [--cursor c] [--json]` |
@@ -103,8 +103,6 @@ LavaFlow: on
 Autonomy: open fix pull requests
 Human review paths: none
 Ungated workflows: not allowed
-Custom context: not set
-System prompt: not set
 ```
 
 `enable` says what LavaFlow does and where it sends the project's data, then
@@ -128,8 +126,6 @@ Autonomy: open fix pull requests
 Merging: available
 Repository: acme/shop
 Ungated workflows: not allowed
-Custom context: not set
-System prompt: not set
 Updated: 2026-10-30 12:00
 ```
 
@@ -180,16 +176,12 @@ volcano cloud lavaflow settings set --autonomy diagnose_only
 - `merge`: LavaFlow can also merge its fix pull requests. See
   [Merge fixes](#merge-fixes).
 
-Two more settings are saved for LavaFlow's runs, which don't use them yet:
+A setting you don't pass keeps its value.
 
-- `--custom-context`: what LavaFlow should know about the project, such as
-  which code is legacy or how it is deployed.
-- `--system-prompt`: instructions added to LavaFlow's own, such as how small
-  a fix should be.
-
-Each takes up to 4,000 characters, from the flag or a file
-(`--custom-context-file`, `--system-prompt-file`). An empty value clears it.
-A setting you don't pass keeps its value. `settings` shows both in full.
+LavaFlow writes and reviews fixes by your repository's `AGENTS.md` and
+`CLAUDE.md` files, so tell it about your project there: how to run the tests,
+conventions, and areas to treat with care. To make a person approve every fix
+that changes a path, use `--human-review-path`; see [Merge fixes](#merge-fixes).
 
 ### Merge fixes
 
@@ -212,8 +204,8 @@ and without `--yes`, it changes nothing and exits with a non-zero code.
 
 Only the project's owner can turn merging on, signed in with `volcano login`
 while that sign-in lasts, or with a platform token that has an expiry. Under
-`merge`, the same goes for `enable` and for changing the human review paths,
-`--custom-context` or `--system-prompt`. The owner's GitHub account must also
+`merge`, the same goes for `enable` and for changing the human review paths.
+The owner's GitHub account must also
 be able to push to the project's repository. Volcano refuses these changes
 with `person_required` for a platform token that never expires, a sign-in that
 ended, an owner whose GitHub account can't push to the repository, or a

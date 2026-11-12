@@ -20,7 +20,7 @@ func TestStatusOffSaysWhatLavaFlowDoesAndHowToTurnItOn(t *testing.T) {
 	assert.Contains(t, out, "Autonomy: open fix pull requests")
 	assert.Contains(t, out, "Repository: "+lavaflowRepo)
 	assert.Contains(t, out, "Ungated workflows: not allowed\n")
-	assert.Contains(t, out, "Custom context: not set")
+	assert.NotContains(t, out, "Custom context")
 	assert.Contains(t, out, "Updated: not saved yet")
 	assert.Contains(t, out, clilavaflow.OnDescription)
 	assert.Contains(t, out, "Turn it on with volcano cloud lavaflow enable.")
@@ -48,7 +48,6 @@ func TestStatusOnWithoutARepositoryAsksForOne(t *testing.T) {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
 			s.settings["enabled"], s.settings["autonomy"] = true, autonomy
-			s.settings["custom_context"] = "Checkout runs on Fridays only."
 			s.repoConnected = false
 		})
 
@@ -56,7 +55,7 @@ func TestStatusOnWithoutARepositoryAsksForOne(t *testing.T) {
 		require.NoError(t, err, autonomy)
 		assert.Contains(t, out, "LavaFlow: on", autonomy)
 		assert.Contains(t, out, "Repository: none connected", autonomy)
-		assert.Contains(t, out, "Custom context: set (30 characters)", autonomy)
+		assert.NotContains(t, out, "Custom context", autonomy)
 		assert.Contains(t, out, "Connect a repository, then turn LavaFlow on again so it can open fix pull requests: "+
 			"volcano git connect, then volcano cloud lavaflow enable", autonomy)
 		assert.NotContains(t, out, "Turn it on", autonomy)

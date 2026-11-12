@@ -23,8 +23,8 @@ func newSettings(deps cliruntime.Deps) *cobra.Command {
 		Use:   "settings",
 		Short: "Show LavaFlow's settings",
 		Long: `Show LavaFlow's settings for the current project: whether it is on, how far it
-goes, whether it can merge its fixes, whether it opens fixes past ungated
-workflows, and the custom context and system prompt in full. Change them with
+goes, whether it can merge its fixes, and whether it opens fixes past ungated
+workflows. Change them with
 '` + cliruntime.CommandPath(deps, "lavaflow settings set") + `'.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

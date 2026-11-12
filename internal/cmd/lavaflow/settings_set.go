@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -16,20 +15,16 @@ import (
 )
 
 type settingsSetOptions struct {
-	deps              cliruntime.Deps
-	autonomy          string
-	reviewPaths       []string
-	clearReviewPaths  bool
-	customContext     string
-	customContextFile string
-	systemPrompt      string
-	systemPromptFile  string
-	ungatedWorkflows  string
-	yes               bool
-	jsonOutput        bool
-	in                io.Reader
-	out               io.Writer
-	errOut            io.Writer
+	deps             cliruntime.Deps
+	autonomy         string
+	reviewPaths      []string
+	clearReviewPaths bool
+	ungatedWorkflows string
+	yes              bool
+	jsonOutput       bool
+	in               io.Reader
+	out              io.Writer
+	errOut           io.Writer
 }
 
 func newSettingsSet(deps cliruntime.Deps) *cobra.Command {
@@ -42,30 +37,27 @@ keeps its value. Only the project's owner can, from their own session: a
 project access token is refused.
 
 --autonomy decides how far LavaFlow goes: %[1]s diagnoses issues and leaves
-any fix to a person; %[2]s also opens fix pull requests for review; %[4]s
-is for a project where merging is available. %[5]s
---autonomy %[4]s prints that and asks first; --yes skips the question.
+any fix to a person; %[2]s also opens fix pull requests for review; %[3]s
+is for a project where merging is available. %[4]s
+--autonomy %[3]s prints that and asks first; --yes skips the question.
 
 --human-review-path names a path whose changes always hold a fix for a
-person; repeat it for each, up to %[6]d. It replaces the saved paths, and
+person; repeat it for each, up to %[5]d. It replaces the saved paths, and
 --clear-human-review-paths removes them all.
 
---custom-context tells LavaFlow's runs about the project, and --system-prompt
-adds instructions to LavaFlow's own. LavaFlow saves both, but its runs don't
-use them yet. Each takes up to %[3]d characters, from the flag or a file
-(--custom-context-file, --system-prompt-file). Pass an empty value to clear
-one.
+LavaFlow follows the repository's AGENTS.md and CLAUDE.md for how to write
+and review a fix. Tell it about the project there.
 
---allow-ungated-workflows: %[8]s %[9]s
+--allow-ungated-workflows: %[7]s %[8]s
 
-%[7]s
+%[6]s
 It prints that and asks first; --yes skips the question. false turns it off
 without asking. While LavaFlow isn't available for the project, Volcano turns
-it off only together with LavaFlow, so false turns LavaFlow off too.`, apiclient.DiagnoseOnly, apiclient.OpenPr, clilavaflow.MaxTextLength, apiclient.Merge,
+it off only together with LavaFlow, so false turns LavaFlow off too.`, apiclient.DiagnoseOnly, apiclient.OpenPr, apiclient.Merge,
 			clilavaflow.MergeDisclosure, clilavaflow.MaxHumanReviewPaths, ungatedWorkflowsDisclosure,
 			clilavaflow.UngatedWorkflowsSetting, clilavaflow.UngatedWorkflowsRules),
 		Example: "  " + cliruntime.CommandPath(deps, "lavaflow settings set --autonomy diagnose_only") + "\n" +
-			"  " + cliruntime.CommandPath(deps, "lavaflow settings set --custom-context-file lavaflow-context.md"),
+			"  " + cliruntime.CommandPath(deps, "lavaflow settings set --human-review-path 'db/migrations/**'"),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
@@ -84,14 +76,8 @@ it off only together with LavaFlow, so false turns LavaFlow off too.`, apiclient
 		"A path whose changes always hold a fix for a person (repeatable; replaces the saved paths)")
 	cmd.Flags().BoolVar(&opts.clearReviewPaths, "clear-human-review-paths", false,
 		"Remove every path that always holds a fix for a person")
-	cmd.Flags().StringVar(&opts.customContext, "custom-context", "", "Context about the project for LavaFlow's runs")
-	cmd.Flags().StringVar(&opts.customContextFile, "custom-context-file", "", "Read the custom context from a file")
-	cmd.Flags().StringVar(&opts.systemPrompt, "system-prompt", "", "Instructions added to LavaFlow's own")
-	cmd.Flags().StringVar(&opts.systemPromptFile, "system-prompt-file", "", "Read the system prompt from a file")
 	cmd.Flags().StringVar(&opts.ungatedWorkflows, "allow-ungated-workflows", "",
 		clilavaflow.UngatedWorkflowsSetting+" Pass true or false.")
-	cmd.MarkFlagsMutuallyExclusive("custom-context", "custom-context-file")
-	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
 	cmd.MarkFlagsMutuallyExclusive("human-review-path", "clear-human-review-paths")
 	cmd.Flags().BoolVarP(&opts.yes, "yes", "y", false, "Skip the confirmation prompt")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON")
@@ -114,26 +100,6 @@ func settingsUpdate(cmd *cobra.Command, opts settingsSetOptions) (apiclient.Lava
 	case opts.clearReviewPaths:
 		update.MergePolicy = &apiclient.LavaflowMergePolicyUpdate{HumanReviewPaths: &[]string{}}
 	}
-	for _, text := range []struct {
-		setting          **string
-		flag, file       string
-		value, valueFile string
-	}{
-		{&update.CustomContext, "custom-context", "custom-context-file", opts.customContext, opts.customContextFile},
-		{&update.SystemPrompt, "system-prompt", "system-prompt-file", opts.systemPrompt, opts.systemPromptFile},
-	} {
-		switch {
-		case flags.Changed(text.flag):
-			*text.setting = &text.value
-		case flags.Changed(text.file):
-			content, err := os.ReadFile(text.valueFile)
-			if err != nil {
-				return update, fmt.Errorf("failed to read %s: %w", text.valueFile, err)
-			}
-			value := string(content)
-			*text.setting = &value
-		}
-	}
 	if flags.Changed("allow-ungated-workflows") {
 		switch opts.ungatedWorkflows {
 		case "true", "false":
@@ -143,10 +109,9 @@ func settingsUpdate(cmd *cobra.Command, opts settingsSetOptions) (apiclient.Lava
 			return update, fmt.Errorf("invalid --allow-ungated-workflows %q: use true or false", opts.ungatedWorkflows)
 		}
 	}
-	if update.Autonomy == nil && update.MergePolicy == nil && update.CustomContext == nil && update.SystemPrompt == nil &&
-		update.AllowUngatedWorkflows == nil {
+	if update.Autonomy == nil && update.MergePolicy == nil && update.AllowUngatedWorkflows == nil {
 		return update, errors.New("nothing to change: pass --autonomy, --human-review-path, --clear-human-review-paths, " +
-			"--custom-context, --system-prompt, or --allow-ungated-workflows")
+			"or --allow-ungated-workflows")
 	}
 	return update, nil
 }
@@ -186,7 +151,7 @@ const ungatedWorkflowsOffTurnsLavaFlowOff = "LavaFlow isn't available for this p
 // turning ungated workflows off.
 func turnsOffUngatedWorkflowsOnly(update apiclient.LavaflowSettingsUpdate) bool {
 	return update.AllowUngatedWorkflows != nil && !*update.AllowUngatedWorkflows && update.Autonomy == nil &&
-		update.MergePolicy == nil && update.CustomContext == nil && update.SystemPrompt == nil && update.Enabled == nil
+		update.MergePolicy == nil && update.Enabled == nil
 }
 
 // ungatedWorkflowsDisclosure is what settings set prints, and its help says,

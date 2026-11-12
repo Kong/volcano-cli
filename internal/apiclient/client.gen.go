@@ -10907,9 +10907,6 @@ type LavaflowSettings struct {
 	// CodeQuality LavaFlow Code Quality: whether LavaFlow reviews the code each production deploy changes and opens pull requests that fix what it confirms.
 	CodeQuality LavaflowCodeQualitySettings `json:"code_quality"`
 
-	// CustomContext Context about the project for LavaFlow's runs. Empty when unset. Saved, but runs do not use it yet.
-	CustomContext string `json:"custom_context"`
-
 	// Enabled Whether LavaFlow works on the project's issues. Off by default.
 	Enabled bool `json:"enabled"`
 
@@ -10928,9 +10925,6 @@ type LavaflowSettings struct {
 	// SkillLearning What LavaFlow will do with a skill it learns from a writer's correction of one of its fixes, once learning ships in a later release. `auto`, the default, activates it at once. `review` keeps it `proposed` until the owner activates it. `off` learns none and loads no project skill; the project's skills stay readable and deletable. A writer of the repository can steer LavaFlow through what it learns, outside the repository's history and branch protection, so a repository that protects its guidance, or relays CI output through a bot account with write access, should use `review`. Turning learning up needs the project's `lavaflow.skills` capability.
 	SkillLearning LavaflowSkillLearning `json:"skill_learning"`
 
-	// SystemPrompt Instructions for LavaFlow's runs, to follow after LavaFlow's own, which take precedence. Empty when unset. Saved, but runs do not use it yet.
-	SystemPrompt string `json:"system_prompt"`
-
 	// UpdatedAt When the settings were last saved, or last changed by connecting a repository. Null until they first are.
 	UpdatedAt *time.Time `json:"updated_at"`
 
@@ -10947,9 +10941,8 @@ type LavaflowSettingsUpdate struct {
 	Autonomy *LavaflowAutonomy `json:"autonomy,omitempty"`
 
 	// CodeQuality Turns Code Quality on or off. Only the project's owner, signed in, can turn it on; any credential that can save the settings can turn it off.
-	CodeQuality   *LavaflowCodeQualityUpdate `json:"code_quality,omitempty"`
-	CustomContext *string                    `json:"custom_context,omitempty"`
-	Enabled       *bool                      `json:"enabled,omitempty"`
+	CodeQuality *LavaflowCodeQualityUpdate `json:"code_quality,omitempty"`
+	Enabled     *bool                      `json:"enabled,omitempty"`
 
 	// MergePolicy The merge policy fields to change. An omitted field keeps its saved value. Send `human_review_paths: []` to clear the paths.
 	MergePolicy *LavaflowMergePolicyUpdate `json:"merge_policy,omitempty"`
@@ -10959,7 +10952,6 @@ type LavaflowSettingsUpdate struct {
 
 	// SkillLearning Only the project's owner turns learning up, from `off` to `review` or `auto` or from `review` to `auto`, signed in as a person: with a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, and with a GitHub account that can push to the project's repository. Any other credential gets `403` with code `person_required`. Turning it down or off, or sending the saved value, needs no check. A project access token may send `off` with `project_id`, alone or with `code_quality` turned off, and nothing else; any other save it makes gets `403` with code `person_required`.
 	SkillLearning *LavaflowSkillLearning `json:"skill_learning,omitempty"`
-	SystemPrompt  *string                `json:"system_prompt,omitempty"`
 }
 
 // LavaflowSkill A project skill with its active version.
