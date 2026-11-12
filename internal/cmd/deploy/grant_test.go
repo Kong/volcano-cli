@@ -2,6 +2,8 @@ package deploy
 
 import (
 	"net/http"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -13,47 +15,83 @@ import (
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 )
 
-// grantRouteTable is Hosting's delegated grant route table, copied from
-// DefaultGrantRoutes() in internal/middleware/delegated_grant_routes.go at
-// Kong/volcano-hosting cf392bf5e5 (tkkhq/grant-acceptance-routes, C2, #3312).
-// A pg- grant is refused on any other route with 403 grant_route_not_allowed.
-// Update it with that file.
-var grantRouteTable = []string{
-	"GET /projects/{id}", "GET /projects/{id}/capabilities", "GET /projects/{id}/config",
-	"GET /projects/{id}/deployments", "POST /projects/{id}/logs/search", "POST /projects/{id}/logs/stream",
-	"GET /projects/{id}/functions", "GET /projects/{id}/functions/{functionId}",
-	"GET /projects/{id}/functions/{functionId}/deployments", "GET /projects/{id}/functions/{functionId}/schedulers",
-	"GET /projects/{id}/functions/{functionId}/schedulers/{schedulerId}",
-	"GET /projects/{id}/durable-functions", "GET /projects/{id}/durable-functions/{functionId}",
-	"GET /projects/{id}/frontends", "GET /projects/{id}/frontends/{frontendId}",
-	"GET /projects/{id}/frontends/{frontendId}/deployments", "GET /projects/{id}/frontends/{frontendId}/serving",
-	"GET /projects/{id}/source-export",
-	"POST /projects/{id}/functions", "POST /projects/{id}/functions/batch", "PATCH /projects/{id}/functions/{functionId}",
-	"POST /projects/{id}/functions/{functionId}/schedulers",
-	"PATCH /projects/{id}/functions/{functionId}/schedulers/{schedulerId}",
-	"DELETE /projects/{id}/functions/{functionId}/schedulers/{schedulerId}",
-	"POST /projects/{id}/durable-functions",
-	"PUT /projects/{id}/config", "POST /projects/{id}/variables", "PUT /projects/{id}/variables/{name}",
-	"DELETE /projects/{id}/variables/{name}",
-	"GET /projects/{id}/databases/{databaseName}/migrations", "GET /projects/{id}/databases/{databaseName}/migration-runs",
-	"GET /projects/{id}/databases/{databaseName}/migration-runs/{runId}",
-	"POST /projects/{id}/databases/{databaseName}/migration-runs",
-	"POST /projects/{id}/databases/{databaseName}/migrations/baseline",
-	"POST /projects/{id}/frontends", "POST /projects/{id}/frontends/{frontendId}/deployments",
-	"POST /projects/{id}/frontends/{frontendId}/redeploy",
+// The kinds of grant route, as Hosting's GrantRouteKind. A read and an invoke
+// spend no mutation; a mutation spends one.
+const (
+	grantRead     = "read"
+	grantInvoke   = "invoke"
+	grantMutation = "mutation"
+)
+
+// grantRouteTable is Hosting's delegated grant route table, "METHOD template"
+// to kind, copied from DefaultGrantRoutes() in
+// internal/middleware/delegated_grant_routes.go at Kong/volcano-hosting
+// 2f42b4c314 (tkkhq/grant-acceptance-invoke, C6, #3329), the top of the grant
+// chain. A pg- grant is refused on any other route with 403
+// grant_route_not_allowed. Update it with that file.
+var grantRouteTable = map[string]string{
+	"GET /projects/{id}":                                                 grantRead,
+	"GET /projects/{id}/capabilities":                                    grantRead,
+	"GET /projects/{id}/config":                                          grantRead,
+	"GET /projects/{id}/deployments":                                     grantRead,
+	"POST /projects/{id}/logs/search":                                    grantRead,
+	"POST /projects/{id}/logs/stream":                                    grantRead,
+	"GET /projects/{id}/functions":                                       grantRead,
+	"GET /projects/{id}/functions/{functionId}":                          grantRead,
+	"GET /projects/{id}/functions/{functionId}/deployments":              grantRead,
+	"GET /projects/{id}/functions/{functionId}/schedulers":               grantRead,
+	"GET /projects/{id}/functions/{functionId}/schedulers/{schedulerId}": grantRead,
+	"GET /projects/{id}/durable-functions":                               grantRead,
+	"GET /projects/{id}/durable-functions/{functionId}":                  grantRead,
+	"GET /projects/{id}/frontends":                                       grantRead,
+	"GET /projects/{id}/frontends/{frontendId}":                          grantRead,
+	"GET /projects/{id}/frontends/{frontendId}/deployments":              grantRead,
+	"GET /projects/{id}/frontends/{frontendId}/serving":                  grantRead,
+	"GET /projects/{id}/source-export":                                   grantRead,
+
+	"POST /projects/{id}/functions":                                         grantMutation,
+	"POST /projects/{id}/functions/batch":                                   grantMutation,
+	"PATCH /projects/{id}/functions/{functionId}":                           grantMutation,
+	"POST /projects/{id}/functions/{functionId}/schedulers":                 grantMutation,
+	"PATCH /projects/{id}/functions/{functionId}/schedulers/{schedulerId}":  grantMutation,
+	"DELETE /projects/{id}/functions/{functionId}/schedulers/{schedulerId}": grantMutation,
+	"POST /projects/{id}/durable-functions":                                 grantMutation,
+
+	"POST /projects/{id}/durable-functions/{functionId}/executions":              grantInvoke,
+	"GET /projects/{id}/durable-functions/{functionId}/executions/{executionId}": grantRead,
+
+	"PUT /projects/{id}/config":              grantMutation,
+	"POST /projects/{id}/variables":          grantMutation,
+	"PUT /projects/{id}/variables/{name}":    grantMutation,
+	"DELETE /projects/{id}/variables/{name}": grantMutation,
+
+	"GET /projects/{id}/databases/{databaseName}/migrations":             grantRead,
+	"GET /projects/{id}/databases/{databaseName}/migration-runs":         grantRead,
+	"GET /projects/{id}/databases/{databaseName}/migration-runs/{runId}": grantRead,
+	"POST /projects/{id}/databases/{databaseName}/migration-runs":        grantMutation,
+	"POST /projects/{id}/databases/{databaseName}/migrations/baseline":   grantMutation,
+
+	"POST /projects/{id}/frontends":                          grantMutation,
+	"POST /projects/{id}/frontends/{frontendId}/deployments": grantMutation,
+	"POST /projects/{id}/frontends/{frontendId}/redeploy":    grantMutation,
 }
 
-// grantMayCall reports whether a grant may call method and path. The public
-// runtime catalog runs no auth middleware, so the grant branch never sees it.
-func grantMayCall(method, path string) bool {
-	if method == http.MethodGet && path == "/functions/runtimes" {
-		return true
+// grantDryRunReads are the mutations whose dry_run=true request is a read, as
+// Hosting's GrantRoute.DryRunReads. Only config apply has one.
+var grantDryRunReads = []string{"PUT /projects/{id}/config"}
+
+// grantRouteKind returns the kind of r on the grant table, and false when the
+// table has no route for it. The public runtime catalog runs no auth
+// middleware, so the grant branch never sees it.
+func grantRouteKind(r *http.Request) (string, bool) {
+	if r.Method == http.MethodGet && r.URL.Path == "/functions/runtimes" {
+		return grantRead, true
 	}
-	got := strings.Split(path, "/")
-	for _, entry := range grantRouteTable {
-		entryMethod, template, _ := strings.Cut(entry, " ")
+	got := strings.Split(r.URL.Path, "/")
+	for entry, kind := range grantRouteTable {
+		method, template, _ := strings.Cut(entry, " ")
 		want := strings.Split(template, "/")
-		if entryMethod != method || len(want) != len(got) {
+		if method != r.Method || len(want) != len(got) {
 			continue
 		}
 		match := true
@@ -63,11 +101,16 @@ func grantMayCall(method, path string) bool {
 				break
 			}
 		}
-		if match {
-			return true
+		if !match {
+			continue
 		}
+		if dryRun, err := strconv.ParseBool(r.URL.Query().Get("dry_run")); err == nil && dryRun &&
+			slices.Contains(grantDryRunReads, entry) {
+			return grantRead, true
+		}
+		return kind, true
 	}
-	return false
+	return "", false
 }
 
 // grantGate refuses what Hosting refuses a grant, records it, and passes the
@@ -82,7 +125,7 @@ type grantGate struct {
 func (g *grantGate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	g.mu.Lock()
 	g.auth = append(g.auth, r.Header.Get("Authorization"))
-	if !grantMayCall(r.Method, r.URL.Path) {
+	if _, ok := grantRouteKind(r); !ok {
 		g.refused = append(g.refused, r.Method+" "+r.URL.Path)
 		g.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
@@ -167,8 +210,9 @@ func TestDeployUnderAGrantKeepsTheBudgetRefusalOnEveryMutation(t *testing.T) {
 			fake := newFakeVolcano(t)
 			var hit bool
 			gate := &grantGate{next: func(w http.ResponseWriter, r *http.Request) {
-				// The config step's dry run is a read in all but method.
-				if r.Method+" "+r.URL.Path == route && r.URL.Query().Get("dry_run") != "true" {
+				// The config step's dry run is a read on the grant table, so it
+				// spends nothing.
+				if kind, _ := grantRouteKind(r); r.Method+" "+r.URL.Path == route && kind == grantMutation {
 					hit = true
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusTooManyRequests)
