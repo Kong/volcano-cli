@@ -265,3 +265,36 @@ func TestGrantMigrationUpUsesAMigrationRun(t *testing.T) {
 		assert.NotEqual(t, "GET /projects/"+mainTestProjectAlpha+"/databases/app", request)
 	}
 }
+
+// Baseline under a grant goes through Hosting's baseline route, with the files
+// the caller names, and exits like other commands when Hosting refuses it.
+func TestGrantBaselineUsesTheBaselineRoute(t *testing.T) {
+	baselinePath := "/projects/" + mainTestProjectAlpha + "/databases/app/migrations/baseline"
+	writeMigration := func() {
+		require.NoError(t, os.MkdirAll(filepath.Join("volcano", "migrations"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "001_init.sql"), []byte("CREATE TABLE t();"), 0o644))
+	}
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+		code   int
+	}{
+		{"recorded", http.StatusOK, `{"recorded":["001_init.sql"]}`, 0},
+		{"refused", http.StatusForbidden, `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`, exitPermissionDenied},
+		{"budget", http.StatusTooManyRequests, `{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`, exitGrantBudgetExhausted},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			run := runAsWorkerWith(t, writeMigration, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost && r.URL.Path == baselinePath {
+					respondExitTestJSON(w, tc.status, tc.body)
+					return
+				}
+				respondExitTestJSON(w, http.StatusForbidden, `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`)
+			}, "cloud", "databases", "migration", "baseline", "-d", "app", "-f", "001_init", "--yes")
+
+			assert.Equal(t, tc.code, run.code, run.stderr)
+			assert.Equal(t, []string{"POST " + baselinePath}, run.requests)
+		})
+	}
+}

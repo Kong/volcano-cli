@@ -18,6 +18,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 const (
@@ -203,9 +204,35 @@ func TestMigrationUpUnderGrantReportsAFailedRun(t *testing.T) {
 
 	out, err := runGrantMigration(t, fake, "up", "--all", "-d", "app")
 	require.Error(t, err)
-	assert.Equal(t, "migration run "+testRunID+" failed in rehearse: migration_failed: 002_second.sql failed at line 1 (SQLSTATE 42P07)", err.Error())
 	assert.Contains(t, out, `relation "second" already exists (line 1, SQLSTATE 42P07)`)
-	assert.NotContains(t, err.Error(), "already exists", "the database's own message stays out of the error")
+	// The printed error names the object, so the caller can decide what to
+	// baseline, and says how.
+	assert.Equal(t, "migration run "+testRunID+" failed in rehearse: migration_failed: 002_second.sql failed at line 1 (SQLSTATE 42P07)\n"+
+		`  002_second.sql: relation "second" already exists (line 1, SQLSTATE 42P07)`+"\n"+
+		"  The database already holds an object 002_second.sql creates. If it holds everything the file creates, "+
+		"record it as applied with `volcano databases migration baseline -d app -f 002_second.sql --yes`, then run this again.",
+		err.Error())
+	// The database's message can quote SQL and data: usage telemetry never
+	// sends it.
+	assert.Contains(t, sensitive.Text(err), `relation "second" already exists`)
+}
+
+// A file that fails for another reason gets its error, and no baseline hint.
+func TestMigrationUpUnderGrantNamesOtherFileErrorsWithoutAHint(t *testing.T) {
+	setGrantMigrationTest(t)
+	fake := &fakeMigrationRuns{t: t, create: []func(http.ResponseWriter){acceptRun(testRunID)}, states: map[string][]map[string]any{
+		testRunID: {runState(testRunID, "failed", "apply", map[string]any{
+			"error": map[string]any{"code": "migration_failed", "message": "001_first.sql failed (SQLSTATE 42601)"},
+			"files": []any{map[string]any{"name": "001_first.sql", "outcome": "failed", "error": map[string]any{
+				"message": `syntax error at or near "TABL"`, "sqlstate": "42601",
+			}}},
+		})},
+	}}
+
+	_, err := runGrantMigration(t, fake, "up", "--all", "-d", "app")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `001_first.sql: syntax error at or near "TABL" (SQLSTATE 42601)`)
+	assert.NotContains(t, err.Error(), "baseline")
 }
 
 // Where migration runs are off, a grant fails and never falls back to the

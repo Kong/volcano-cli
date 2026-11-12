@@ -17,6 +17,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/config"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
 
@@ -57,7 +58,11 @@ func usesMigrationRuns(sessions clisession.Factory) bool {
 
 // applyThroughRun applies files to database with a server-side migration run
 // and follows the run to its end, printing what became of each file.
-func applyThroughRun(ctx context.Context, sessions clisession.Factory, database string, files []string, out io.Writer) error {
+// baselineCommand is the command that records files as applied, named in the
+// hint for a file that failed because its objects already exist.
+func applyThroughRun(
+	ctx context.Context, sessions clisession.Factory, database string, files []string, baselineCommand string, out io.Writer,
+) error {
 	project, err := sessions.CurrentProject()
 	if err != nil {
 		return err
@@ -78,7 +83,7 @@ func applyThroughRun(ctx context.Context, sessions clisession.Factory, database 
 	if err != nil {
 		return err
 	}
-	return reportRun(run, out)
+	return reportRun(run, baselineCommand, out)
 }
 
 // migrationRunFiles reads files into a run request. Names go by base name,
@@ -194,9 +199,11 @@ func sleep(ctx context.Context, d time.Duration) error {
 }
 
 // reportRun prints each file's outcome and the run's warnings, and returns an
-// error for a failed run. A file's database error is printed, never put in the
-// returned error: it can quote SQL and data.
-func reportRun(run *apiclient.DatabaseMigrationRun, out io.Writer) error {
+// error for a failed run. That error carries each failed file's own database
+// error, from the rehearsal or the database, which names the object, so the
+// caller can decide what to baseline. It is marked sensitive: it can quote SQL
+// and data, so usage telemetry never sends it.
+func reportRun(run *apiclient.DatabaseMigrationRun, baselineCommand string, out io.Writer) error {
 	fmt.Fprintln(out)
 	if run.Files != nil {
 		for _, file := range *run.Files {
@@ -216,10 +223,48 @@ func reportRun(run *apiclient.DatabaseMigrationRun, out io.Writer) error {
 		fmt.Fprintln(out, "Migrations deployed!")
 		return nil
 	}
+	summary := fmt.Sprintf("migration run %s failed in %s", run.Id, run.Phase)
 	if run.Error != nil {
-		return fmt.Errorf("migration run %s failed in %s: %s: %s", run.Id, run.Phase, run.Error.Code, run.Error.Message)
+		summary += fmt.Sprintf(": %s: %s", run.Error.Code, run.Error.Message)
 	}
-	return fmt.Errorf("migration run %s failed in %s", run.Id, run.Phase)
+	details := failedFileDetails(run, baselineCommand)
+	if details == "" {
+		return errors.New(summary)
+	}
+	return fmt.Errorf("%s\n%w", summary, sensitive.Wrap(errors.New(details)))
+}
+
+// duplicateObjectStates are the SQLSTATEs Postgres answers when an object a
+// file creates already exists.
+var duplicateObjectStates = map[string]bool{
+	"42P04": true, // duplicate_database
+	"42P06": true, // duplicate_schema
+	"42P07": true, // duplicate_table
+	"42701": true, // duplicate_column
+	"42710": true, // duplicate_object
+	"42712": true, // duplicate_alias
+	"42723": true, // duplicate_function
+}
+
+// failedFileDetails is each failed file's database error, and for a file that
+// failed because an object already exists, how to record it as applied.
+func failedFileDetails(run *apiclient.DatabaseMigrationRun, baselineCommand string) string {
+	if run.Files == nil {
+		return ""
+	}
+	var lines []string
+	for _, file := range *run.Files {
+		if file.Error == nil {
+			continue
+		}
+		lines = append(lines, "  "+file.Name+": "+fileErrorText(file.Error))
+		if file.Error.Sqlstate != nil && duplicateObjectStates[*file.Error.Sqlstate] {
+			lines = append(lines, fmt.Sprintf("  The database already holds an object %s creates. If it holds everything "+
+				"the file creates, record it as applied with `%s -f %s --yes`, then run this again.",
+				file.Name, baselineCommand, file.Name))
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func fileErrorText(fileErr *apiclient.DatabaseMigrationFileError) string {

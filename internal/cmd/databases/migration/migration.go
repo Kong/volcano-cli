@@ -52,6 +52,7 @@ func newWithExecutor(deps cliruntime.Deps, executor sqlExecutor) *cobra.Command 
 		Long:  "Apply SQL migrations from the volcano/migrations directory.",
 	}
 	cmd.AddCommand(newUp(deps, executor))
+	cmd.AddCommand(newBaseline(deps))
 	return cmd
 }
 
@@ -183,7 +184,8 @@ func runUp(ctx context.Context, opts upOptions) error {
 	// A delegated grant never reads the connection string: the server applies
 	// the files instead. See runs.go.
 	if sessions := clisession.NewFactory(opts.deps); usesMigrationRuns(sessions) {
-		return applyThroughRun(ctx, sessions, opts.database, migrationFiles, opts.out)
+		baselineCommand := cliruntime.CommandPath(opts.deps, "databases migration baseline -d "+opts.database)
+		return applyThroughRun(ctx, sessions, opts.database, migrationFiles, baselineCommand, opts.out)
 	}
 
 	database, err := clidatabase.NewService(opts.deps).Get(ctx, opts.database)
