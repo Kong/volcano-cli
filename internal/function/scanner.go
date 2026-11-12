@@ -61,9 +61,6 @@ type SourceInfo struct {
 	// viaTypeScript marks a source found only through TypeScript, such as
 	// hello.ts or a directory with index.ts, which the CLI used to skip.
 	viaTypeScript bool
-	// typeScriptIndexes lists a TypeScript directory's index files, such as
-	// index.ts and index.tsx, when no JavaScript index settles its entry.
-	typeScriptIndexes []string
 }
 
 // ScanSources scans volcano/functions for top-level function files and directories.
@@ -214,11 +211,11 @@ func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (SourceInfo,
 	if runtime, entryFile, ok := detectEntrypoint(dirPath, catalog); ok {
 		return SourceInfo{Path: entryFile, Runtime: runtime, IsDir: true}, true
 	}
-	runtime, entryFile, indexes, ok := catalog.typeScriptDirectoryEntry(dirPath)
+	runtime, entryFile, ok := catalog.typeScriptDirectoryEntry(dirPath)
 	if !ok {
 		return SourceInfo{}, false
 	}
-	return SourceInfo{Path: entryFile, Runtime: runtime, IsDir: true, viaTypeScript: true, typeScriptIndexes: indexes}, true
+	return SourceInfo{Path: entryFile, Runtime: runtime, IsDir: true, viaTypeScript: true}, true
 }
 
 // detectEntrypoint finds the first file, by name, named as a runtime's

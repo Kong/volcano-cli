@@ -20,7 +20,8 @@ import (
 // typeScriptLanguage is the runtime language whose build compiles TypeScript.
 const typeScriptLanguage = "nodejs"
 
-// typeScriptExtensions are the files the build compiles, sorted by name.
+// typeScriptExtensions are the files the build compiles, sorted by name, the
+// order a directory prefers them in.
 var typeScriptExtensions = []string{".cts", ".mts", ".ts", ".tsx"}
 
 // javaScriptModuleExtensions are the files the build runs instead of compiling
@@ -47,30 +48,27 @@ func (c RuntimeCatalog) typeScriptRuntimeForFile(name string) (apiclient.Functio
 // typeScriptDirectoryEntry returns a directory function's TypeScript entry:
 // the runtime entrypoint's name with a TypeScript extension, such as index.ts.
 // When JavaScript with the same name sits beside it, such as index.mjs, the
-// build runs that instead, so that is the entry. indexes lists every
-// TypeScript index the build would compile, by name; more than one, such as
-// index.ts and index.tsx, fails the build, so resolveTypeScriptSources refuses
-// the directory unless another source takes its name.
-func (c RuntimeCatalog) typeScriptDirectoryEntry(dirPath string) (runtime apiclient.FunctionRuntimeOption, entry string, indexes []string, ok bool) {
+// build runs that instead, so that is the entry. The directory uploads whole,
+// so the build, not the scan, refuses two TypeScript indexes, such as index.ts
+// and index.tsx, and the scan never blocks deploying another function.
+func (c RuntimeCatalog) typeScriptDirectoryEntry(dirPath string) (apiclient.FunctionRuntimeOption, string, bool) {
 	if c.typeScript == nil {
-		return apiclient.FunctionRuntimeOption{}, "", nil, false
+		return apiclient.FunctionRuntimeOption{}, "", false
 	}
 	entrypoint := c.typeScript.Deployment.Entrypoint
 	stem := strings.TrimSuffix(entrypoint, filepath.Ext(entrypoint))
 	for _, ext := range typeScriptExtensions {
-		if isRegularFile(filepath.Join(dirPath, stem+ext)) {
-			indexes = append(indexes, stem+ext)
+		if !isRegularFile(filepath.Join(dirPath, stem+ext)) {
+			continue
 		}
-	}
-	if len(indexes) == 0 {
-		return apiclient.FunctionRuntimeOption{}, "", nil, false
-	}
-	for _, jsExt := range javaScriptModuleExtensions {
-		if js := filepath.Join(dirPath, stem+jsExt); isRegularFile(js) {
-			return *c.typeScript, js, nil, true
+		for _, jsExt := range javaScriptModuleExtensions {
+			if js := filepath.Join(dirPath, stem+jsExt); isRegularFile(js) {
+				return *c.typeScript, js, true
+			}
 		}
+		return *c.typeScript, filepath.Join(dirPath, stem+ext), true
 	}
-	return *c.typeScript, filepath.Join(dirPath, indexes[0]), indexes, true
+	return apiclient.FunctionRuntimeOption{}, "", false
 }
 
 // singleFileEntrypoint is the archive path a single-file function's source
@@ -90,8 +88,7 @@ func singleFileEntrypoint(info SourceInfo) string {
 // never changes what an existing function deploys. A directory found through
 // its TypeScript index then beats a single TypeScript file, as on the server.
 // Two TypeScript files with one name, such as hello.ts and hello.tsx, are an
-// error, as they are on the server: neither is the obvious handler. So is a
-// directory with two TypeScript indexes, such as index.ts and index.tsx.
+// error, as they are on the server: neither is the obvious handler.
 func resolveTypeScriptSources(sources []SourceInfo) ([]SourceInfo, error) {
 	best := map[string]int{}
 	for _, source := range sources {
@@ -105,14 +102,7 @@ func resolveTypeScriptSources(sources []SourceInfo) ([]SourceInfo, error) {
 
 	files := map[string]string{}
 	for _, source := range sources {
-		if !source.viaTypeScript {
-			continue
-		}
-		if source.IsDir {
-			if len(source.typeScriptIndexes) > 1 {
-				return nil, fmt.Errorf("function %q has more than one TypeScript index, %s, in volcano/functions/%s; keep one",
-					source.Name, strings.Join(source.typeScriptIndexes, " and "), source.Name)
-			}
+		if !source.viaTypeScript || source.IsDir {
 			continue
 		}
 		file := filepath.Base(source.Path)

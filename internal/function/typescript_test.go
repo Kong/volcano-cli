@@ -50,6 +50,8 @@ func TestScanSourcesFindsTypeScriptFunctions(t *testing.T) {
 		{name: "directory javascript index wins", files: []string{"hello/index.js", "hello/index.ts"}, want: map[string]string{"hello": "hello/index.js"}},
 		{name: "directory es module javascript index wins", files: []string{"hello/index.mjs", "hello/index.ts"}, want: map[string]string{"hello": "hello/index.mjs"}},
 		{name: "directory commonjs javascript index wins", files: []string{"hello/index.cjs", "hello/index.ts"}, want: map[string]string{"hello": "hello/index.cjs"}},
+		{name: "directory prefers indexes by name", files: []string{"hello/index.mts", "hello/index.ts"}, want: map[string]string{"hello": "hello/index.mts"}},
+		{name: "directory prefers ts over tsx by name", files: []string{"hello/index.ts", "hello/index.tsx"}, want: map[string]string{"hello": "hello/index.ts"}},
 		{name: "javascript index settles two typescript indexes", files: []string{"hello/index.mjs", "hello/index.ts", "hello/index.tsx"}, want: map[string]string{"hello": "hello/index.mjs"}},
 		{name: "directory needs an index at its top", files: []string{"hello/src/index.ts", "hello/handler.ts"}, want: map[string]string{}},
 	} {
@@ -93,12 +95,8 @@ func TestScanSourcesRejectsTwoTypeScriptFilesForOneFunction(t *testing.T) {
 		{name: "cts and ts", files: []string{"hello.cts", "hello.ts"}, wantErr: `function "hello" has two TypeScript files, hello.cts and hello.ts, in volcano/functions; keep one`},
 		{name: "ts and tsx", files: []string{"hello.ts", "hello.tsx"}, wantErr: `function "hello" has two TypeScript files, hello.ts and hello.tsx, in volcano/functions; keep one`},
 		{name: "javascript settles it", files: []string{"hello.js", "hello.mts", "hello.ts", "hello.tsx"}, want: "hello.js"},
-		{name: "directory ts and tsx indexes", files: []string{"hello/index.ts", "hello/index.tsx"}, wantErr: `function "hello" has more than one TypeScript index, index.ts and index.tsx, in volcano/functions/hello; keep one`},
-		{name: "directory mts and ts indexes", files: []string{"hello/index.mts", "hello/index.ts"}, wantErr: `function "hello" has more than one TypeScript index, index.mts and index.ts, in volcano/functions/hello; keep one`},
-		{name: "directory every typescript index", files: []string{"hello/index.cts", "hello/index.mts", "hello/index.ts", "hello/index.tsx"}, wantErr: `function "hello" has more than one TypeScript index, index.cts and index.mts and index.ts and index.tsx, in volcano/functions/hello; keep one`},
-		{name: "directory beats a typescript file before its indexes count", files: []string{"hello.tsx", "hello/index.ts", "hello/index.tsx"}, wantErr: `function "hello" has more than one TypeScript index, index.ts and index.tsx, in volcano/functions/hello; keep one`},
-		{name: "javascript file settles a directory's indexes", files: []string{"hello.js", "hello/index.ts", "hello/index.tsx"}, want: "hello.js"},
-		{name: "javascript index settles a directory's indexes", files: []string{"hello/index.js", "hello/index.ts", "hello/index.tsx"}, want: "hello/index.js"},
+		{name: "a directory's two indexes are left to the build", files: []string{"hello/index.ts", "hello/index.tsx"}, want: "hello/index.ts"},
+		{name: "a directory beats two typescript files", files: []string{"hello.ts", "hello.tsx", "hello/index.tsx"}, want: "hello/index.tsx"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
