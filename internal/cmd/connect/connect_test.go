@@ -1391,8 +1391,9 @@ func TestConnectSignupUsesEmailFlagOverARelayGitEmail(t *testing.T) {
 					return nil
 				},
 			})
-			cmd.SetOut(&bytes.Buffer{})
-			cmd.SetErr(&bytes.Buffer{})
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(&out)
 			cmd.SetIn(strings.NewReader(""))
 			cmd.SetArgs([]string{t.TempDir(), "--skip-skills", "--signup", "--email", "marco@volcano.dev"})
 			err := cmd.Execute()
@@ -1401,6 +1402,55 @@ func TestConnectSignupUsesEmailFlagOverARelayGitEmail(t *testing.T) {
 			assert.Contains(t, openedURL, "email=marco%40volcano.dev")
 			assert.NotContains(t, openedURL, "support")
 			assert.NotContains(t, openedURL, "noreply")
+			assert.NotContains(t, out.String(), "The signup link includes", "an address from --email is not attributed to git")
+			assert.Zero(t, fake.creates)
+		})
+	}
+}
+
+// A usable git email is used when --email is not given, and connect says
+// where the address came from and how to use another one. With --json the
+// note goes to stderr, so stdout stays machine-readable.
+func TestConnectSignupSaysTheEmailCameFromGit(t *testing.T) {
+	for name, jsonOutput := range map[string]bool{"text": false, "json": true} {
+		t.Run(name, func(t *testing.T) {
+			setConnectTestHome(t)
+			fake := &fakeAPI{t: t, authorizeExpired: true}
+			server := httptest.NewServer(fake)
+			defer server.Close()
+
+			openedURL := ""
+			cmd := New(cliruntime.Deps{
+				HTTPClient: server.Client(),
+				APIBaseURL: server.URL,
+				GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+					return []byte("support@volcano.dev\n"), nil
+				}),
+				OpenBrowser: func(rawURL string) error {
+					openedURL = rawURL
+					return nil
+				},
+			})
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetIn(strings.NewReader(""))
+			args := []string{t.TempDir(), "--skip-skills", "--signup"}
+			if jsonOutput {
+				args = append(args, "--json")
+			}
+			cmd.SetArgs(args)
+			err := cmd.Execute()
+			require.ErrorContains(t, err, "browser authentication failed")
+			assert.Contains(t, openedURL, "email=support%40volcano.dev")
+
+			log, other := stdout.String(), stderr.String()
+			if jsonOutput {
+				log, other = other, log
+			}
+			assert.Contains(t, log, "The signup link includes support@volcano.dev, your `git config --global user.email`.")
+			assert.Contains(t, log, "You can sign up with any address on the signup page.")
+			assert.NotContains(t, other, "The signup link includes")
 			assert.Zero(t, fake.creates)
 		})
 	}

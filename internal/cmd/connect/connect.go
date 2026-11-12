@@ -409,6 +409,9 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 		email := strings.TrimSpace(opts.email)
 		if email == "" {
 			email = cliauth.GitEmail(ctx, opts.deps)
+			if email != "" {
+				output.Note(opts.log, "The signup link includes %s, your `git config --global user.email`. You can sign up with any address on the signup page.", email)
+			}
 		}
 		if email == "" {
 			return errors.New("--signup needs an email address, and git has no usable one. Run again with --email <address>. Agents: ask the user for the email to sign up with (use a native input tool such as AskUserQuestion if you have one), then run again with --email")
