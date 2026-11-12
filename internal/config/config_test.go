@@ -548,3 +548,13 @@ func TestRequireAccountTokenAndProjectRefuseADelegatedGrant(t *testing.T) {
 	assert.Contains(t, err.Error(), "delegated grant (pg-)")
 	assert.NotContains(t, err.Error(), "secret-grant")
 }
+
+// A grant invokes as the grant, ahead of any key saved in the config.
+func TestFunctionInvokeTokenPrefersADelegatedGrant(t *testing.T) {
+	t.Setenv(envToken, DelegatedGrantPrefix+"grant")
+	cfg := &Config{ServiceKey: "sk-saved", AnonKey: "anon-saved"}
+	assert.Equal(t, DelegatedGrantPrefix+"grant", cfg.FunctionInvokeToken())
+
+	t.Setenv(envToken, AccountTokenPrefix+"account")
+	assert.Equal(t, "sk-saved", cfg.FunctionInvokeToken())
+}

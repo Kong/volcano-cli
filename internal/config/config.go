@@ -353,10 +353,14 @@ func (c *Config) TokenFromEnv() bool {
 
 // FunctionInvokeToken returns the token used for runtime function invocation.
 // Cloud uses the reserved data-plane service key (via the invoke token
-// provider) or falls back to the configured token. In local mode the session
-// layer sends no credential at all (see session.Factory.APIClient), so this
-// value is unused there.
+// provider) or falls back to the configured token. A delegated grant is used
+// as is, ahead of any saved key, so a grant's invoke runs as the grant. In
+// local mode the session layer sends no credential at all (see
+// session.Factory.APIClient), so this value is unused there.
 func (c *Config) FunctionInvokeToken() string {
+	if token := c.Token(); IsDelegatedGrant(token) {
+		return token
+	}
 	if strings.TrimSpace(c.ServiceKey) != "" {
 		return c.ServiceKey
 	}

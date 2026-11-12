@@ -114,6 +114,10 @@ refuses one, because it would outlast the run it was made for. Commands outside
 the grant fail with exit code `5`, and a grant that has used up its changes
 fails with exit code `6`. See [scripting.md](scripting.md#exit-codes).
 
+`volcano cloud functions invoke` sends the grant itself and never creates a
+service key for it. Storage object commands need a service key, so they don't
+work with a grant.
+
 Log out at any time:
 
 ```bash

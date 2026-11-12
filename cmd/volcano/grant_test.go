@@ -191,3 +191,37 @@ func TestGrantMismatchHintNamesTheGrant(t *testing.T) {
 	assert.Equal(t, exitPermissionDenied, run.code, run.stderr)
 	assert.Contains(t, run.stderr, "A delegated grant only works on the project it was granted for")
 }
+
+// testFunctionID is the function the invoke tests call.
+const testFunctionID = "99999999-9999-4999-8999-999999999999"
+
+// Invoke sends the grant itself to the data-plane invoke route. It never
+// lists, reads or creates the CLI's service key (runAsWorker fails any
+// /service-keys request). Hosting accepts a grant there from C6 on.
+func TestGrantInvokesWithTheGrantAndNoServiceKey(t *testing.T) {
+	run := runAsWorker(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/functions/"+testFunctionID+"/invoke" {
+			respondExitTestJSON(w, http.StatusOK, `{"ok":true}`)
+			return
+		}
+		respondExitTestJSON(w, http.StatusForbidden, `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`)
+	}, "cloud", "functions", "invoke", "--id", testFunctionID, "--json")
+
+	assert.Equal(t, 0, run.code, run.stderr)
+	assert.Equal(t, []string{"POST /functions/" + testFunctionID + "/invoke"}, run.requests)
+	assert.Equal(t, []string{"Bearer " + testGrant}, run.auth)
+	assert.JSONEq(t, `{"ok":true}`, run.stdout)
+}
+
+// Storage object commands need the CLI's service key, so a grant refuses them
+// before any request.
+func TestGrantRefusesStorageObjectCommandsBeforeAnyRequest(t *testing.T) {
+	run := runAsWorker(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("a storage object command reached the API: %s %s", r.Method, r.URL.Path)
+		respondExitTestJSON(w, http.StatusForbidden, `{"error":"forbidden"}`)
+	}, "cloud", "storage", "object", "list", "uploads")
+
+	assert.Equal(t, exitPermissionDenied, run.code, run.stderr)
+	assert.Contains(t, run.stderr, "storage object commands do not work with a delegated grant (pg-)")
+	assert.Empty(t, run.requests)
+}

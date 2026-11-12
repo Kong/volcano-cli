@@ -65,7 +65,7 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 		domainscmd.New(deps),
 		durablecmd.New(deps),
 		frontendscmd.New(deps),
-		functionscmd.NewWithOptions(deps, functionscmd.WithInvokeTokenProvider(dataPlaneKeys.ServiceKeyForProject)),
+		functionscmd.NewWithOptions(deps, functionscmd.WithInvokeTokenProvider(dataPlaneKeys.InvokeToken)),
 		lavaflowcmd.New(deps),
 		logscmd.New(deps),
 		notificationscmd.New(deps),
