@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-
 func adoptTokenTest(t *testing.T) {
 	t.Helper()
 	ResetAdoptedTokenForTest()
@@ -31,7 +30,6 @@ func envOfAChild(t *testing.T) string {
 	require.NoError(t, err)
 	return string(out)
 }
-
 
 // A grant in VOLCANO_TOKEN is taken out of the environment, so processes the
 // CLI starts don't get it.

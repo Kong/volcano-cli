@@ -263,7 +263,6 @@ func TestGrantBaselineUsesTheBaselineRoute(t *testing.T) {
 	}
 }
 
-
 // Under a grant, the API's code follows the error on its own line.
 func TestGrantErrorPrintsTheAPICode(t *testing.T) {
 	run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
