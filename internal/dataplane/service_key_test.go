@@ -207,7 +207,6 @@ func TestInvokeTokenUsesADelegatedGrantDirectly(t *testing.T) {
 	token, err := service.InvokeToken(t.Context(), project)
 	require.NoError(t, err)
 	assert.Equal(t, cliconfig.DelegatedGrantPrefix+"grant-secret", token)
-
 }
 
 // Any other credential still gets the reserved service key for invoke.
