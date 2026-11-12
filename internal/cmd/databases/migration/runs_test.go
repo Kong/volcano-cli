@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -302,4 +303,18 @@ func TestApplyAllUsesRunsUnderGrant(t *testing.T) {
 	err := ApplyAll(t.Context(), cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}, "app", &out)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"POST " + migrationRunsPath, "GET " + migrationRunsPath + "/" + testRunID}, fake.requests)
+}
+
+// A spent budget keeps the API's error, so the CLI exits 6.
+func TestMigrationUpUnderGrantKeepsTheBudgetRefusal(t *testing.T) {
+	setGrantMigrationTest(t)
+	fake := &fakeMigrationRuns{t: t, create: []func(http.ResponseWriter){func(w http.ResponseWriter) {
+		writeRunJSON(w, http.StatusTooManyRequests, map[string]any{
+			"error": "the delegated grant has no mutations left; ask the app for a new grant", "code": "grant_budget_exhausted",
+		})
+	}}}
+
+	_, err := runGrantMigration(t, fake, "up", "--all", "-d", "app")
+	require.Error(t, err)
+	assert.True(t, api.GrantBudgetExhausted(err), "%v", err)
 }
