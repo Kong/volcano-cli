@@ -75,19 +75,19 @@ JavaScript during the build, in the cloud and in local mode:
   directory to change them.
 - Imports through `paths` in a `tsconfig.json` inside the function's directory
   resolve. Packages from `package.json` load from the installed dependencies.
-- TypeScript never changes what an existing function deploys: `hello.js` or
-  `hello.py` beside `hello.ts` or `hello/index.ts`, or `checkout/index.js`,
-  `index.mjs`, `index.cjs`, `main.py` or `main.rb` beside `checkout/index.ts`,
-  deploys that file instead. A `hello/` directory beside `hello.ts` deploys the
-  directory.
+- `.ts`, `.mts` and `.cts` never change what an existing function deploys:
+  `hello.js` or `hello.py` beside `hello.ts` or `hello/index.ts`, or
+  `checkout/index.js`, `index.mjs`, `index.cjs`, `main.py` or `main.rb` beside
+  `checkout/index.ts`, deploys that file instead. A `hello/` directory beside
+  `hello.ts` deploys the directory.
 - `.tsx` ranks after the other TypeScript: `hello.ts` beside `hello.tsx`, or
   `index.ts` beside `index.tsx` in a directory, deploys the `.ts` file. A
   `hello.ts` file also deploys instead of a `hello/` directory with only an
   `index.tsx`.
-- One layout deploys differently from CLI 0.76: a `hello/` directory with
-  `index.mjs` or `index.cjs` beside `index.tsx` now deploys that JavaScript
-  instead of a `hello.ts` file, as Git deploy does. Earlier CLIs didn't find
-  that directory.
+- One layout deploys differently than with CLI 0.76.0 and earlier: a `hello/`
+  directory with `index.mjs` or `index.cjs` beside `index.tsx` now deploys
+  that JavaScript instead of a `hello.ts` file, as Git deploy does. Earlier
+  CLIs didn't find that directory.
 - Two TypeScript files with one name and no JavaScript, such as `hello.ts` and
   `hello.mts`, stop the deploy until you keep one. Two TypeScript indexes in
   one directory, such as `checkout/index.ts` and `checkout/index.mts`, fail
