@@ -229,7 +229,8 @@ A preview is private: only a project service key can invoke its URL;
 signed-in users and access tokens are refused. It gets
 none of the function's schedules or warmers. `--name` is required and unique
 within the function; `--ttl` deletes the preview after that long, at most 720
-hours. A function can have 20 live previews; durable functions have none.
+hours, unless the function is running it or keeping it for a rollback; it then
+expires once it is neither. A function can have 20 live previews; durable functions have none.
 
 Promotion points the function's traffic at the preview's runtime, without
 deploying or rebuilding anything, so it takes effect at once and the function
