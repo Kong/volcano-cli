@@ -116,13 +116,17 @@ With a grant, an error that carries an API code is followed by a line
 `Error code: <code>`, such as `grant_budget_exhausted`.
 
 To keep a token out of the CLI's environment, pass it on a file descriptor
-instead: set `VOLCANO_TOKEN_FD` to the descriptor's number (`0` reads stdin)
-and leave `VOLCANO_TOKEN` unset. The CLI reads the token once, closes the
-descriptor, and does not pass the token to processes it starts. A grant set
-in `VOLCANO_TOKEN` is also removed from the environment those processes get.
+instead: set `VOLCANO_TOKEN_FD` to the descriptor's number and leave
+`VOLCANO_TOKEN` unset. Use a pipe from the process that holds the token, not
+a file on disk. The CLI reads the token once, up to the first newline, closes
+the descriptor, and does not pass the token to processes it starts. `0` reads
+stdin and leaves it open; `1` and `2` are refused. Numbers from `3` up are
+Unix only. A grant set in `VOLCANO_TOKEN` is also removed from the
+environment those processes get.
 
 ```bash
-VOLCANO_TOKEN_FD=3 volcano cloud functions deploy --all 3< grant.txt
+# get-grant prints the grant; the CLI reads it from a pipe on descriptor 3.
+VOLCANO_TOKEN_FD=3 volcano cloud functions deploy --all 3< <(get-grant)
 ```
 
 `volcano cloud functions invoke` sends the grant itself and never creates a
