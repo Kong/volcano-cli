@@ -203,7 +203,7 @@ func (projectTokenNeedsProjectError) Is(target error) bool {
 
 // ErrDelegatedGrantLogin refuses `login --token` with a delegated grant.
 var ErrDelegatedGrantLogin = errors.New("login does not save a delegated grant (" + config.DelegatedGrantPrefix +
-	"): pass it to each command in VOLCANO_TOKEN instead")
+	"): pass it to each command in VOLCANO_TOKEN_FD or VOLCANO_TOKEN instead")
 
 // loginWithToken validates token, an account or project access token, for
 // LoginWithToken and LoginWithDeviceCode. userID is the user a device login

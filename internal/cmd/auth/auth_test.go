@@ -235,7 +235,7 @@ func TestLoginRefusesADelegatedGrant(t *testing.T) {
 		out, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
 			"--token", token, "--project", authProjectID)
 		require.ErrorIs(t, err, cliauth.ErrDelegatedGrantLogin)
-		require.ErrorContains(t, err, "pass it to each command in VOLCANO_TOKEN")
+		require.ErrorContains(t, err, "pass it to each command in VOLCANO_TOKEN_FD or VOLCANO_TOKEN")
 		assert.NotContains(t, err.Error()+out, "grant-secret")
 	}
 
