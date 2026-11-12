@@ -13,7 +13,8 @@ import (
 // TokenFDEnv names a file descriptor to read the token from, instead of
 // VOLCANO_TOKEN. A process that can read the CLI's environment, such as one a
 // coding agent left running next to it, can read VOLCANO_TOKEN; it can't read
-// a descriptor the CLI has already read and closed. 0 reads stdin.
+// a descriptor the CLI has already read and closed. 0 reads stdin and leaves
+// it open; 1 and 2 are refused.
 const TokenFDEnv = "VOLCANO_TOKEN_FD" //nolint:gosec // the name of an environment variable, not a credential
 
 // maxTokenFDBytes bounds what is read from the token descriptor.
@@ -26,8 +27,8 @@ var adoptedToken atomic.Pointer[string]
 // AdoptToken takes the environment's token into memory, once, at startup,
 // before anything reads the configuration.
 //
-//   - With VOLCANO_TOKEN_FD set, it reads the token from that descriptor,
-//     closes it, and unsets VOLCANO_TOKEN_FD.
+//   - With VOLCANO_TOKEN_FD set, it reads the token's line from that
+//     descriptor, closes it (except stdin), and unsets VOLCANO_TOKEN_FD.
 //   - With a delegated grant in VOLCANO_TOKEN, it unsets VOLCANO_TOKEN.
 //
 // Either way, processes the CLI starts (the telemetry flush, git, docker)
@@ -60,21 +61,67 @@ func AdoptToken() error {
 	return nil
 }
 
-// readTokenFD reads the token from descriptor fd and closes it.
+// TokenAdopted reports whether AdoptToken took a token into memory: one from
+// VOLCANO_TOKEN_FD, or a delegated grant from VOLCANO_TOKEN.
+func TokenAdopted() bool {
+	return adoptedToken.Load() != nil
+}
+
+// EnvironmentTokenSet reports whether the environment gives a token, in
+// VOLCANO_TOKEN or VOLCANO_TOKEN_FD, that Token returns ahead of a saved login.
+func EnvironmentTokenSet() bool {
+	return environmentToken() != ""
+}
+
+// readTokenFD reads the token from descriptor fd.
+//
+// Stdout and stderr are refused. Stdin is read through os.Stdin and left open:
+// closing descriptor 0 would hand the number to the next file the CLI opens,
+// and every later stdin read would read that file. Any other descriptor is
+// closed after the read.
 func readTokenFD(fd int) (string, error) {
-	file := os.NewFile(uintptr(fd), TokenFDEnv)
-	if file == nil {
-		return "", fmt.Errorf("%s=%d is not an open file descriptor", TokenFDEnv, fd)
+	var r io.Reader
+	switch fd {
+	case 0:
+		r = os.Stdin
+	case 1, 2:
+		return "", fmt.Errorf("%s can't be %d: that is stdout or stderr", TokenFDEnv, fd)
+	default:
+		file := os.NewFile(uintptr(fd), TokenFDEnv)
+		if file == nil {
+			return "", fmt.Errorf("%s=%d is not an open file descriptor", TokenFDEnv, fd)
+		}
+		defer func() { _ = file.Close() }()
+		r = file
 	}
-	defer func() { _ = file.Close() }()
-	data, err := io.ReadAll(io.LimitReader(file, maxTokenFDBytes+1))
-	if err != nil {
-		return "", fmt.Errorf("failed to read the token from %s=%d: %w", TokenFDEnv, fd, err)
+	return readTokenLine(r, fd)
+}
+
+// readTokenLine reads up to the first newline or EOF, so a writer that keeps
+// its end open after the token does not hold the CLI up. It reads one byte at
+// a time so nothing after the newline is taken from stdin.
+func readTokenLine(r io.Reader, fd int) (string, error) {
+	var line []byte
+	b := make([]byte, 1)
+	for {
+		n, err := r.Read(b)
+		if n == 1 {
+			if b[0] == '\n' {
+				break
+			}
+			if len(line) == maxTokenFDBytes {
+				return "", fmt.Errorf("the token on %s=%d is over %d bytes", TokenFDEnv, fd, maxTokenFDBytes)
+			}
+			line = append(line, b[0])
+		}
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to read the token from %s=%d: %w", TokenFDEnv, fd, err)
+		}
 	}
-	if len(data) > maxTokenFDBytes {
-		return "", fmt.Errorf("the token on %s=%d is over %d bytes", TokenFDEnv, fd, maxTokenFDBytes)
-	}
-	token := strings.TrimSpace(string(data))
+	token := strings.TrimSpace(string(line))
 	if token == "" {
 		return "", errors.New("no token on " + TokenFDEnv)
 	}

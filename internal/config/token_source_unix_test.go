@@ -3,11 +3,13 @@
 package config
 
 import (
+	"io"
 	"os"
 	"strconv"
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,4 +62,55 @@ func TestAdoptTokenRefusesAnEmptyOrOversizedRead(t *testing.T) {
 		require.ErrorContains(t, err, "is over")
 		assert.NotContains(t, err.Error(), "aaaa")
 	})
+}
+
+// The token is one line. A writer that keeps its end open after the newline,
+// or hands it to another process, does not hold the CLI up.
+func TestAdoptTokenStopsAtTheFirstNewline(t *testing.T) {
+	adoptTokenTest(t)
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = w.Close() })
+	_, err = w.WriteString(DelegatedGrantPrefix + "one-line\nmore")
+	require.NoError(t, err)
+	fd, err := syscall.Dup(int(r.Fd()))
+	require.NoError(t, err)
+	require.NoError(t, r.Close())
+	t.Setenv(TokenFDEnv, strconv.Itoa(fd))
+
+	done := make(chan error, 1)
+	go func() { done <- AdoptToken() }()
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("AdoptToken waited for the writer to close")
+	}
+	assert.Equal(t, DelegatedGrantPrefix+"one-line", (&Config{}).Token())
+}
+
+// Stdin is read up to the token's newline and left open: closing descriptor 0
+// would give the number to the next file the CLI opens, and stdin reads would
+// read that file.
+func TestAdoptTokenReadsStdinAndLeavesItOpen(t *testing.T) {
+	adoptTokenTest(t)
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	_, err = w.WriteString(DelegatedGrantPrefix + "from-stdin\nrest")
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	stdin := os.Stdin
+	os.Stdin = r
+	t.Cleanup(func() {
+		os.Stdin = stdin
+		_ = r.Close()
+	})
+	t.Setenv(TokenFDEnv, "0")
+
+	require.NoError(t, AdoptToken())
+
+	assert.Equal(t, DelegatedGrantPrefix+"from-stdin", (&Config{}).Token())
+	rest, err := io.ReadAll(r)
+	require.NoError(t, err, "stdin is still open")
+	assert.Equal(t, "rest", string(rest), "nothing after the token's line is read")
 }

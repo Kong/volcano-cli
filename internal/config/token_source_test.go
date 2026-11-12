@@ -69,4 +69,13 @@ func TestAdoptTokenRefusals(t *testing.T) {
 		t.Setenv(TokenFDEnv, "three")
 		require.ErrorContains(t, AdoptToken(), "VOLCANO_TOKEN_FD must be a file descriptor number")
 	})
+	// Reading stdout or stderr would fail, and closing stderr would hide the
+	// error that says so.
+	for _, fd := range []string{"1", "2"} {
+		t.Run("fd "+fd, func(t *testing.T) {
+			adoptTokenTest(t)
+			t.Setenv(TokenFDEnv, fd)
+			require.ErrorContains(t, AdoptToken(), "VOLCANO_TOKEN_FD can't be "+fd+": that is stdout or stderr")
+		})
+	}
 }
