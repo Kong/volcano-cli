@@ -653,7 +653,7 @@ func TestCreateFromExplainsEachRefusal(t *testing.T) {
 		{
 			name: "preview proxy credential", preview: true, status: http.StatusForbidden,
 			body: map[string]any{"error": "bad proof", "code": "proxy_credential_rejected"},
-			want: []string{"HTTP 403: bad proof", "not about your session"},
+			want: []string{"HTTP 403 (proxy_credential_rejected): bad proof", "not about your session"},
 		},
 		{
 			name: "create 404", status: http.StatusNotFound,
@@ -680,12 +680,12 @@ func TestCreateFromExplainsEachRefusal(t *testing.T) {
 		{
 			name: "variables required", status: http.StatusUnprocessableEntity,
 			body: map[string]any{"error": "OPENAI_API_KEY needs a value", "code": "variables_required"},
-			want: []string{"HTTP 422: OPENAI_API_KEY needs a value", "ask the person who shared it to share it again"},
+			want: []string{"HTTP 422 (variables_required): OPENAI_API_KEY needs a value", "ask the person who shared it to share it again"},
 		},
 		{
 			name: "variable not declared", status: http.StatusUnprocessableEntity,
 			body: map[string]any{"error": "OTHER is not declared", "code": "variable_not_declared"},
-			want: []string{"HTTP 422: OTHER is not declared", "only for the variables the preview lists"},
+			want: []string{"HTTP 422 (variable_not_declared): OTHER is not declared", "only for the variables the preview lists"},
 		},
 		{
 			name: "release cannot be installed", status: http.StatusUnprocessableEntity,
@@ -695,7 +695,7 @@ func TestCreateFromExplainsEachRefusal(t *testing.T) {
 		{
 			name: "key reused", status: http.StatusConflict,
 			body: map[string]any{"error": "key reused", "code": "idempotency_key_reused"},
-			want: []string{"HTTP 409: key reused", "already used for a different request", "Run the command again"},
+			want: []string{"HTTP 409 (idempotency_key_reused): key reused", "already used for a different request", "Run the command again"},
 		},
 		{
 			name: "create 429", status: http.StatusTooManyRequests, retryAfter: "1200",
@@ -705,7 +705,7 @@ func TestCreateFromExplainsEachRefusal(t *testing.T) {
 		{
 			name: "rate limit unavailable", status: http.StatusServiceUnavailable, retryAfter: "5",
 			body: map[string]any{"error": "cannot count", "code": "rate_limit_unavailable"},
-			want: []string{"HTTP 503: cannot count", "Volcano cannot count forks right now", "Try again in 5s."},
+			want: []string{"HTTP 503 (rate_limit_unavailable): cannot count", "Volcano cannot count forks right now", "Try again in 5s."},
 		},
 		{
 			name: "durable paused", status: http.StatusServiceUnavailable, retryAfter: "60",
@@ -715,7 +715,7 @@ func TestCreateFromExplainsEachRefusal(t *testing.T) {
 		{
 			name: "unavailable without a wait", status: http.StatusServiceUnavailable,
 			body: map[string]any{"error": "unavailable", "code": "service_unavailable"},
-			want: []string{"HTTP 503: unavailable", "Try again shortly."},
+			want: []string{"HTTP 503 (service_unavailable): unavailable", "Try again shortly."},
 		},
 		{
 			name: "create 451", status: http.StatusUnavailableForLegalReasons,
@@ -725,7 +725,7 @@ func TestCreateFromExplainsEachRefusal(t *testing.T) {
 		{
 			name: "create 409 other", status: http.StatusConflict,
 			body:   map[string]any{"error": "something else", "code": "other"},
-			want:   []string{"HTTP 409: something else"},
+			want:   []string{"HTTP 409 (other): something else"},
 			absent: []string{"new release"},
 		},
 	} {

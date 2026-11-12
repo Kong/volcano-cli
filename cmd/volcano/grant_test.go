@@ -139,7 +139,7 @@ func TestGrantRefusalsExitCodes(t *testing.T) {
 			status: http.StatusTooManyRequests,
 			body:   `{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`,
 			code:   exitGrantBudgetExhausted,
-			hint:   "HTTP 429: the delegated grant has no mutations left; ask the app for a new grant",
+			hint:   "Error: failed to list functions: HTTP 429 (grant_budget_exhausted): the delegated grant has no mutations left; ask the app for a new grant",
 		},
 		{
 			// Any other 429, such as the per-grant rate limit, is not the

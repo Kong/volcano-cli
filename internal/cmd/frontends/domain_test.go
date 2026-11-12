@@ -87,7 +87,7 @@ func TestFrontendsDomainCreateNamesTheOwnershipRecord(t *testing.T) {
 		"domain", "create", "web", "--domain", "app.example.com", "--cert", certPath, "--key", keyPath,
 	)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "HTTP 409: ownership of example.com is not verified")
+	assert.Contains(t, err.Error(), "HTTP 409 (ownership_verification_required): ownership of example.com is not verified")
 	assert.Contains(t, err.Error(), `_volcano.example.com  TXT  "volcano-domain-verification=abc"`)
 }
 

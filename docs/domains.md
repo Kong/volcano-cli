@@ -38,7 +38,7 @@ volcano cloud domains verify example.com
 ```
 
 ```text
-Error: HTTP 409: ownership of example.com is not verified
+Error: HTTP 409 (ownership_verification_required): ownership of example.com is not verified
 
 Publish this DNS record, then run the command again:
   _volcano.example.com  TXT  "volcano-domain-verification=6f0d3c1b9e2a47d58c4b1a0e9f3d2c7b"
