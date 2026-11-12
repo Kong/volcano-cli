@@ -26,6 +26,13 @@ import (
 // zero value reads the real config.
 var recorder = &telemetry.Recorder{}
 
+// devBuildReason says why a development build sends no report. It is not in
+// the help: release builds never hit it.
+const devBuildReason = "a development build sends no report to the production API. " +
+	"Point VOLCANO_API_URL at staging or a local server, or set " + telemetry.EnvFeedbackDebug + "=1 to save reports locally"
+
+const devBuildNotSent = "Feedback not sent: " + devBuildReason + "."
+
 // SetRecorder makes the command use the process's telemetry recorder.
 func SetRecorder(r *telemetry.Recorder) { recorder = r }
 
@@ -134,6 +141,13 @@ disable or VOLCANO_FEEDBACK_DISABLED=1.`,
 			if !loggedIn && !dryRun {
 				return nil
 			}
+			// A development build keeps its reports out of production
+			// analytics. Saving one locally still works.
+			devToProduction := telemetry.DevBuildToProduction(cfg.APIURL()) && !telemetry.FeedbackDebugByEnv(os.Getenv)
+			if devToProduction && !dryRun {
+				fmt.Fprintln(cmd.ErrOrStderr(), devBuildNotSent)
+				return nil
+			}
 			if input != "" {
 				if in, err = readInput(cmd, input); err != nil {
 					return err
@@ -152,7 +166,7 @@ disable or VOLCANO_FEEDBACK_DISABLED=1.`,
 				return fmt.Errorf("after redaction, %w", err)
 			}
 			if dryRun {
-				return printReport(cmd, report, on && loggedIn)
+				return printReport(cmd, report, on && loggedIn && !devToProduction)
 			}
 			payload, err := encodeReport(report, "")
 			if err != nil {
@@ -248,6 +262,10 @@ func printStatus(cmd *cobra.Command) error {
 	// in a home that cannot be saved, no report ever is.
 	if !recorder.AnnounceFeedback(cmd.ErrOrStderr()) {
 		fmt.Fprintln(w, "Feedback is enabled, but no report is sent until the first-run notice can be saved to ~/.volcano/config.json.")
+		return nil
+	}
+	if telemetry.DevBuildToProduction(cfg.APIURL()) && !telemetry.FeedbackDebugByEnv(os.Getenv) {
+		fmt.Fprintln(w, "Feedback is enabled, but "+devBuildReason+".")
 		return nil
 	}
 	fmt.Fprintln(w, "Feedback is enabled. Run `volcano feedback disable` to turn it off.")

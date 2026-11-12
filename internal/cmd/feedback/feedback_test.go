@@ -19,6 +19,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/feedback"
 	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/telemetry"
+	"github.com/Kong/volcano-cli/internal/version"
 )
 
 var reportArgs = []string{
@@ -546,4 +547,32 @@ func TestFeedback_InputErrors(t *testing.T) {
 	assert.NotEmpty(t, sensitive.Text(err), "report text given as a path stays out of usage telemetry")
 
 	assert.Empty(t, *reports)
+}
+
+func TestFeedback_DevBuildSendsNothingToProduction(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	// Never contacted: a development build stops before sending.
+	t.Setenv("VOLCANO_API_URL", "https://api.volcano.dev")
+	old := version.Version
+	version.Version = "dev"
+	t.Cleanup(func() { version.Version = old })
+
+	stdout, stderr, err := run(t, reportArgs...)
+	require.NoError(t, err)
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "Feedback not sent: a development build sends no report to the production API")
+	assert.Empty(t, *reports)
+
+	_, stderr, err = run(t, append([]string{"--dry-run"}, reportArgs...)...)
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "This report would not be sent.")
+
+	stdout, _, err = run(t, "status")
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Feedback is enabled, but a development build sends no report to the production API")
+
+	t.Setenv(telemetry.EnvFeedbackDebug, "1")
+	stdout, _, err = run(t, reportArgs...)
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Feedback sent. ID: ", "the debug setting still saves the report locally")
 }
