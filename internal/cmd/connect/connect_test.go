@@ -1317,22 +1317,34 @@ func TestConnectSavesTheDeviceLoginWhenItsCheckFails(t *testing.T) {
 }
 
 func TestConnectRefusesALoginThatVolcanoTokenWouldOverride(t *testing.T) {
-	setConnectTestHome(t)
-	t.Setenv("VOLCANO_TOKEN", "pk-from-env")
-	fake := &fakeAPI{t: t}
-	server := httptest.NewServer(fake)
-	defer server.Close()
+	for name, token := range map[string]string{
+		"account token in VOLCANO_TOKEN": "pk-from-env",
+		// AdoptToken takes a grant out of the environment into memory, as it
+		// does a token from VOLCANO_TOKEN_FD.
+		"adopted grant": cliconfig.DelegatedGrantPrefix + "from-env",
+	} {
+		t.Run(name, func(t *testing.T) {
+			setConnectTestHome(t)
+			t.Setenv("VOLCANO_TOKEN", token)
+			cliconfig.ResetAdoptedTokenForTest()
+			t.Cleanup(cliconfig.ResetAdoptedTokenForTest)
+			require.NoError(t, cliconfig.AdoptToken())
+			fake := &fakeAPI{t: t}
+			server := httptest.NewServer(fake)
+			defer server.Close()
 
-	for _, flags := range [][]string{{"--device-code", connectDeviceCode}, {"--signup", "--email", "a@example.com"}} {
-		_, err := runConnect(t, server, t.TempDir(), flags...)
-		require.ErrorContains(t, err, "VOLCANO_TOKEN is set", flags)
+			for _, flags := range [][]string{{"--device-code", connectDeviceCode}, {"--signup", "--email", "a@example.com"}} {
+				_, err := runConnect(t, server, t.TempDir(), flags...)
+				require.ErrorContains(t, err, "VOLCANO_TOKEN or VOLCANO_TOKEN_FD is set", flags)
+			}
+			assert.Zero(t, fake.polls, "the device code is not spent")
+			assert.Zero(t, fake.creates)
+			assert.False(t, fake.deviceAuthorize)
+			cfg, err := cliconfig.Load()
+			require.NoError(t, err)
+			assert.Equal(t, "pk-connect", cfg.UserToken, "the saved login is unchanged")
+		})
 	}
-	assert.Zero(t, fake.polls, "the device code is not spent")
-	assert.Zero(t, fake.creates)
-	assert.False(t, fake.deviceAuthorize)
-	cfg, err := cliconfig.Load()
-	require.NoError(t, err)
-	assert.Equal(t, "pk-connect", cfg.UserToken, "the saved login is unchanged")
 }
 
 // A private relay git email is not offered. Connect stops before it signs in

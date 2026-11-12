@@ -158,12 +158,11 @@ func run(ctx context.Context, opts options) error {
 		return fmt.Errorf("--template: %w (supported: nextjs, javascript, python, ruby)", err)
 	}
 
-	// Every command after sign-in takes VOLCANO_TOKEN over the saved login, so
-	// a new login would be saved and then not used. Checked before the
-	// dashboard's device code is spent.
-	if strings.TrimSpace(os.Getenv("VOLCANO_TOKEN")) != "" &&
-		(strings.TrimSpace(opts.deviceCode) != "" || opts.signup) {
-		return errors.New("VOLCANO_TOKEN is set and would be used instead of the new login. " +
+	// Every command after sign-in takes VOLCANO_TOKEN or VOLCANO_TOKEN_FD over
+	// the saved login, so a new login would be saved and then not used.
+	// Checked before the dashboard's device code is spent.
+	if config.EnvironmentTokenSet() && (strings.TrimSpace(opts.deviceCode) != "" || opts.signup) {
+		return errors.New("VOLCANO_TOKEN or VOLCANO_TOKEN_FD is set and would be used instead of the new login. " +
 			"Unset it, or run connect without --device-code and --signup to use it")
 	}
 	// VOLCANO_PROJECT_ID is deprecated, and would override the link connect
@@ -398,7 +397,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 			output.Success(opts.log, "Signed in")
 			return nil
 		}
-		if api.Status(err) != http.StatusUnauthorized || strings.TrimSpace(os.Getenv("VOLCANO_TOKEN")) != "" {
+		if api.Status(err) != http.StatusUnauthorized || cfg.TokenFromEnv() {
 			return fmt.Errorf("failed to check the saved login: %w", err)
 		}
 		output.Note(opts.log, "The saved login is no longer valid. Signing in again.")
