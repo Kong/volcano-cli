@@ -122,20 +122,30 @@ func TestGrantRefusalsExitCodes(t *testing.T) {
 		code   int
 		want   string
 	}{
-		{"route not allowed", http.StatusForbidden,
+		{
+			"route not allowed", http.StatusForbidden,
 			`{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`,
-			exitPermissionDenied, "delegated grants cannot be used on this endpoint"},
-		{"permission missing", http.StatusForbidden,
+			exitPermissionDenied, "delegated grants cannot be used on this endpoint",
+		},
+		{
+			"permission missing", http.StatusForbidden,
 			`{"error":"the delegated grant does not carry the permission this endpoint needs","code":"grant_permission_missing"}`,
-			exitPermissionDenied, "the delegated grant does not carry the permission this endpoint needs"},
-		{"budget exhausted", http.StatusTooManyRequests,
+			exitPermissionDenied, "the delegated grant does not carry the permission this endpoint needs",
+		},
+		{
+			"budget exhausted", http.StatusTooManyRequests,
 			`{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`,
-			exitGrantBudgetExhausted, "the delegated grant has no mutations left; ask the app for a new grant"},
+			exitGrantBudgetExhausted, "the delegated grant has no mutations left; ask the app for a new grant",
+		},
 		// Any other 429, such as the per-grant rate limit, is not the budget.
-		{"rate limited", http.StatusTooManyRequests,
-			`{"error":"rate limit exceeded","code":"rate_limit_exceeded"}`, exitFailure, "rate limit exceeded"},
-		{"expired or revoked", http.StatusUnauthorized,
-			`{"error":"invalid or expired token"}`, exitNotAuthenticated, "invalid or expired token"},
+		{
+			"rate limited", http.StatusTooManyRequests,
+			`{"error":"rate limit exceeded","code":"rate_limit_exceeded"}`, exitFailure, "rate limit exceeded",
+		},
+		{
+			"expired or revoked", http.StatusUnauthorized,
+			`{"error":"invalid or expired token"}`, exitNotAuthenticated, "invalid or expired token",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
