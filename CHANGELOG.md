@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.77.0](https://github.com/Kong/volcano-cli/compare/v0.76.0...v0.77.0) (2026-11-12)
+
+
+### Features
+
+* **lavaflow:** remove the custom context and system prompt flags ([#481](https://github.com/Kong/volcano-cli/issues/481)) ([fd0628c](https://github.com/Kong/volcano-cli/commit/fd0628c4606491df2e1d1ba866066dd88abceb14))
+
+
+### Bug Fixes
+
+* **lavaflow:** save settings with PATCH ([#483](https://github.com/Kong/volcano-cli/issues/483)) ([9abb357](https://github.com/Kong/volcano-cli/commit/9abb357ab3a203887aeffaef77768ea65278d863))
+
 ## [0.76.0](https://github.com/Kong/volcano-cli/compare/v0.75.3...v0.76.0) (2026-11-11)
 
 
