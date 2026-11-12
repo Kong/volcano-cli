@@ -131,3 +131,20 @@ func TestListStopsMarkingAFixOnceItsPullRequestCloses(t *testing.T) {
 		}
 	}
 }
+
+// list keeps its columns for a run on a failed build, and --json keeps the
+// issue's source as sent; show is where the source reads in words.
+func TestListKeepsTheIssueSourceInJSON(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.runs[0]["issue"] = buildIssue("build") })
+
+	out, err := executeLavaflowCommand(t, New(deps), "list")
+	require.NoError(t, err)
+	assert.Regexp(t, lavaflowRunID+`\s+PR open\s+checkout\s+TypeError: Cannot read prop\.\.\.\s+\S+ \S+\s+#42 open\n`, out)
+	assert.NotContains(t, out, "build")
+
+	out, err = executeLavaflowCommand(t, New(deps), "list", "--json")
+	require.NoError(t, err)
+	first := decodeJSON(t, out)["data"].([]any)[0].(map[string]any)
+	assert.Equal(t, "build", first["issue"].(map[string]any)["source"])
+}

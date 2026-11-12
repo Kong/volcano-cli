@@ -404,9 +404,25 @@ cause" (`diagnosing`), "Running: writing the fix" (`fixing`) or "Running:
 reviewing the fix" (`reviewing`). An open pull request shows as "PR open". A
 status the CLI doesn't know prints as the API gives it.
 
-`show` prints the commit a run read the code at, its review, a `Fix:` block,
-and its diagnosis and root cause with the evidence behind them. A run that
-failed says why.
+`show` prints where the run's issue came from, the commit a run read the code
+at, its review, a `Fix:` block, and its diagnosis and root cause with the
+evidence behind them. A run that failed says why.
+
+The `Issue source:` line says what kind of issue the run works on:
+
+| `issue.source` | `Issue source:` |
+| --- | --- |
+| `runtime` | runtime error |
+| `build` | failed build |
+| `code_quality` | Code Quality finding |
+| `report` | reported problem |
+
+A run on a failed build works on the build's first error. LavaFlow can't run
+your build, so its pull request says so: your repository's CI, or the deploy
+after you merge, is the first build of the fix. Build issues are in preview
+and are not available in every environment yet. A source your CLI doesn't
+know prints as the API gives it. A server that doesn't send the source, and a
+run that works on no issue, print no `Issue source:` line.
 
 A run with a fix has a `Checks:` line. LavaFlow doesn't run your repository's
 tests before it opens the pull request, so the line says they didn't run. Your
@@ -471,6 +487,7 @@ Status: PR open
 Resource: function checkout
 Title: Load the cart before checkout reads it
 Issue: 5b2d8e1c-3f4a-4c6b-9d7e-8a1f2b3c4d5e
+Issue source: runtime error
 Source: commit 4f1c2b3 (deployed from a push)
 Started: 2026-10-30 09:00
 Review: passed after 2 round(s)
