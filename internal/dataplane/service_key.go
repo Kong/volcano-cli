@@ -51,17 +51,6 @@ func NewService(deps cliruntime.Deps) Service {
 	}
 }
 
-// ErrDelegatedGrantNoServiceKey refuses to resolve the reserved service key
-// under a pg- delegated grant. A grant must never cause a long-lived key to be
-// listed, read or minted: the key would outlive the run the grant was minted
-// for. Storage object commands need that key, so they don't work with a grant.
-// It matches config.ErrAccountTokenRequired, so the exit code reports a refused
-// credential.
-var ErrDelegatedGrantNoServiceKey = api.WithCause(errors.New(
-	"storage object commands do not work with a delegated grant ("+config.DelegatedGrantPrefix+
-		"): they need a project service key, which a grant never creates or reads"),
-	config.ErrAccountTokenRequired)
-
 // InvokeToken returns the bearer for the function invoke route. A pg-
 // delegated grant invokes with itself, as a service key does; any other
 // credential gets the reserved service key, as before.
@@ -94,9 +83,6 @@ func (s Service) ServiceKeyForProject(ctx context.Context, project *clisession.P
 	// control-plane list/create that a service key is not permitted to make (401).
 	if token := sessionServiceKey(project); token != "" {
 		return token, nil
-	}
-	if project.Config != nil && config.IsDelegatedGrant(project.Config.Token()) {
-		return "", ErrDelegatedGrantNoServiceKey
 	}
 	name := s.serviceKeyName()
 	key, found, err := s.findServiceKey(ctx, project, name)

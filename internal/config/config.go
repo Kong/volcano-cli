@@ -36,8 +36,7 @@ const (
 	// project it was minted in.
 	ProjectTokenPrefix = "pt-"
 	// DelegatedGrantPrefix marks a delegated grant: a short-lived credential a
-	// first-party app's worker gets for one run on one project, limited to the
-	// routes and permissions the project's owner consented to.
+	// first-party app's worker gets for one run on one project.
 	DelegatedGrantPrefix = "pg-"
 )
 
@@ -353,14 +352,10 @@ func (c *Config) TokenFromEnv() bool {
 
 // FunctionInvokeToken returns the token used for runtime function invocation.
 // Cloud uses the reserved data-plane service key (via the invoke token
-// provider) or falls back to the configured token. A delegated grant is used
-// as is, ahead of any saved key, so a grant's invoke runs as the grant. In
-// local mode the session layer sends no credential at all (see
-// session.Factory.APIClient), so this value is unused there.
+// provider) or falls back to the configured token. In local mode the session
+// layer sends no credential at all (see session.Factory.APIClient), so this
+// value is unused there.
 func (c *Config) FunctionInvokeToken() string {
-	if token := c.Token(); IsDelegatedGrant(token) {
-		return token
-	}
 	if strings.TrimSpace(c.ServiceKey) != "" {
 		return c.ServiceKey
 	}
@@ -630,48 +625,22 @@ func (c *Config) RequireProject() error {
 	if strings.TrimSpace(c.ProjectID()) != "" {
 		return nil
 	}
-	if IsDelegatedGrant(c.Token()) {
-		return projectBoundError{
-			message: "no project selected. A delegated grant (" + DelegatedGrantPrefix + ") is bound to one project: " +
-				"link this directory to it, or pass --project <project-id>",
-			sentinel: ErrNoProjectSelectedForProjectToken,
-		}
-	}
-	if IsProjectToken(c.Token()) {
+	if IsProjectBound(c.Token()) {
 		return ErrNoProjectSelectedForProjectToken
 	}
 	return ErrNoProjectSelected
 }
 
-// RequireAccountToken rejects a project-bound credential on a command that
-// needs account-wide access. Any other credential is treated as an account
-// token: the server is the authority on what a token may do, and tokens minted
-// before the prefixes existed carry none.
+// RequireAccountToken rejects a project access token on a command that needs
+// account-wide access. Any other credential is treated as an account token: the
+// server is the authority on what a token may do, and tokens minted before the
+// prefixes existed carry neither.
 func (c *Config) RequireAccountToken() error {
-	if IsDelegatedGrant(c.Token()) {
-		return projectBoundError{
-			message: "this command needs an account token (" + AccountTokenPrefix +
-				") but the current credential is a delegated grant (" + DelegatedGrantPrefix +
-				"), which only reaches the project it was granted for",
-			sentinel: ErrAccountTokenRequired,
-		}
-	}
-	if IsProjectToken(c.Token()) {
+	if IsProjectBound(c.Token()) {
 		return ErrAccountTokenRequired
 	}
 	return nil
 }
-
-// projectBoundError is a refusal worded for a delegated grant. It still
-// matches the project access token sentinel, so the exit code is the same.
-type projectBoundError struct {
-	message  string
-	sentinel error
-}
-
-func (e projectBoundError) Error() string { return e.message }
-
-func (e projectBoundError) Is(target error) bool { return target == e.sentinel }
 
 // IsProjectToken reports whether token is a project access token.
 //
@@ -690,24 +659,10 @@ func IsDelegatedGrant(token string) bool {
 }
 
 // IsProjectBound reports whether token reaches only one project: a project
-// access token or a delegated grant. Neither can list projects, look a project
-// up by name, or act for an account. Before pg- was known, a grant fell to the
-// unknown-prefix default and was treated as an account token.
+// access token or a delegated grant. Without it, a grant would fall to the
+// unknown-prefix default and be treated as an account token.
 func IsProjectBound(token string) bool {
 	return IsProjectToken(token) || IsDelegatedGrant(token)
-}
-
-// ProjectBoundCredential names a project-bound token's kind for messages, such
-// as "a delegated grant (pg-)". It returns "" for any other token.
-func ProjectBoundCredential(token string) string {
-	switch {
-	case IsDelegatedGrant(token):
-		return "a delegated grant (" + DelegatedGrantPrefix + ")"
-	case IsProjectToken(token):
-		return "a project access token (" + ProjectTokenPrefix + ")"
-	default:
-		return ""
-	}
 }
 
 // FirstPartyDeviceClientID resolves the first-party OAuth device client ID.
