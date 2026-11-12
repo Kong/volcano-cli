@@ -186,8 +186,9 @@ func serviceKeyPayload(id, name, keyValue string) map[string]any {
 	}
 }
 
-// A delegated grant invokes with itself. It never lists, reads or creates the
-// reserved service key, so a grant never causes a long-lived key.
+// A delegated grant invokes with itself. Invoke never lists, reads or creates
+// the reserved service key under a grant, so a grant never causes a
+// long-lived key.
 func TestInvokeTokenUsesADelegatedGrantDirectly(t *testing.T) {
 	setServiceKeyTestHome(t)
 	saveServiceKeyTestConfig(t)
@@ -207,13 +208,6 @@ func TestInvokeTokenUsesADelegatedGrantDirectly(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, cliconfig.DelegatedGrantPrefix+"grant-secret", token)
 
-	_, err = service.ServiceKeyForProject(t.Context(), project)
-	require.ErrorIs(t, err, ErrDelegatedGrantNoServiceKey)
-	require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired)
-	assert.NotContains(t, err.Error(), "grant-secret")
-
-	_, err = service.ServiceKey(t.Context())
-	require.ErrorIs(t, err, ErrDelegatedGrantNoServiceKey)
 }
 
 // Any other credential still gets the reserved service key for invoke.

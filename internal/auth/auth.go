@@ -84,22 +84,9 @@ const (
 // against and select, by ID or by name; it is optional for an account token
 // and required for a project access token, which cannot list projects and so
 // cannot tell the CLI which project it belongs to.
-//
-// A delegated grant is refused before any request: it lives minutes, so
-// saving it to ~/.volcano/config.json would leave a dead credential behind
-// that outlasts the run it was minted for.
 func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, project string) (Credentials, error) {
-	token = strings.TrimSpace(token)
-	if config.IsDelegatedGrant(token) {
-		return Credentials{}, ErrDelegatedGrantLogin
-	}
-	return s.loginWithToken(ctx, cfg, token, "", project)
+	return s.loginWithToken(ctx, cfg, strings.TrimSpace(token), "", project)
 }
-
-// ErrDelegatedGrantLogin refuses `volcano login --token` with a delegated
-// grant.
-var ErrDelegatedGrantLogin = errors.New("a delegated grant (" + config.DelegatedGrantPrefix + ") is not saved by login: " +
-	"set " + config.TokenEnv + " to it for each command instead")
 
 // dashboardDeviceCodeTTL is how long a device code the dashboard started
 // lives: the API's device grant TTL. The dashboard has already approved it, so
@@ -284,8 +271,8 @@ func resolveLoginProject(
 	}
 
 	if config.IsProjectBound(token) {
-		return nil, fmt.Errorf("invalid project %q: %s cannot look up a project by name, "+
-			"so name the project it was minted in by ID", identifier, config.ProjectBoundCredential(token))
+		return nil, fmt.Errorf("invalid project %q: a project access token (%s) cannot look up a project by name, "+
+			"so name the project it was minted in by ID", identifier, config.ProjectTokenPrefix)
 	}
 	return cliproject.Find(ctx, client, identifier)
 }
