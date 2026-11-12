@@ -206,33 +206,13 @@ func TestMigrationUpUnderGrantReportsAFailedRun(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, out, `relation "second" already exists (line 1, SQLSTATE 42P07)`)
 	// The printed error names the object, so the caller can decide what to
-	// baseline, and says how.
+	// baseline.
 	assert.Equal(t, "migration run "+testRunID+" failed in rehearse: migration_failed: 002_second.sql failed at line 1 (SQLSTATE 42P07)\n"+
-		`  002_second.sql: relation "second" already exists (line 1, SQLSTATE 42P07)`+"\n"+
-		"  The database already holds an object 002_second.sql creates. If it holds everything the file creates, "+
-		"record it as applied with `volcano databases migration baseline -d app -f 002_second.sql --yes`, then run this again.",
+		`  002_second.sql: relation "second" already exists (line 1, SQLSTATE 42P07)`,
 		err.Error())
 	// The database's message can quote SQL and data: usage telemetry never
 	// sends it.
 	assert.Contains(t, sensitive.Text(err), `relation "second" already exists`)
-}
-
-// A file that fails for another reason gets its error, and no baseline hint.
-func TestMigrationUpUnderGrantNamesOtherFileErrorsWithoutAHint(t *testing.T) {
-	setGrantMigrationTest(t)
-	fake := &fakeMigrationRuns{t: t, create: []func(http.ResponseWriter){acceptRun(testRunID)}, states: map[string][]map[string]any{
-		testRunID: {runState(testRunID, "failed", "apply", map[string]any{
-			"error": map[string]any{"code": "migration_failed", "message": "001_first.sql failed (SQLSTATE 42601)"},
-			"files": []any{map[string]any{"name": "001_first.sql", "outcome": "failed", "error": map[string]any{
-				"message": `syntax error at or near "TABL"`, "sqlstate": "42601",
-			}}},
-		})},
-	}}
-
-	_, err := runGrantMigration(t, fake, "up", "--all", "-d", "app")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), `001_first.sql: syntax error at or near "TABL" (SQLSTATE 42601)`)
-	assert.NotContains(t, err.Error(), "baseline")
 }
 
 // Where migration runs are off, a grant fails and never falls back to the
@@ -250,37 +230,21 @@ func TestMigrationUpUnderGrantRefusesWhenRunsAreOff(t *testing.T) {
 	assert.Equal(t, []string{"POST " + migrationRunsPath}, fake.requests)
 }
 
-// A run an earlier command started is still going: wait for it, then start
-// this command's run once.
-func TestMigrationUpUnderGrantWaitsForARunInProgress(t *testing.T) {
+// A run already going on the database is Hosting's 409: the command fails and
+// names that run, and the caller runs it again once that run ends.
+func TestMigrationUpUnderGrantNamesARunInProgress(t *testing.T) {
 	setGrantMigrationTest(t)
-	fake := &fakeMigrationRuns{t: t, create: []func(http.ResponseWriter){
-		func(w http.ResponseWriter) {
-			writeRunJSON(w, http.StatusConflict, map[string]any{
-				"error": "a migration run is in progress", "code": "migration_run_in_progress", "run_id": testEarlierRunID,
-			})
-		},
-		acceptRun(testRunID),
-	}, states: map[string][]map[string]any{
-		testEarlierRunID: {
-			runState(testEarlierRunID, "running", "apply", nil),
-			runState(testEarlierRunID, "succeeded", "apply", nil),
-		},
-		testRunID: {runState(testRunID, "succeeded", "apply", nil)},
-	}}
+	fake := &fakeMigrationRuns{t: t, create: []func(http.ResponseWriter){func(w http.ResponseWriter) {
+		writeRunJSON(w, http.StatusConflict, map[string]any{
+			"error": "a migration run is in progress", "code": "migration_run_in_progress", "run_id": testEarlierRunID,
+		})
+	}}}
 
-	out, err := runGrantMigration(t, fake, "up", "--all", "-d", "app")
-	require.NoError(t, err)
-	assert.Contains(t, out, "Migration run "+testEarlierRunID+" is already running on app; waiting for it to end first.")
-	assert.Equal(t, []string{
-		"POST " + migrationRunsPath,
-		"GET " + migrationRunsPath + "/" + testEarlierRunID,
-		"GET " + migrationRunsPath + "/" + testEarlierRunID,
-		"POST " + migrationRunsPath,
-		"GET " + migrationRunsPath + "/" + testRunID,
-	}, fake.requests)
-	require.Len(t, fake.keys, 2)
-	assert.Equal(t, fake.keys[0], fake.keys[1], "one command, one key")
+	_, err := runGrantMigration(t, fake, "up", "--all", "-d", "app")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "a migration run is in progress (run "+testEarlierRunID+")")
+	assert.Equal(t, http.StatusConflict, api.Status(err))
+	assert.Equal(t, []string{"POST " + migrationRunsPath}, fake.requests)
 }
 
 // The grant expires while the run goes on: the command says the run carries on.
@@ -304,16 +268,6 @@ func TestMigrationUpUnderGrantStopsOnAnExpiredGrant(t *testing.T) {
 	assert.Contains(t, err.Error(), "stopped following migration run "+testRunID+", which carries on on the server")
 	assert.Contains(t, out, "Started migration run "+testRunID)
 	assert.NotContains(t, out, "grant-secret")
-}
-
-func TestMigrationUpUnderGrantRefusesAnUppercaseExtension(t *testing.T) {
-	setGrantMigrationTest(t)
-	require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "003_third.SQL"), []byte("SELECT 1;"), 0o644))
-	fake := &fakeMigrationRuns{t: t}
-
-	_, err := runGrantMigration(t, fake, "up", "--all", "-d", "app")
-	require.ErrorContains(t, err, "003_third.SQL: a migration run takes only names ending in lowercase .sql")
-	assert.Empty(t, fake.requests)
 }
 
 // `deploy --with-migrations` applies through ApplyAll, which takes the same

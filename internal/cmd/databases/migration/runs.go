@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -45,10 +44,6 @@ var runWaitLimit = 60 * time.Minute
 // the command stops following a run.
 const maxRunReadFailures = 5
 
-// trackedMigrationName is the name rule the API applies to a top-level file:
-// lowercase ".sql", no directory.
-var trackedMigrationName = regexp.MustCompile(`^[^/\\]+\.sql$`)
-
 // usesMigrationRuns reports whether up applies files through migration runs:
 // when the credential is a delegated grant.
 func usesMigrationRuns(sessions clisession.Factory) bool {
@@ -58,11 +53,7 @@ func usesMigrationRuns(sessions clisession.Factory) bool {
 
 // applyThroughRun applies files to database with a server-side migration run
 // and follows the run to its end, printing what became of each file.
-// baselineCommand is the command that records files as applied, named in the
-// hint for a file that failed because its objects already exist.
-func applyThroughRun(
-	ctx context.Context, sessions clisession.Factory, database string, files []string, baselineCommand string, out io.Writer,
-) error {
+func applyThroughRun(ctx context.Context, sessions clisession.Factory, database string, files []string, out io.Writer) error {
 	project, err := sessions.CurrentProject()
 	if err != nil {
 		return err
@@ -83,7 +74,7 @@ func applyThroughRun(
 	if err != nil {
 		return err
 	}
-	return reportRun(run, baselineCommand, out)
+	return reportRun(run, out)
 }
 
 // migrationRunFiles reads files into a run request. Names go by base name,
@@ -92,9 +83,6 @@ func migrationRunFiles(files []string) ([]apiclient.DatabaseMigrationFile, error
 	request := make([]apiclient.DatabaseMigrationFile, 0, len(files))
 	for _, file := range files {
 		name := filepath.Base(file)
-		if !trackedMigrationName.MatchString(name) {
-			return nil, fmt.Errorf("migration %s: a migration run takes only names ending in lowercase .sql; rename it", name)
-		}
 		content, err := os.ReadFile(file)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read migration %s: %w", name, err)
@@ -104,35 +92,18 @@ func migrationRunFiles(files []string) ([]apiclient.DatabaseMigrationFile, error
 	return request, nil
 }
 
-// startRun starts the run. When the database already has a run going, it
-// follows that run to its end and then starts this one: a run started by an
-// earlier command whose grant expired while it waited ends first, and the new
-// run skips whatever it applied.
+// startRun starts the run. A run already going on the database is the API's
+// 409, which names it; the caller waits for it and runs the command again.
 func startRun(
 	ctx context.Context, project *clisession.ProjectSession, database string, files []apiclient.DatabaseMigrationFile, out io.Writer,
 ) (*apiclient.DatabaseMigrationRun, error) {
-	// One key per command: a retried request returns the run this command
-	// started, and running the command again starts a new one.
-	key := uuid.NewString()
-	for attempt := 0; ; attempt++ {
-		run, err := project.API.CreateDatabaseMigrationRun(ctx, project.ProjectID, database, key, files)
-		if err == nil {
-			fmt.Fprintf(out, "Started migration run %s.\n", run.Id)
-			return run, nil
-		}
-		inProgress, ok := errors.AsType[*api.MigrationRunInProgressError](err)
-		if !ok || attempt > 0 {
-			return nil, migrationRunStartError(database, err)
-		}
-		fmt.Fprintf(out, "Migration run %s is already running on %s; waiting for it to end first.\n", inProgress.RunID, database)
-		earlier, err := project.API.GetDatabaseMigrationRun(ctx, project.ProjectID, database, inProgress.RunID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read migration run %s: %w", inProgress.RunID, err)
-		}
-		if _, err := followRun(ctx, project, database, earlier, out); err != nil {
-			return nil, err
-		}
+	// A retried request with this key returns the run it started.
+	run, err := project.API.CreateDatabaseMigrationRun(ctx, project.ProjectID, database, uuid.NewString(), files)
+	if err != nil {
+		return nil, migrationRunStartError(database, err)
 	}
+	fmt.Fprintf(out, "Started migration run %s.\n", run.Id)
+	return run, nil
 }
 
 // migrationRunStartError says why a run did not start.
@@ -203,7 +174,7 @@ func sleep(ctx context.Context, d time.Duration) error {
 // error, from the rehearsal or the database, which names the object, so the
 // caller can decide what to baseline. It is marked sensitive: it can quote SQL
 // and data, so usage telemetry never sends it.
-func reportRun(run *apiclient.DatabaseMigrationRun, baselineCommand string, out io.Writer) error {
+func reportRun(run *apiclient.DatabaseMigrationRun, out io.Writer) error {
 	fmt.Fprintln(out)
 	if run.Files != nil {
 		for _, file := range *run.Files {
@@ -227,28 +198,16 @@ func reportRun(run *apiclient.DatabaseMigrationRun, baselineCommand string, out 
 	if run.Error != nil {
 		summary += fmt.Sprintf(": %s: %s", run.Error.Code, run.Error.Message)
 	}
-	details := failedFileDetails(run, baselineCommand)
+	details := failedFileDetails(run)
 	if details == "" {
 		return errors.New(summary)
 	}
 	return fmt.Errorf("%s\n%w", summary, sensitive.Wrap(errors.New(details)))
 }
 
-// duplicateObjectStates are the SQLSTATEs Postgres answers when an object a
-// file creates already exists.
-var duplicateObjectStates = map[string]bool{
-	"42P04": true, // duplicate_database
-	"42P06": true, // duplicate_schema
-	"42P07": true, // duplicate_table
-	"42701": true, // duplicate_column
-	"42710": true, // duplicate_object
-	"42712": true, // duplicate_alias
-	"42723": true, // duplicate_function
-}
-
-// failedFileDetails is each failed file's database error, and for a file that
-// failed because an object already exists, how to record it as applied.
-func failedFileDetails(run *apiclient.DatabaseMigrationRun, baselineCommand string) string {
+// failedFileDetails is each failed file's database error, which names the
+// object, so the caller can decide what to baseline.
+func failedFileDetails(run *apiclient.DatabaseMigrationRun) string {
 	if run.Files == nil {
 		return ""
 	}
@@ -258,11 +217,6 @@ func failedFileDetails(run *apiclient.DatabaseMigrationRun, baselineCommand stri
 			continue
 		}
 		lines = append(lines, "  "+file.Name+": "+fileErrorText(file.Error))
-		if file.Error.Sqlstate != nil && duplicateObjectStates[*file.Error.Sqlstate] {
-			lines = append(lines, fmt.Sprintf("  The database already holds an object %s creates. If it holds everything "+
-				"the file creates, record it as applied with `%s -f %s --yes`, then run this again.",
-				file.Name, baselineCommand, file.Name))
-		}
 	}
 	return strings.Join(lines, "\n")
 }
