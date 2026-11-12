@@ -38,6 +38,12 @@ type grantRun struct {
 // injected, so the CLI reads its configuration the way it does in the VM.
 func runAsWorker(t *testing.T, handler http.HandlerFunc, args ...string) grantRun {
 	t.Helper()
+	return runAsWorkerWith(t, nil, handler, args...)
+}
+
+// runAsWorkerWith is runAsWorker with setup run in the workspace first.
+func runAsWorkerWith(t *testing.T, setup func(), handler http.HandlerFunc, args ...string) grantRun {
+	t.Helper()
 	resetInstructions(t)
 	api.ResetLastRefusalForTest()
 	t.Cleanup(api.ResetLastRefusalForTest)
@@ -65,6 +71,9 @@ func runAsWorker(t *testing.T, handler http.HandlerFunc, args ...string) grantRu
 	t.Setenv("VOLCANO_PROJECT_ID", "")
 	t.Setenv("VOLCANO_TELEMETRY_DISABLED", "1")
 	t.Setenv("VOLCANO_NONINTERACTIVE", "1")
+	if setup != nil {
+		setup()
+	}
 
 	deps := cliruntime.Deps{HTTPClient: server.Client()}
 	root := rootcmd.New(deps)
@@ -224,4 +233,35 @@ func TestGrantRefusesStorageObjectCommandsBeforeAnyRequest(t *testing.T) {
 	assert.Equal(t, exitPermissionDenied, run.code, run.stderr)
 	assert.Contains(t, run.stderr, "storage object commands do not work with a delegated grant (pg-)")
 	assert.Empty(t, run.requests)
+}
+
+// Migrations under a grant go through a server-side run. The CLI never reads
+// the database, whose answer holds the connection string.
+func TestGrantMigrationUpUsesAMigrationRun(t *testing.T) {
+	runsPath := "/projects/" + mainTestProjectAlpha + "/databases/app/migration-runs"
+	const runID = "44444444-4444-4444-8444-444444444444"
+	run := runAsWorkerWith(t, func() {
+		require.NoError(t, os.MkdirAll(filepath.Join("volcano", "migrations"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "001_init.sql"), []byte("CREATE TABLE t();"), 0o644))
+	}, func(w http.ResponseWriter, r *http.Request) {
+		state := `{"id":"` + runID + `","status":"succeeded","phase":"apply","source":"api","warnings":[],` +
+			`"database":{"id":"66666666-6666-4666-8666-666666666666","name":"app"},` +
+			`"files":[{"name":"001_init.sql","outcome":"applied"}],` +
+			`"created_at":"2026-11-11T00:00:00Z","updated_at":"2026-11-11T00:00:00Z"}`
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == runsPath:
+			respondExitTestJSON(w, http.StatusAccepted, state)
+		case r.Method == http.MethodGet && r.URL.Path == runsPath+"/"+runID:
+			respondExitTestJSON(w, http.StatusOK, state)
+		default:
+			respondExitTestJSON(w, http.StatusForbidden, `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`)
+		}
+	}, "cloud", "databases", "migration", "up", "--all", "-d", "app")
+
+	assert.Equal(t, 0, run.code, run.stderr)
+	assert.Equal(t, []string{"POST " + runsPath}, run.requests)
+	assert.Contains(t, run.stdout, "001_init.sql: applied")
+	for _, request := range run.requests {
+		assert.NotEqual(t, "GET /projects/"+mainTestProjectAlpha+"/databases/app", request)
+	}
 }

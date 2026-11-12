@@ -37,6 +37,12 @@ database proxy; the local `migrations deploy` command does not have a cloud
 variant. [`volcano deploy --with-migrations`](deploy.md) runs the same
 migrations as part of a whole-project deploy.
 
+With a [delegated grant](authentication.md#delegated-grants) (`pg-`), `volcano cloud
+databases migration up` sends the files to a server-side migration run instead
+of connecting to the database. The run skips files the database's migration
+history already records, and applies the rest after a rehearsal and a backup.
+Where migration runs are not available, the command fails and applies nothing.
+
 Each file runs as a single query, and the database proxy refuses a query with
 more than one statement, so put one SQL statement in each file. Files run in
 name order.
