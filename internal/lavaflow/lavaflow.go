@@ -133,11 +133,10 @@ const (
 
 // Limits the API sets.
 const (
-	MaxRunsLimit  = 100
-	DefaultLimit  = 25
-	DefaultDays   = 30
-	MaxDays       = 90
-	MaxTextLength = 4000
+	MaxRunsLimit = 100
+	DefaultLimit = 25
+	DefaultDays  = 30
+	MaxDays      = 90
 )
 
 // Whether a repository is connected for LavaFlow's fix pull requests.
@@ -384,11 +383,6 @@ func (s Service) UpdateSettings(ctx context.Context, update apiclient.LavaflowSe
 	}
 	if err := validMergePolicy(update.MergePolicy); err != nil {
 		return nil, err
-	}
-	for name, text := range map[string]*string{"custom context": update.CustomContext, "system prompt": update.SystemPrompt} {
-		if text != nil && len([]rune(*text)) > MaxTextLength {
-			return nil, fmt.Errorf("the %s is %d characters long: the most is %d", name, len([]rune(*text)), MaxTextLength)
-		}
 	}
 	return s.update(ctx, "change LavaFlow's settings", update, false, confirm, nil)
 }

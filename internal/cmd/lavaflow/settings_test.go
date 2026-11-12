@@ -15,38 +15,29 @@ import (
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 )
 
-func TestSettingsShowsTheTextInFull(t *testing.T) {
-	fake, deps := newLavaflowServer(t)
-	fake.set(func(s *lavaflowServer) {
-		s.settings["custom_context"] = "Checkout runs on Fridays only.\nIgnore the legacy cart."
-	})
+func TestSettingsShowsEverySetting(t *testing.T) {
+	_, deps := newLavaflowServer(t)
 
 	out, err := executeLavaflowCommand(t, New(deps), "settings")
 	require.NoError(t, err)
 	assert.Contains(t, out, "LavaFlow: off")
 	assert.Contains(t, out, "Ungated workflows: not allowed\n")
-	assert.Contains(t, out, "Custom context\n  Checkout runs on Fridays only.\n  Ignore the legacy cart.\n")
-	assert.Contains(t, out, "System prompt\n  (not set)\n")
+	assert.NotContains(t, out, "Custom context")
+	assert.NotContains(t, out, "System prompt")
 	assertLavaFlowWording(t, out)
 }
 
 // set sends only the settings its flags name, so the rest keep their values.
 func TestSettingsSetSendsOnlyWhatItChanges(t *testing.T) {
-	dir := t.TempDir()
-	context := filepath.Join(dir, "context.md")
-	require.NoError(t, os.WriteFile(context, []byte("From a file.\n"), 0o600))
-
 	for _, tc := range []struct {
 		args []string
 		want map[string]any
 	}{
 		{[]string{"--autonomy", "diagnose_only"}, map[string]any{"autonomy": "diagnose_only"}},
-		{[]string{"--system-prompt", "Prefer small fixes."}, map[string]any{"system_prompt": "Prefer small fixes."}},
-		{[]string{"--custom-context-file", context}, map[string]any{"custom_context": "From a file.\n"}},
-		{[]string{"--custom-context", ""}, map[string]any{"custom_context": ""}},
+		{[]string{"--clear-human-review-paths"}, map[string]any{"merge_policy": map[string]any{"human_review_paths": []any{}}}},
 		{
-			[]string{"--autonomy", "open_pr", "--system-prompt", "x", "--custom-context", "y"},
-			map[string]any{"autonomy": "open_pr", "system_prompt": "x", "custom_context": "y"},
+			[]string{"--autonomy", "open_pr", "--allow-ungated-workflows", "false"},
+			map[string]any{"autonomy": "open_pr", "allow_ungated_workflows": false},
 		},
 	} {
 		fake, deps := newLavaflowServer(t)
@@ -59,13 +50,12 @@ func TestSettingsSetSendsOnlyWhatItChanges(t *testing.T) {
 }
 
 func TestSettingsSetRefusesBeforeSending(t *testing.T) {
-	tooLong := strings.Repeat("é", clilavaflow.MaxTextLength+1)
 	for _, tc := range []struct {
 		args []string
 		want string
 	}{
 		{nil, "nothing to change: pass --autonomy, --human-review-path, --clear-human-review-paths, " +
-			"--custom-context, --system-prompt, or --allow-ungated-workflows"},
+			"or --allow-ungated-workflows"},
 		{[]string{"--allow-ungated-workflows", "yes"}, `invalid --allow-ungated-workflows "yes": use true or false`},
 		{[]string{"--clear-human-review-paths=false"}, "nothing to change"},
 		{[]string{"--autonomy", "always"}, `invalid autonomy "always": use diagnose_only, open_pr or merge`},
@@ -74,9 +64,8 @@ func TestSettingsSetRefusesBeforeSending(t *testing.T) {
 		{tooManyReviewPaths(), "51 human review paths: the most is 50"},
 		{[]string{"--human-review-path", "a", "--clear-human-review-paths"}, "none of the others can be"},
 		{[]string{"--merge-mode", "auto"}, "unknown flag: --merge-mode"},
-		{[]string{"--system-prompt", tooLong}, "the system prompt is 4001 characters long: the most is 4000"},
-		{[]string{"--custom-context-file", filepath.Join(t.TempDir(), "missing.md")}, "failed to read"},
-		{[]string{"--custom-context", "a", "--custom-context-file", "b"}, "none of the others can be"},
+		{[]string{"--custom-context", "a"}, "unknown flag: --custom-context"},
+		{[]string{"--system-prompt", "a"}, "unknown flag: --system-prompt"},
 	} {
 		fake, deps := newLavaflowServer(t)
 
@@ -85,16 +74,6 @@ func TestSettingsSetRefusesBeforeSending(t *testing.T) {
 		assert.Contains(t, err.Error(), tc.want, "%q", tc.args)
 		assert.Empty(t, fake.updates, "%q", tc.args)
 	}
-}
-
-// The limit counts characters, as the API does, not bytes.
-func TestSettingsSetTakesTheLongestText(t *testing.T) {
-	fake, deps := newLavaflowServer(t)
-	longest := strings.Repeat("é", clilavaflow.MaxTextLength)
-
-	_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--custom-context", longest)
-	require.NoError(t, err)
-	assert.Equal(t, longest, fake.lastUpdate(t)["custom_context"])
 }
 
 // settings --json reads the settings alone: not the capabilities its Merging
@@ -159,7 +138,7 @@ func TestSettingsSetExamplesRunTheCloudCommand(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--help")
 	require.NoError(t, err)
 	assert.Contains(t, out, "  volcano cloud lavaflow settings set --autonomy diagnose_only\n")
-	assert.Contains(t, out, "  volcano cloud lavaflow settings set --custom-context-file lavaflow-context.md\n")
+	assert.Contains(t, out, "  volcano cloud lavaflow settings set --human-review-path 'db/migrations/**'\n")
 }
 
 func tooManyReviewPaths() []string {
@@ -308,7 +287,7 @@ func TestSettingsSetSaysASaveThatRacedSavedNothing(t *testing.T) {
 		s.refusal = map[string]any{"error": message}
 	})
 
-	_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--custom-context", "Deploys run on Fridays.")
+	_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "diagnose_only")
 	require.Error(t, err)
 	assert.Equal(t, "failed to change LavaFlow's settings: HTTP 409: "+message, err.Error())
 	assert.Equal(t, http.StatusConflict, api.Status(err))
@@ -447,9 +426,9 @@ func TestSettingsSetResendsMergeWhileMergingIsntAvailable(t *testing.T) {
 	fake.set(func(s *lavaflowServer) { s.settings["autonomy"], s.mergeCapability = "merge", "unavailable" })
 
 	_, _, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader(""),
-		"settings", "set", "--autonomy", "merge", "--custom-context", "Checkout runs on Fridays.", "--yes")
+		"settings", "set", "--autonomy", "merge", "--yes")
 	require.NoError(t, err)
-	assert.Equal(t, map[string]any{"autonomy": "merge", "custom_context": "Checkout runs on Fridays."}, fake.lastUpdate(t))
+	assert.Equal(t, map[string]any{"autonomy": "merge"}, fake.lastUpdate(t))
 }
 
 // Human review paths are part of merging, so Volcano refuses them where

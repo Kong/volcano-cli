@@ -9418,8 +9418,8 @@ paths:
 
         Changing `autonomy` to `merge` lets LavaFlow merge with no one else
         looking. So does turning `enabled` on while `autonomy` stays `merge`,
-        and changing `merge_policy`, `custom_context` or `system_prompt`, to
-        any value, while `autonomy` is, or becomes, `merge`. Under settings
+        and changing `merge_policy`, to any value, while `autonomy` is, or
+        becomes, `merge`. Under settings
         saved with automatic runs off before this API, the runs LavaFlow
         starts on its own stop at a draft pull request. Sending `enabled:
         true` or `autonomy: merge` again, while LavaFlow is on and `autonomy`
@@ -9473,7 +9473,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/LavaflowSettings'
         '400':
-          description: 'The body is invalid: `project_id` missing or not a UUID, no field to change, an unknown field or autonomy, a `human_review_paths` pattern that is not relative to the repository root or holds a NUL character, or `custom_context` or `system_prompt` over 4000 characters. Code `feature_unavailable` means the save sets `autonomy: merge` or changes `merge_policy` without the project''s `lavaflow.merge` capability, or turns `skill_learning` up without the project''s `lavaflow.skills` capability.'
+          description: 'The body is invalid: `project_id` missing or not a UUID, no field to change, an unknown field or autonomy, a `human_review_paths` pattern that is not relative to the repository root or holds a NUL character. Code `feature_unavailable` means the save sets `autonomy: merge` or changes `merge_policy` without the project''s `lavaflow.merge` capability, or turns `skill_learning` up without the project''s `lavaflow.skills` capability.'
           content:
             application/json:
               schema:
@@ -9485,7 +9485,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: 'Code `person_required` means a full-scope project access token or MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy`, `custom_context` or `system_prompt` while `autonomy` is or becomes `merge`, `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge, and `skill_learning` turned up from `off` or from `review`. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
+          description: 'Code `person_required` means a full-scope project access token or MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy` while `autonomy` is or becomes `merge`, `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge, and `skill_learning` turned up from `off` or from `review`. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
           content:
             application/json:
               schema:
@@ -9512,7 +9512,7 @@ paths:
           description: |
             The save turns on `code_quality`, `allow_ungated_workflows` or
             `autonomy: merge`, turns `enabled` on under `merge`, changes
-            `merge_policy`, `custom_context` or `system_prompt` under `merge`,
+            `merge_policy` under `merge`,
             lets the runs LavaFlow starts on its own merge again, or turns
             `skill_learning` up, and the project, or its owner across their
             projects, used up the hour's checks of the owner's GitHub push access.
@@ -9530,7 +9530,7 @@ paths:
           description: |
             The save turns on `code_quality`, `allow_ungated_workflows` or
             `autonomy: merge`, turns `enabled` on under `merge`, changes
-            `merge_policy`, `custom_context` or `system_prompt` under `merge`,
+            `merge_policy` under `merge`,
             lets the runs LavaFlow starts on its own merge again, or turns
             `skill_learning` up, and the owner's GitHub push access could not be
             checked now.
@@ -9593,8 +9593,8 @@ paths:
 
         Changing `autonomy` to `merge` lets LavaFlow merge with no one else
         looking. So does turning `enabled` on while `autonomy` stays `merge`,
-        and changing `merge_policy`, `custom_context` or `system_prompt`, to
-        any value, while `autonomy` is, or becomes, `merge`. Under settings
+        and changing `merge_policy`, to any value, while `autonomy` is, or
+        becomes, `merge`. Under settings
         saved with automatic runs off before this API, the runs LavaFlow
         starts on its own stop at a draft pull request. Sending `enabled:
         true` or `autonomy: merge` again, while LavaFlow is on and `autonomy`
@@ -9650,7 +9650,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/LavaflowSettings'
         '400':
-          description: 'The body is invalid: `project_id` missing or not a UUID, no field to change, an unknown field or autonomy, a `human_review_paths` pattern that is not relative to the repository root or holds a NUL character, or `custom_context` or `system_prompt` over 4000 characters. Code `feature_unavailable` means the save sets `autonomy: merge` or changes `merge_policy` without the project''s `lavaflow.merge` capability, turns `code_quality` on while Code Quality isn''t released, or turns `skill_learning` up without the project''s `lavaflow.skills` capability.'
+          description: 'The body is invalid: `project_id` missing or not a UUID, no field to change, an unknown field or autonomy, a `human_review_paths` pattern that is not relative to the repository root or holds a NUL character. Code `feature_unavailable` means the save sets `autonomy: merge` or changes `merge_policy` without the project''s `lavaflow.merge` capability, turns `code_quality` on while Code Quality isn''t released, or turns `skill_learning` up without the project''s `lavaflow.skills` capability.'
           content:
             application/json:
               schema:
@@ -9662,7 +9662,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: 'Code `person_required` means a full-scope project access token made any save but turning Code Quality or skill learning off, MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy`, `custom_context` or `system_prompt` while `autonomy` is or becomes `merge`, `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge, and `skill_learning` turned up from `off` or from `review`. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow, or allows no Code Quality findings for a save that turns `code_quality` on. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
+          description: 'Code `person_required` means a full-scope project access token made any save but turning Code Quality or skill learning off, MCP made the request, or the save turns on a setting only the project''s owner may turn on, and the owner did not make it with a credential of their own that expires: a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, never a project access token or a platform token that never expires. Those settings are `code_quality`, `allow_ungated_workflows`, `autonomy: merge`, `enabled` turned on while `autonomy` stays `merge`, a change to `merge_policy` while `autonomy` is or becomes `merge`, `enabled: true` or `autonomy: merge` sent again under settings saved with automatic runs off before this API, which lets the runs LavaFlow starts on its own merge, and `skill_learning` turned up from `off` or from `review`. It also means the owner''s GitHub account can''t push to the project''s repository, or the project has none. Code `plan_required` means the owner''s plan does not include LavaFlow, or allows no Code Quality findings for a save that turns `code_quality` on. Without a code: a read-only project access token made the request, the owner''s account is read-only, or the owner''s plan could not be read and nothing was saved; retry later.'
           content:
             application/json:
               schema:
@@ -9689,7 +9689,7 @@ paths:
           description: |
             The save turns on `code_quality`, `allow_ungated_workflows` or
             `autonomy: merge`, turns `enabled` on under `merge`, changes
-            `merge_policy`, `custom_context` or `system_prompt` under `merge`,
+            `merge_policy` under `merge`,
             lets the runs LavaFlow starts on its own merge again, or turns
             `skill_learning` up, and the project, or its owner across their
             projects, used up the hour's checks of the owner's GitHub push access.
@@ -9707,7 +9707,7 @@ paths:
           description: |
             The save turns on `code_quality`, `allow_ungated_workflows` or
             `autonomy: merge`, turns `enabled` on under `merge`, changes
-            `merge_policy`, `custom_context` or `system_prompt` under `merge`,
+            `merge_policy` under `merge`,
             lets the runs LavaFlow starts on its own merge again, or turns
             `skill_learning` up, and the owner's GitHub push access could not be
             checked now.
@@ -31362,14 +31362,6 @@ components:
           $ref: '#/components/schemas/LavaflowMergePolicy'
         skill_learning:
           $ref: '#/components/schemas/LavaflowSkillLearning'
-        custom_context:
-          type: string
-          maxLength: 4000
-          description: Context about the project for LavaFlow's runs. Empty when unset. Saved, but runs do not use it yet.
-        system_prompt:
-          type: string
-          maxLength: 4000
-          description: Instructions for LavaFlow's runs, to follow after LavaFlow's own, which take precedence. Empty when unset. Saved, but runs do not use it yet.
         code_quality:
           $ref: '#/components/schemas/LavaflowCodeQualitySettings'
         allow_ungated_workflows:
@@ -31403,8 +31395,6 @@ components:
         - autonomy
         - merge_policy
         - skill_learning
-        - custom_context
-        - system_prompt
         - code_quality
         - allow_ungated_workflows
         - updated_at
@@ -31432,12 +31422,6 @@ components:
           allOf:
             - $ref: '#/components/schemas/LavaflowSkillLearning'
           description: 'Only the project''s owner turns learning up, from `off` to `review` or `auto` or from `review` to `auto`, signed in as a person: with a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, and with a GitHub account that can push to the project''s repository. Any other credential gets `403` with code `person_required`. Turning it down or off, or sending the saved value, needs no check. A project access token may send `off` with `project_id`, alone or with `code_quality` turned off, and nothing else; any other save it makes gets `403` with code `person_required`.'
-        custom_context:
-          type: string
-          maxLength: 4000
-        system_prompt:
-          type: string
-          maxLength: 4000
         code_quality:
           $ref: '#/components/schemas/LavaflowCodeQualityUpdate'
         allow_ungated_workflows:
