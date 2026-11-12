@@ -20,9 +20,15 @@ import (
 // typeScriptLanguage is the runtime language whose build compiles TypeScript.
 const typeScriptLanguage = "nodejs"
 
-// typeScriptExtensions are the files the build compiles, sorted by name, the
-// order a directory prefers them in.
-var typeScriptExtensions = []string{".cts", ".mts", ".ts", ".tsx"}
+// typeScriptExtensions are the files the build compiles, in the order a
+// directory prefers them: by name, with .tsx last. The build compiled .ts,
+// .mts and .cts before it compiled .tsx, so an index.tsx or hello.tsx beside
+// one of them never changes what deploys.
+var typeScriptExtensions = []string{".cts", ".mts", ".ts", jsxExtension}
+
+// jsxExtension is the TypeScript the build compiles JSX in. It ranks after the
+// other TypeScript extensions.
+const jsxExtension = ".tsx"
 
 // javaScriptModuleExtensions are the files the build runs instead of compiling
 // TypeScript with the same name, such as index.mjs beside index.ts.
@@ -48,9 +54,10 @@ func (c RuntimeCatalog) typeScriptRuntimeForFile(name string) (apiclient.Functio
 // typeScriptDirectoryEntry returns a directory function's TypeScript entry:
 // the runtime entrypoint's name with a TypeScript extension, such as index.ts.
 // When JavaScript with the same name sits beside it, such as index.mjs, the
-// build runs that instead, so that is the entry. The directory uploads whole,
-// so the build, not the scan, refuses two TypeScript indexes, such as index.ts
-// and index.tsx, and the scan never blocks deploying another function.
+// build runs that instead, so that is the entry. index.ts beats index.tsx, as
+// in the build. The directory uploads whole, so the build, not the scan,
+// refuses two indexes of one rank, such as index.ts and index.mts, and the scan
+// never blocks deploying another function.
 func (c RuntimeCatalog) typeScriptDirectoryEntry(dirPath string) (apiclient.FunctionRuntimeOption, string, bool) {
 	if c.typeScript == nil {
 		return apiclient.FunctionRuntimeOption{}, "", false
@@ -85,10 +92,11 @@ func singleFileEntrypoint(info SourceInfo) string {
 // resolveTypeScriptSources settles which source deploys when a TypeScript
 // source shares its function name with another. A source that deployed before
 // Volcano compiled TypeScript, such as hello.js, always wins, so TypeScript
-// never changes what an existing function deploys. A directory found through
-// its TypeScript index then beats a single TypeScript file, as on the server.
-// Two TypeScript files with one name, such as hello.ts and hello.tsx, are an
-// error, as they are on the server: neither is the obvious handler.
+// never changes what an existing function deploys. .ts, .mts or .cts then
+// beats .tsx, and a directory beats a single file, as typeScriptRank orders
+// them on the server too. Two TypeScript files of one rank with one name, such
+// as hello.ts and hello.mts, are an error, as they are on the server: neither
+// is the obvious handler.
 func resolveTypeScriptSources(sources []SourceInfo) ([]SourceInfo, error) {
 	best := map[string]int{}
 	for _, source := range sources {
@@ -115,17 +123,23 @@ func resolveTypeScriptSources(sources []SourceInfo) ([]SourceInfo, error) {
 }
 
 // typeScriptRank orders the sources that can share a function name, lowest
-// first: one the CLI found before it read TypeScript, a directory found through
-// its TypeScript index, then a single TypeScript file.
+// first: one the CLI found before it read TypeScript; a directory with a .ts,
+// .mts or .cts index; a .ts, .mts or .cts file; a directory with an index.tsx;
+// then a .tsx file. A source found through TypeScript whose entry is
+// JavaScript, such as index.mjs beside index.ts, ranks as a directory with a
+// .ts index.
 func typeScriptRank(source SourceInfo) int {
-	switch {
-	case !source.viaTypeScript:
+	if !source.viaTypeScript {
 		return 0
-	case source.IsDir:
-		return 1
-	default:
-		return 2
 	}
+	rank := 1
+	if strings.EqualFold(filepath.Ext(source.Path), jsxExtension) {
+		rank = 3
+	}
+	if !source.IsDir {
+		rank++
+	}
+	return rank
 }
 
 func isRegularFile(path string) bool {

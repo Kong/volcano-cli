@@ -79,9 +79,13 @@ JavaScript during the build, in the cloud and in local mode:
   `index.mjs`, `index.cjs`, `main.py` or `main.rb` beside `checkout/index.ts`,
   deploys that file instead. A `hello/` directory beside `hello.ts` deploys the
   directory.
+- `.tsx` ranks after the other TypeScript, so adding JSX never changes what an
+  existing function deploys: `hello.ts` beside `hello.tsx`, or `index.ts`
+  beside `index.tsx` in a directory, deploys the `.ts` file. A `hello.ts` file
+  also deploys instead of a `hello/` directory with only an `index.tsx`.
 - Two TypeScript files with one name and no JavaScript, such as `hello.ts` and
-  `hello.tsx`, stop the deploy until you keep one. Two TypeScript indexes in
-  one directory, such as `checkout/index.ts` and `checkout/index.tsx`, fail
+  `hello.mts`, stop the deploy until you keep one. Two TypeScript indexes in
+  one directory, such as `checkout/index.ts` and `checkout/index.mts`, fail
   that function's build.
 - Declaration files such as `types.d.ts` aren't functions. A directory needs
   its handler at its top, such as `checkout/index.ts`, not
