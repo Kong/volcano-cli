@@ -61,7 +61,7 @@ func (s Service) StartRun(ctx context.Context, issueID string) (*apiclient.Lavaf
 	if err != nil {
 		return nil, nil, err
 	}
-	if config.IsProjectToken(authenticated.Config.Token()) {
+	if config.IsProjectBound(authenticated.Config.Token()) {
 		return nil, nil, personStarts(authenticated.Config, config.ErrAccountTokenRequired)
 	}
 	run, body, err := authenticated.API.CreateLavaflowRun(ctx, authenticated.ProjectID, id)

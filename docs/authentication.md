@@ -104,6 +104,16 @@ selecting a project by name — need an account token, and say so when run with 
 project access token. See
 [access-tokens.md](access-tokens.md).
 
+### Delegated grants
+
+A delegated grant (`pg-`) is what a Volcano app, such as the Builder, uses to
+act on a project you consented to. It reaches one project, lasts minutes, and
+works only for what you consented to, such as deploys, config, variable
+writes, and migrations. Pass it in `VOLCANO_TOKEN`; `volcano login --token`
+refuses one, because it would outlast the run it was made for. Commands outside
+the grant fail with exit code `5`, and a grant that has used up its changes
+fails with exit code `6`. See [scripting.md](scripting.md#exit-codes).
+
 Log out at any time:
 
 ```bash

@@ -386,7 +386,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 	if token := cfg.Token(); token != "" && !opts.signup && !refused {
 		// A project access token can't be checked without a project; the
 		// project lookup below reports it if it is wrong.
-		if config.IsProjectToken(token) {
+		if config.IsProjectBound(token) {
 			return nil
 		}
 		client, err := sessions.APIClient(sessions.APIURL(cfg), token)

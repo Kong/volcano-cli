@@ -37,6 +37,10 @@ const (
 	exitNoProject        = 3
 	exitNotFound         = 4
 	exitPermissionDenied = 5
+	// exitGrantBudgetExhausted is the API's 429 grant_budget_exhausted: a
+	// delegated grant used all of its mutations. Its own code, because the
+	// fix is a new grant and a retry, unlike any other failure.
+	exitGrantBudgetExhausted = 6
 )
 
 func main() {
@@ -187,6 +191,8 @@ func printProjectEnvDeprecation(w io.Writer, used bool) {
 func exitCode(err error) int {
 	status := api.Status(err)
 	switch {
+	case api.GrantBudgetExhausted(err):
+		return exitGrantBudgetExhausted
 	case errors.Is(err, config.ErrNotAuthenticated), status == http.StatusUnauthorized:
 		return exitNotAuthenticated
 	case errors.Is(err, config.ErrNoProjectSelected), errors.Is(err, config.ErrNoProjectSelectedForProjectToken):
@@ -217,6 +223,40 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 		fmt.Fprintf(w, "Run `%s` to re-authenticate.\n", cliruntime.CommandPath(deps, "login"))
 	}
 	printProjectTokenMismatchHint(w, err, deps)
+	printDelegatedGrantHint(w, err, deps)
+}
+
+// printDelegatedGrantHint explains a refusal of a pg- delegated grant. The
+// API's message says what was refused; this adds which request and what to do.
+// It never prints the grant itself.
+func printDelegatedGrantHint(w io.Writer, err error, deps cliruntime.Deps) {
+	status := api.Status(err)
+	switch {
+	case status == http.StatusForbidden && api.Code(err) == api.GrantRouteNotAllowedCode:
+		fmt.Fprintf(w, "Delegated grants cannot call %s, so this command does not work with one.\n", refusedRequest())
+	case status == http.StatusForbidden && api.Code(err) == api.GrantPermissionMissingCode:
+		fmt.Fprintf(w, "The delegated grant lacks the permission %s needs. "+
+			"The project owner's consent for the app has to include it.\n", refusedRequest())
+	case status == http.StatusUnauthorized && credentialIsDelegatedGrant(deps):
+		fmt.Fprintln(w, "The delegated grant has expired or was revoked. Get a new grant and run the command again.")
+	}
+}
+
+// refusedRequest names the most recent refused request, as "POST /projects/…",
+// or "this request" when none was recorded.
+func refusedRequest() string {
+	refusal := api.LastRefusal()
+	if refusal.Method == "" || refusal.Path == "" {
+		return "this request"
+	}
+	return refusal.Method + " " + refusal.Path
+}
+
+// credentialIsDelegatedGrant reports whether the command's credential is a
+// delegated grant.
+func credentialIsDelegatedGrant(deps cliruntime.Deps) bool {
+	cfg, err := loadConfig(deps)
+	return err == nil && config.IsDelegatedGrant(cfg.Token())
 }
 
 // loadConfig loads the configuration through the runtime's loader, so a
@@ -259,7 +299,10 @@ func printProjectTokenMismatchHint(w io.Writer, err error, deps cliruntime.Deps)
 		return
 	}
 
-	const scope = "A project access token only works on the project it was created in"
+	scope := "A project access token only works on the project it was created in"
+	if refusal.DelegatedGrant {
+		scope = "A delegated grant only works on the project it was granted for"
+	}
 	if refusal.ProjectID == selectedProjectID(deps) {
 		fmt.Fprintf(w, "This ran against project %s, the one this CLI is pointed at. %s — check that is the "+
 			"right one, or run `%s` to switch.\n",

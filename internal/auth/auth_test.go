@@ -987,3 +987,18 @@ func TestLoggedInMessageNamesTheAccountWhenKnown(t *testing.T) {
 	assert.Equal(t, "Logged in as account@volcano.dev", LoggedInMessage("account@volcano.dev"))
 	assert.Equal(t, "Logged in successfully", LoggedInMessage(""))
 }
+
+// A grant lives minutes; login refuses to save it, before any request, and
+// does not echo it.
+func TestLoginWithTokenRefusesADelegatedGrant(t *testing.T) {
+	cfg := testAuthConfig(t)
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request", r.URL.Path)
+	}))
+	defer server.Close()
+
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, " pg-grant-secret\n", authAlphaProjectID)
+	require.ErrorIs(t, err, ErrDelegatedGrantLogin)
+	assert.NotContains(t, err.Error(), "grant-secret")
+}

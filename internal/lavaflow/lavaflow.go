@@ -431,7 +431,7 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	if err != nil {
 		return nil, err
 	}
-	if config.IsProjectToken(authenticated.Config.Token()) {
+	if config.IsProjectBound(authenticated.Config.Token()) {
 		return nil, personDecides(authenticated.Config, config.ErrAccountTokenRequired)
 	}
 	current, err := authenticated.API.GetLavaflowSettings(ctx, authenticated.ProjectID)

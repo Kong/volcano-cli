@@ -239,8 +239,8 @@ func printStatus(cmd *cobra.Command) error {
 		fmt.Fprintln(w, "Feedback is enabled, but no report is sent until you log in with `volcano login`.")
 		return nil
 	}
-	if config.IsProjectToken(cfg.Token()) {
-		fmt.Fprintln(w, "Feedback is enabled, but a project access token cannot send reports. Log in with `volcano login`.")
+	if config.IsProjectBound(cfg.Token()) {
+		fmt.Fprintln(w, "Feedback is enabled, but a project access token or delegated grant cannot send reports. Log in with `volcano login`.")
 		return nil
 	}
 	// A report is sent only once the first-run notice is saved. On a fresh

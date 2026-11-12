@@ -506,7 +506,7 @@ func (s Service) RequirePerson() error {
 	if err != nil {
 		return err
 	}
-	if config.IsProjectToken(cfg.Token()) {
+	if config.IsProjectBound(cfg.Token()) {
 		return errApprovalNeedsAPerson
 	}
 	return nil

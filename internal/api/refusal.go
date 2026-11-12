@@ -27,9 +27,17 @@ type Refusal struct {
 	// ProjectID is the project the refused request addressed, empty when its
 	// route was not project-scoped.
 	ProjectID string
-	// ProjectAccessToken reports whether the refused request carried a pt-
-	// credential.
+	// ProjectAccessToken reports whether the refused request carried a
+	// project-bound credential: a pt- project access token or a pg- delegated
+	// grant.
 	ProjectAccessToken bool
+	// DelegatedGrant reports whether the refused request carried a pg-
+	// delegated grant.
+	DelegatedGrant bool
+	// Method and Path are the refused request's method and URL path. The path
+	// holds IDs and names, never a credential.
+	Method string
+	Path   string
 }
 
 var (
@@ -54,9 +62,13 @@ func ResetLastRefusalForTest() {
 }
 
 func recordRefusal(req *http.Request) {
+	token := bearerToken(req.Header.Get("Authorization"))
 	refusal := Refusal{
 		ProjectID:          requestProjectID(req.URL.Path),
-		ProjectAccessToken: config.IsProjectToken(bearerToken(req.Header.Get("Authorization"))),
+		ProjectAccessToken: config.IsProjectBound(token),
+		DelegatedGrant:     config.IsDelegatedGrant(token),
+		Method:             req.Method,
+		Path:               req.URL.Path,
 	}
 
 	refusalMu.Lock()
