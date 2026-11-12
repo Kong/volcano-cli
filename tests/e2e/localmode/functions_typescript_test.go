@@ -56,22 +56,33 @@ export const handler = async (): Promise<{ statusCode: number; headers: Record<s
 }
 
 // requireLocalModeDeploysJSXFunctions deploys .tsx handlers, which local mode
-// compiles with their JSX as the cloud build does: a single file whose pragma
-// picks its JSX factory, and a directory whose tsconfig.json does. Neither
-// needs React, so no package installs.
+// compiles with their JSX as the cloud build does: a single file on React's
+// automatic runtime, which renders with react-dom/server from the packages
+// volcano/functions/package.json installs, and a directory whose tsconfig.json
+// sets a classic JSX factory it defines itself.
 func requireLocalModeDeploysJSXFunctions(t *testing.T, binary string, env []string) {
 	t.Helper()
 	dir := localModeE2EProjectDir(t)
-	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "tsx-file.tsx"), `
-/** @jsxRuntime classic */
-/** @jsx h */
-const h = (tag: string, _props: Record<string, unknown> | null, ...children: unknown[]): string =>
-  tag + ":" + children.join("");
+	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "package.json"), `{
+  "name": "tsx-functions",
+  "private": true,
+  "dependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  }
+}
+`)
+	// The markup's angle brackets become "|" so the check doesn't depend on
+	// how the invoke response escapes HTML.
+	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "tsx-react.tsx"), `
+import { renderToStaticMarkup } from "react-dom/server";
+
+const Greeting = ({ place }: { place: string }) => <p>hello from react in a jsx {place}</p>;
 
 export const handler = async () => ({
   statusCode: 200,
   headers: { "content-type": "application/json" },
-  body: JSON.stringify({ rendered: <p>hello from a jsx file</p> }),
+  body: JSON.stringify({ rendered: renderToStaticMarkup(<Greeting place="file" />).replace(/[<>]/g, "|") }),
 });
 `)
 	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "tsx-dir", "tsconfig.json"), `{"compilerOptions":{"jsx":"react","jsxFactory":"h"}}`)
@@ -105,8 +116,8 @@ export const handler = async () => ({
 
 	info := fetchVolcanoLocalModeE2EInfo(t, env)
 	for name, rendered := range map[string]string{
-		"tsx-file": `"rendered":"p:hello from a jsx file"`,
-		"tsx-dir":  `"rendered":"p:hello from a jsx directory"`,
+		"tsx-react": `"rendered":"|p|hello from react in a jsx file|/p|"`,
+		"tsx-dir":   `"rendered":"p:hello from a jsx directory"`,
 	} {
 		waitForVolcanoLocalModeE2EInvokeContains(t, info, waitForVolcanoLocalModeE2EFunctionID(t, info, name), rendered)
 	}

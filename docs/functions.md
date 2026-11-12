@@ -67,11 +67,12 @@ JavaScript during the build, in the cloud and in local mode:
   ES modules when the function's `package.json` sets `"type": "module"`,
   CommonJS otherwise.
 - `.tsx` compiles JSX with React's automatic runtime, so you don't import
-  React, but `react` must be in the function's `package.json` dependencies. A
-  directory function's `tsconfig.json` can choose other JSX settings (`jsx`,
-  `jsxImportSource`, `jsxFactory`). A single-file function uploads without a
-  `tsconfig.json`, so use a directory, or a pragma such as
-  `/** @jsxImportSource preact */`, for other settings.
+  React, but `react` (and a renderer such as `react-dom`) must be in the
+  function's `package.json` dependencies. A directory function's
+  `tsconfig.json` can choose other JSX settings, such as `"jsx": "react"` with
+  `"jsxFactory": "h"`, or `"jsxImportSource": "preact"`. A single-file
+  function uploads without a `tsconfig.json`, so put the handler in a
+  directory to change them.
 - Imports through `paths` in a `tsconfig.json` inside the function's directory
   resolve. Packages from `package.json` load from the installed dependencies.
 - TypeScript never changes what an existing function deploys: `hello.js` or
