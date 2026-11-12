@@ -28,8 +28,10 @@ characters in single quotes, so you can paste them as they are.
 
 1. **Signs in.** It signs in with `--device-code` when given.
    Otherwise it reuses a login that still works, or runs browser login.
-   Browser login prints a code and a link. Open the link and approve, and the
-   command continues. See
+   Browser login prints a one-time sign-in code and a link. Open the link and
+   approve, and the command continues. The sign-in code is not a secret: it
+   names this sign-in, and only your approval in the browser signs the CLI in.
+   See
    [Device codes from the dashboard](#device-codes-from-the-dashboard).
 2. **Creates a project and its directory.** Unless `--project` names one, or
    the directory is already linked, it creates a new project.

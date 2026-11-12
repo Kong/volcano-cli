@@ -531,7 +531,10 @@ func (s Service) apiURL(cfg *config.Config) string {
 }
 
 func (s Service) completeBrowserLogin(ctx context.Context, client *api.Client, clientID string, deviceAuth *apiclient.DeviceAuthorizationResponse, w io.Writer, browserURL string) (Credentials, error) {
-	fmt.Fprintf(w, "\nCode: %s\n", deviceAuth.UserCode)
+	// The user code is the short code the browser page shows to confirm the
+	// device, not a credential. Say so, so a coding agent reading this output
+	// does not take it for an API key and stop.
+	fmt.Fprintf(w, "\nOne-time sign-in code (not a secret): %s\n", deviceAuth.UserCode)
 	fmt.Fprintf(w, "Opening browser: %s\n", browserURL)
 
 	if err := cliruntime.OpenBrowser(s.deps, browserURL); err != nil { //nolint:contextcheck // browser launch is fire-and-forget; auth ctx would cancel the spawned browser

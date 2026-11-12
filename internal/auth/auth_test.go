@@ -721,7 +721,7 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 	assert.Equal(t, "https://volcano.dev/device?user_code=ABCD-EFGH", openedURL)
 	assert.Equal(t, "Bearer auth-access-token", exchangeAuth)
 	assert.Equal(t, "Bearer auth-access-token", userAuth)
-	assert.Contains(t, out.String(), "Code: ABCD-EFGH")
+	assert.Contains(t, out.String(), "One-time sign-in code (not a secret): ABCD-EFGH")
 	assert.Contains(t, out.String(), ".")
 }
 
