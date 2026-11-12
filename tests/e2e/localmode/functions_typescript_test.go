@@ -54,3 +54,60 @@ export const handler = async (): Promise<{ statusCode: number; headers: Record<s
 		waitForVolcanoLocalModeE2EInvokeContains(t, info, waitForVolcanoLocalModeE2EFunctionID(t, info, name), greeting)
 	}
 }
+
+// requireLocalModeDeploysJSXFunctions deploys .tsx handlers, which local mode
+// compiles with their JSX as the cloud build does: a single file whose pragma
+// picks its JSX factory, and a directory whose tsconfig.json does. Neither
+// needs React, so no package installs.
+func requireLocalModeDeploysJSXFunctions(t *testing.T, binary string, env []string) {
+	t.Helper()
+	dir := localModeE2EProjectDir(t)
+	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "tsx-file.tsx"), `
+/** @jsxRuntime classic */
+/** @jsx h */
+const h = (tag: string, _props: Record<string, unknown> | null, ...children: unknown[]): string =>
+  tag + ":" + children.join("");
+
+export const handler = async () => ({
+  statusCode: 200,
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ rendered: <p>hello from a jsx file</p> }),
+});
+`)
+	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "tsx-dir", "tsconfig.json"), `{"compilerOptions":{"jsx":"react","jsxFactory":"h"}}`)
+	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "tsx-dir", "h.ts"), `
+type Component = (props: Record<string, unknown>) => string;
+
+export const h = (tag: string | Component, props: Record<string, unknown> | null, ...children: unknown[]): string =>
+  typeof tag === "function" ? tag({ ...props, children }) : tag + ":" + children.join("");
+`)
+	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "tsx-dir", "greeting.tsx"), `
+import { h } from "./h";
+
+export const Greeting = ({ place }: { place: string }): string => <p>hello from a jsx {place}</p>;
+`)
+	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "tsx-dir", "index.tsx"), `
+import { h } from "./h";
+import { Greeting } from "./greeting";
+
+export const handler = async () => ({
+  statusCode: 200,
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ rendered: <Greeting place="directory" /> }),
+});
+`)
+
+	output := runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "deploy", "--all")
+	requireContains(t, output, "Found 2 function(s)")
+	requireContains(t, output, "(detected from .tsx)")
+	requireContains(t, output, "(detected from index.tsx)")
+	requireContains(t, output, "2/2 functions deployment started")
+
+	info := fetchVolcanoLocalModeE2EInfo(t, env)
+	for name, rendered := range map[string]string{
+		"tsx-file": `"rendered":"p:hello from a jsx file"`,
+		"tsx-dir":  `"rendered":"p:hello from a jsx directory"`,
+	} {
+		waitForVolcanoLocalModeE2EInvokeContains(t, info, waitForVolcanoLocalModeE2EFunctionID(t, info, name), rendered)
+	}
+}

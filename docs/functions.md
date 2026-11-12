@@ -53,8 +53,8 @@ archive includes.
 | Entry | Function | Entry file |
 |---|---|---|
 | `hello.js`, `hello.mjs`, `hello.py`, `hello.rb` | `hello` | the file itself |
-| `hello.ts`, `hello.mts`, `hello.cts` | `hello` | the file itself, compiled by Volcano |
-| `checkout/` | `checkout` | `index.js`, else `main.py` or `main.rb`, else `index.cts`, `index.mts` or `index.ts`, the first found |
+| `hello.ts`, `hello.mts`, `hello.cts`, `hello.tsx` | `hello` | the file itself, compiled by Volcano |
+| `checkout/` | `checkout` | `index.js`, else `main.py` or `main.rb`, else `index.ts`, `index.mts`, `index.cts` or `index.tsx` |
 
 ### TypeScript
 
@@ -63,8 +63,13 @@ JavaScript during the build, in the cloud and in local mode:
 
 - Types are removed without being checked, so a type error doesn't fail the
   deploy. Run `tsc --noEmit` in your own CI to catch type errors.
-- `.mts` compiles to an ES module and `.cts` to CommonJS. `.ts` is an ES module
-  when the function's `package.json` sets `"type": "module"`, CommonJS otherwise.
+- `.mts` compiles to an ES module and `.cts` to CommonJS. `.ts` and `.tsx` are
+  ES modules when the function's `package.json` sets `"type": "module"`,
+  CommonJS otherwise.
+- `.tsx` compiles JSX with the settings in the function's `tsconfig.json`
+  (`jsx`, `jsxImportSource`, `jsxFactory`). Without a `jsx` setting it uses
+  React's automatic runtime, so add `react` to the function's `package.json`
+  dependencies; you don't need to import React.
 - Imports through `paths` in a `tsconfig.json` inside the function's directory
   resolve. Packages from `package.json` load from the installed dependencies.
 - TypeScript never changes what an existing function deploys: `hello.js` or
@@ -73,9 +78,10 @@ JavaScript during the build, in the cloud and in local mode:
   deploys that file instead. A `hello/` directory beside `hello.ts` deploys the
   directory.
 - Two TypeScript files with one name and no JavaScript, such as `hello.ts` and
-  `hello.mts`, stop the deploy until you keep one.
-- `.tsx` and declaration files such as `types.d.ts` aren't functions. A
-  directory needs its handler at its top, such as `checkout/index.ts`, not
+  `hello.tsx`, stop the deploy until you keep one. So do two TypeScript indexes
+  in one directory, such as `checkout/index.ts` and `checkout/index.tsx`.
+- Declaration files such as `types.d.ts` aren't functions. A directory needs
+  its handler at its top, such as `checkout/index.ts`, not
   `checkout/src/index.ts`.
 
 See [TypeScript](/platform/functions/creating-functions#typescript) for how the
