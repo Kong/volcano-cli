@@ -264,7 +264,7 @@ func TestSettingsSetSaysWhenToTryMergingAgain(t *testing.T) {
 	} {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
-			s.refuse, s.refuseMethod = tc.status, http.MethodPut
+			s.refuse, s.refuseMethod = tc.status, http.MethodPatch
 			s.refusal = map[string]any{"error": "the push check didn't answer"}
 			s.refusalHeaders = tc.headers
 		})
@@ -283,7 +283,7 @@ func TestSettingsSetSaysASaveThatRacedSavedNothing(t *testing.T) {
 	const message = "the LavaFlow settings changed while saving; nothing was saved, send the request again"
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
-		s.refuse, s.refuseMethod = http.StatusConflict, http.MethodPut
+		s.refuse, s.refuseMethod = http.StatusConflict, http.MethodPatch
 		s.refusal = map[string]any{"error": message}
 	})
 
@@ -321,7 +321,7 @@ func TestSettingsSetSaysWhyMergingIsRefused(t *testing.T) {
 			t.Run(fmt.Sprintf("%s, VOLCANO_TOKEN %t", name, envToken), func(t *testing.T) {
 				fake, deps := newLavaflowServer(t)
 				fake.set(func(s *lavaflowServer) {
-					s.refuse, s.refuseMethod = tc.status, http.MethodPut
+					s.refuse, s.refuseMethod = tc.status, http.MethodPatch
 					s.refusal = map[string]any{"error": tc.message, "code": tc.code}
 				})
 				if envToken {
@@ -395,11 +395,11 @@ func TestSettingsSetLeavesMergingToTheSaveWhenTheCapabilitiesDontSay(t *testing.
 	}{
 		"unreadable": {func(s *lavaflowServer) {
 			s.mergeCapability, s.capabilitiesFailure = "unavailable", http.StatusInternalServerError
-			s.refuse, s.refuseMethod = http.StatusBadRequest, http.MethodPut
+			s.refuse, s.refuseMethod = http.StatusBadRequest, http.MethodPatch
 			s.refusal = map[string]any{"error": "autonomy merge is not available", "code": "feature_unavailable"}
 		}, "LavaFlow merging isn't available for this project yet", http.StatusBadRequest},
 		"not listed": {func(s *lavaflowServer) {
-			s.refuse, s.refuseMethod = http.StatusBadRequest, http.MethodPut
+			s.refuse, s.refuseMethod = http.StatusBadRequest, http.MethodPatch
 			s.refusal = map[string]any{"error": "autonomy merge is not available", "code": "feature_unavailable"}
 		}, "LavaFlow merging isn't available for this project yet", http.StatusBadRequest},
 		"LavaFlow unavailable": {func(s *lavaflowServer) {
@@ -440,7 +440,7 @@ func TestSettingsSetSaysReviewPathsNeedMerging(t *testing.T) {
 	} {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
-			s.refuse, s.refuseMethod = http.StatusBadRequest, http.MethodPut
+			s.refuse, s.refuseMethod = http.StatusBadRequest, http.MethodPatch
 			s.refusal = map[string]any{"error": "merging is not available", "code": "feature_unavailable"}
 		})
 

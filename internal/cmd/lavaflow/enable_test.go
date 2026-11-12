@@ -104,7 +104,7 @@ func TestEnablePassesTheAPIsRefusalThrough(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
 		s.refuse = http.StatusForbidden
-		s.refuseMethod = http.MethodPut
+		s.refuseMethod = http.MethodPatch
 		s.refusal = map[string]any{"error": "you can't change this project's settings", "code": "forbidden"}
 	})
 
@@ -194,7 +194,7 @@ func TestARefusedChangeSaysWhy(t *testing.T) {
 	} {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
-			s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
+			s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPatch
 			s.refusal = map[string]any{"error": apiPlanRefusal}
 			if code != "" {
 				s.refusal["code"] = code
@@ -221,7 +221,7 @@ func TestAPersonRequiredRefusalKeepsVolcanosWords(t *testing.T) {
 		} {
 			fake, deps := newLavaflowServer(t)
 			fake.set(func(s *lavaflowServer) {
-				s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
+				s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPatch
 				s.refusal = map[string]any{"error": message, "code": "person_required"}
 			})
 
@@ -240,7 +240,7 @@ func TestAPersonRequiredRefusalSaysToUnsetVolcanoToken(t *testing.T) {
 		t.Run(message, func(t *testing.T) {
 			fake, deps := newLavaflowServer(t)
 			fake.set(func(s *lavaflowServer) {
-				s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
+				s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPatch
 				s.refusal = map[string]any{"error": message, "code": "person_required"}
 			})
 			t.Setenv("VOLCANO_TOKEN", "pk-secret")
@@ -268,7 +268,7 @@ func TestAChangeRefusedForAReadOnlyAccountSaysSo(t *testing.T) {
 	for _, args := range [][]string{{"enable", "--yes"}, {"disable"}, {"settings", "set", "--autonomy", "diagnose_only"}} {
 		fake, deps := newLavaflowServer(t)
 		fake.set(func(s *lavaflowServer) {
-			s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
+			s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPatch
 			s.refusal = map[string]any{"error": "the account is read-only"}
 		})
 
