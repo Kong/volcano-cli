@@ -30,8 +30,10 @@ characters in single quotes, so you can paste them as they are.
    Otherwise it reuses a login that still works, or runs browser login.
    Browser login prints a one-time sign-in code and a link. Open the link and
    approve, and the command continues. The sign-in code is not a secret: it
-   names this sign-in, and only your approval in the browser signs the CLI in.
-   See
+   only matches this terminal to the browser page. The CLI signs in to
+   whichever account approves it, and prints that account when it finishes.
+   Unlike the code in the dashboard's prompt, it cannot sign anyone in to your
+   account. To sign in with the dashboard's code instead, see
    [Device codes from the dashboard](#device-codes-from-the-dashboard).
 2. **Creates a project and its directory.** Unless `--project` names one, or
    the directory is already linked, it creates a new project.
@@ -148,11 +150,11 @@ which can differ from the `--email` you gave.
 
 `--signup` needs an email address. It uses `--email`, else your global git
 email when that is a usable address. When it uses the git email, `connect`
-prints the address and that it came from `git config --global user.email`. To
-sign up with another address, enter it on the signup page, or run the command
-again with `--email`. When neither is available, `connect`
-stops before it signs in and changes nothing. Run the same command again with
-the address you want to sign up with:
+says that the signup link includes the address from
+`git config --global user.email`. You can sign up with any address on the
+signup page. When neither is available, `connect` stops before it signs in
+and changes nothing. Run the same command again with the address you want to
+sign up with:
 
 ```bash
 volcano connect --signup --email you@company.com

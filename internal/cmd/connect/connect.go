@@ -410,7 +410,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 		if email == "" {
 			email = cliauth.GitEmail(ctx, opts.deps)
 			if email != "" {
-				output.Note(opts.log, "Signing up as %s, from `git config --global user.email`. To use another address, enter it on the signup page, or run again with --email <address>.", email)
+				output.Note(opts.log, "The signup link includes %s, your `git config --global user.email`. You can sign up with any address on the signup page.", email)
 			}
 		}
 		if email == "" {

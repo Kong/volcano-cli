@@ -1402,7 +1402,7 @@ func TestConnectSignupUsesEmailFlagOverARelayGitEmail(t *testing.T) {
 			assert.Contains(t, openedURL, "email=marco%40volcano.dev")
 			assert.NotContains(t, openedURL, "support")
 			assert.NotContains(t, openedURL, "noreply")
-			assert.NotContains(t, out.String(), "Signing up as", "an address from --email is not attributed to git")
+			assert.NotContains(t, out.String(), "The signup link includes", "an address from --email is not attributed to git")
 			assert.Zero(t, fake.creates)
 		})
 	}
@@ -1448,9 +1448,9 @@ func TestConnectSignupSaysTheEmailCameFromGit(t *testing.T) {
 			if jsonOutput {
 				log, other = other, log
 			}
-			assert.Contains(t, log, "Signing up as support@volcano.dev, from `git config --global user.email`.")
-			assert.Contains(t, log, "enter it on the signup page, or run again with --email <address>")
-			assert.NotContains(t, other, "Signing up as")
+			assert.Contains(t, log, "The signup link includes support@volcano.dev, your `git config --global user.email`.")
+			assert.Contains(t, log, "You can sign up with any address on the signup page.")
+			assert.NotContains(t, other, "The signup link includes")
 			assert.Zero(t, fake.creates)
 		})
 	}
