@@ -61,6 +61,9 @@ type SourceInfo struct {
 	// viaTypeScript marks a source found only through TypeScript, such as
 	// hello.ts or a directory with index.ts, which the CLI used to skip.
 	viaTypeScript bool
+	// viaJSX marks a source found through a .tsx file, such as hello.tsx or a
+	// directory with index.tsx, which ranks after other TypeScript.
+	viaJSX bool
 }
 
 // ScanSources scans volcano/functions for top-level function files and directories.
@@ -102,6 +105,7 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 			Name:          strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())),
 			Runtime:       runtime,
 			viaTypeScript: viaTypeScript,
+			viaJSX:        viaTypeScript && filepath.Ext(entry.Name()) == jsxExtension,
 		})
 	}
 
@@ -211,11 +215,11 @@ func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (SourceInfo,
 	if runtime, entryFile, ok := detectEntrypoint(dirPath, catalog); ok {
 		return SourceInfo{Path: entryFile, Runtime: runtime, IsDir: true}, true
 	}
-	runtime, entryFile, ok := catalog.typeScriptDirectoryEntry(dirPath)
+	runtime, entryFile, viaJSX, ok := catalog.typeScriptDirectoryEntry(dirPath)
 	if !ok {
 		return SourceInfo{}, false
 	}
-	return SourceInfo{Path: entryFile, Runtime: runtime, IsDir: true, viaTypeScript: true}, true
+	return SourceInfo{Path: entryFile, Runtime: runtime, IsDir: true, viaTypeScript: true, viaJSX: viaJSX}, true
 }
 
 // detectEntrypoint finds the first file, by name, named as a runtime's

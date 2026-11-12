@@ -34,6 +34,8 @@ func TestScanSourcesFindsTypeScriptFunctions(t *testing.T) {
 		{name: "es module typescript file wins over jsx file", files: []string{"page.mts", "page.tsx"}, want: map[string]string{"page": "page.mts"}},
 		{name: "typescript directory wins over jsx file", files: []string{"page.tsx", "page/index.ts"}, want: map[string]string{"page": "page/index.ts"}},
 		{name: "jsx directory wins over jsx file", files: []string{"page.tsx", "page/index.tsx"}, want: map[string]string{"page": "page/index.tsx"}},
+		{name: "typescript file wins over jsx directory with javascript entry", files: []string{"page.ts", "page/index.mjs", "page/index.tsx"}, want: map[string]string{"page": "page.ts"}},
+		{name: "typescript directory with javascript entry wins over typescript file", files: []string{"page.ts", "page/index.mjs", "page/index.ts"}, want: map[string]string{"page": "page/index.mjs"}},
 		{name: "typescript file wins over jsx file and directory", files: []string{"page.ts", "page.tsx", "page/index.tsx"}, want: map[string]string{"page": "page.ts"}},
 		{name: "directory javascript index wins over jsx", files: []string{"page/index.js", "page/index.tsx"}, want: map[string]string{"page": "page/index.js"}},
 		{name: "directory python entrypoint wins over jsx", files: []string{"page/index.tsx", "page/main.py"}, want: map[string]string{"page": "page/main.py"}, wantRuntime: "python3.12"},
