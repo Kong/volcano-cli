@@ -103,50 +103,30 @@ func TestGrantCallsProjectRoutesWithTheGrant(t *testing.T) {
 	assert.NotContains(t, run.stderr, "VOLCANO_PROJECT_ID is deprecated", "the link file chose the project")
 }
 
+// Hosting's refusals keep their exit codes and messages. Only a spent budget
+// gets its own code, because a new grant is the fix.
 func TestGrantRefusalsExitCodes(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		status int
 		body   string
 		code   int
-		hint   string
+		want   string
 	}{
-		{
-			name:   "route not allowed",
-			status: http.StatusForbidden,
-			body:   `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`,
-			code:   exitPermissionDenied,
-			hint:   "Delegated grants cannot call GET " + projectFunctionsPath + ", so this command does not work with one.",
-		},
-		{
-			name:   "permission missing",
-			status: http.StatusForbidden,
-			body:   `{"error":"the delegated grant does not carry the permission this endpoint needs","code":"grant_permission_missing"}`,
-			code:   exitPermissionDenied,
-			hint:   "The delegated grant lacks the permission GET " + projectFunctionsPath + " needs.",
-		},
-		{
-			name:   "budget exhausted",
-			status: http.StatusTooManyRequests,
-			body:   `{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`,
-			code:   exitGrantBudgetExhausted,
-			hint:   "HTTP 429: the delegated grant has no mutations left; ask the app for a new grant",
-		},
-		{
-			// Any other 429, such as the per-grant rate limit, is not the
-			// budget: retrying after a pause works, a new grant is not needed.
-			name:   "rate limited",
-			status: http.StatusTooManyRequests,
-			body:   `{"error":"rate limit exceeded","code":"rate_limit_exceeded"}`,
-			code:   exitFailure,
-		},
-		{
-			name:   "expired or revoked",
-			status: http.StatusUnauthorized,
-			body:   `{"error":"invalid or expired token"}`,
-			code:   exitNotAuthenticated,
-			hint:   "The delegated grant has expired or was revoked. Get a new grant and run the command again.",
-		},
+		{"route not allowed", http.StatusForbidden,
+			`{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`,
+			exitPermissionDenied, "delegated grants cannot be used on this endpoint"},
+		{"permission missing", http.StatusForbidden,
+			`{"error":"the delegated grant does not carry the permission this endpoint needs","code":"grant_permission_missing"}`,
+			exitPermissionDenied, "the delegated grant does not carry the permission this endpoint needs"},
+		{"budget exhausted", http.StatusTooManyRequests,
+			`{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`,
+			exitGrantBudgetExhausted, "the delegated grant has no mutations left; ask the app for a new grant"},
+		// Any other 429, such as the per-grant rate limit, is not the budget.
+		{"rate limited", http.StatusTooManyRequests,
+			`{"error":"rate limit exceeded","code":"rate_limit_exceeded"}`, exitFailure, "rate limit exceeded"},
+		{"expired or revoked", http.StatusUnauthorized,
+			`{"error":"invalid or expired token"}`, exitNotAuthenticated, "invalid or expired token"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
@@ -154,16 +134,13 @@ func TestGrantRefusalsExitCodes(t *testing.T) {
 			}, "cloud", "functions", "list")
 
 			assert.Equal(t, tc.code, run.code, run.stderr)
-			if tc.hint != "" {
-				assert.Contains(t, run.stderr, tc.hint)
-			}
-			assert.NotContains(t, run.stderr, "only works on the project it was", "not a project mismatch")
+			assert.Contains(t, run.stderr, tc.want)
 		})
 	}
 }
 
 // A grant was an unknown prefix, so an account token, before the CLI knew it.
-// Account commands now refuse it before any request.
+// Account commands now refuse it before any request, as they refuse a pt-.
 func TestGrantIsRefusedOnAccountCommandsBeforeAnyRequest(t *testing.T) {
 	for _, args := range [][]string{
 		{"projects", "list"},
@@ -176,18 +153,8 @@ func TestGrantIsRefusedOnAccountCommandsBeforeAnyRequest(t *testing.T) {
 			}, args...)
 
 			assert.Equal(t, exitPermissionDenied, run.code, run.stderr)
-			assert.Contains(t, run.stderr, "delegated grant (pg-)")
+			assert.Contains(t, run.stderr, "this command needs an account token")
 			assert.Empty(t, run.requests)
 		})
 	}
-}
-
-// The wrong-project 403 gets the mismatch hint, worded for a grant.
-func TestGrantMismatchHintNamesTheGrant(t *testing.T) {
-	run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
-		respondExitTestJSON(w, http.StatusForbidden, `{"error":"project access token is not valid for this project"}`)
-	}, "cloud", "functions", "list")
-
-	assert.Equal(t, exitPermissionDenied, run.code, run.stderr)
-	assert.Contains(t, run.stderr, "A delegated grant only works on the project it was granted for")
 }

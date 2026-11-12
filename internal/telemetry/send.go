@@ -52,9 +52,9 @@ func spawnFlush(payload []byte) error {
 }
 
 // Flush reads one event payload from r and posts it to the cloud API's
-// /cli/telemetry endpoint, with the login token when there is one and it is
-// an account's. The server accepts the event without a token. The opt-out is
-// not checked again: the process that built the event already did.
+// /cli/telemetry endpoint, with the saved login token when there is one. The
+// server accepts the event without a token. The opt-out is not checked again:
+// the process that built the event already did.
 func Flush(ctx context.Context, r io.Reader, client *http.Client) error {
 	payload, err := io.ReadAll(io.LimitReader(r, maxPayloadBytes+1))
 	if err != nil {
@@ -77,10 +77,9 @@ func Flush(ctx context.Context, r io.Reader, client *http.Client) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "volcano-cli/"+version.Version)
-	if token := cfg.Token(); token != "" && !config.IsProjectBound(token) {
-		// A project-bound token names no account, so the server cannot use it
-		// to attribute the event. Sending it would only put a credential on a
-		// request that does not need one, from a detached process.
+	// A delegated grant is never sent: the server ignores it here, and the
+	// flush is a detached process the grant's run does not control.
+	if token := cfg.Token(); token != "" && !config.IsDelegatedGrant(token) {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	resp, err := client.Do(req)
