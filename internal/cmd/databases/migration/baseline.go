@@ -157,7 +157,7 @@ func confirmBaseline(in io.Reader, w io.Writer, database string, files []string)
 
 // selectBaselineFiles picks the files a baseline records: all of them, or the
 // ones named, each of which has to exist.
-func selectBaselineFiles(all []string, names []string, everything bool) ([]string, error) {
+func selectBaselineFiles(all, names []string, everything bool) ([]string, error) {
 	if len(all) == 0 {
 		return nil, errors.New("no migration files found in volcano/migrations/")
 	}
