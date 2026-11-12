@@ -57,9 +57,11 @@ func (c RuntimeCatalog) typeScriptRuntimeForFile(name string) (apiclient.Functio
 // build runs that instead, so that is the entry. index.ts beats index.tsx, as
 // in the build. The directory uploads whole, so the build, not the scan,
 // refuses two indexes of one rank, such as index.ts and index.mts, and the scan
-// never blocks deploying another function. viaJSX reports that index.tsx found
-// the directory, which ranks it after other TypeScript even when JavaScript is
-// its entry.
+// never blocks deploying another function. viaJSX reports that index.tsx is
+// the entry, which ranks the directory after other TypeScript. With
+// JavaScript as its entry, the directory ranks as one with a .ts index, ahead
+// of a TypeScript file, as on the server, where its JavaScript entry ranks
+// first.
 func (c RuntimeCatalog) typeScriptDirectoryEntry(dirPath string) (runtime apiclient.FunctionRuntimeOption, entry string, viaJSX, ok bool) {
 	if c.typeScript == nil {
 		return apiclient.FunctionRuntimeOption{}, "", false, false
@@ -70,13 +72,12 @@ func (c RuntimeCatalog) typeScriptDirectoryEntry(dirPath string) (runtime apicli
 		if !isRegularFile(filepath.Join(dirPath, stem+ext)) {
 			continue
 		}
-		viaJSX = ext == jsxExtension
 		for _, jsExt := range javaScriptModuleExtensions {
 			if js := filepath.Join(dirPath, stem+jsExt); isRegularFile(js) {
-				return *c.typeScript, js, viaJSX, true
+				return *c.typeScript, js, false, true
 			}
 		}
-		return *c.typeScript, filepath.Join(dirPath, stem+ext), viaJSX, true
+		return *c.typeScript, filepath.Join(dirPath, stem+ext), ext == jsxExtension, true
 	}
 	return apiclient.FunctionRuntimeOption{}, "", false, false
 }
@@ -128,9 +129,8 @@ func resolveTypeScriptSources(sources []SourceInfo) ([]SourceInfo, error) {
 // typeScriptRank orders the sources that can share a function name, lowest
 // first: one the CLI found before it read TypeScript; a directory with a .ts,
 // .mts or .cts index; a .ts, .mts or .cts file; a directory with an index.tsx;
-// then a .tsx file. A directory ranks by the TypeScript index that found it,
-// even when JavaScript beside it is the entry: index.mjs beside index.tsx
-// ranks as a directory with an index.tsx.
+// then a .tsx file. A directory whose entry is JavaScript beside a TypeScript
+// index, such as index.mjs beside index.tsx, ranks as one with a .ts index.
 func typeScriptRank(source SourceInfo) int {
 	if !source.viaTypeScript {
 		return 0

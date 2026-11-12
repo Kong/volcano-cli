@@ -61,8 +61,8 @@ type SourceInfo struct {
 	// viaTypeScript marks a source found only through TypeScript, such as
 	// hello.ts or a directory with index.ts, which the CLI used to skip.
 	viaTypeScript bool
-	// viaJSX marks a source found through a .tsx file, such as hello.tsx or a
-	// directory with index.tsx, which ranks after other TypeScript.
+	// viaJSX marks a source whose entry is a .tsx file, such as hello.tsx or a
+	// directory's index.tsx, which ranks after other TypeScript.
 	viaJSX bool
 }
 
