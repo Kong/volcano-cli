@@ -31,9 +31,11 @@ characters in single quotes, so you can paste them as they are.
    Browser login prints a one-time sign-in code and a link. Open the link and
    approve, and the command continues. The sign-in code is not a secret: it
    only matches this terminal to the browser page. The CLI signs in to
-   whichever account approves it, and prints that account when it finishes.
+   whichever account approves it, and prints that account when it can read it.
    Unlike the code in the dashboard's prompt, it cannot sign anyone in to your
-   account. To sign in with the dashboard's code instead, see
+   account. Approve only a code your own terminal printed: approving someone
+   else's code signs their CLI in to your account. To sign in with the
+   dashboard's code instead, see
    [Device codes from the dashboard](#device-codes-from-the-dashboard).
 2. **Creates a project and its directory.** Unless `--project` names one, or
    the directory is already linked, it creates a new project.
