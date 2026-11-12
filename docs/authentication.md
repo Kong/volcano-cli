@@ -114,6 +114,16 @@ refuses one, because it would outlast the run it was made for. Commands outside
 the grant fail with exit code `5`, and a grant that has used up its changes
 fails with exit code `6`. See [scripting.md](scripting.md#exit-codes).
 
+To keep a token out of the CLI's environment, pass it on a file descriptor
+instead: set `VOLCANO_TOKEN_FD` to the descriptor's number (`0` reads stdin)
+and leave `VOLCANO_TOKEN` unset. The CLI reads the token once, closes the
+descriptor, and does not pass the token to processes it starts. A grant set
+in `VOLCANO_TOKEN` is also removed from the environment those processes get.
+
+```bash
+VOLCANO_TOKEN_FD=3 volcano cloud functions deploy --all 3< grant.txt
+```
+
 `volcano cloud functions invoke` sends the grant itself and never creates a
 service key for it. Storage object commands need a service key, so they don't
 work with a grant.

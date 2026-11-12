@@ -334,10 +334,19 @@ func (c *Config) Token() string {
 	// Untrimmed, that reaches the Authorization header and net/http refuses to
 	// send the request at all, reporting an invalid header field rather than
 	// anything the user can act on.
-	if token := strings.TrimSpace(os.Getenv(envToken)); !c.IgnoreEnv && token != "" {
+	if token := environmentToken(); !c.IgnoreEnv && token != "" {
 		return token
 	}
 	return c.UserToken
+}
+
+// environmentToken is the token from the environment: the one AdoptToken took in, or
+// else VOLCANO_TOKEN.
+func environmentToken() string {
+	if adopted := adoptedToken.Load(); adopted != nil {
+		return *adopted
+	}
+	return strings.TrimSpace(os.Getenv(envToken))
 }
 
 // TokenEnv is the environment variable whose token Token returns ahead of the
@@ -348,7 +357,7 @@ const TokenEnv = envToken
 // rather than the saved one. Signing in saves a token, which Token then still
 // passes over.
 func (c *Config) TokenFromEnv() bool {
-	return !c.IgnoreEnv && strings.TrimSpace(os.Getenv(envToken)) != ""
+	return !c.IgnoreEnv && environmentToken() != ""
 }
 
 // FunctionInvokeToken returns the token used for runtime function invocation.

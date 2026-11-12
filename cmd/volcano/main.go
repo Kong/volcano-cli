@@ -44,6 +44,12 @@ const (
 )
 
 func main() {
+	// First, before anything reads the configuration: take the token from
+	// VOLCANO_TOKEN_FD, or a grant out of VOLCANO_TOKEN, into memory.
+	if err := config.AdoptToken(); err != nil {
+		fmt.Fprintln(os.Stderr, theme.Error("Error:", theme.On(os.Stderr)), err)
+		os.Exit(exitNotAuthenticated)
+	}
 	// One recorder per process: it reads the telemetry setting once, and both
 	// the agent headers and the usage event follow that read. Agent headers
 	// count as usage data: none before the first-run notice.
