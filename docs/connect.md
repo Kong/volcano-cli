@@ -147,7 +147,10 @@ browser, signup does not create an account: the CLI signs in to that account,
 which can differ from the `--email` you gave.
 
 `--signup` needs an email address. It uses `--email`, else your global git
-email when that is a usable address. When neither is available, `connect`
+email when that is a usable address. When it uses the git email, `connect`
+prints the address and that it came from `git config --global user.email`. To
+sign up with another address, enter it on the signup page, or run the command
+again with `--email`. When neither is available, `connect`
 stops before it signs in and changes nothing. Run the same command again with
 the address you want to sign up with:
 
