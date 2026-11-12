@@ -18125,9 +18125,6 @@ type CreateLavaflowRunJSONRequestBody = LavaflowRunCreate
 // PatchLavaflowSettingsJSONRequestBody defines body for PatchLavaflowSettings for application/json ContentType.
 type PatchLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
 
-// UpdateLavaflowSettingsJSONRequestBody defines body for UpdateLavaflowSettings for application/json ContentType.
-type UpdateLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
-
 // UpdateLavaflowSkillJSONRequestBody defines body for UpdateLavaflowSkill for application/json ContentType.
 type UpdateLavaflowSkillJSONRequestBody = LavaflowSkillUpdate
 
@@ -20170,11 +20167,6 @@ type ClientInterface interface {
 	PatchLavaflowSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PatchLavaflowSettings(ctx context.Context, body PatchLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateLavaflowSettingsWithBody request with any body
-	UpdateLavaflowSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateLavaflowSettings(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLavaflowSkillVersions request
 	ListLavaflowSkillVersions(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -22818,30 +22810,6 @@ func (c *Client) PatchLavaflowSettingsWithBody(ctx context.Context, contentType 
 
 func (c *Client) PatchLavaflowSettings(ctx context.Context, body PatchLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPatchLavaflowSettingsRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateLavaflowSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateLavaflowSettingsRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateLavaflowSettings(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateLavaflowSettingsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -32150,46 +32118,6 @@ func NewPatchLavaflowSettingsRequestWithBody(server string, contentType string, 
 	}
 
 	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewUpdateLavaflowSettingsRequest calls the generic UpdateLavaflowSettings builder with application/json body
-func NewUpdateLavaflowSettingsRequest(server string, body UpdateLavaflowSettingsJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateLavaflowSettingsRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewUpdateLavaflowSettingsRequestWithBody generates requests for UpdateLavaflowSettings with any type of body
-func NewUpdateLavaflowSettingsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/lavaflow/settings")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -49110,11 +49038,6 @@ type ClientWithResponsesInterface interface {
 
 	PatchLavaflowSettingsWithResponse(ctx context.Context, body PatchLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchLavaflowSettingsClientResponse, error)
 
-	// UpdateLavaflowSettingsWithBodyWithResponse request with any body
-	UpdateLavaflowSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
-
-	UpdateLavaflowSettingsWithResponse(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
-
 	// ListLavaflowSkillVersionsWithResponse request
 	ListLavaflowSkillVersionsWithResponse(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillVersionsClientResponse, error)
 
@@ -53196,44 +53119,6 @@ func (r PatchLavaflowSettingsClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PatchLavaflowSettingsClientResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type UpdateLavaflowSettingsClientResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *LavaflowSettings
-	JSON400      *Error
-	JSON401      *Error
-	JSON403      *Error
-	JSON404      *Error
-	JSON409      *Error
-	JSON413      *Error
-	JSON429      *Error
-	JSON503      *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateLavaflowSettingsClientResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateLavaflowSettingsClientResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r UpdateLavaflowSettingsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -64418,23 +64303,6 @@ func (c *ClientWithResponses) PatchLavaflowSettingsWithResponse(ctx context.Cont
 	return ParsePatchLavaflowSettingsClientResponse(rsp)
 }
 
-// UpdateLavaflowSettingsWithBodyWithResponse request with arbitrary body returning *UpdateLavaflowSettingsClientResponse
-func (c *ClientWithResponses) UpdateLavaflowSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error) {
-	rsp, err := c.UpdateLavaflowSettingsWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateLavaflowSettingsClientResponse(rsp)
-}
-
-func (c *ClientWithResponses) UpdateLavaflowSettingsWithResponse(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error) {
-	rsp, err := c.UpdateLavaflowSettings(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateLavaflowSettingsClientResponse(rsp)
-}
-
 // ListLavaflowSkillVersionsWithResponse request returning *ListLavaflowSkillVersionsClientResponse
 func (c *ClientWithResponses) ListLavaflowSkillVersionsWithResponse(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillVersionsClientResponse, error) {
 	rsp, err := c.ListLavaflowSkillVersions(ctx, params, reqEditors...)
@@ -72322,88 +72190,6 @@ func ParsePatchLavaflowSettingsClientResponse(rsp *http.Response) (*PatchLavaflo
 	}
 
 	response := &PatchLavaflowSettingsClientResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest LavaflowSettings
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON413 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON429 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateLavaflowSettingsClientResponse parses an HTTP response from a UpdateLavaflowSettingsWithResponse call
-func ParseUpdateLavaflowSettingsClientResponse(rsp *http.Response) (*UpdateLavaflowSettingsClientResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateLavaflowSettingsClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

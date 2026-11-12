@@ -53,9 +53,9 @@ type lavaflowServer struct {
 	// capabilityReads counts reads of the project's capabilities.
 	capabilityReads int
 	// gateOff is LavaFlow unavailable for a project with records: the reads
-	// answer, and the PUT takes only turning it off, with ungated workflows
+	// answer, and the PATCH takes only turning it off, with ungated workflows
 	// or without. planOff says the owner's
-	// plan is why, so the PUT answers plan_required instead of
+	// plan is why, so the PATCH answers plan_required instead of
 	// feature_unavailable.
 	gateOff  bool
 	planOff  bool
@@ -158,7 +158,7 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Every LavaFlow route is top-level and names its project: in the query on
-	// a read, in the body on the PUT. The queries and updates recorded leave
+	// a read, in the body on the PATCH. The queries and updates recorded leave
 	// project_id out; projects keeps it.
 	route, found := strings.CutPrefix(r.URL.Path, "/lavaflow")
 	if !found {
@@ -173,7 +173,7 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var update map[string]any
-	if r.Method == http.MethodPut || r.Method == http.MethodPost {
+	if r.Method == http.MethodPatch || r.Method == http.MethodPost {
 		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			s.t.Errorf("decode body: %v", err)
 		}
@@ -197,10 +197,10 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			settings["can_update"] = false
 		}
 		s.write(w, http.StatusOK, settings)
-	case r.Method == http.MethodPut && route == "/settings":
+	case r.Method == http.MethodPatch && route == "/settings":
 		s.updates = append(s.updates, update)
 		// Turning it off, and allow_ungated_workflows off with it, is all the
-		// PUT takes while LavaFlow is unavailable.
+		// PATCH takes while LavaFlow is unavailable.
 		if s.gateOff && !maps.Equal(update, map[string]any{"enabled": false}) &&
 			!maps.Equal(update, map[string]any{"enabled": false, "allow_ungated_workflows": false}) {
 			if s.planOff {
