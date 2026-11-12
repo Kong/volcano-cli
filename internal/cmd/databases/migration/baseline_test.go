@@ -120,7 +120,7 @@ func TestBaselineKeepsTheAPIRefusal(t *testing.T) {
 func TestBaselineRefusesAnUnknownFile(t *testing.T) {
 	setGrantMigrationTest(t)
 	require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "notes.txt"), []byte("x"), 0o644))
-	server, requests := baselineServer(t, func(w http.ResponseWriter, _ []any) {})
+	server, requests := baselineServer(t, func(http.ResponseWriter, []any) {})
 
 	_, err := runBaselineCommand(t, server, "-d", "app", "-f", "009_missing", "--yes")
 	require.ErrorContains(t, err, `migration "009_missing" not found`)
