@@ -138,7 +138,7 @@ shown by 'preview get' once it is ready.`,
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Preview name, unique within the function (required)")
 	cmd.Flags().StringVar(&path, "path", ".", "Path to the project directory")
-	cmd.Flags().DurationVar(&ttl, "ttl", 0, "Delete the preview after this long, at most 720h (default: keep until deleted)")
+	cmd.Flags().DurationVar(&ttl, "ttl", 0, "Delete the preview after this long, at most 720h, unless the function runs it or keeps it for a rollback (default: keep until deleted)")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
