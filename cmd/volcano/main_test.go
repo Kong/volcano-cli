@@ -55,6 +55,8 @@ func TestRunMapsErrorsToStableExitCodes(t *testing.T) {
 		{name: "missing resource", err: fmt.Errorf("get: %w", &api.Error{StatusCode: http.StatusNotFound}), want: exitNotFound},
 		{name: "refused", err: fmt.Errorf("delete: %w", &api.Error{StatusCode: http.StatusForbidden}), want: exitPermissionDenied},
 		{name: "account token required", err: cliconfig.ErrAccountTokenRequired, want: exitPermissionDenied},
+		{name: "account token required, not a grant", err: cliconfig.ErrAccountTokenRequiredForGrant, want: exitPermissionDenied},
+		{name: "no project for a grant", err: cliconfig.ErrNoProjectSelectedForGrant, want: exitNoProject},
 		{name: "unknown resource", err: fmt.Errorf("frontend %q %w", "web", api.ErrNotFound), want: exitNotFound},
 		{name: "rewritten 404", err: api.WithCause(errors.New("no such thing"), &api.Error{StatusCode: http.StatusNotFound}), want: exitNotFound},
 		{name: "rewritten refusal", err: api.WithCause(errors.New("ask a person"), cliconfig.ErrAccountTokenRequired), want: exitPermissionDenied},

@@ -173,6 +173,8 @@ func TestGrantIsRefusedOnAccountCommandsBeforeAnyRequest(t *testing.T) {
 
 			assert.Equal(t, exitPermissionDenied, run.code, run.stderr)
 			assert.Contains(t, run.stderr, "this command needs an account token")
+			assert.Contains(t, run.stderr, "the current credential is a delegated grant (pg-)")
+			assert.NotContains(t, run.stderr, "project access token")
 			assert.Empty(t, run.requests)
 		})
 	}
