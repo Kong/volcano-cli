@@ -53,8 +53,8 @@ archive includes.
 | Entry | Function | Entry file |
 |---|---|---|
 | `hello.js`, `hello.mjs`, `hello.py`, `hello.rb` | `hello` | the file itself |
-| `hello.ts`, `hello.mts`, `hello.cts` | `hello` | the file itself, compiled by Volcano |
-| `checkout/` | `checkout` | `index.js`, else `main.py` or `main.rb`, else `index.cts`, `index.mts` or `index.ts`, the first found |
+| `hello.ts`, `hello.mts`, `hello.cts`, `hello.tsx` | `hello` | the file itself, compiled by Volcano |
+| `checkout/` | `checkout` | `index.js`, else `main.py` or `main.rb`, else `index.cts`, `index.mts`, `index.ts` or `index.tsx` |
 
 ### TypeScript
 
@@ -63,19 +63,37 @@ JavaScript during the build, in the cloud and in local mode:
 
 - Types are removed without being checked, so a type error doesn't fail the
   deploy. Run `tsc --noEmit` in your own CI to catch type errors.
-- `.mts` compiles to an ES module and `.cts` to CommonJS. `.ts` is an ES module
-  when the function's `package.json` sets `"type": "module"`, CommonJS otherwise.
+- `.mts` compiles to an ES module and `.cts` to CommonJS. `.ts` and `.tsx` are
+  ES modules when the function's `package.json` sets `"type": "module"`,
+  CommonJS otherwise.
+- `.tsx` compiles JSX with React's automatic runtime, so you don't import
+  React, but `react` (and a renderer such as `react-dom`) must be in the
+  function's `package.json` dependencies. A directory function's
+  `tsconfig.json` can choose other JSX settings, such as `"jsx": "react"` with
+  `"jsxFactory": "h"`, or `"jsxImportSource": "preact"`. A single-file
+  function uploads without a `tsconfig.json`, so put the handler in a
+  directory to change them.
 - Imports through `paths` in a `tsconfig.json` inside the function's directory
   resolve. Packages from `package.json` load from the installed dependencies.
-- TypeScript never changes what an existing function deploys: `hello.js` or
-  `hello.py` beside `hello.ts` or `hello/index.ts`, or `checkout/index.js`,
-  `index.mjs`, `index.cjs`, `main.py` or `main.rb` beside `checkout/index.ts`,
-  deploys that file instead. A `hello/` directory beside `hello.ts` deploys the
-  directory.
+- `.ts`, `.mts` and `.cts` never change what an existing function deploys:
+  `hello.js` or `hello.py` beside `hello.ts` or `hello/index.ts`, or
+  `checkout/index.js`, `index.mjs`, `index.cjs`, `main.py` or `main.rb` beside
+  `checkout/index.ts`, deploys that file instead. A `hello/` directory beside
+  `hello.ts` deploys the directory.
+- `.tsx` ranks after the other TypeScript: `hello.ts` beside `hello.tsx`, or
+  `index.ts` beside `index.tsx` in a directory, deploys the `.ts` file. A
+  `hello.ts` file also deploys instead of a `hello/` directory with only an
+  `index.tsx`.
+- One layout deploys differently than with CLI 0.77.0 and earlier: a `hello/`
+  directory with `index.mjs` or `index.cjs` beside `index.tsx` now deploys
+  that JavaScript instead of a `hello.ts` file, as Git deploy does. Earlier
+  CLIs didn't find that directory.
 - Two TypeScript files with one name and no JavaScript, such as `hello.ts` and
-  `hello.mts`, stop the deploy until you keep one.
-- `.tsx` and declaration files such as `types.d.ts` aren't functions. A
-  directory needs its handler at its top, such as `checkout/index.ts`, not
+  `hello.mts`, stop the deploy until you keep one. Two TypeScript indexes in
+  one directory, such as `checkout/index.ts` and `checkout/index.mts`, fail
+  that function's build.
+- Declaration files such as `types.d.ts` aren't functions. A directory needs
+  its handler at its top, such as `checkout/index.ts`, not
   `checkout/src/index.ts`.
 
 See [TypeScript](/platform/functions/creating-functions#typescript) for how the

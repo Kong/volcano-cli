@@ -91,8 +91,10 @@ Usage:
 
 The CLI scans volcano/functions, detects the runtime from source file extensions,
 packages source with dependency manifests and shared libraries, and uploads the
-archive to Volcano. Cloud deploy-all uploads are split into batches of up to
-100 functions; local deploy-all uploads each function individually.`,
+archive to Volcano. TypeScript handlers (.ts, .mts, .cts and .tsx) upload as
+source, and Volcano compiles them. Cloud deploy-all uploads are split into
+batches of up to 100 functions; local deploy-all uploads each function
+individually.`,
 			cliruntime.CommandPath(deps, "functions deploy --all"),
 			cliruntime.CommandPath(deps, "functions deploy -a"),
 			cliruntime.CommandPath(deps, "functions deploy -f get-notes"),

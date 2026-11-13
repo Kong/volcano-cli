@@ -61,6 +61,9 @@ type SourceInfo struct {
 	// viaTypeScript marks a source found only through TypeScript, such as
 	// hello.ts or a directory with index.ts, which the CLI used to skip.
 	viaTypeScript bool
+	// viaJSX marks a source whose entry is a .tsx file, such as hello.tsx or a
+	// directory's index.tsx, which ranks after other TypeScript.
+	viaJSX bool
 }
 
 // ScanSources scans volcano/functions for top-level function files and directories.
@@ -81,15 +84,9 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 		}
 		fullPath := filepath.Join(functionsDir, entry.Name())
 		if entry.IsDir() {
-			runtime, entryFile, viaTypeScript, ok := detectDirectoryRuntime(fullPath, catalog)
-			if ok {
-				functions = append(functions, SourceInfo{
-					Path:          entryFile,
-					Name:          entry.Name(),
-					Runtime:       runtime,
-					IsDir:         true,
-					viaTypeScript: viaTypeScript,
-				})
+			if source, ok := detectDirectoryRuntime(fullPath, catalog); ok {
+				source.Name = entry.Name()
+				functions = append(functions, source)
 			}
 			continue
 		}
@@ -108,6 +105,7 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 			Name:          strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())),
 			Runtime:       runtime,
 			viaTypeScript: viaTypeScript,
+			viaJSX:        viaTypeScript && filepath.Ext(entry.Name()) == jsxExtension,
 		})
 	}
 
@@ -211,14 +209,17 @@ func normalizeTarget(target string) string {
 // detectDirectoryRuntime chooses a directory function's entry: a runtime
 // entrypoint such as index.js, main.py or main.rb, else a TypeScript index.
 // TypeScript ranks last so it never changes the runtime of a directory that
-// already deploys, such as main.py beside index.ts. viaTypeScript reports the
-// TypeScript index found it.
-func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (runtime apiclient.FunctionRuntimeOption, entryFile string, viaTypeScript, ok bool) {
+// already deploys, such as main.py beside index.ts. The source it returns has
+// no name.
+func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (SourceInfo, bool) {
 	if runtime, entryFile, ok := detectEntrypoint(dirPath, catalog); ok {
-		return runtime, entryFile, false, true
+		return SourceInfo{Path: entryFile, Runtime: runtime, IsDir: true}, true
 	}
-	runtime, entryFile, ok = catalog.typeScriptDirectoryEntry(dirPath)
-	return runtime, entryFile, ok, ok
+	runtime, entryFile, viaJSX, ok := catalog.typeScriptDirectoryEntry(dirPath)
+	if !ok {
+		return SourceInfo{}, false
+	}
+	return SourceInfo{Path: entryFile, Runtime: runtime, IsDir: true, viaTypeScript: true, viaJSX: viaJSX}, true
 }
 
 // detectEntrypoint finds the first file, by name, named as a runtime's
