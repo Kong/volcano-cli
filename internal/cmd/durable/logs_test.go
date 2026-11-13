@@ -346,3 +346,73 @@ func writeDurableLogStream(t *testing.T, w http.ResponseWriter, body string) {
 		flusher.Flush()
 	}
 }
+
+// An earlier deploy's build logs stay readable by naming its deployment, which
+// has to be one of this function's.
+func TestDurableLogsBuildReadsANamedDeployment(t *testing.T) {
+	const earlier = "88888888-8888-4888-8888-888888888888"
+	for _, tc := range []struct {
+		name       string
+		deployment string
+		args       []string
+		want       string
+		searched   bool
+	}{
+		{name: "earlier", deployment: earlier, searched: true, want: "deployment " + earlier},
+		{name: "unknown", deployment: "99999999-9999-4999-8999-999999999999", want: "not found for durable function order-pipeline"},
+		{name: "follow earlier", deployment: earlier, args: []string{"--follow"}, want: "--follow reads only the deployment the function is on"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setDurableCommandTestHome(t)
+			var searchBody map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == http.MethodGet &&
+					r.URL.Path == "/projects/"+durableProjectID+"/durable-functions/order-pipeline":
+					function := durableFunctionPayload("order-pipeline", "private")
+					function["current_deployment_id"] = durableDeploymentID
+					writeDurableCommandJSON(t, w, http.StatusOK, function)
+				case r.Method == http.MethodGet &&
+					r.URL.Path == "/projects/"+durableProjectID+"/durable-functions/"+durableFunctionID+"/deployments":
+					writeDurableCommandJSON(t, w, http.StatusOK, map[string]any{
+						"data": []map[string]any{
+							{"id": durableDeploymentID, "function_id": durableFunctionID, "status": "active"},
+							{"id": earlier, "function_id": durableFunctionID, "status": "superseded"},
+						},
+						"has_more": false, "page": 1, "limit": 20, "total": 2,
+					})
+				case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/logs/search":
+					require.NoError(t, decodeJSONBody(r, &searchBody))
+					writeDurableCommandJSON(t, w, http.StatusOK, durableLogPage("built"))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			args := append([]string{"logs", "order-pipeline", tc.deployment, "--type", "build"}, tc.args...)
+			out, err := executeDurableCommand(t, newCloudDurableCommand(server), args...)
+			if !tc.searched {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.want)
+				assert.Nil(t, searchBody)
+				return
+			}
+			require.NoError(t, err)
+			assert.Contains(t, out, tc.want)
+			resource, ok := searchBody["resource"].(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, map[string]any{"ids": []any{earlier}}, resource["deployments"])
+		})
+	}
+}
+
+func TestDurableLogsRuntimeTakesNoDeployment(t *testing.T) {
+	setDurableCommandTestHome(t)
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+	_, err := executeDurableCommand(t, newCloudDurableCommand(server),
+		"logs", "order-pipeline", durableDeploymentID, "--type", "runtime")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "deployment-id is only supported with --type build")
+}

@@ -43,6 +43,15 @@ func Runtime(ctx context.Context, deps cliruntime.Deps, w io.Writer, open Stream
 // API instructions that arrive in the stream response headers before a healthy
 // follow session blocks indefinitely.
 func RuntimeWithStreamOpened(ctx context.Context, deps cliruntime.Deps, w io.Writer, open StreamOpener, opened func()) error {
+	return RuntimeEach(ctx, deps, open, opened, func(event *api.ProjectLogStreamEvent) error {
+		output.PrintLogStreamEvent(w, event)
+		return nil
+	})
+}
+
+// RuntimeEach follows runtime logs like RuntimeWithStreamOpened, handing each
+// event to handle instead of printing it. An error from handle ends the follow.
+func RuntimeEach(ctx context.Context, deps cliruntime.Deps, open StreamOpener, opened func(), handle func(*api.ProjectLogStreamEvent) error) error {
 	var openedOnce sync.Once
 	openWithCallback := func(ctx context.Context, lastEventID string) (*api.ProjectLogStream, error) {
 		stream, err := open(ctx, lastEventID)
@@ -64,7 +73,9 @@ func RuntimeWithStreamOpened(ctx context.Context, deps cliruntime.Deps, w io.Wri
 			}
 			return err
 		}
-		output.PrintLogStreamEvent(w, event)
+		if err := handle(event); err != nil {
+			return err
+		}
 	}
 }
 

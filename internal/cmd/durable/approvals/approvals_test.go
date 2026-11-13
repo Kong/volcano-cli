@@ -890,7 +890,7 @@ func TestApprovalsDecideRefusesAProjectTokenBeforeAnyRequest(t *testing.T) {
 }
 
 const needsAPerson = "approvals are decided by a person. " +
-	"Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard"
+	"Run `volcano login` with VOLCANO_TOKEN unset, then decide again"
 
 // Any other refusal keeps the API's own reason: telling a person who is
 // already logged in to log in would send them after the wrong thing.

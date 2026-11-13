@@ -5,9 +5,10 @@ import (
 	"testing"
 )
 
-// requireLocalModeLeavesLavaFlowToTheCloud checks that LavaFlow, which opens
-// fix pull requests through a GitHub App local development does not run,
-// refuses with that reason and names the cloud command instead of running.
+// requireLocalModeLeavesLavaFlowToTheCloud checks that LavaFlow, which runs on
+// Volcano's cloud service only, refuses in local mode with that reason and
+// names the cloud command instead of asking the local API, which answers
+// feature_unavailable.
 func requireLocalModeLeavesLavaFlowToTheCloud(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
 	help := runVolcanoLocalModeE2E(t, binary, env, dir, "--help")
@@ -17,14 +18,21 @@ func requireLocalModeLeavesLavaFlowToTheCloud(t *testing.T, binary string, env [
 		{"lavaflow", "status"},
 		{"lavaflow", "enable"},
 		{"lavaflow", "disable", "--json"},
-		{"lavaflow", "runs", "list"},
+		{"lavaflow", "settings", "set", "--autonomy", "diagnose_only"},
+		{"lavaflow", "settings", "set", "--autonomy", "merge", "--yes"},
+		{"lavaflow", "stats", "--json"},
+		{"lavaflow", "list"},
+		{"lavaflow", "show", "run-id"},
+		{"lavaflow", "settings", "set", "--allow-ungated-workflows", "true", "--yes"},
+		{"lavaflow", "runs", "start", "issue-id"},
+		{"lavaflow", "runs", "start", "issue-id", "--json"},
 	} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
 		if err == nil {
 			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
 		}
 		requireContains(t, output, `"lavaflow" is a cloud command`)
-		requireContains(t, output, "local development has no GitHub App")
+		requireContains(t, output, "LavaFlow runs on Volcano's cloud service, which local development doesn't run")
 		requireContains(t, output, "volcano cloud lavaflow")
 	}
 }

@@ -1,57 +1,32 @@
 package projectconfig
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
-// A pulled manifest carries the server's lavaflow section, so deploying it
-// back has to parse, and the upload has to match the API contract.
-func TestManifestLavaFlowSection(t *testing.T) {
-	manifest, err := Parse([]byte(`version: 1
-lavaflow:
-  enabled: true
-  max_stage: diagnose
-  auto_trigger: false
-`), noEnv)
-	require.NoError(t, err)
-	require.NotNil(t, manifest.LavaFlow)
-	assert.True(t, *manifest.LavaFlow.Enabled)
-	assert.Equal(t, "diagnose", *manifest.LavaFlow.MaxStage)
-	assert.False(t, *manifest.LavaFlow.AutoTrigger)
-
-	body, err := manifest.uploadBody()
-	require.NoError(t, err)
-	assert.JSONEq(t, `{"version":1,"lavaflow":{"enabled":true,"max_stage":"diagnose","auto_trigger":false}}`, string(body))
-
-	var wire apiclient.ProjectConfig
-	require.NoError(t, json.Unmarshal(body, &wire))
-	require.NotNil(t, wire.Lavaflow, "the API contract has to carry the section the manifest uploads")
-	assert.Equal(t, apiclient.LavaFlowStageDiagnose, *wire.Lavaflow.MaxStage)
-}
-
-// An omitted field keeps its saved value, so it must not reach the upload.
-func TestManifestLavaFlowOmittedFieldsStayOmitted(t *testing.T) {
-	manifest, err := Parse([]byte("version: 1\nlavaflow:\n  enabled: false\n"), noEnv)
-	require.NoError(t, err)
-
-	body, err := manifest.uploadBody()
-	require.NoError(t, err)
-	assert.JSONEq(t, `{"version":1,"lavaflow":{"enabled":false}}`, string(body))
-}
-
-// Volcano picks the models, so the manifest refuses the fields that chose one.
-func TestManifestLavaFlowRefusesModelSettings(t *testing.T) {
-	for _, field := range []string{"provider: anthropic", "model: some-model", "api_key: secret-value"} {
-		t.Run(field, func(t *testing.T) {
-			_, err := Parse([]byte("version: 1\nlavaflow:\n  enabled: true\n  "+field+"\n"), noEnv)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "not found in type projectconfig.LavaFlowManifest")
-		})
+// LavaFlow isn't part of the project configuration: turning it on is a
+// person's decision, made with its own commands. A manifest that still
+// declares the section is refused, naming its line and the command to use,
+// before anything is sent.
+func TestManifestRefusesALavaFlowSection(t *testing.T) {
+	for name, manifest := range map[string]string{
+		"settings": "version: 1\nproject:\n  name: shop\nlavaflow:\n  enabled: true\n  max_stage: diagnose\n",
+		"empty":    "version: 1\nproject:\n  name: shop\nlavaflow: {}\n",
+	} {
+		_, err := Parse([]byte(manifest), noEnv)
+		require.ErrorIs(t, err, errLavaFlowSection, name)
+		assert.Equal(t, "invalid manifest: line 4: LavaFlow isn't part of the project configuration: remove the lavaflow "+
+			"section, and turn LavaFlow on with 'volcano cloud lavaflow enable'", err.Error(), name)
 	}
+}
+
+// Only the top-level section is refused: a key named lavaflow inside another
+// section is whatever that section makes of it.
+func TestManifestRefusesOnlyATopLevelLavaFlowSection(t *testing.T) {
+	_, err := Parse([]byte("version: 1\nproject:\n  lavaflow: true\n"), noEnv)
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, errLavaFlowSection)
 }

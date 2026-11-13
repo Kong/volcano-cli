@@ -1,12 +1,12 @@
-// Package deploycommit reports which commit a frontend deploy's source came
-// from, so Volcano can tie the deployment to its repository and LavaFlow can
-// open fix pull requests against the code that actually runs.
+// Package deploycommit reports which commit a frontend or function deploy's
+// source came from, so Volcano can tie the deployment to its repository and
+// LavaFlow can open fix pull requests against the code that actually runs.
 //
 // It sends only the GitHub repository as owner/name, the commit ID, whether
-// the uploaded files differ from that commit, and the uploaded directory's
-// path in the repository: never a remote URL, a local path, a branch, or a
-// diff. When any part is missing or would not pass the server's check, it
-// reports nothing at all. The server refuses a malformed
+// the uploaded files differ from that commit, and, for a frontend, the
+// uploaded directory's path in the repository: never a remote URL, a local
+// path, a branch, or a diff. When any part is missing or would not pass the
+// server's check, it reports nothing at all. The server refuses a malformed
 // commit with a 400 before anything deploys, so sending a doubtful one would
 // fail the customer's deploy over a field they never asked for.
 package deploycommit
@@ -48,6 +48,7 @@ var (
 const (
 	modeExecutable = "100755"
 	modeSymlink    = "120000"
+	modeGitlink    = "160000"
 )
 
 // Source is the commit checked out where a deploy reads its files. Detect
@@ -59,12 +60,18 @@ type Source struct {
 	root string
 	// tree holds each file in the commit by its slash-separated path.
 	tree map[string]treeEntry
+	// gitlinks holds each submodule in the commit by its path, with the
+	// commit it names.
+	gitlinks map[string]string
 	// fileMode is whether git tracks the executable bit here.
 	fileMode bool
 	// autocrlf is whether core.autocrlf has git store CRLF line endings
 	// as LF.
 	autocrlf bool
 	git      cliruntime.CommandRunner
+	// worktree is what FunctionCommit reads once for every function a
+	// deploy uploads.
+	worktree worktreeCache
 }
 
 type treeEntry struct {
@@ -124,6 +131,7 @@ func Detect(ctx context.Context, deps cliruntime.Deps, dir string) *Source {
 		sha:        sha,
 		root:       root,
 		tree:       parseTree(tree),
+		gitlinks:   parseGitlinks(tree),
 		fileMode:   tracksFileMode(ctx, git, root),
 		autocrlf:   autocrlfOn(ctx, git, root),
 		git:        git,
@@ -378,6 +386,19 @@ func parseTree(tree string) map[string]treeEntry {
 		}
 	}
 	return entries
+}
+
+// parseGitlinks reads the submodules from `git ls-tree -r -z` output.
+func parseGitlinks(tree string) map[string]string {
+	gitlinks := map[string]string{}
+	for record := range strings.SplitSeq(tree, "\x00") {
+		meta, path, ok := strings.Cut(record, "\t")
+		fields := strings.Fields(meta)
+		if ok && len(fields) == 3 && fields[0] == modeGitlink && fields[1] == "commit" {
+			gitlinks[path] = fields[2]
+		}
+	}
+	return gitlinks
 }
 
 // tracksFileMode reports core.fileMode, which git leaves unset where it is

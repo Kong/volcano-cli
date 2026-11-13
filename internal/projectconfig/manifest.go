@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -60,8 +61,6 @@ type Manifest struct {
 	Variables *[]VariableManifest `yaml:"variables,omitempty" json:"variables,omitempty"`
 	Buckets   *[]BucketManifest   `yaml:"buckets,omitempty" json:"buckets,omitempty"`
 	Realtime  *RealtimeManifest   `yaml:"realtime,omitempty" json:"realtime,omitempty"`
-	// LavaFlow has no key, provider, or model: Volcano picks the models.
-	LavaFlow *LavaFlowManifest `yaml:"lavaflow,omitempty" json:"lavaflow,omitempty"`
 	// Notifications never carries the webhook signing secret; the server
 	// generates it and returns it only from the notifications API.
 	Notifications *NotificationsManifest `yaml:"notifications,omitempty" json:"notifications,omitempty"`
@@ -106,10 +105,13 @@ type DatabaseManifest struct {
 	DatabaseType *string `yaml:"database_type,omitempty" json:"database_type,omitempty"`
 }
 
-// VariableManifest declares one project variable.
+// VariableManifest declares one project variable. Shared sets whether the
+// variable is in the project's shared function variables; nil keeps the
+// server's default. A declared SharedVariables list decides membership instead.
 type VariableManifest struct {
-	Name  string `yaml:"name" json:"name"`
-	Value string `yaml:"value" json:"value"`
+	Name   string `yaml:"name" json:"name"`
+	Value  string `yaml:"value" json:"value"`
+	Shared *bool  `yaml:"shared,omitempty" json:"shared,omitempty"`
 }
 
 // BucketManifest declares settings and policies for an existing bucket.
@@ -133,14 +135,6 @@ type RealtimeManifest struct {
 	BroadcastEnabled       *bool `yaml:"broadcast_enabled,omitempty" json:"broadcast_enabled,omitempty"`
 	PresenceEnabled        *bool `yaml:"presence_enabled,omitempty" json:"presence_enabled,omitempty"`
 	PostgresChangesEnabled *bool `yaml:"postgres_changes_enabled,omitempty" json:"postgres_changes_enabled,omitempty"`
-}
-
-// LavaFlowManifest declares LavaFlow's settings. Nil fields keep their current
-// values. MaxStage is diagnose or pull_request; the server validates it.
-type LavaFlowManifest struct {
-	Enabled     *bool   `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	MaxStage    *string `yaml:"max_stage,omitempty" json:"max_stage,omitempty"`
-	AutoTrigger *bool   `yaml:"auto_trigger,omitempty" json:"auto_trigger,omitempty"`
 }
 
 // NotificationsManifest declares where project alerts go and when a failing
@@ -247,6 +241,9 @@ type AuthCORSManifest struct {
 	AllowedOrigins   *[]string `yaml:"allowed_origins,omitempty" json:"allowed_origins,omitempty"`
 	AllowCredentials *bool     `yaml:"allow_credentials,omitempty" json:"allow_credentials,omitempty"`
 	MaxAge           *int      `yaml:"max_age,omitempty" json:"max_age,omitempty"`
+	// AllowFrontendPreviews lets the project's live frontend preview origins
+	// pass its CORS checks. A server exports it only when it is on.
+	AllowFrontendPreviews *bool `yaml:"allow_frontend_previews,omitempty" json:"allow_frontend_previews,omitempty"`
 }
 
 // AuthProvidersManifest declares sign-in providers.
@@ -310,9 +307,46 @@ type EmailTemplateManifest struct {
 
 // AuthManagedPagesManifest declares managed auth page settings.
 type AuthManagedPagesManifest struct {
-	Enabled   *bool                  `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	Redirects *AuthRedirectsManifest `yaml:"redirects,omitempty" json:"redirects,omitempty"`
-	Pages     *HostedPagesManifest   `yaml:"pages,omitempty" json:"pages,omitempty"`
+	Enabled    *bool                       `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	Redirects  *AuthRedirectsManifest      `yaml:"redirects,omitempty" json:"redirects,omitempty"`
+	Pages      *HostedPagesManifest        `yaml:"pages,omitempty" json:"pages,omitempty"`
+	Appearance *AuthPageAppearanceManifest `yaml:"appearance,omitempty" json:"appearance,omitempty"`
+}
+
+// AuthPageAppearanceManifest declares the built-in renderer's theme and
+// per-page layouts. The server validates the values.
+type AuthPageAppearanceManifest struct {
+	Theme   *AuthPageThemeManifest   `yaml:"theme,omitempty" json:"theme,omitempty"`
+	Layouts *AuthPageLayoutsManifest `yaml:"layouts,omitempty" json:"layouts,omitempty"`
+}
+
+// AuthPageThemeManifest declares the managed pages' theme.
+type AuthPageThemeManifest struct {
+	Version *int                         `yaml:"version,omitempty" json:"version,omitempty"`
+	Colors  *AuthPageThemeColorsManifest `yaml:"colors,omitempty" json:"colors,omitempty"`
+	Font    *string                      `yaml:"font,omitempty" json:"font,omitempty"`
+	Scale   *string                      `yaml:"scale,omitempty" json:"scale,omitempty"`
+	Density *string                      `yaml:"density,omitempty" json:"density,omitempty"`
+	Radius  *string                      `yaml:"radius,omitempty" json:"radius,omitempty"`
+}
+
+// AuthPageThemeColorsManifest declares the theme's colors as #rrggbb values.
+type AuthPageThemeColorsManifest struct {
+	Background *string `yaml:"background,omitempty" json:"background,omitempty"`
+	Surface    *string `yaml:"surface,omitempty" json:"surface,omitempty"`
+	Text       *string `yaml:"text,omitempty" json:"text,omitempty"`
+	Accent     *string `yaml:"accent,omitempty" json:"accent,omitempty"`
+	AccentText *string `yaml:"accent_text,omitempty" json:"accent_text,omitempty"`
+}
+
+// AuthPageLayoutsManifest declares a layout per managed page type.
+type AuthPageLayoutsManifest struct {
+	Login          *string `yaml:"login,omitempty" json:"login,omitempty"`
+	Signup         *string `yaml:"signup,omitempty" json:"signup,omitempty"`
+	ForgotPassword *string `yaml:"forgot_password,omitempty" json:"forgot_password,omitempty"`
+	Device         *string `yaml:"device,omitempty" json:"device,omitempty"`
+	VerifyEmail    *string `yaml:"verify_email,omitempty" json:"verify_email,omitempty"`
+	ResetPassword  *string `yaml:"reset_password,omitempty" json:"reset_password,omitempty"`
 }
 
 // AuthRedirectsManifest declares the redirect allowlist and defaults.
@@ -325,8 +359,12 @@ type AuthRedirectsManifest struct {
 
 // HostedPagesManifest declares hosted auth pages keyed by page type.
 type HostedPagesManifest struct {
-	Login         *HostedPageManifest `yaml:"login,omitempty" json:"login,omitempty"`
-	ResetPassword *HostedPageManifest `yaml:"reset_password,omitempty" json:"reset_password,omitempty"`
+	Login          *HostedPageManifest `yaml:"login,omitempty" json:"login,omitempty"`
+	Signup         *HostedPageManifest `yaml:"signup,omitempty" json:"signup,omitempty"`
+	ForgotPassword *HostedPageManifest `yaml:"forgot_password,omitempty" json:"forgot_password,omitempty"`
+	Device         *HostedPageManifest `yaml:"device,omitempty" json:"device,omitempty"`
+	VerifyEmail    *HostedPageManifest `yaml:"verify_email,omitempty" json:"verify_email,omitempty"`
+	ResetPassword  *HostedPageManifest `yaml:"reset_password,omitempty" json:"reset_password,omitempty"`
 }
 
 // HostedPageManifest declares one hosted auth page.
@@ -448,6 +486,13 @@ func (m *Manifest) DeclaresFrontendRoutes() bool {
 	return m.Frontends != nil && slices.ContainsFunc(*m.Frontends, func(f FrontendManifest) bool { return f.FrontendRoutes != nil })
 }
 
+// DeclaresAllowFrontendPreviews reports whether the manifest sets
+// auth.cors.allow_frontend_previews, which only a server with that setting
+// accepts.
+func (m *Manifest) DeclaresAllowFrontendPreviews() bool {
+	return m.Auth != nil && m.Auth.Cors != nil && m.Auth.Cors.AllowFrontendPreviews != nil
+}
+
 // StandardFunctionNames returns the functions the manifest declares without a
 // durable kind, in declaration order. The counterpart of DurableFunctionNames:
 // a durable deploy uses it to refuse a name the manifest keeps standard. A name
@@ -560,6 +605,27 @@ func Load(filePath string) (*Manifest, string, error) {
 	return manifest, resolved, nil
 }
 
+// errLavaFlowSection refuses a lavaflow section. Turning LavaFlow on is a
+// person's decision, made with its own commands, so the project configuration
+// doesn't carry it.
+var errLavaFlowSection = errors.New("LavaFlow isn't part of the project configuration: remove the lavaflow section, " +
+	"and turn LavaFlow on with 'volcano cloud lavaflow enable'")
+
+// refuseLavaFlowSection names the line of a top-level lavaflow section, which
+// the decoder would otherwise report as an unknown field.
+func refuseLavaFlowSection(root *yaml.Node) error {
+	if root.Kind != yaml.DocumentNode || len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
+		return nil
+	}
+	mapping := root.Content[0]
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if key := mapping.Content[i]; key.Value == "lavaflow" {
+			return fmt.Errorf("invalid manifest: line %d: %w", key.Line, errLavaFlowSection)
+		}
+	}
+	return nil
+}
+
 // Parse interpolates ${ENV} references through lookupEnv, decodes the manifest
 // strictly (unknown fields are errors), and validates it. YAML, interpolation,
 // decode, and validation errors can quote manifest values, including
@@ -575,6 +641,10 @@ func Parse(data []byte, lookupEnv func(string) (string, bool)) (*Manifest, error
 
 	if err := interpolateNode(&root, lookupEnv); err != nil {
 		return nil, sensitive.Wrap(err)
+	}
+
+	if err := refuseLavaFlowSection(&root); err != nil {
+		return nil, err
 	}
 
 	interpolated, err := yaml.Marshal(&root)
@@ -616,6 +686,42 @@ func (m *Manifest) uploadBody() ([]byte, error) {
 		return nil, fmt.Errorf("failed to encode manifest: %w", err)
 	}
 	return body, nil
+}
+
+// WithoutSchedulers returns a copy of the manifest that leaves out the
+// schedulers of the named functions. The server leaves a function's schedulers
+// as they are when its entry lists none.
+func (m *Manifest) WithoutSchedulers(names map[string]bool) *Manifest {
+	c := *m
+	if m.Functions != nil {
+		functions := slices.Clone(*m.Functions)
+		for i := range functions {
+			if names[functions[i].Name] {
+				functions[i].Schedulers = nil
+			}
+		}
+		c.Functions = &functions
+	}
+	entries, ok := m.upload["functions"].([]any)
+	if !ok {
+		return &c
+	}
+	stripped := make([]any, len(entries))
+	for i, entry := range entries {
+		stripped[i] = entry
+		fields, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		if name, _ := fields["name"].(string); names[name] {
+			fields = maps.Clone(fields)
+			delete(fields, "schedulers")
+			stripped[i] = fields
+		}
+	}
+	c.upload = maps.Clone(m.upload)
+	c.upload["functions"] = stripped
+	return &c
 }
 
 // Validate performs the minimal local checks: the schema version, the function
@@ -687,13 +793,13 @@ func validateFunctionVisibility(function FunctionManifest) error {
 // ErrManifestNotFound reports that no volcano-config.yaml exists at any of the
 // locations the CLI looks in. Callers that treat an absent manifest as "nothing
 // declared" match it with errors.Is; every other resolution failure (an
-// explicit path that does not exist, or two competing manifests) is a real
+// explicit path that does not exist, or an inaccessible selected path) is a real
 // error that must not be read as absence.
 var ErrManifestNotFound = errors.New("no volcano-config.yaml file found.\ncreate volcano/volcano-config.yaml or ./volcano-config.yaml, or use --file to specify a path")
 
 // ResolveManifestPath returns the manifest path that config commands should
 // use. An explicit path is used as-is (after existence check); otherwise the
-// CLI looks for volcano/volcano-config.yaml then volcano-config.yaml in the
+// CLI looks for volcano-config.yaml then volcano/volcano-config.yaml in the
 // working directory. When nothing is found it returns ErrManifestNotFound.
 func ResolveManifestPath(fileArg string) (string, error) {
 	if trimmed := strings.TrimSpace(fileArg); trimmed != "" {
@@ -707,33 +813,23 @@ func ResolveManifestPath(fileArg string) (string, error) {
 		return trimmed, nil
 	}
 
-	candidates := []string{nestedManifestPath, rootManifestPath}
-	found := make([]string, 0, len(candidates))
-	for _, candidate := range candidates {
+	for _, candidate := range []string{rootManifestPath, nestedManifestPath} {
 		exists, err := fileExists(candidate)
 		if err != nil {
 			return "", err
 		}
 		if exists {
-			found = append(found, candidate)
+			return candidate, nil
 		}
 	}
-
-	switch len(found) {
-	case 0:
-		return "", ErrManifestNotFound
-	case 1:
-		return found[0], nil
-	default:
-		return "", fmt.Errorf("found multiple volcano-config.yaml files: %s.\nplease keep only one volcano-config.yaml file, or specify explicitly with --file", strings.Join(found, ", "))
-	}
+	return "", ErrManifestNotFound
 }
 
 // DefaultPullPath returns where `config pull` writes when no --file is given:
-// an existing manifest location if one is found, else volcano/volcano-config.yaml
+// the existing root manifest first, then the nested one, else volcano/volcano-config.yaml
 // when the volcano directory exists, else ./volcano-config.yaml.
 func DefaultPullPath() string {
-	for _, candidate := range []string{nestedManifestPath, rootManifestPath} {
+	for _, candidate := range []string{rootManifestPath, nestedManifestPath} {
 		if exists, _ := fileExists(candidate); exists {
 			return candidate
 		}
@@ -745,7 +841,7 @@ func DefaultPullPath() string {
 }
 
 func fileExists(path string) (bool, error) {
-	_, err := os.Stat(path)
+	_, err := os.Lstat(path)
 	if err == nil {
 		return true, nil
 	}
@@ -796,8 +892,11 @@ type FunctionDeployManifest struct {
 	// Deprecations are the manifest's DeprecationWarnings.
 	Deprecations []string
 	// Name is how messages refer to the manifest: the path the caller passed,
-	// or volcano-config.yaml when the default lookup found it.
+	// or the selected relative path when default lookup found it.
 	Name string
+	// Paths are the files the manifest is read from, or would be if they
+	// existed: the path the caller passed, or both default locations.
+	Paths []string
 }
 
 // ReadFunctionDeployManifest reads both of a deploy's manifest inputs in one
@@ -810,9 +909,11 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 		StandardNames: map[string]bool{},
 		Visibility:    map[string]string{},
 		Name:          "volcano-config.yaml",
+		Paths:         []string{nestedManifestPath, rootManifestPath},
 	}
 	if trimmed := strings.TrimSpace(fileArg); trimmed != "" {
 		read.Name = trimmed
+		read.Paths = []string{trimmed}
 	}
 	path, err := ResolveManifestPath(fileArg)
 	if errors.Is(err, ErrManifestNotFound) {
@@ -821,6 +922,7 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 	if err != nil {
 		return FunctionDeployManifest{}, err
 	}
+	read.Name = path
 	manifest, _, err := Load(path)
 	if err != nil {
 		return FunctionDeployManifest{}, fmt.Errorf("failed to read function variable scope from %s: %w\nfix the manifest (or export the environment variables it references) and deploy again", read.Name, err)

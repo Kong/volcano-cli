@@ -26,8 +26,9 @@ func newStatus(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show whether LavaFlow is on",
-		Long: `Show whether LavaFlow is on for the current project, whether the project's plan
-allows it, and which repository its fix pull requests go to.`,
+		Long: `Show whether LavaFlow is on for the current project, how far it goes, whether
+it can merge its fixes, whether it opens fixes past ungated workflows, and
+which repository its fix pull requests go to.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
@@ -47,11 +48,13 @@ func runStatus(ctx context.Context, opts statusOptions) error {
 	if opts.jsonOutput {
 		return writeJSON(opts.out, status)
 	}
-	output.LavaFlowStatus(opts.out, output.LavaFlowStatusDetails{
+	output.LavaflowStatus(opts.out, output.LavaflowStatusDetails{
 		Settings:          status.Settings,
+		Available:         status.Available,
+		MergeAvailable:    status.MergeAvailable,
+		RepositoryState:   status.RepositoryState,
 		Repository:        status.Repository,
-		RepositoryUnknown: status.RepositoryState == clilavaflow.RepositoryUnknown,
-		CostNote:          clilavaflow.CostNote,
+		Description:       clilavaflow.OnDescription,
 		EnableCommand:     cliruntime.CommandPath(opts.deps, "lavaflow enable"),
 		GitConnectCommand: gitConnectCommand,
 	})

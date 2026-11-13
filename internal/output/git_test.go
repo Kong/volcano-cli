@@ -219,3 +219,116 @@ func TestGitConnectedReportsAnInstallationElsewhere(t *testing.T) {
 	})
 	assert.Contains(t, elsewhere.String(), "App installed on: acme")
 }
+
+// The hint is opt-in: only a caller that knows the command's path can name it.
+func TestGitDeploySettingsHintsAtAFrontendOnlyWhenAskedTo(t *testing.T) {
+	t.Parallel()
+	var without, with bytes.Buffer
+	settings := gitSettingsFixture(true, true, nil, nil)
+	GitStatus(&without, GitBinding{Connection: gitConnectionFixture(""), Settings: settings})
+	GitStatus(&with, GitBinding{Connection: gitConnectionFixture(""), Settings: settings, GitCommand: "volcano git"})
+
+	assert.NotContains(t, without.String(), "To deploy a frontend")
+	assert.Contains(t, with.String(), "A push to main deploys: functions\nTo deploy a frontend on push too, run volcano git frontend <name> --root <path>\n")
+}
+
+// With nothing selected, the frontend is one of the two things that would make
+// a push deploy something, so the hint follows the warning.
+func TestGitDeploySettingsHintsAtAFrontendWhenNothingIsSelected(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	GitStatus(&out, GitBinding{
+		Connection: gitConnectionFixture(""), Settings: gitSettingsFixture(true, false, nil, nil),
+		GitCommand: "volcano git",
+	})
+
+	assert.Contains(t, out.String(), "neither functions nor a frontend is selected")
+	assert.Contains(t, out.String(), "To deploy a frontend on push too, run volcano git frontend <name> --root <path>")
+}
+
+// While auto-deploy is off nothing deploys, frontend or not, so the hint would
+// point at the wrong fix.
+func TestGitDeploySettingsGivesNoFrontendHintWhileAutoDeployIsOff(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	GitStatus(&out, GitBinding{
+		Connection: gitConnectionFixture(""), Settings: gitSettingsFixture(false, true, nil, nil),
+		GitCommand: "volcano git",
+	})
+
+	assert.Contains(t, out.String(), "Auto-deploy is off")
+	assert.NotContains(t, out.String(), "To deploy a frontend")
+}
+
+func TestGitFrontendSetNamesTheFrontendAndWhatAPushDeploys(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	GitFrontendSet(&out, GitBinding{
+		Connection: gitConnectionFixture("apps"), Settings: gitSettingsFixture(true, true, new("web"), new("site")),
+		Project: "Storefront (3333)",
+	})
+
+	assert.Contains(t, out.String(), "Frontend set to web (site)")
+	assert.Contains(t, out.String(), "Root directory: apps")
+	assert.Contains(t, out.String(), "Nothing was redeployed. The next push to main deploys this frontend.")
+	assert.Contains(t, out.String(), "A push to main deploys: functions, frontend web (site)\n")
+}
+
+func TestGitFrontendSetSaysWhenAPushDeploysNoFrontend(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	GitFrontendSet(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: gitSettingsFixture(true, true, nil, nil)})
+
+	assert.Contains(t, out.String(), "Frontend cleared, so a push deploys no frontend")
+	assert.Contains(t, out.String(), "A frontend already deployed stays up; pushes no longer redeploy it.")
+	assert.NotContains(t, out.String(), "frontend web")
+}
+
+// Each warning names the step that would make a push deploy something, and the
+// command that just ran is left out, since naming it would only repeat it.
+func TestGitDeploySettingsNamesTheNextStep(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		settings *apiclient.ProjectGitDeploySettings
+		changed  string
+		want     []string
+		not      []string
+	}{
+		"auto-deploy off": {
+			settings: gitSettingsFixture(false, true, nil, nil),
+			want:     []string{"Turn it on with volcano git auto-deploy on\n"},
+		},
+		"auto-deploy just turned off": {
+			settings: gitSettingsFixture(false, true, nil, nil),
+			changed:  "auto-deploy",
+			not:      []string{"Turn it on with"},
+		},
+		"nothing selected": {
+			settings: gitSettingsFixture(true, false, nil, nil),
+			want: []string{
+				"Deploy functions with volcano git functions on\n",
+				"To deploy a frontend on push too, run volcano git frontend <name> --root <path>\n",
+			},
+		},
+		"frontend just cleared": {
+			settings: gitSettingsFixture(true, true, nil, nil),
+			changed:  "frontend",
+			not:      []string{"To deploy a frontend"},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			var out bytes.Buffer
+			GitStatus(&out, GitBinding{
+				Connection: gitConnectionFixture(""), Settings: tc.settings,
+				GitCommand: "volcano git", Changed: tc.changed,
+			})
+			for _, want := range tc.want {
+				assert.Contains(t, out.String(), want)
+			}
+			for _, not := range tc.not {
+				assert.NotContains(t, out.String(), not)
+			}
+		})
+	}
+}

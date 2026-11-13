@@ -22,8 +22,9 @@ func newDisable(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "disable",
 		Short: "Turn LavaFlow off",
-		Long: `Turn LavaFlow off for the current project. No new run starts, and a run that has not
-finished is canceled. Past runs and their pull requests stay as they are.`,
+		Long: `Turn LavaFlow off for the current project. No new run starts; past runs and
+their records stay readable. Only the project's owner can, from their own
+session: a project access token is refused.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
@@ -36,13 +37,13 @@ finished is canceled. Past runs and their pull requests stay as they are.`,
 }
 
 func runDisable(ctx context.Context, opts disableOptions) error {
-	settings, err := clilavaflow.NewService(opts.deps).SetEnabled(ctx, false)
+	settings, err := clilavaflow.NewService(opts.deps).Disable(ctx)
 	if err != nil {
 		return err
 	}
 	if opts.jsonOutput {
 		return writeJSON(opts.out, settings)
 	}
-	output.Success(opts.out, "LavaFlow is off")
+	output.LavaflowSettingsSaved(opts.out, "LavaFlow is off. Its runs and records stay readable.", settings)
 	return nil
 }

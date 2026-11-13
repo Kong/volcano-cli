@@ -26,6 +26,8 @@ it using its connection string.
 | List | `volcano databases list` |
 | Get | `volcano databases get <name> [--show-connection-string]` |
 | Delete | `volcano databases delete <name>` |
+| List regions and PostgreSQL versions | `volcano cloud databases regions`, `volcano databases versions` |
+| Change size (cloud) | `volcano cloud databases resize <name> --type <size>` |
 | Compare migration files with the history | `volcano databases migration status -d <db>` |
 | Apply pending migrations | `volcano databases migration apply -d <db>` |
 | Record files that already ran | `volcano databases migration baseline -d <db> --all` |
@@ -114,6 +116,44 @@ runs did. Local development always offers tracked runs.
 `migration up` connects through the managed database proxy and runs each file
 as a single query, whether or not it ran before. The proxy refuses a query with
 more than one statement, so put one SQL statement in each file.
+
+## Regions and versions
+
+`databases create` in the cloud requires `--region` and `--pg-version`. List the
+values they accept:
+
+```bash
+volcano cloud databases regions
+volcano cloud databases versions
+```
+
+```text
+Version   Name              Notes
+--------------------------------------------
+18        PostgreSQL 18     default, recommended
+17        PostgreSQL 17
+```
+
+Both lists are public, so they work before you sign in. Pass `--json` to read
+them from a script. In local development a database runs on your machine:
+`databases create` needs no `--region`, `databases regions` is refused, and
+`databases versions` lists only the version the local server runs.
+
+## Change a database's size
+
+```bash
+volcano cloud databases resize app --type volcano-db-m
+```
+
+Sizes, smallest first: `volcano-db-xs`, `volcano-db-s`, `volcano-db-m`,
+`volcano-db-l`, `volcano-db-xl`, `volcano-db-2xl`. The database must be active,
+and active connections may drop briefly while it changes. The command asks for
+confirmation; pass `--yes` to skip it and `--json` to print the updated
+database, without its connection string. A plan can limit the sizes it allows. In local development a database
+runs on your machine and has no size to change.
+
+The manifest's `database_type` asserts a database's size but does not change
+it; resize it with this command.
 
 ## Branches
 

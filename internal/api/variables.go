@@ -21,11 +21,14 @@ func (c *Client) ListVariables(ctx context.Context, projectID uuid.UUID, page, l
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404)
 }
 
-// CreateVariable creates a variable in a project.
-func (c *Client) CreateVariable(ctx context.Context, projectID uuid.UUID, name, value string) (*apiclient.Variable, error) {
+// CreateVariable creates a variable in a project, or updates the one with that
+// name. A nil shared leaves the server's default: a new variable is shared and an
+// existing one keeps its setting.
+func (c *Client) CreateVariable(ctx context.Context, projectID uuid.UUID, name, value string, shared *bool) (*apiclient.Variable, error) {
 	resp, err := c.client.CreateVariableWithResponse(ctx, projectID, apiclient.CreateVariableJSONRequestBody{
-		Name:  strings.TrimSpace(name),
-		Value: value,
+		Name:   strings.TrimSpace(name),
+		Value:  value,
+		Shared: shared,
 	})
 	if err != nil {
 		return nil, err

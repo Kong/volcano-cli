@@ -9,13 +9,11 @@ import (
 func newRuns(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "runs",
-		Short: "Inspect LavaFlow runs",
-		Long: `Inspect LavaFlow runs. A run diagnoses one issue and, when a repository is
-connected and a code change would fix it, opens a pull request with the fix.
-Runs stay readable after LavaFlow is turned off.`,
+		Short: "Act on LavaFlow's runs",
+		Long: `Act on LavaFlow's runs. List them with '` + cliruntime.CommandPath(deps, "lavaflow list") + `' and
+show one with '` + cliruntime.CommandPath(deps, "lavaflow show <run-id>") + `'.`,
+		Args: cobra.NoArgs,
 	}
-	cmd.AddCommand(newRunsList(deps))
-	cmd.AddCommand(newRunsGet(deps))
 	cmd.AddCommand(newRunsStart(deps))
 	return cmd
 }

@@ -139,7 +139,7 @@ It ends with the project's name, its directory, and its dashboard link.
 	cmd.Flags().StringVar(&opts.name, "name", "", "Name for the new project (default: the directory argument's name, else a generated name)")
 	cmd.Flags().StringVar(&opts.template, "template", "", "Starter to scaffold: nextjs, javascript, python, ruby (default: base scaffold)")
 	cmd.Flags().BoolVar(&opts.signup, "signup", false, "Create a Volcano account in the browser before connecting")
-	cmd.Flags().StringVar(&opts.email, "email", "", "Email for --signup (default: git config user.email)")
+	cmd.Flags().StringVar(&opts.email, "email", "", "Email for --signup (default: git config --global user.email, when it is a usable address)")
 	cmd.Flags().BoolVar(&opts.skipSkills, "skip-skills", false, "Don't install the Volcano skills")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Print the result as JSON")
 	cmd.MarkFlagsMutuallyExclusive("device-code", "signup")
@@ -411,7 +411,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 			email = cliauth.GitEmail(ctx, opts.deps)
 		}
 		if email == "" {
-			return errors.New("--signup needs an email address: pass --email, or set git config --global user.email")
+			return errors.New("--signup needs an email address, and git has no usable one. Run again with --email <address>. Agents: ask the user for the email to sign up with (use a native input tool such as AskUserQuestion if you have one), then run again with --email")
 		}
 		credentials, err = auth.Signup(ctx, cfg, email, opts.log)
 	} else {
@@ -424,7 +424,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 	if err := cliauth.SaveCredentials(credentials); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
-	output.Success(opts.log, "Signed in")
+	output.Success(opts.log, "%s", cliauth.LoggedInMessage(credentials.Email))
 	return nil
 }
 
@@ -758,6 +758,12 @@ func refuseNameForLink(opts options, wd string) error {
 		displayDir(wd, link.Dir), projectLabel(link.Project))
 }
 
+// BadLinkError says that the link in bad can't be used and how to link the
+// directory again, as connect says it.
+func BadLinkError(wd string, bad *config.LinkError) error {
+	return badLinkError(wd, bad)
+}
+
 func badLinkError(wd string, bad *config.LinkError) error {
 	shown := displayDir(wd, bad.Dir)
 	return fmt.Errorf("%w. To link %s to its project again, run: volcano connect %s --project <project-id>. "+
@@ -836,6 +842,11 @@ var unsafeNameChars = regexp.MustCompile(`[^a-z0-9-]+`)
 // defaultProjectName is dir's name made safe for a project name.
 func defaultProjectName(dir string) string {
 	return dirName(filepath.Base(dir))
+}
+
+// DefaultProjectName is the name connect gives a new project for dir.
+func DefaultProjectName(dir string) string {
+	return defaultProjectName(dir)
 }
 
 // dirName makes name safe as a project name and a directory name: lowercase

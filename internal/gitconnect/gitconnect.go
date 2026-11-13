@@ -2,7 +2,9 @@
 //
 // The CLI never creates push credentials and never pushes: it resolves a local
 // remote to a repository the caller's GitHub connection can already see, and
-// asks the platform to bind it. Pushing stays the user's own `git push`.
+// asks the platform to bind it. Pushing stays the user's own `git push`, except
+// for a source export, where the platform pushes the first commit to an empty
+// repository.
 package gitconnect
 
 import (
@@ -25,9 +27,8 @@ import (
 var (
 	// ErrNoGitHubConnection indicates the caller has no usable GitHub
 	// connection. The CLI cannot create one: the connect flow is a browser
-	// redirect bound to an HttpOnly cookie, so it has to happen in the
-	// dashboard.
-	ErrNoGitHubConnection = errors.New("no GitHub account is connected")
+	// redirect bound to an HttpOnly cookie, which no API route starts yet.
+	ErrNoGitHubConnection = errors.New("no GitHub account is connected to your Volcano account")
 	// ErrRepositoryNotAccessible indicates the repository is real as far as the
 	// local remote is concerned, but the Volcano GitHub App cannot see it
 	// through any of the caller's installations.
@@ -286,7 +287,9 @@ func (s Service) resolveThroughConnection(
 }
 
 // Connect binds the current project to a resolved repository, provided its
-// binding is still expected — nil for a project that had none.
+// binding is still expected — nil for a project that had none. A non-empty
+// productionBranch is the branch it deploys from; empty follows the
+// repository's default, or keeps a branch pinned on the same repository.
 //
 // The bind is a full replace and names no prior state, so it overwrites whatever
 // is bound when it arrives. Everything the caller decided rests on a read taken
@@ -295,7 +298,7 @@ func (s Service) resolveThroughConnection(
 // it another actor can point the project somewhere the user was never shown.
 // Re-reading narrows that; the API has no conditional write to close it.
 func (s Service) Connect(
-	ctx context.Context, target Target, rootDirectory string, expected *apiclient.ProjectGitConnection,
+	ctx context.Context, target Target, rootDirectory, productionBranch string, expected *apiclient.ProjectGitConnection,
 ) (*apiclient.ProjectGitConnection, error) {
 	authenticated, err := s.current()
 	if err != nil {
@@ -314,6 +317,18 @@ func (s Service) Connect(
 	}
 	if trimmed := strings.TrimSpace(rootDirectory); trimmed != "" {
 		body.RootDirectory = &trimmed
+	}
+	// The bind is a full replace, and leaving the branch out follows the
+	// repository's default, which would discard a branch the project pinned.
+	// Only for the same repository, though: a pin was chosen for the
+	// repository it belongs to, and naming it while changing repository is
+	// refused.
+	switch {
+	case productionBranch != "":
+		body.ProductionBranch = &productionBranch
+	case expected != nil && expected.RepoId == repositoryID && !expected.ProductionBranchFollowsDefault:
+		branch := expected.ProductionBranch
+		body.ProductionBranch = &branch
 	}
 
 	connection, err := authenticated.API.ConnectProjectGit(ctx, authenticated.ProjectID, body)
@@ -447,6 +462,7 @@ func sameBinding(a, b *apiclient.ProjectGitConnection) bool {
 		a.RepoInstallationId == b.RepoInstallationId &&
 		a.RootDirectory == b.RootDirectory &&
 		a.ProductionBranch == b.ProductionBranch &&
+		a.ProductionBranchFollowsDefault == b.ProductionBranchFollowsDefault &&
 		strings.EqualFold(a.RepoFullName, b.RepoFullName)
 }
 
@@ -473,17 +489,120 @@ func (s Service) DeploySettings(ctx context.Context) (*apiclient.ProjectGitDeplo
 	return settings, nil
 }
 
-// WebURL returns the dashboard URL for the configured API, so callers can point
-// at the page that owns a flow the CLI cannot run itself.
-func (s Service) WebURL() (string, error) {
-	cfg, err := s.sessions.Config()
-	if err != nil {
-		return "", err
+// SetFrontend selects the frontend a push to the production branch deploys,
+// and the directory it builds from relative to the project's root directory.
+// An empty name deploys no frontend, and an empty appRoot builds from the root
+// directory itself.
+func (s Service) SetFrontend(ctx context.Context, name, appRoot string) (*apiclient.ProjectGitDeploySettings, error) {
+	return s.changeDeploySettings(ctx, "failed to set the frontend",
+		func(settings *apiclient.UpdateProjectGitDeploySettingsRequest) {
+			// An explicit empty name retires the selection even after Git handover.
+			settings.FrontendName, settings.FrontendAppRoot = &name, nil
+			if name != "" {
+				if appRoot != "" {
+					settings.FrontendAppRoot = &appRoot
+				}
+			}
+		})
+}
+
+// SetAutoDeploy turns deploying on a push to the production branch on or off.
+func (s Service) SetAutoDeploy(ctx context.Context, on bool) (*apiclient.ProjectGitDeploySettings, error) {
+	return s.changeDeploySettings(ctx, "failed to turn auto-deploy "+onOff(on),
+		func(settings *apiclient.UpdateProjectGitDeploySettingsRequest) {
+			settings.AutoDeployEnabled = on
+		})
+}
+
+// SetDeployFunctions turns deploying the repository's functions on a push on
+// or off.
+func (s Service) SetDeployFunctions(ctx context.Context, on bool) (*apiclient.ProjectGitDeploySettings, error) {
+	return s.changeDeploySettings(ctx, "failed to turn functions "+onOff(on),
+		func(settings *apiclient.UpdateProjectGitDeploySettingsRequest) {
+			settings.DeployFunctions = on
+		})
+}
+
+func onOff(on bool) string {
+	if on {
+		return "on"
 	}
-	// Resolve the web URL from the API URL the session will actually use, so a
-	// runtime override does not produce a link to a different environment.
-	webURL := cfg.WebURLForAPIURL(s.sessions.APIURL(cfg))
-	return strings.TrimSuffix(webURL, "/") + "/dashboard/project-settings/git", nil
+	return "off"
+}
+
+// changeDeploySettings changes one deploy setting. The settings write is a
+// full replace, so the others are read first and sent back as they were.
+// Nothing is asked in between, so a change made elsewhere can only be lost in
+// the time two requests take.
+func (s Service) changeDeploySettings(
+	ctx context.Context, action string, change func(*apiclient.UpdateProjectGitDeploySettingsRequest),
+) (*apiclient.ProjectGitDeploySettings, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	current, err := authenticated.API.GetProjectGitDeploySettings(ctx, authenticated.ProjectID)
+	if err != nil {
+		return nil, settingsError(authenticated.ProjectID, err, "failed to read the project's deploy settings")
+	}
+	request := settingsRequest(current)
+	change(&request)
+	settings, err := authenticated.API.UpdateProjectGitDeploySettings(ctx, authenticated.ProjectID, request)
+	if err != nil {
+		return nil, settingsError(authenticated.ProjectID, err, action)
+	}
+	return settings, nil
+}
+
+// settingsRequest is the write that leaves every setting as read. An empty
+// frontend name means none, and the platform refuses an app root without one,
+// so neither is sent unless a frontend is named.
+func settingsRequest(current *apiclient.ProjectGitDeploySettings) apiclient.UpdateProjectGitDeploySettingsRequest {
+	request := apiclient.UpdateProjectGitDeploySettingsRequest{
+		AutoDeployEnabled: current.AutoDeployEnabled,
+		DeployFunctions:   current.DeployFunctions,
+	}
+	if current.FrontendName != nil && *current.FrontendName != "" {
+		request.FrontendName = current.FrontendName
+		if current.FrontendAppRoot != nil && *current.FrontendAppRoot != "" {
+			request.FrontendAppRoot = current.FrontendAppRoot
+		}
+	}
+	return request
+}
+
+// SetProductionBranch changes only the branch a push must land on to deploy.
+// A branch pins the project to it, so a default-branch rename on GitHub no
+// longer moves it; an empty one makes the project follow the repository's
+// default branch again.
+func (s Service) SetProductionBranch(ctx context.Context, branch string) (*apiclient.ProjectGitConnection, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	connection, err := authenticated.API.SetProjectGitProductionBranch(ctx, authenticated.ProjectID, branch)
+	if err != nil {
+		// The route answers 404 both for a project with no repository and for
+		// a project that does not exist, like the binding read.
+		if api.Status(err) == http.StatusNotFound {
+			return nil, s.explainNotFound(ctx)
+		}
+		return nil, classify(err, "failed to set the production branch")
+	}
+	return connection, nil
+}
+
+// settingsError classifies a deploy-settings failure. The settings exist for
+// every project, connected or not, so a 404 on them means the project itself
+// is gone. The API error stays the cause, so the exit code still says "not
+// found".
+func settingsError(projectID uuid.UUID, err error, action string) error {
+	if api.Status(err) == http.StatusNotFound {
+		return api.WithCause(fmt.Errorf("%w: %s", ErrProjectNotFound, projectID), err)
+	}
+	return classify(err, action)
 }
 
 // githubConnections keeps the connections for the provider this CLI can bind.
@@ -532,8 +651,8 @@ func classifyProvider(err error, action string) error {
 		return ErrProviderNotConfigured
 	case http.StatusUnauthorized:
 		// Authentication, per the contract — see ErrNotAuthenticated. Reporting
-		// this as a GitHub reconnect sent users to the dashboard for a failure
-		// only signing in again can fix.
+		// this as a GitHub reconnect sent users after a failure only signing in
+		// again can fix.
 		return fmt.Errorf("%w: %w", ErrNotAuthenticated, err)
 	default:
 		return classify(err, action)

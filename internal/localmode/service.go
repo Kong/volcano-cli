@@ -168,11 +168,10 @@ func (s Service) Start(ctx context.Context, w io.Writer) error {
 		return nil
 	}
 
-	if err := s.checkDocker(ctx); err != nil {
-		output.LocalModeDockerUnavailable(w)
-		return fmt.Errorf("docker not found: %w", err)
+	if err := s.checkLocalPrerequisites(ctx, w); err != nil {
+		return err
 	}
-	output.Success(w, "Docker is available")
+	output.Success(w, "Docker and Docker Compose are available")
 
 	// When the image is an explicit override (--image / VOLCANO_IMAGE / .env.local)
 	// it must already exist locally before we announce or start it. Fail fast here
@@ -261,6 +260,7 @@ func (s Service) Stop(ctx context.Context, w io.Writer, clean bool) error {
 
 	fmt.Fprintln(w, "Stopping Docker services...")
 	if err := s.composeDown(ctx, false); err != nil {
+		reportComposeUnavailable(w, err)
 		return fmt.Errorf("failed to stop Docker services: %w", err)
 	}
 
@@ -284,10 +284,29 @@ func (s Service) Stop(ctx context.Context, w io.Writer, clean bool) error {
 	return nil
 }
 
+// checkLocalPrerequisites verifies the Docker engine and the Docker Compose v2
+// plugin before start does any work. Other commands find a missing plugin when
+// a compose call fails (see runCompose), but start's first compose call is the
+// best-effort image pull, which prints progress and only warns on failure, so
+// start checks the plugin up front.
+func (s Service) checkLocalPrerequisites(ctx context.Context, w io.Writer) error {
+	if err := s.checkDocker(ctx); err != nil {
+		output.LocalModeDockerUnavailable(w)
+		return fmt.Errorf("docker not found: %w", err)
+	}
+	if _, err := s.dockerComposeVersion(ctx); err != nil {
+		printComposeUnavailable(w)
+		return composeUnavailableError{err: err}
+	}
+	return nil
+}
+
 // Restart restarts the local Volcano Docker stack while preserving data.
 func (s Service) Restart(ctx context.Context, w io.Writer) error {
 	// Validate a custom image before tearing the environment down, so a bad
-	// --image leaves the running stack intact instead of stopped.
+	// --image leaves the running stack intact instead of stopped. A missing
+	// Compose plugin needs no check here: Stop's `compose down` fails first and
+	// reports it, so nothing is torn down.
 	if err := s.ensureCustomImageAvailable(ctx); err != nil {
 		return err
 	}

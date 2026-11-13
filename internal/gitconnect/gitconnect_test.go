@@ -39,8 +39,8 @@ func TestGitHubConnectionsFiltersOnProviderAlone(t *testing.T) {
 // documents its 401 as authentication ("Not authenticated", "Unauthorized -
 // invalid or missing token"), and none documents one for the stored GitHub token
 // — "The provider connection must be reconnected" is a 409 on the import routes,
-// which this flow never calls. Reporting it as a reconnect sent users to the
-// dashboard for a failure only signing in again can fix.
+// which this flow never calls. Reporting it as a reconnect sent users after a
+// failure only signing in again can fix.
 func TestClassifyProviderMapsUnauthorizedToNotAuthenticated(t *testing.T) {
 	t.Parallel()
 	err := classifyProvider(

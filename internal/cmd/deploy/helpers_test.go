@@ -104,6 +104,16 @@ type fakeVolcano struct {
 	// durableStatuses are the statuses a durable function read reports per
 	// name, one per read; the last one repeats. Unlisted names are active.
 	durableStatuses map[string][]string
+	// functionStatuses are the statuses a function read reports per name, one
+	// per read; the last one repeats. Unlisted names are active.
+	functionStatuses map[string][]string
+	// refusedSchedulers names the functions whose schedulers a dry run of the
+	// config refuses, as the server does while a function builds and the
+	// scheduler is new or changed.
+	refusedSchedulers map[string]bool
+	// invalidSchedulers maps a function name to a scheduler error that both a
+	// dry run and a real apply of the config return, such as an invalid cron.
+	invalidSchedulers map[string]string
 
 	mu        sync.Mutex
 	calls     []string
@@ -125,6 +135,8 @@ type fakeVolcano struct {
 	failMigrations map[string]bool
 	// migrationFiles lists the files each migration run carried, by database.
 	migrationFiles map[string][]string
+	// functionReads counts the reads of each function.
+	functionReads map[string]int
 }
 
 func newFakeVolcano(t *testing.T) *fakeVolcano {
@@ -139,6 +151,7 @@ func newFakeVolcano(t *testing.T) *fakeVolcano {
 		resources:      map[string]uuid.UUID{},
 		durableReads:   map[string]int{},
 		migrationFiles: map[string][]string{},
+		functionReads:  map[string]int{},
 	}
 }
 
@@ -199,11 +212,28 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 			"id": uuid.NewString(), "project_id": deployProjectID, "name": body["name"], "value": body["value"],
 			"created_at": "2026-10-01T00:00:00Z", "updated_at": "2026-10-01T00:00:00Z",
 		})
+	case r.Method == http.MethodPut && path == project+"/config" && r.URL.Query().Get("dry_run") == "true":
+		var body map[string]any
+		require.NoError(f.t, json.NewDecoder(r.Body).Decode(&body))
+		f.calls = append(f.calls, "config dry run")
+		refusals := f.schedulerErrors(body, true)
+		if len(refusals) > 0 {
+			f.writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "validation failed", "errors": refusals})
+			return
+		}
+		f.writeJSON(w, http.StatusOK, map[string]any{
+			"results": []any{}, "skipped": []any{}, "missing": []any{}, "dry_run": true,
+			"summary": map[string]any{"created": 0, "updated": 0, "deleted": 0, "unchanged": 0, "errors": 0, "skipped": 0, "missing": 0},
+		})
 	case r.Method == http.MethodPut && path == project+"/config":
 		var body map[string]any
 		require.NoError(f.t, json.NewDecoder(r.Body).Decode(&body))
 		f.calls = append(f.calls, "config")
 		f.configs = append(f.configs, body)
+		if refusals := f.schedulerErrors(body, false); len(refusals) > 0 {
+			f.writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "validation failed", "errors": refusals})
+			return
+		}
 		f.writeJSON(w, http.StatusOK, map[string]any{
 			"results": []any{}, "skipped": []any{}, "missing": []any{},
 			"summary": map[string]any{"created": 0, "updated": 0, "deleted": 0, "unchanged": 0, "errors": 0, "skipped": 0, "missing": 0},
@@ -219,14 +249,18 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 		data := make([]any, 0, len(items))
 		for _, item := range items {
 			f.calls = append(f.calls, "function "+item.Name)
-			data = append(data, f.deployed(item.Name))
+			payload := f.deployed(item.Name)
+			payload["visibility"] = "private"
+			data = append(data, payload)
 		}
 		f.writeJSON(w, http.StatusAccepted, map[string]any{"batch_id": uuid.NewString(), "data": data})
 	case r.Method == http.MethodPost && path == project+"/functions":
 		require.NoError(f.t, r.ParseMultipartForm(4<<20))
 		name := r.FormValue("name")
 		f.calls = append(f.calls, "function "+name)
-		f.writeJSON(w, http.StatusCreated, f.deployed(name))
+		payload := f.deployed(name)
+		payload["visibility"] = "private"
+		f.writeJSON(w, http.StatusCreated, payload)
 	case r.Method == http.MethodPost && path == project+"/durable-functions":
 		require.NoError(f.t, r.ParseMultipartForm(4<<20))
 		name := r.FormValue("name")
@@ -299,6 +333,24 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 			status = "failed"
 		}
 		f.writeJSON(w, http.StatusOK, f.migrationRun(database, status))
+	case r.Method == http.MethodGet && strings.HasPrefix(path, project+"/functions/"):
+		id := strings.TrimPrefix(path, project+"/functions/")
+		for name, resource := range f.resources {
+			if resource.String() != id {
+				continue
+			}
+			read := f.functionReads[name]
+			f.functionReads[name]++
+			f.calls = append(f.calls, "read function "+name)
+			payload := f.deployed(name)
+			payload["status"] = "active"
+			if sequence := f.functionStatuses[name]; len(sequence) > 0 {
+				payload["status"] = sequence[min(read, len(sequence)-1)]
+			}
+			f.writeJSON(w, http.StatusOK, payload)
+			return
+		}
+		http.NotFound(w, r)
 	case r.Method == http.MethodGet && strings.HasPrefix(path, project+"/databases/"):
 		name := strings.TrimPrefix(path, project+"/databases/")
 		f.reads = append(f.reads, "database "+name)
@@ -468,3 +520,30 @@ func (tickNow) C() <-chan time.Time {
 func (tickNow) Reset(time.Duration) {}
 
 func (tickNow) Stop() {}
+
+// schedulerErrors returns the scheduler validation errors for the function
+// entries in a config body that list schedulers. dryRun adds the refusals for
+// functions that are still building.
+func (f *fakeVolcano) schedulerErrors(body map[string]any, dryRun bool) []any {
+	var refusals []any
+	entries, _ := body["functions"].([]any)
+	for _, entry := range entries {
+		fields, _ := entry.(map[string]any)
+		name, _ := fields["name"].(string)
+		if _, listed := fields["schedulers"]; !listed {
+			continue
+		}
+		if message, ok := f.invalidSchedulers[name]; ok {
+			refusals = append(refusals, map[string]any{
+				"section": "functions.schedulers", "name": name + "/every-minute", "message": message,
+			})
+		}
+		if dryRun && f.refusedSchedulers[name] {
+			refusals = append(refusals, map[string]any{
+				"section": "functions.schedulers", "name": name + "/every-minute",
+				"message": "function scheduler requires active function (status: provisioning)",
+			})
+		}
+	}
+	return refusals
+}

@@ -57,6 +57,7 @@ func newWithOptions(deps cliruntime.Deps, opts commandOptions) *cobra.Command {
 	cmd.AddCommand(newUpdate(deps))
 	cmd.AddCommand(newLogs(deps))
 	cmd.AddCommand(newRuntimes(deps))
+	cmd.AddCommand(newRegions(deps))
 	cmd.AddCommand(schedulerscmd.New(deps))
 	return cmd
 }

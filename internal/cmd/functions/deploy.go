@@ -14,6 +14,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
 	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
+	"github.com/Kong/volcano-cli/internal/deploycommit"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
 	"github.com/Kong/volcano-cli/internal/projectconfig"
@@ -33,8 +34,11 @@ type deployOptions struct {
 	// durableFollows drops the hint to deploy the skipped durable functions,
 	// for a caller that deploys them next.
 	durableFollows bool
-	out            io.Writer
-	errOut         io.Writer
+	// configFollows reports a visibility the manifest declares as applied by
+	// the caller's config step instead of pointing at config deploy.
+	configFollows bool
+	out           io.Writer
+	errOut        io.Writer
 }
 
 // DeployAllOptions configures DeployAll.
@@ -47,6 +51,9 @@ type DeployAllOptions struct {
 	// DurableFollows is set by a caller that deploys the durable functions
 	// itself, so the output does not tell the user to.
 	DurableFollows bool
+	// ConfigFollows is set by a caller that applies volcano-config.yaml after
+	// the deploy, so the output does not tell the user to.
+	ConfigFollows bool
 	// Out and ErrOut are required.
 	Out    io.Writer
 	ErrOut io.Writer
@@ -62,6 +69,7 @@ func DeployAll(ctx context.Context, deps cliruntime.Deps, opts DeployAllOptions)
 		batchAll:       opts.Batch,
 		manifest:       opts.ManifestPath,
 		durableFollows: opts.DurableFollows,
+		configFollows:  opts.ConfigFollows,
 		out:            opts.Out,
 		errOut:         opts.ErrOut,
 	})
@@ -83,8 +91,10 @@ Usage:
 
 The CLI scans volcano/functions, detects the runtime from source file extensions,
 packages source with dependency manifests and shared libraries, and uploads the
-archive to Volcano. Cloud deploy-all uploads are split into batches of up to
-100 functions; local deploy-all uploads each function individually.`,
+archive to Volcano. TypeScript handlers (.ts, .mts, .cts and .tsx) upload as
+source, and Volcano compiles them. Cloud deploy-all uploads are split into
+batches of up to 100 functions; local deploy-all uploads each function
+individually.`,
 			cliruntime.CommandPath(deps, "functions deploy --all"),
 			cliruntime.CommandPath(deps, "functions deploy -a"),
 			cliruntime.CommandPath(deps, "functions deploy -f get-notes"),
@@ -156,11 +166,8 @@ func deploy(ctx context.Context, opts deployOptions) ([]apiclient.Function, erro
 
 	var sources []clifunction.SourceInfo
 	if !opts.all {
-		for _, source := range allSources {
-			if clifunction.MatchesTarget(source, opts.file, baseDir) {
-				sources = append(sources, source)
-				break
-			}
+		if source, found := clifunction.FindTarget(allSources, opts.file, baseDir); found {
+			sources = append(sources, source)
 		}
 		if len(sources) == 0 {
 			return nil, fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s", opts.file, clifunction.FormatSourceNames(allSources))
@@ -183,11 +190,16 @@ func deploy(ctx context.Context, opts deployOptions) ([]apiclient.Function, erro
 		fmt.Fprintf(opts.out, "Found %d function(s)\n", len(sources))
 	}
 
+	commits := deploycommit.Detect(ctx, opts.deps, baseDir)
+	prepare := func(pkg *clifunction.Package) {
+		applyVariableDeclaration(pkg, manifest.Declarations)
+		pkg.SetCommit(ctx, commits, manifest.Paths)
+	}
 	report := newDeployReport(ctx, opts, service, manifest.Visibility)
 	if opts.all {
-		err = runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, manifest.Declarations, report)
+		err = runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, prepare, report)
 	} else {
-		err = runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations, report)
+		err = runDeployOne(ctx, opts.out, service, baseDir, sources[0], prepare, report)
 	}
 	report.finish(opts.out, opts.errOut)
 	return report.started, err
@@ -219,8 +231,9 @@ func newDeployReport(
 		Open: func(name string) string {
 			return cliruntime.CommandPath(opts.deps, "functions update "+name+" --visibility authenticated")
 		},
-		ConfigDeploy: cliruntime.CommandPath(opts.deps, "config deploy"),
-		Declared:     declared,
+		ConfigDeploy:  cliruntime.CommandPath(opts.deps, "config deploy"),
+		Declared:      declared,
+		ConfigFollows: opts.configFollows,
 	}, get: cliruntime.CommandPath(opts.deps, "functions get NAME")}
 	if existing, err := service.Names(ctx); err == nil {
 		report.existing = existing
@@ -291,9 +304,13 @@ func applyVariableDeclaration(pkg *clifunction.Package, declarations map[string]
 	pkg.Variables = declaration.Variables
 }
 
+// prepareFunc adds what the manifest and the checkout say about a package
+// before it is uploaded.
+type prepareFunc func(*clifunction.Package)
+
 func runDeployOne(
 	ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo,
-	declarations map[string]projectconfig.FunctionVariableDeclaration, report *deployReport,
+	prepare prepareFunc, report *deployReport,
 ) error {
 	fmt.Fprintf(out, "\n[1/1] Deploying %s...\n", source.Name)
 	printSourceSummary(out, source)
@@ -302,7 +319,7 @@ func runDeployOne(
 		return fmt.Errorf("failed to package function %s: %w", source.Name, err)
 	}
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
-	applyVariableDeclaration(pkg, declarations)
+	prepare(pkg)
 
 	deployed, err := service.DeployPackage(ctx, *pkg)
 	if err != nil {
@@ -317,7 +334,7 @@ func runDeployOne(
 
 func runDeployAll(
 	ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, sources []clifunction.SourceInfo,
-	batch bool, declarations map[string]projectconfig.FunctionVariableDeclaration, report *deployReport,
+	batch bool, prepare prepareFunc, report *deployReport,
 ) error {
 	packages := make([]clifunction.Package, 0, len(sources))
 	var totalSize int64
@@ -329,7 +346,7 @@ func runDeployAll(
 			return fmt.Errorf("failed to package function %s: %w", source.Name, err)
 		}
 		fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
-		applyVariableDeclaration(pkg, declarations)
+		prepare(pkg)
 		totalSize += pkg.Size
 		packages = append(packages, *pkg)
 	}

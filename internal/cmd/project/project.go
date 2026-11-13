@@ -138,13 +138,49 @@ func runList(ctx context.Context, opts listOptions) error {
 }
 
 func newCreate(deps cliruntime.Deps) *cobra.Command {
-	var templateID string
+	var templateID, from string
+	var vars []string
+	var yes, noWait bool
 	cmd := &cobra.Command{
 		Use:   "create <name>",
 		Short: "Create a project",
-		Long:  "Create a Volcano cloud project for the authenticated user. Use --template to install Trellini, Pixel Board, or Collab Pad. Installation runs asynchronously; check projects get <project-id> until the template status is ready.",
-		Args:  cobra.ExactArgs(1),
+		Long: `Create a Volcano cloud project for the authenticated user.
+
+Use --template to install Trellini, Pixel Board, or Collab Pad. Installation runs
+asynchronously; check projects get <project-id> until the template status is ready.
+
+Use --from to create the project as your own copy of a shared project, the way
+'volcano fork' does: from a share link such as https://volcano.dev/deploy/<id>,
+or its 12-character id. The command shows the release the link offers and asks
+you to confirm it, then installs exactly that release and waits for it to
+finish. Unlike 'volcano fork', it does not make the copy the active project.
+
+No variable values are needed: the copy gets every variable the release
+declares, empty unless --var NAME=value gives one, and the command lists the
+ones that start empty. --yes skips the confirmation, for CI. If the owner
+publishes a new release after the preview, nothing is created: at a terminal
+the command shows what changed and asks again, and with --yes it shows the new
+release and stops, so a release you have not seen is never deployed. --no-wait
+returns as soon as the project is created.`,
+		Example: "  " + cliruntime.CommandPath(deps, "projects create my-app --from https://volcano.dev/deploy/k3Vn8TqPz0aX") +
+			"\n  " + cliruntime.CommandPath(deps, "projects create my-app --from k3Vn8TqPz0aX --yes"),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkFromFlags(from, vars, yes, noWait); err != nil {
+				return err
+			}
+			if from != "" {
+				return runCreateFrom(cmd.Context(), createFromOptions{
+					deps:   deps,
+					name:   strings.TrimSpace(args[0]),
+					link:   from,
+					vars:   vars,
+					yes:    yes,
+					noWait: noWait,
+					in:     cmd.InOrStdin(),
+					out:    cmd.OutOrStdout(),
+				})
+			}
 			return runCreate(cmd.Context(), createOptions{
 				deps:       deps,
 				name:       strings.TrimSpace(args[0]),
@@ -154,6 +190,11 @@ func newCreate(deps cliruntime.Deps) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&templateID, "template", "", "Install a cloud template (trellini, pixel-board, collab-pad)")
+	cmd.Flags().StringVar(&from, "from", "", "Create the project as a copy of a shared project (share link URL or 12-character id)")
+	cmd.Flags().StringArrayVar(&vars, "var", nil, "With --from: fill in a variable as NAME=value instead of leaving it empty (repeatable)")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "With --from: skip the confirmation")
+	cmd.Flags().BoolVar(&noWait, "no-wait", false, "With --from: return once the project is created, without waiting for installation")
+	cmd.MarkFlagsMutuallyExclusive("from", "template")
 	return cmd
 }
 

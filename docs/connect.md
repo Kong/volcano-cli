@@ -106,7 +106,7 @@ volcano connect --json                 # print the result as JSON
 | `--project` | Use the existing project with this ID instead of creating one |
 | `--name` | Name for the new project. Defaults to the directory argument's name, else a generated name. Fails in a linked directory, which keeps its project |
 | `--template` | Starter to add: `nextjs`, `javascript`, `python`, `ruby` |
-| `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email`. Fails when `VOLCANO_TOKEN` is set |
+| `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email` when it is a usable address. Private relay addresses (such as `noreply.github.com`) and local or test addresses are skipped. Without a usable address, connect stops and asks you to run it again with `--email`. Fails when `VOLCANO_TOKEN` is set |
 | `--device-code` | Sign in with the code in the dashboard's prompt instead of the browser. Fails when `VOLCANO_TOKEN` is set |
 | `--skip-skills` | Don't install skills |
 | `--json` | Print the result as JSON on stdout. Progress goes to stderr |
@@ -138,7 +138,24 @@ refused it fails with exit code `2` instead of running browser login.
 ## New accounts and the project limit
 
 Run `volcano connect --signup` if you don't have an account yet. It opens
-the signup page, and the CLI is signed in when you finish.
+the signup page, and the CLI is signed in when you finish. `connect` prints
+`Logged in as <email>` with the account it signed in, or `Logged in successfully`
+when it cannot read the account. If you were already signed in to Volcano in the
+browser, signup does not create an account: the CLI signs in to that account,
+which can differ from the `--email` you gave.
+
+`--signup` needs an email address. It uses `--email`, else your global git
+email when that is a usable address. When neither is available, `connect`
+stops before it signs in and changes nothing. Run the same command again with
+the address you want to sign up with:
+
+```bash
+volcano connect --signup --email you@company.com
+```
+
+An AI agent running `connect` should ask the user for the address, using its
+native input tool (such as `AskUserQuestion`) when it has one, and then
+finish `connect` with `--email`.
 
 When your plan's project limit is reached, `connect` fails and lists your
 projects with the command to set up each one:
@@ -157,10 +174,12 @@ to `/`.
 
 The project a command uses comes from, in order:
 
-1. `VOLCANO_PROJECT_ID`, which is deprecated and will be removed in a future
+1. `--project <name-or-id>`, on `volcano cloud` commands. It applies to that
+   one command and changes neither the link nor the saved project.
+2. `VOLCANO_PROJECT_ID`, which is deprecated and will be removed in a future
    release. A command that uses it prints a warning on stderr.
-2. The directory's link
-3. The project `volcano use` saved
+3. The directory's link
+4. The project `volcano use` saved
 
 `volcano use` run inside a linked directory updates the link. Elsewhere it
 saves the project for every directory without a link. Inside a linked

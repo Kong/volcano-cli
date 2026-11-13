@@ -47,7 +47,7 @@ func Projects(w io.Writer, cfg *config.Config, page *apiclient.PaginatedProjects
 	if len(projects) == 0 {
 		if page.Total == 0 {
 			fmt.Fprintln(w, "No projects found")
-			fmt.Fprintln(w, "\nCreate a project in the Volcano dashboard: https://volcano.dev")
+			fmt.Fprintf(w, "\nCreate one with: %s\n", theme.Command("volcano projects create <name>", on))
 		} else {
 			fmt.Fprintf(w, "No projects found on page %d\n", page.Page)
 		}
@@ -100,6 +100,12 @@ func Project(w io.Writer, project *apiclient.Project) {
 	if installation := project.TemplateInstallation; installation != nil {
 		fmt.Fprintf(w, "%s %s\n", theme.Dim("Template status:", on), theme.Status(string(installation.Status), on))
 		fmt.Fprintf(w, "%s %s\n", theme.Dim("Template phase:", on), installation.Phase)
+		if source := installation.Source; source != nil {
+			fmt.Fprintf(w, "%s %s\n", theme.Dim("Template source:", on), TemplateSource(source))
+		}
+		if installation.Status == apiclient.ProjectTemplateInstallationStatusFailed {
+			fmt.Fprintf(w, "%s %s\n", theme.Dim("Template failure:", on), InstallationFailure(installation.FailureCode))
+		}
 	}
 	fmt.Fprintf(w, "%s %s\n", theme.Dim("Created:", on), FormatTimestamp(project.CreatedAt))
 	fmt.Fprintf(w, "%s %s\n", theme.Dim("Updated:", on), FormatTimestamp(project.UpdatedAt))

@@ -21,6 +21,10 @@ func TestStopCleanReclaimsSandboxesBeforeDeletingVolumes(t *testing.T) {
 			require.NoError(t, err)
 			step := 0
 			runner := &fakeCommandRunner{run: func(_ context.Context, c Command) ([]byte, error) {
+				// A failed compose call probes the plugin; it is present here.
+				if commandIs(c, "docker", "compose", "version", "--short") {
+					return []byte("v2.28.1\n"), nil
+				}
 				current := step
 				step++
 				var output string

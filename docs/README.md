@@ -29,9 +29,11 @@ account (auth)
     ├── variables ............. env vars / secrets             → variables.md
     ├── frontends ............. deployed sites, custom domains → frontends.md
     ├── git connection ........ push-to-deploy from GitHub     → git.md
+    ├── share and fork ........ one-click copies of a project  → share.md
     ├── access tokens ......... project-scoped CI credentials  → access-tokens.md
     ├── notifications ......... alerts when schedulers fail    → notifications.md
     ├── LavaFlow .............. diagnoses errors, opens fix PRs → lavaflow.md
+    ├── logs .................. search, tail, count runtime logs → logs.md
     └── declarative config .... one YAML syncing the above     → ../project-configuration.md
 ```
 
@@ -103,14 +105,17 @@ enable`. Turn it off on its own with `volcano feedback disable`. See
 | Access tokens | create, list, get, revoke project credentials | `cloud access-tokens …` | [access-tokens.md](access-tokens.md) |
 | Project | create, list, get, rename, delete, select, get keys and usage | `projects …`, `use` | below |
 | Whole project | deploy variables, migrations, functions, frontends, and config in one run | `deploy`, `cloud deploy` | [deploy.md](deploy.md) |
+| Deployments | list, inspect and summarize every function and frontend deployment | `deployments …`, `cloud deployments …` | [deployments.md](deployments.md) |
+| Logs | search, tail and count logs across functions, frontends and databases | `logs …`, `cloud logs …` | [logs.md](logs.md) |
 | Functions | deploy, invoke, inspect, set visibility, schedule, alias | `functions …` | [functions.md](functions.md) |
 | Durable functions | deploy, start, inspect executions, read logs, schedule, decide approvals, send and read messages, answer callbacks | `durable …`, `cloud durable …` | [durable-functions.md](durable-functions.md) |
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |
 | Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
 | Notifications | alert by email or webhook when schedulers fail, rotate the webhook secret, send a test | `notifications …`, `cloud notifications …` | [notifications.md](notifications.md) |
-| LavaFlow | turn on or off, follow runs and their diagnoses, diagnose an issue again | `cloud lavaflow …` | [lavaflow.md](lavaflow.md) |
+| LavaFlow | turn on or off, set how far it goes, start runs, see stats and runs with their diagnoses | `cloud lavaflow …` | [lavaflow.md](lavaflow.md) |
 | Frontends | deploy, inspect, custom domains, function and Frontend routes | `frontends …`, `cloud frontends …` | [frontends.md](frontends.md) |
+| Share and fork | share the project, see and stop the share, list releases, fork a shared project | `share …`, `fork` | [share.md](share.md) |
 | Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](project-configuration.md) |
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
 | Coding agents | install Volcano skills/plugins, keep them current | `setup` | [setup.md](setup.md) |
@@ -135,8 +140,24 @@ volcano projects usage             # current-month and all-time usage totals
 volcano projects delete my-app     # delete
 ```
 
+When your account has no projects, `volcano projects list` says so and
+suggests `volcano projects create <name>`.
+
 Inside a directory linked with `volcano connect`, commands use the linked
 project. See [connect.md](connect.md#linked-directories).
+
+To run one `volcano cloud` command against another project, pass
+`--project <name-or-id>`. Every `volcano cloud` subcommand accepts it, and it
+leaves the active project and any link unchanged:
+
+```bash
+volcano cloud functions list --project my-app
+volcano cloud lavaflow status --project eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
+```
+
+`--project` takes an exact project name or ID, like `volcano use`. A project
+it does not find fails the command before it runs, and exits `4`. Local
+commands refuse `--project`: local development has one project.
 
 ### Create a project from a cloud template
 
@@ -147,6 +168,9 @@ volcano projects create my-board --template trellini
 volcano projects create my-pixels --template pixel-board
 volcano projects create my-pad --template collab-pad
 ```
+
+To create a project as a copy of a shared project, use `--from`, or
+`volcano fork`; see [share.md](share.md).
 
 The supported templates are `trellini`, `pixel-board`, and `collab-pad`.
 An account token is required. Hosting creates a fresh database and deploys the
@@ -229,6 +253,10 @@ volcano deploy --with-migrations   # deploy the whole project to it
 
 See [deploy.md](deploy.md) for what `volcano deploy` and `volcano cloud deploy`
 read and the order they deploy in.
+
+`volcano start`, `stop`, and `restart` need a Docker-compatible engine with the
+Docker Compose v2 plugin (the `docker compose` subcommand). Run `volcano doctor`
+to check both.
 
 `volcano start` runs the local stack from a bundled default server image.
 Override it with `--image` or `VOLCANO_IMAGE`; an explicitly selected image must

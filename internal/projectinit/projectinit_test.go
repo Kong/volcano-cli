@@ -318,3 +318,25 @@ func TestRunStarterInKeepsChangedFilesOfAStarterInPlace(t *testing.T) {
 	_, ok := ConflictMessages(err)
 	assert.True(t, ok, err)
 }
+
+func TestRunPreservesBothConfigLocations(t *testing.T) {
+	for _, force := range []bool{false, true} {
+		name := "without force"
+		if force {
+			name = "with force"
+		}
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.Mkdir(filepath.Join(dir, "volcano"), 0o750))
+			for _, location := range []string{rootConfigPath, nestedConfigPath} {
+				require.NoError(t, os.WriteFile(filepath.Join(dir, location), []byte(location), 0o600))
+			}
+			result, err := run(dir, "javascript", force)
+			require.NoError(t, err)
+			assert.Contains(t, result.Unchanged(), rootConfigPath)
+			for _, location := range []string{rootConfigPath, nestedConfigPath} {
+				assert.Equal(t, location, readProjectFile(t, dir, location))
+			}
+		})
+	}
+}

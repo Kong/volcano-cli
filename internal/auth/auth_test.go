@@ -618,7 +618,7 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 
 	var pollCount atomic.Int32
 	var openedURL string
-	var exchangeAuth string
+	var exchangeAuth, userAuth string
 	timeoutTimer := newAuthFakeTicker()
 	pollTicker := newAuthFakeTicker()
 	dotTicker := newAuthFakeTicker()
@@ -652,6 +652,11 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 				"token_type":    "bearer",
 				"expires_in":    3600,
 				"refresh_token": "auth-refresh-token",
+			})
+		case "/auth/user":
+			userAuth = r.Header.Get("Authorization")
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{
+				"user": map[string]any{"id": "33333333-3333-4333-8333-333333333333", "email": "account@volcano.dev"},
 			})
 		case "/auth/platform/exchange":
 			exchangeAuth = r.Header.Get("Authorization")
@@ -712,9 +717,10 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 
 	result := <-done
 	require.NoError(t, result.err, "output:\n%s", out.String())
-	assert.Equal(t, Credentials{Token: "platform-token", UserID: "platform-user-1", APIURL: server.URL}, result.credentials)
+	assert.Equal(t, Credentials{Token: "platform-token", UserID: "platform-user-1", Email: "account@volcano.dev", APIURL: server.URL}, result.credentials)
 	assert.Equal(t, "https://volcano.dev/device?user_code=ABCD-EFGH", openedURL)
 	assert.Equal(t, "Bearer auth-access-token", exchangeAuth)
+	assert.Equal(t, "Bearer auth-access-token", userAuth)
 	assert.Contains(t, out.String(), "Code: ABCD-EFGH")
 	assert.Contains(t, out.String(), ".")
 }
@@ -933,4 +939,51 @@ func writeAuthJSON(t *testing.T, w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	require.NoError(t, json.NewEncoder(w).Encode(value))
+}
+
+func TestGitEmailSkipsUnusableAddresses(t *testing.T) {
+	for email, want := range map[string]string{
+		"support@volcano.dev":                   "support@volcano.dev",
+		"support+work@volcano.dev":              "support+work@volcano.dev",
+		"12345678+ted@users.noreply.github.com": "",
+		"ted@users.noreply.github.com":          "",
+		"ted@noreply.github.com":                "",
+		"1234-ted@users.noreply.gitlab.com":     "",
+		"ted@users.noreply.bitbucket.org":       "",
+		"noreply@anthropic.com":                 "",
+		"no-reply@volcano.dev":                  "",
+		"ted@example.com":                       "",
+		"ted@sub.example.com":                   "",
+		"ted@build.internal":                    "",
+		"1234-ted@users.noreply.git.corp.dev":   "",
+		"no_reply@volcano.dev":                  "",
+		"donotreply@volcano.dev":                "",
+		"ted@volcano.dev.":                      "",
+		"ted@macbook.local":                     "",
+		"ted@macbook-pro.lan":                   "",
+		"ted@localhost":                         "",
+		"ted@macbook":                           "",
+		"ted":                                   "",
+		"Support <support@volcano.dev>":         "",
+		"":                                      "",
+	} {
+		deps := cliruntime.Deps{GitCommandRunner: cliruntime.CommandRunnerFunc(func(_ context.Context, name string, args ...string) ([]byte, error) {
+			assert.Equal(t, "git", name)
+			assert.Equal(t, []string{"config", "--global", "user.email"}, args)
+			return []byte(email + "\n"), nil
+		})}
+		assert.Equal(t, want, GitEmail(context.Background(), deps), email)
+	}
+}
+
+func TestGitEmailEmptyWhenGitFails(t *testing.T) {
+	deps := cliruntime.Deps{GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+		return nil, errors.New("exit status 1")
+	})}
+	assert.Empty(t, GitEmail(context.Background(), deps))
+}
+
+func TestLoggedInMessageNamesTheAccountWhenKnown(t *testing.T) {
+	assert.Equal(t, "Logged in as account@volcano.dev", LoggedInMessage("account@volcano.dev"))
+	assert.Equal(t, "Logged in successfully", LoggedInMessage(""))
 }

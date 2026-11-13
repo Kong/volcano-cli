@@ -2,7 +2,6 @@ package lavaflow
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/spf13/cobra"
@@ -10,12 +9,10 @@ import (
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
-	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 type runsStartOptions struct {
 	deps       cliruntime.Deps
-	issueID    string
 	jsonOutput bool
 	out        io.Writer
 }
@@ -23,40 +20,40 @@ type runsStartOptions struct {
 func newRunsStart(deps cliruntime.Deps) *cobra.Command {
 	opts := runsStartOptions{}
 	cmd := &cobra.Command{
-		Use:   "start --issue <issue-id>",
-		Short: "Diagnose an issue again",
-		Long: fmt.Sprintf(`Queue a LavaFlow run for an issue, such as one whose last run failed. Take the
-issue ID (trigger.issue.id) from an earlier run in '%s', or from the
-Issues API (GET /projects/{id}/issues).
+		Use:   "start <issue-id>",
+		Short: "Start a LavaFlow run on an issue",
+		Long: `Start a LavaFlow run on one of the current project's issues. LavaFlow starts
+runs on its own only for issues that hold an exception your code threw or
+logged; start one here for any other issue, or for one recorded before
+LavaFlow was turned on. The run follows the project's LavaFlow settings and
+starts queued. Follow it with
+'` + cliruntime.CommandPath(deps, "lavaflow show <run-id>") + `'.
 
-LavaFlow must be on. An issue has at most one queued or running run, and
-LavaFlow limits how many runs an issue and a project start in 24 hours. At a
-limit, the command says when to try again; it never retries on its own. A run
-counts toward the project's usage.`, cliruntime.CommandPath(deps, "lavaflow runs list --json")),
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+Only the project's owner can start a run, while LavaFlow is on, from a live
+sign-in: 'volcano login', or a platform token that expires. A project access
+token is refused. An issue has one run in progress at a time, and starts
+count toward LavaFlow's run limits: 5 runs per issue and 200 per project in
+any 24 hours. --json prints the run as the API returned it.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.deps = deps
 			opts.out = cmd.OutOrStdout()
-			return runRunsStart(cmd.Context(), opts)
+			return runRunsStart(cmd.Context(), opts, args[0])
 		},
 	}
-	cmd.Flags().StringVar(&opts.issueID, "issue", "", "ID of the issue to diagnose")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON")
-	_ = cmd.MarkFlagRequired("issue")
 	return cmd
 }
 
-func runRunsStart(ctx context.Context, opts runsStartOptions) error {
-	run, err := clilavaflow.NewService(opts.deps).StartRun(ctx, opts.issueID)
+func runRunsStart(ctx context.Context, opts runsStartOptions, issueID string) error {
+	run, body, err := clilavaflow.NewService(opts.deps).StartRun(ctx, issueID)
 	if err != nil {
 		return err
 	}
 	if opts.jsonOutput {
-		return writeJSON(opts.out, run)
+		return writeAPIJSON(opts.out, body)
 	}
-	output.Success(opts.out, "LavaFlow run %s queued", run.Id)
-	on := theme.On(opts.out)
-	fmt.Fprintf(opts.out, "%s%s\n", theme.Dim("Follow it: ", on),
-		theme.Command(cliruntime.CommandPath(opts.deps, "lavaflow runs get "+run.Id.String()), on))
+	output.LavaflowRunStarted(opts.out, run.Id.String(), run.Status,
+		cliruntime.CommandPath(opts.deps, "lavaflow show "+run.Id.String()))
 	return nil
 }

@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,12 +31,20 @@ const maxConsecutiveDevicePollFailures = 3
 // of the exchange that follows an approved device login.
 const maxPlatformExchangeAttempts = 3
 
+// accountEmailReadTimeout bounds the best-effort read of the account email
+// after a completed login, so a slow answer does not hold the login up.
+const accountEmailReadTimeout = 5 * time.Second
+
 var platformExchangeRetryDelay = 500 * time.Millisecond
 
 // Credentials are the platform credentials produced by a successful login.
 type Credentials struct {
 	Token  string
 	UserID string
+	// Email is the account the login belongs to. It is not saved, and it is
+	// empty when the account could not be read: it only labels the login in the
+	// CLI's output.
+	Email string
 	// Project is the project login validated the token against, to be
 	// selected: saved as the active project, or, inside a linked directory, in
 	// the link. Nil when login resolved no project.
@@ -433,8 +443,9 @@ func (s Service) SelectInLink(ctx context.Context, cfg *config.Config, credentia
 	return cliproject.SelectInLink(ctx, client, credentials.APIURL, cfg.Link, selected)
 }
 
-// GitEmail returns `git config --global user.email`, or "" when it is unset
-// or git fails. Signup offers it as the default email address.
+// GitEmail returns `git config --global user.email`, or "" when it is unset,
+// git fails, or the value is not a usable signup address (see usableEmail).
+// Signup offers it as the default email address.
 func GitEmail(ctx context.Context, deps cliruntime.Deps) string {
 	runner := deps.GitCommandRunner
 	if runner == nil {
@@ -446,7 +457,67 @@ func GitEmail(ctx context.Context, deps cliruntime.Deps) string {
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(out))
+	email := strings.TrimSpace(string(out))
+	if !usableEmail(email) {
+		return ""
+	}
+	return email
+}
+
+// unusableEmailDomains are domains whose addresses are privacy relays or
+// placeholders, not a mailbox the user signs up with. A domain also matches
+// when it is a subdomain of an entry, so "users.noreply.github.com" matches
+// "noreply.github.com".
+var unusableEmailDomains = []string{
+	"noreply.github.com",
+	"noreply.gitlab.com",
+	"noreply.bitbucket.org",
+	"noreply.codeberg.org",
+	"example.com",
+	"example.org",
+	"example.net",
+	"localhost",
+	"localdomain",
+	"local",
+	"lan",
+	"internal",
+	"invalid",
+	"test",
+	"example",
+}
+
+// noReplyLocalParts are sender names that cannot receive mail.
+var noReplyLocalParts = []string{"noreply", "no-reply", "no_reply", "donotreply", "do-not-reply"}
+
+// usableEmail reports whether a git email looks like an address the user would
+// sign up with. It rejects values that are not an address, private relay
+// addresses such as 12345+name@users.noreply.github.com, no-reply senders, and
+// hosts that cannot receive mail (local, test and reserved names).
+func usableEmail(email string) bool {
+	parsed, err := mail.ParseAddress(email)
+	if err != nil || parsed.Address != email {
+		return false
+	}
+	at := strings.LastIndex(email, "@")
+	local, domain := strings.ToLower(email[:at]), strings.ToLower(email[at+1:])
+	for _, sender := range noReplyLocalParts {
+		if strings.HasPrefix(local, sender) {
+			return false
+		}
+	}
+	if !strings.Contains(domain, ".") {
+		return false
+	}
+	// Self-hosted forges use users.noreply.<host> for the same relay.
+	if slices.Contains(strings.Split(domain, "."), "noreply") {
+		return false
+	}
+	for _, blocked := range unusableEmailDomains {
+		if domain == blocked || strings.HasSuffix(domain, "."+blocked) {
+			return false
+		}
+	}
+	return true
 }
 
 // Logout removes the login, the current project, and function aliases from the
@@ -472,6 +543,7 @@ func (s Service) completeBrowserLogin(ctx context.Context, client *api.Client, c
 		deviceCode: deviceAuth.DeviceCode,
 		expiresIn:  time.Duration(deviceAuth.ExpiresIn) * time.Second,
 		interval:   time.Duration(deviceAuth.Interval) * time.Second,
+		readEmail:  true,
 	}, w)
 }
 
@@ -485,6 +557,9 @@ type devicePoll struct {
 	// pollNow polls once before the first interval, for a code that is
 	// already approved.
 	pollNow bool
+	// readEmail reads the account's email after the exchange, for a login whose
+	// output names the account.
+	readEmail bool
 }
 
 // errDeviceLoginTimeout is a device login that was still pending when its
@@ -536,7 +611,7 @@ func (s Service) pollDeviceLogin(ctx context.Context, client *api.Client, client
 func (s Service) waitForDeviceToken(ctx context.Context, client *api.Client, clientID string, poll devicePoll, w io.Writer) (Credentials, error) {
 	timeout := cliruntime.NewTimer(s.deps, poll.expiresIn)
 	defer timeout.Stop()
-	poller := devicePoller{client: client, clientID: clientID, deviceCode: poll.deviceCode, interval: poll.interval}
+	poller := devicePoller{client: client, clientID: clientID, deviceCode: poll.deviceCode, interval: poll.interval, readEmail: poll.readEmail}
 	if poller.interval <= 0 {
 		poller.interval = 5 * time.Second
 	}
@@ -580,6 +655,7 @@ type devicePoller struct {
 	interval   time.Duration
 	ticker     cliruntime.Ticker
 	failures   int
+	readEmail  bool
 }
 
 // exchange trades the device login's access token for a platform token. The
@@ -618,7 +694,17 @@ func (p *devicePoller) poll(ctx context.Context) (credentials Credentials, done 
 		if err != nil {
 			return Credentials{}, true, fmt.Errorf("failed to exchange platform token: %w", err)
 		}
-		return Credentials{Token: exchange.Token, UserID: exchange.UserId}, true, nil
+		credentials := Credentials{Token: exchange.Token, UserID: exchange.UserId}
+		if p.readEmail {
+			// The login is complete and the email only labels it, so a failed
+			// read is not an error.
+			emailCtx, cancel := context.WithTimeout(ctx, accountEmailReadTimeout)
+			if email, emailErr := p.client.GetAuthUserEmail(emailCtx, status.AccessToken); emailErr == nil {
+				credentials.Email = email
+			}
+			cancel()
+		}
+		return credentials, true, nil
 	}
 
 	switch status.Error {
@@ -631,4 +717,14 @@ func (p *devicePoller) poll(ctx context.Context) (credentials Credentials, done 
 	default:
 		return Credentials{}, true, &deviceTokenRefusal{code: status.Error, description: status.ErrorDescription, status: status.StatusCode}
 	}
+}
+
+// LoggedInMessage names the account when the login reported one. Login, signup
+// and connect all end here, and a browser signup can finish as an account that
+// already existed, so the message does not claim an account was created.
+func LoggedInMessage(email string) string {
+	if email == "" {
+		return "Logged in successfully"
+	}
+	return "Logged in as " + email
 }

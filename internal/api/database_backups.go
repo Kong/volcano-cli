@@ -88,7 +88,15 @@ func (c *Client) CreateDatabaseRestore(ctx context.Context, projectID uuid.UUID,
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON202, resp.JSON400, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON503)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON202, resp.JSON400, resp.JSON403, resp.JSON404, restoreConflict(resp.JSON409), resp.JSON503)
+}
+
+// restoreConflict reads a restore's 409 as the plain error it reports.
+func restoreConflict(conflict *apiclient.DatabaseRestoreConflictError) *apiclient.Error {
+	if conflict == nil {
+		return nil
+	}
+	return &apiclient.Error{Error: conflict.Error, Code: conflict.Code}
 }
 
 // ListDatabaseRestores returns a database's restore history, newest first. This

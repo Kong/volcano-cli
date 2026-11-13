@@ -86,6 +86,26 @@ func (s Service) ListRuntimes(ctx context.Context) ([]apiclient.FunctionRuntimeO
 	return runtimes, nil
 }
 
+// ListRegions returns the regions functions can be deployed to. The route is
+// public, so this needs no sign-in.
+func (s Service) ListRegions(ctx context.Context) ([]apiclient.FunctionRegion, error) {
+	cfg, err := s.sessions.Config()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := s.sessions.APIClient(s.sessions.APIURL(cfg), cfg.Token())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create api client: %w", err)
+	}
+
+	regions, err := client.ListFunctionRegions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list function regions: %w", err)
+	}
+	return regions, nil
+}
+
 // maxListPages caps a pagination walk so a server that keeps reporting HasMore
 // cannot hang the CLI.
 const maxListPages = 1000
@@ -139,6 +159,7 @@ func (s Service) DeployPackage(ctx context.Context, pkg Package) (*apiclient.Fun
 		SourceArchive: pkg.ArchiveData,
 		VariableScope: pkg.VariableScope,
 		Variables:     pkg.Variables,
+		Commit:        pkg.Commit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy function %q: %w", pkg.Name, err)
@@ -162,6 +183,7 @@ func (s Service) DeployPackageBatch(ctx context.Context, packages []Package) (*a
 			SourceArchive: pkg.ArchiveData,
 			VariableScope: pkg.VariableScope,
 			Variables:     pkg.Variables,
+			Commit:        pkg.Commit,
 		})
 	}
 	resp, err := authenticated.API.DeployFunctionsBatch(ctx, authenticated.ProjectID, inputs)
@@ -206,6 +228,19 @@ func (s Service) Get(ctx context.Context, identifier string) (*apiclient.Functio
 	got, err := authenticated.API.GetFunction(ctx, authenticated.ProjectID, function.Id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get function %q: %w", identifier, err)
+	}
+	return got, nil
+}
+
+// GetByID returns one function by ID, without listing the project's functions.
+func (s Service) GetByID(ctx context.Context, functionID uuid.UUID) (*apiclient.Function, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+	got, err := authenticated.API.GetFunction(ctx, authenticated.ProjectID, functionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get function %s: %w", functionID, err)
 	}
 	return got, nil
 }

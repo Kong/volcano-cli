@@ -458,12 +458,15 @@ func (p *plan) shouldWriteStarterFile(relativePath string) (bool, error) {
 func (p *plan) shouldWriteNestedStandardFile(nestedPath, rootPath string) (bool, error) {
 	rootInfo, err := os.Lstat(p.targetPath(rootPath))
 	if err == nil {
-		nestedExists, err := pathExists(p.targetPath(nestedPath))
-		if err != nil {
-			return false, fmt.Errorf("failed to inspect %s: %w", nestedPath, err)
-		}
-		if nestedExists {
-			return false, ambiguousStandardFileError(nestedPath, rootPath)
+		// Config lookup prefers the root file; init leaves both existing files intact.
+		if rootPath != rootConfigPath {
+			nestedExists, err := pathExists(p.targetPath(nestedPath))
+			if err != nil {
+				return false, fmt.Errorf("failed to inspect %s: %w", nestedPath, err)
+			}
+			if nestedExists {
+				return false, ambiguousStandardFileError(nestedPath, rootPath)
+			}
 		}
 		if !rootInfo.Mode().IsRegular() || rootInfo.Mode()&os.ModeSymlink != 0 {
 			return false, &conflictError{conflicts: []conflict{{
@@ -496,8 +499,6 @@ func ambiguousStandardFileError(nestedPath, rootPath string) error {
 	switch rootPath {
 	case rootEnvPath:
 		return fmt.Errorf("found multiple volcano.env files: %s, %s.\nplease keep only one volcano.env file, or specify explicitly with --file", nestedPath, rootPath)
-	case rootConfigPath:
-		return fmt.Errorf("found multiple volcano-config.yaml files: %s, %s.\nplease keep only one volcano-config.yaml file, or specify explicitly with --file", nestedPath, rootPath)
 	default:
 		return fmt.Errorf("found multiple files: %s, %s", nestedPath, rootPath)
 	}

@@ -167,6 +167,13 @@ func gitSourceError(deps cliruntime.Deps, target project.Target, mode apiclient.
 	}
 	refusal := fmt.Sprintf("%s deploys its code from its connected Git repository (source mode %q), so functions and frontends can't be deployed from here.\n",
 		targetLabel(target), mode)
+	// An export that has not finished can still be undone, which is the way
+	// back to deploying from here. The git commands hang off the root command,
+	// not this one's group, so the path is built without deps' prefix.
+	if mode == apiclient.ProjectSourceExportStateModeGitExporting || mode == apiclient.ProjectSourceExportStateModeGitPending {
+		refusal += fmt.Sprintf("The export has not finished; to deploy from here again, cancel it with %s.\n",
+			cliruntime.CommandPath(cliruntime.Deps{}, "git export cancel"))
+	}
 	if len(commands) == 0 {
 		return errors.New(refusal + "Push to the repository to deploy code")
 	}
@@ -697,11 +704,13 @@ func (b planBuilder) functions(present bool, manifestPath string, durableFollows
 	if b.defaultKinds {
 		s.manual = []string{b.command("functions deploy --all")}
 	}
+	configFollows := b.configPlanned()
 	s.run = func(ctx context.Context, r *runner) error {
 		started, err := functionscmd.DeployAll(ctx, r.opts.deps, functionscmd.DeployAllOptions{
 			ManifestPath:   manifestPath,
 			Batch:          !r.opts.deps.LocalMode,
 			DurableFollows: durableFollows,
+			ConfigFollows:  configFollows,
 			Out:            r.opts.out,
 			ErrOut:         r.opts.errOut,
 		})
@@ -727,11 +736,13 @@ func (b planBuilder) durable(names []string, manifestPath string) step {
 	if b.defaultKinds {
 		s.manual = []string{b.command("durable deploy --all")}
 	}
+	configFollows := b.configPlanned()
 	s.run = func(ctx context.Context, r *runner) error {
 		started, err := durablecmd.DeployAll(ctx, r.opts.deps, durablecmd.DeployAllOptions{
-			ManifestPath: manifestPath,
-			Out:          r.opts.out,
-			ErrOut:       r.opts.errOut,
+			ManifestPath:  manifestPath,
+			ConfigFollows: configFollows,
+			Out:           r.opts.out,
+			ErrOut:        r.opts.errOut,
 		})
 		for _, fn := range started {
 			r.track(kindDurable, fn.Name, fn.Id, fn.CurrentDeploymentId, fn.PendingDeploymentId)
@@ -839,9 +850,15 @@ func (b planBuilder) frontendCommand(opts frontendscmd.DeployOptions) string {
 	return b.command(strings.Join(args, " "))
 }
 
+// configPlanned reports whether the config step runs, which applies the
+// visibility the first manifest declares for the functions deployed before it.
+func (b planBuilder) configPlanned() bool {
+	return len(b.manifests) > 0
+}
+
 func (b planBuilder) config() step {
 	s := step{name: stepConfig}
-	if len(b.manifests) == 0 {
+	if !b.configPlanned() {
 		s.skipped = true
 		s.detail = "no volcano-config.yaml"
 		return s
@@ -853,13 +870,53 @@ func (b planBuilder) config() step {
 	}
 	s.detail = strings.Join(paths, ", ")
 	manifests := b.manifests
+	commands := s.manual
 	s.run = func(ctx context.Context, r *runner) error {
+		inactive, err := r.inactiveScheduledFunctions(ctx, scheduledFunctions(manifests))
+		if err != nil {
+			return err
+		}
+		var deferred []startedDeployment
+		if len(inactive) > 0 {
+			deferred = r.refusedSchedulers(ctx, manifests, inactive)
+		}
+		held := map[string]bool{}
+		for _, d := range deferred {
+			held[d.name] = true
+		}
+		parsed := make([]*projectconfig.Manifest, 0, len(manifests))
 		for _, m := range manifests {
-			if err := configcmd.DeployManifest(ctx, r.opts.deps, m.manifest, m.path, r.opts.out, r.opts.errOut); err != nil {
+			manifest := m.manifest
+			if len(held) > 0 {
+				manifest = manifest.WithoutSchedulers(held)
+			}
+			if err := configcmd.DeployManifest(ctx, r.opts.deps, manifest, m.path, r.opts.out, r.opts.errOut); err != nil {
 				return err
 			}
+			parsed = append(parsed, m.manifest)
+		}
+		if schedulers, ok := projectconfig.SchedulersOnly(parsed, held); ok {
+			r.deferred, r.schedulers, r.configCommands = deferred, schedulers, commands
+			fmt.Fprintf(r.opts.out, "Left out schedulers for %s while %s\n",
+				strings.Join(deploymentNames(deferred), ", "), plural(len(deferred), "it deploys", "they deploy"))
 		}
 		return nil
 	}
 	return s
+}
+
+// scheduledFunctions names the functions the manifests give schedulers.
+func scheduledFunctions(manifests []manifestFile) map[string]bool {
+	names := map[string]bool{}
+	for _, m := range manifests {
+		if m.manifest.Functions == nil {
+			continue
+		}
+		for _, fn := range *m.manifest.Functions {
+			if fn.Schedulers != nil && len(*fn.Schedulers) > 0 {
+				names[fn.Name] = true
+			}
+		}
+	}
+	return names
 }

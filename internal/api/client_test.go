@@ -399,7 +399,7 @@ func TestVariableMethodsUseGeneratedRoutes(t *testing.T) {
 	require.Len(t, variables.Data, 1)
 	assert.Equal(t, "API_KEY", variables.Data[0].Name)
 
-	created, err := client.CreateVariable(context.Background(), projectID, " API_KEY ", "new-value")
+	created, err := client.CreateVariable(context.Background(), projectID, " API_KEY ", "new-value", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "API_KEY", created.Name)
 	assert.Equal(t, map[string]string{"name": "API_KEY", "value": "new-value"}, createBody)

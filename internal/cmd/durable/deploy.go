@@ -14,6 +14,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
 	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
+	"github.com/Kong/volcano-cli/internal/deploycommit"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -29,8 +30,11 @@ type deployOptions struct {
 	// manifest names the volcano-config.yaml to read; empty uses the default
 	// lookup.
 	manifest string
-	out      io.Writer
-	errOut   io.Writer
+	// configFollows reports a visibility the manifest declares as applied by
+	// the caller's config step instead of pointing at config deploy.
+	configFollows bool
+	out           io.Writer
+	errOut        io.Writer
 }
 
 // DeployAllOptions configures DeployAll.
@@ -38,6 +42,9 @@ type DeployAllOptions struct {
 	// ManifestPath names the volcano-config.yaml that declares the durable
 	// functions. Empty uses the default lookup.
 	ManifestPath string
+	// ConfigFollows is set by a caller that applies volcano-config.yaml after
+	// the deploy, so the output does not tell the user to.
+	ConfigFollows bool
 	// Out and ErrOut are required.
 	Out    io.Writer
 	ErrOut io.Writer
@@ -48,11 +55,12 @@ type DeployAllOptions struct {
 // started. On error it still returns the ones started before the failure.
 func DeployAll(ctx context.Context, deps cliruntime.Deps, opts DeployAllOptions) ([]apiclient.DurableFunction, error) {
 	return deploy(ctx, &deployOptions{
-		deps:     deps,
-		all:      true,
-		manifest: opts.ManifestPath,
-		out:      opts.Out,
-		errOut:   opts.ErrOut,
+		deps:          deps,
+		all:           true,
+		manifest:      opts.ManifestPath,
+		configFollows: opts.ConfigFollows,
+		out:           opts.Out,
+		errOut:        opts.ErrOut,
 	})
 }
 
@@ -151,12 +159,13 @@ func deploy(ctx context.Context, opts *deployOptions) ([]apiclient.DurableFuncti
 			sources[0].Name, manifest.Name, cliruntime.CommandPath(opts.deps, "functions deploy -f "+sources[0].Name))
 	}
 
+	commits := deploycommit.Detect(ctx, opts.deps, baseDir)
 	var newPrivate, unreported []string
 	started := make([]apiclient.DurableFunction, 0, len(sources))
 	for i, source := range sources {
 		fmt.Fprintf(opts.out, "\n[%d/%d] Deploying %s...\n", i+1, len(sources), source.Name)
 		deployed, created, err := deployOne(
-			ctx, opts.out, service, baseDir, source, visibility, manifest.Declarations,
+			ctx, opts.out, service, baseDir, source, visibility, manifest, commits,
 		)
 		if err != nil {
 			return started, err
@@ -188,9 +197,10 @@ func deploy(ctx context.Context, opts *deployOptions) ([]apiclient.DurableFuncti
 		Open: func(name string) string {
 			return cliruntime.CommandPath(opts.deps, "durable deploy -f "+name+" --visibility authenticated")
 		},
-		ConfigDeploy: cliruntime.CommandPath(opts.deps, "config deploy"),
-		ConfigFirst:  true,
-		Declared:     manifest.Visibility,
+		ConfigDeploy:  cliruntime.CommandPath(opts.deps, "config deploy"),
+		ConfigFirst:   true,
+		Declared:      manifest.Visibility,
+		ConfigFollows: opts.configFollows,
 	}.Print(opts.out, newPrivate)
 	return started, nil
 }
@@ -202,7 +212,8 @@ func deployOne(
 	baseDir string,
 	source clifunction.SourceInfo,
 	visibility *apiclient.FunctionVisibility,
-	declarations map[string]projectconfig.FunctionVariableDeclaration,
+	manifest projectconfig.FunctionDeployManifest,
+	commits *deploycommit.Source,
 ) (deployed *apiclient.DurableFunction, created bool, err error) {
 	fmt.Fprintf(out, "  Runtime: %s\n", source.Runtime.Name)
 	fmt.Fprintf(out, "  Function code: %s\n", source.Path)
@@ -210,10 +221,11 @@ func deployOne(
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to package durable function %s: %w", source.Name, err)
 	}
-	if declaration, ok := declarations[pkg.Name]; ok {
+	if declaration, ok := manifest.Declarations[pkg.Name]; ok {
 		pkg.VariableScope = declaration.VariableScope
 		pkg.Variables = declaration.Variables
 	}
+	pkg.SetCommit(ctx, commits, manifest.Paths)
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
 
 	deployed, created, err = service.Deploy(ctx, *pkg, visibility)
@@ -297,7 +309,7 @@ func durableSources(
 
 	sources := make([]clifunction.SourceInfo, 0, len(targets))
 	for _, target := range targets {
-		source, found := matchSource(scanned, target, baseDir)
+		source, found := clifunction.FindTarget(scanned, target, baseDir)
 		if !found {
 			return nil, "", fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s",
 				target, clifunction.FormatSourceNames(scanned))
@@ -403,13 +415,4 @@ func runtimeVersionParts(name string) []int {
 		parts = append(parts, number)
 	}
 	return parts
-}
-
-func matchSource(sources []clifunction.SourceInfo, target, baseDir string) (clifunction.SourceInfo, bool) {
-	for _, source := range sources {
-		if clifunction.MatchesTarget(source, target, baseDir) {
-			return source, true
-		}
-	}
-	return clifunction.SourceInfo{}, false
 }

@@ -48,8 +48,9 @@ func New(deps cliruntime.Deps) *cobra.Command {
 (volcano-config.yaml): project settings, database assertions, variables,
 buckets and policies, realtime, the complete auth configuration (providers,
 email, templates, managed pages), function visibility and schedulers,
-notification settings, LavaFlow settings (cloud only), and frontend custom
-domains, function routes, and Sandbox template settings.
+notification settings, and frontend custom domains, function routes, and
+Sandbox template settings. LavaFlow isn't part of the manifest: turn it on or
+off and change its settings with 'volcano cloud lavaflow'.
 
 The server owns validation and reconciliation; the CLI uploads and downloads
 the manifest.`,
@@ -84,8 +85,11 @@ warnings and operational notices) without changing anything — for example to
 validate a manifest in CI.
 
 If --file is omitted, the CLI looks for (in order):
-  1. volcano/volcano-config.yaml (recommended)
-  2. ./volcano-config.yaml (project root)`,
+  1. ./volcano-config.yaml (project root)
+  2. volcano/volcano-config.yaml
+
+When both exist, the project-root file wins. An invalid selected file fails
+without falling back. Use --file to explicitly select another manifest.`,
 		Example: fmt.Sprintf(`  %s
   %s
   %s`,
@@ -103,7 +107,7 @@ If --file is omitted, the CLI looks for (in order):
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to configuration YAML file (default: volcano/volcano-config.yaml or ./volcano-config.yaml)")
+	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to configuration YAML file (default: ./volcano-config.yaml, then volcano/volcano-config.yaml)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and print projected actions without applying changes")
 	return cmd
 }
@@ -124,10 +128,11 @@ names only. The notification webhook, whose URL can carry the receiver's
 token, is omitted too. Any variable values or webhook a server does return are
 removed before the manifest is written.
 
-Without --file the manifest is written to an existing manifest location, or
+Without --file an existing ./volcano-config.yaml takes priority over
+volcano/volcano-config.yaml. If neither exists, the manifest is written to
 volcano/volcano-config.yaml when the volcano directory exists, else
-./volcano-config.yaml. An existing file is not overwritten unless --force is
-given.`,
+./volcano-config.yaml. An existing file or symbolic link is not overwritten
+unless --force is given.`,
 		Example: fmt.Sprintf(`  %s
   %s`,
 			cliruntime.CommandPath(deps, "config pull"),
@@ -142,7 +147,7 @@ given.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to write the configuration YAML file to (default: volcano/volcano-config.yaml or ./volcano-config.yaml)")
+	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to write the configuration YAML file to (default: existing root manifest first; otherwise volcano directory when present)")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite the target file if it already exists")
 	return cmd
 }
@@ -151,7 +156,7 @@ given.`,
 // "config deploy" does, and prints the apply report. out and errOut must not be
 // nil.
 func DeployManifest(ctx context.Context, deps cliruntime.Deps, manifest *projectconfig.Manifest, path string, out, errOut io.Writer) error {
-	return apply(ctx, deployOptions{deps: deps, out: out, errOut: errOut}, manifest, path, path)
+	return apply(ctx, deployOptions{deps: deps, out: out, errOut: errOut}, manifest, path)
 }
 
 func runDeploy(ctx context.Context, opts deployOptions) error {
@@ -160,14 +165,14 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		return err
 	}
 
-	manifest, resolvedPath, err := projectconfig.Load(manifestPath)
+	manifest, _, err := projectconfig.Load(manifestPath)
 	if err != nil {
 		return err
 	}
-	return apply(ctx, opts, manifest, manifestPath, resolvedPath)
+	return apply(ctx, opts, manifest, manifestPath)
 }
 
-func apply(ctx context.Context, opts deployOptions, manifest *projectconfig.Manifest, manifestPath, resolvedPath string) error {
+func apply(ctx context.Context, opts deployOptions, manifest *projectconfig.Manifest, manifestPath string) error {
 	for _, warning := range manifest.DeprecationWarnings() {
 		output.Warning(opts.errOut, "%s", warning)
 	}
@@ -185,6 +190,7 @@ func apply(ctx context.Context, opts deployOptions, manifest *projectconfig.Mani
 			visibilityLevelsHint(opts.deps, manifest, err),
 			customDomainsHint(manifest, err),
 			frontendRoutesHint(opts.deps, manifest, err),
+			frontendPreviewsCORSHint(opts.deps, manifest, err),
 		}
 		hints = slices.DeleteFunc(hints, func(hint string) bool { return hint == "" })
 		if len(hints) > 0 {
@@ -196,7 +202,7 @@ func apply(ctx context.Context, opts deployOptions, manifest *projectconfig.Mani
 	if opts.dryRun {
 		fmt.Fprintln(opts.out, "Dry run: projected actions, nothing was applied.")
 	} else {
-		output.Success(opts.out, "Configuration deployed from %s", filepath.Base(resolvedPath))
+		output.Success(opts.out, "Configuration deployed from %s", manifestPath)
 	}
 	output.ProjectConfigApplyReport(opts.out, result)
 
@@ -213,8 +219,10 @@ func runPull(ctx context.Context, opts pullOptions) error {
 	}
 
 	if !opts.force {
-		if _, err := os.Stat(targetPath); err == nil {
+		if _, err := os.Lstat(targetPath); err == nil {
 			return fmt.Errorf("refusing to overwrite existing file %s (use --force to replace it)", targetPath)
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("failed to inspect %s: %w", targetPath, err)
 		}
 	}
 
@@ -247,6 +255,9 @@ func runPull(ctx context.Context, opts pullOptions) error {
 	}
 	if slices.Contains(pulled.Removed, projectconfig.RemovedNotificationsWebhook) {
 		output.Note(opts.out, "the server returned notifications.webhook; it was removed so no webhook URL was written to disk")
+	}
+	if slices.Contains(pulled.Removed, projectconfig.RemovedLavaFlow) {
+		output.Note(opts.out, "the server returned a lavaflow section; it was removed because LavaFlow isn't part of the project configuration")
 	}
 	return nil
 }
@@ -328,6 +339,20 @@ func frontendRoutesHint(deps cliruntime.Deps, manifest *projectconfig.Manifest, 
 		remedy = "upgrade your local-mode server image, or remove them"
 	}
 	return "if this server predates Frontend routes, it refuses frontend_routes this way: " + remedy
+}
+
+// frontendPreviewsCORSHint explains a 400 that may come from a server that
+// predates auth.cors.allow_frontend_previews, conditional for the reason
+// visibilityLevelsHint gives.
+func frontendPreviewsCORSHint(deps cliruntime.Deps, manifest *projectconfig.Manifest, err error) string {
+	if api.Status(err) != http.StatusBadRequest || !manifest.DeclaresAllowFrontendPreviews() {
+		return ""
+	}
+	remedy := "remove it"
+	if deps.LocalMode {
+		remedy = "upgrade your local-mode server image, or remove it"
+	}
+	return "if this server predates frontend preview CORS, it refuses auth.cors.allow_frontend_previews this way: " + remedy
 }
 
 // isConfigEndpointMissing detects a 404 from a server without the config

@@ -27,6 +27,8 @@ type DurableFunctionDeployInput struct {
 	// declared none — which leaves an existing function's scope alone.
 	VariableScope *string
 	Variables     *[]string
+	// Commit is nil to report no commit.
+	Commit *FunctionCommit
 }
 
 // DurableExecutionStartInput contains one durable execution start request. Name
@@ -282,6 +284,9 @@ func buildDurableFunctionDeployMultipart(fn DurableFunctionDeployInput) (*bytes.
 			return nil, "", fmt.Errorf("failed to write variables field: %w", err)
 		}
 	}
+	if err := writeFunctionCommitField(writer, fn.Commit); err != nil {
+		return nil, "", err
+	}
 	if err := archive.WriteArchivePart(writer, "code", fn.Name, fn.SourceArchive); err != nil {
 		return nil, "", err
 	}
@@ -289,4 +294,17 @@ func buildDurableFunctionDeployMultipart(fn DurableFunctionDeployInput) (*bytes.
 		return nil, "", fmt.Errorf("failed to finalize multipart body: %w", err)
 	}
 	return body, writer.FormDataContentType(), nil
+}
+
+// ListDurableFunctionDeployments returns one page of a durable function's
+// deployments, newest first.
+func (c *Client) ListDurableFunctionDeployments(ctx context.Context, projectID, functionID uuid.UUID, page, limit int) (*apiclient.PaginatedFunctionDeployments, error) {
+	resp, err := c.client.ListDurableFunctionDeploymentsWithResponse(ctx, projectID, functionID.String(), &apiclient.ListDurableFunctionDeploymentsParams{
+		Page:  &page,
+		Limit: &limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404)
 }
