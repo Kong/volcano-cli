@@ -201,18 +201,10 @@ func (projectTokenNeedsProjectError) Is(target error) bool {
 	return target == config.ErrNoProjectSelectedForProjectToken
 }
 
-// ErrDelegatedGrantLogin refuses `login --token` with a delegated grant.
-var ErrDelegatedGrantLogin = errors.New("login does not save a delegated grant (" + config.DelegatedGrantPrefix +
-	"): pass it to each command in VOLCANO_TOKEN_FD or VOLCANO_TOKEN instead")
-
 // loginWithToken validates token, an account or project access token, for
 // LoginWithToken and LoginWithDeviceCode. userID is the user a device login
 // named, if any.
 func (s Service) loginWithToken(ctx context.Context, cfg *config.Config, token, userID, project string) (Credentials, error) {
-	// A grant is never saved to disk, so it is refused before any request.
-	if config.IsDelegatedGrant(token) {
-		return Credentials{}, ErrDelegatedGrantLogin
-	}
 	project = strings.TrimSpace(project)
 	apiURL := s.apiURL(cfg)
 	client, err := s.sessions.APIClient(apiURL, token)
@@ -221,7 +213,7 @@ func (s Service) loginWithToken(ctx context.Context, cfg *config.Config, token, 
 	}
 
 	origin := projectNamed
-	if project == "" && config.IsProjectBound(token) {
+	if project == "" && config.IsProjectToken(token) {
 		project, origin = unnamedProject(cfg)
 		if project == "" {
 			return Credentials{}, projectTokenNeedsProjectError{}
@@ -278,7 +270,7 @@ func resolveLoginProject(
 		return selected, nil
 	}
 
-	if config.IsProjectBound(token) {
+	if config.IsProjectToken(token) {
 		return nil, fmt.Errorf("invalid project %q: a project access token (%s) cannot look up a project by name, "+
 			"so name the project it was minted in by ID", identifier, config.ProjectTokenPrefix)
 	}

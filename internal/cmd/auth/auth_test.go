@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/api"
-	cliauth "github.com/Kong/volcano-cli/internal/auth"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -221,27 +220,6 @@ func TestLoginRefusesATokenAndADeviceCodeTogether(t *testing.T) {
 
 	_, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{}), "--token", "pk-account", "--device-code", authDeviceCode)
 	require.ErrorContains(t, err, "none of the others can be")
-}
-
-// A delegated grant is never saved: login refuses it before any request.
-func TestLoginRefusesADelegatedGrant(t *testing.T) {
-	setAuthTestHome(t)
-	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
-	}))
-	defer server.Close()
-
-	for _, token := range []string{cliconfig.DelegatedGrantPrefix + "grant-secret", " PG-grant-secret\n"} {
-		out, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
-			"--token", token, "--project", authProjectID)
-		require.ErrorIs(t, err, cliauth.ErrDelegatedGrantLogin)
-		require.ErrorContains(t, err, "pass it to each command in VOLCANO_TOKEN_FD or VOLCANO_TOKEN")
-		assert.NotContains(t, err.Error()+out, "grant-secret")
-	}
-
-	path, err := cliconfig.Path()
-	require.NoError(t, err)
-	assert.NoFileExists(t, path, "nothing is saved")
 }
 
 // Nothing can discover which project a pt- token belongs to: listing projects
