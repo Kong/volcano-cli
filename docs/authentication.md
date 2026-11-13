@@ -111,8 +111,7 @@ project access token. See
 
 A delegated grant (`pg-`) is what a Volcano app uses to act on a project you
 consented to. Like a project access token, it reaches one project; Volcano
-also limits it to the commands you consented to. Pass it in `VOLCANO_TOKEN`.
-`volcano login` refuses a grant, so it is never saved to disk.
+also limits it to the commands you consented to. Pass it in `VOLCANO_TOKEN`; don't save it with `volcano login`.
 A grant that has used up its changes fails with exit code `6`. See
 [scripting.md](scripting.md#exit-codes).
 
