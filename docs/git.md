@@ -23,7 +23,8 @@ into an empty repository; Volcano pushes that first commit itself.
   set up either yet; see
   [Prerequisites the CLI cannot set up](#prerequisites-the-cli-cannot-set-up).
 - `connect` reads that account-wide GitHub connection, so it needs an account
-  token (`pk-`) and says so when run with a project access token. Which
+  token (`pk-`) and says so when run with a project access token or a
+  delegated grant. Which
   repository a project deploys from is a person's choice.
 - `root-directory` changes only the subdirectory the connected repository
   builds from, and works with a project access token, so a CI job or an agent

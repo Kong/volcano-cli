@@ -13,7 +13,8 @@ projects, with no further record.
 ## How it relates
 
 - Belongs to your **account**, not a project, so the commands need an account
-  token from `volcano login`. A project access token is refused.
+  token from `volcano login`. A project access token or a delegated grant is
+  refused.
 - Every **frontend custom domain** must sit at or below a domain your account
   has verified. `volcano cloud frontends domains add`, `volcano cloud frontends
   domain create`, and `volcano cloud config deploy` print the record to publish

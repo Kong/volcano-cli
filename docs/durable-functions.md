@@ -242,8 +242,8 @@ any decision on an expired or cancelled approval, fails with what happened, for
 example `approval … was already approved by owner@example.com at …`. An approval
 past its timeout counts as expired, even while it still reads `pending`.
 
-Approvals are decided by a person. A command run with a project access token is
-refused before it asks; run `volcano login` with `VOLCANO_TOKEN` unset, then
+Approvals are decided by a person. A command run with a project access token or
+a delegated grant is refused before it asks; run `volcano login` with `VOLCANO_TOKEN` unset, then
 decide again.
 
 `stats` counts the approvals requested in a window, 30 days unless `--since`

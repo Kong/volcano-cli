@@ -35,8 +35,8 @@ volcano feedback \
   --workaround "Parsed the table output instead."
 ```
 
-Sending a report requires `volcano login`. A project access token cannot send
-one. See [When a report is not sent](#when-a-report-is-not-sent).
+Sending a report requires `volcano login`. A project access token or a
+delegated grant cannot send one. See [When a report is not sent](#when-a-report-is-not-sent).
 
 | Flag | Required | Limit | Content |
 |---|---|---|---|
@@ -137,7 +137,8 @@ environment variable values, application data, or customer names in a report.
 when this run shows it, and exits 0 when:
 
 - Feedback is off. See [Turn it off](#turn-it-off).
-- You are not logged in, or are logged in only with a project access token.
+- You are not logged in, or your credential is a project access token or a
+  delegated grant.
 - The first-run notice has not been shown yet. The first `volcano` command on a
   machine shows it, and reports are sent from the next command on. Where
   `~/.volcano/config.json` cannot be saved, such as a read-only home, the
