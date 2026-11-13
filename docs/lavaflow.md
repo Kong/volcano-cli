@@ -74,10 +74,9 @@ LavaFlow belongs to the project's owner. For anyone else, every command says
 code 4. A project access token can run the read commands for its own
 project, but only the owner's own session can turn LavaFlow on or off,
 change its settings and start runs: `enable`, `disable`, `settings set` and
-`runs start` refuse a project access token before they ask or send anything,
-with code 5. Sign in with
-`volcano login` instead, and if `VOLCANO_TOKEN` holds a project access token,
-unset it first.
+`runs start` refuse a project access token or a delegated grant before they
+ask or send anything, with code 5. Sign in with `volcano login` instead, and if
+`VOLCANO_TOKEN` holds either, unset it first.
 
 When the owner's plan can't be read, a command says "LavaFlow couldn't read
 the project owner's plan; try again later" and exits with code 5. A change
@@ -220,8 +219,8 @@ ended, an owner whose GitHub account can't push to the repository, or a
 project with no repository. The command says why in Volcano's words and exits with code 5.
 [Checking that the owner can push](/platform/projects/git-deploy#check-that-the-owner-can-push)
 says why the owner can't. While `VOLCANO_TOKEN` is set, its token is used
-instead of a `volcano login` sign-in. A project access token is refused before
-anything is sent, also with code 5. Merging applies to the
+instead of a `volcano login` sign-in. A project access token or a delegated
+grant is refused before anything is sent, also with code 5. Merging applies to the
 repository the project is connected to when you turn it on: once the project
 is connected to another, autonomy reads `open_pr` until you turn merge on
 again. Merging is only for a project where
