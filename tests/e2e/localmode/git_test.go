@@ -26,6 +26,7 @@ func requireLocalModeLeavesGitToTheCloud(t *testing.T, binary string, env []stri
 		{"git", "production-branch", "release"},
 		{"git", "auto-deploy", "on"},
 		{"git", "functions", "on"},
+		{"git", "migrations", "on", "--yes"},
 		{"git", "frontend", "web", "--root", "apps/web"},
 	} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, local, dir, args...)

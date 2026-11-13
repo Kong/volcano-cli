@@ -36,7 +36,9 @@ project needs a connected repository first: see '%s'.`,
 			}
 			return runDeploySetting(cmd.Context(), deps, cmd.OutOrStdout(), deploySetting{
 				subcommand: "auto-deploy",
-				change: func(ctx context.Context, service gitconnect.Service) (*apiclient.ProjectGitDeploySettings, error) {
+				change: func(
+					ctx context.Context, service gitconnect.Service, _ *apiclient.ProjectGitConnection,
+				) (*apiclient.ProjectGitDeploySettings, error) {
 					return service.SetAutoDeploy(ctx, on)
 				},
 				render: output.GitAutoDeploySet,

@@ -28,7 +28,7 @@ into an empty repository; Volcano pushes that first commit itself.
 - `root-directory` changes only the subdirectory the connected repository
   builds from, and works with a project access token, so a CI job or an agent
   can use it.
-- `production-branch`, `auto-deploy`, `functions` and `frontend` each change
+- `production-branch`, `auto-deploy`, `functions`, `migrations` and `frontend` each change
   one thing about what a push deploys, and also work with a project access
   token.
 - What a push actually deploys is governed by the project's Git deploy settings,
@@ -47,6 +47,7 @@ into an empty repository; Volcano pushes that first commit itself.
 | Change the branch that deploys | `volcano git production-branch <branch>` |
 | Turn deploying on push on or off | `volcano git auto-deploy on\|off` |
 | Choose whether functions deploy | `volcano git functions on\|off` |
+| Choose whether a push applies database migrations | `volcano git migrations on\|off [--yes]` |
 | Choose the frontend a push deploys | `volcano git frontend <name> [--root <path>]` |
 | Export the project's source to an empty repository | `volcano git export [--branch <branch>]` |
 | Cancel an incomplete export | `volcano git export cancel` |
@@ -61,7 +62,8 @@ volcano git status
 This reports the project's own binding and every Git deploy setting: the
 repository, the branch a push has to land on and whether it follows the
 repository's default branch or is pinned, the subdirectory it builds from,
-whether auto-deploy is on, whether functions deploy, and the frontend with the
+whether auto-deploy is on, whether functions deploy, whether a push applies
+database migrations, and the frontend with the
 directory it builds from. It also reports the project's source of truth:
 Volcano, or the repository once an export has handed it over. It ends with what
 a push deploys. It does
@@ -279,6 +281,34 @@ Turning either setting off removes nothing: what is already deployed stays up.
 The other deploy settings stay as they were, and the command says what a push
 deploys from now on. Both work with a project access token.
 
+## Applying database migrations on push
+
+```bash
+volcano git migrations on       # asks for confirmation; --yes skips it
+volcano git migrations off
+```
+
+While it is on, each push to the production branch applies the commit's
+pending migrations, the SQL files under `volcano/migrations`, before anything
+deploys. Each database gets a tracked migration run; when one fails, nothing
+from the push deploys and the live version keeps serving. It is off until you
+turn it on. Like every push deploy, it needs auto-deploy on; with neither
+functions nor a frontend selected, a push applies its migrations and deploys no
+code.
+
+Anyone who can push to the production branch can then run any SQL as the
+database owner, so protect that branch first. The confirmation names the
+repository and branch; if the connection changes before you answer, nothing is
+saved. Volcano applies only the files
+its migration history does not list yet: if some were already applied another
+way, record them first with `volcano cloud databases migration baseline`. See
+[Database migrations](databases.md) for the files and runs.
+
+Turning it off undoes nothing: applied migrations stay, and pushes stop
+applying new ones. The other settings change nothing about it, and it changes
+nothing about them. Where database migrations are not available, turning it on
+fails and saves nothing.
+
 ## Choosing the frontend a push deploys
 
 A connected repository deploys its functions on push. To deploy a frontend from
@@ -399,8 +429,8 @@ integration is not configured. Run these commands against the cloud API.
 
 `volcano git disconnect` reads only the project's own binding, which does not
 touch GitHub, so it reports that the project has nothing connected instead.
-`volcano git root-directory`, `production-branch`, `auto-deploy`, `functions`
-and `frontend` report that the integration is not configured, since no
+`volcano git root-directory`, `production-branch`, `auto-deploy`, `functions`,
+`migrations` and `frontend` report that the integration is not configured, since no
 repository can be connected there for them to change. `volcano git export`
 reports that source export is not available: local mode serves functions from a
 directory on your machine, so Volcano stores no source to export.
