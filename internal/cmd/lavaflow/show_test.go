@@ -654,3 +654,56 @@ func TestShowSaysWhenNoReviewerCouldRun(t *testing.T) {
 	assert.Contains(t, out, "Review: error; no reviewer could run\nReview stopped: ")
 	assert.NotContains(t, out, "0 round(s)")
 }
+
+// show says where the run's issue came from, so a run on a failed build reads
+// as a build fix. A server older than issue.source sends an issue without it,
+// or no issue, and show prints no line; --json keeps the issue as sent.
+func TestShowSaysWhereTheIssueCameFrom(t *testing.T) {
+	for source, want := range map[string]string{
+		"build":           "Issue source: failed build\n",
+		"runtime":         "Issue source: runtime error\n",
+		"code_quality":    "Issue source: Code Quality finding\n",
+		"report":          "Issue source: reported problem\n",
+		"new_kind":        "Issue source: new kind\n",
+		"lint\x1b[2Jcode": "Issue source: lint\\x1b[2Jcode\n",
+	} {
+		fake, deps := newLavaflowServer(t)
+		issue := buildIssue(source)
+		fake.set(func(s *lavaflowServer) { s.runs[0]["issue"] = issue })
+
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, source)
+		assert.Contains(t, out, "Issue: "+lavaflowIssueID+"\n"+want+"Source: commit 4f1c2b3", source)
+
+		out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID, "--json")
+		require.NoError(t, err, source)
+		assert.Equal(t, asJSON(t, issue), decodeJSON(t, out)["issue"], source)
+	}
+
+	for name, issue := range map[string]any{
+		"no source": func() map[string]any { issue := buildIssue(""); delete(issue, "source"); return issue }(),
+		"no issue":  nil,
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) { s.runs[0]["issue"] = issue })
+		out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+		require.NoError(t, err, name)
+		assert.NotContains(t, out, "Issue source", name)
+		assert.Contains(t, out, "Issue: "+lavaflowIssueID+"\nSource: commit 4f1c2b3", name)
+	}
+
+	_, deps := newLavaflowServer(t)
+	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
+	require.NoError(t, err)
+	assert.NotContains(t, out, "Issue source", "absent")
+}
+
+// buildIssue is the issue a run works on, as the API summarizes it, with this
+// source: a failed build's first error, its file:line and its failed deploys.
+func buildIssue(source string) map[string]any {
+	return map[string]any{
+		"id": lavaflowIssueID, "title": "TS2322: Type 'string' is not assignable to type 'number'.",
+		"culprit": "src/cart.ts:14", "status": "open", "source": source, "event_count": 3,
+		"last_seen_at": "2026-10-30T08:59:00Z", "resolved_at": nil, "regressed_at": nil,
+	}
+}

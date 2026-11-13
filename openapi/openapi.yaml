@@ -10602,7 +10602,10 @@ paths:
       description: |
         Lists the project's issues, most recently seen first. An issue groups
         the runtime errors one function or frontend raised with the same error
-        type and stack, or the same message when there is no stack.
+        type and stack, or the same message when there is no stack; the
+        deploys of one function or frontend whose own build failed with the
+        same first error (`source` `build`); or one Code Quality finding or
+        reported problem.
 
         Project access tokens can list issues, including read-only ones.
       operationId: listIssues
@@ -10626,6 +10629,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: source
+          in: query
+          required: false
+          description: Return only issues from this source, such as `build` for failed builds.
+          schema:
+            $ref: '#/components/schemas/IssueSource'
       responses:
         '200':
           description: Successful response
@@ -30898,7 +30907,7 @@ components:
         - status
     Issue:
       type: object
-      description: Runtime errors from one function or frontend, grouped by error type and stack, one LavaFlow Code Quality finding, or a user-reported project problem. A report has a project resource, zero runtime occurrences, and report times as its first and last seen times.
+      description: Runtime errors from one function or frontend, grouped by error type and stack, one LavaFlow Code Quality finding, failed builds of one function or frontend with the same first error, or a user-reported project problem. A report has a project resource, zero runtime occurrences, and report times as its first and last seen times.
       properties:
         id:
           type: string
@@ -30922,12 +30931,7 @@ components:
         status:
           $ref: '#/components/schemas/IssueStatus'
         source:
-          type: string
-          enum:
-            - runtime
-            - code_quality
-            - report
-          description: 'Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue''s `error_type` is the finding''s rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it.'
+          $ref: '#/components/schemas/IssueSource'
         finding:
           allOf:
             - $ref: '#/components/schemas/IssueFinding'
@@ -30939,7 +30943,9 @@ components:
             logged with `console.error(err)` or Python's `logger.exception()`.
             `false` for an error logged any other way, such as a structured log
             line, a logger's error line, or a printed traceback, and for every
-            `code_quality` issue. Once `true`, it stays `true`.
+            `code_quality` issue. `true` for every `build` issue: a failed build
+            stops its deploy as an exception stops a request. Once `true`, it
+            stays `true`.
         event_count:
           type: integer
           format: int64
@@ -30998,6 +31004,14 @@ components:
         seen again reopens. A reported problem resolves when its LavaFlow fix
         merges. Volcano ignores one whose report it deleted before any fix
         merged, so it no longer counts toward the project's open issues.
+    IssueSource:
+      type: string
+      enum:
+        - runtime
+        - code_quality
+        - build
+        - report
+      description: 'Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, `build` for deploys of one function or frontend that failed in its own build step, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue''s `error_type` is the finding''s rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it. A `build` issue''s `title` is the build''s first error, its `error_type` the tool''s code, such as `TS2322` or `npm ETARGET`, its `culprit` the error''s `file:line`, its `event_count` the failed deploys, and its `last_deployment_id` the latest of them. A later deploy that builds resolves it. Deploys Volcano failed, such as a timeout or a refused build, never make one.'
     PaginatedIssues:
       type: object
       properties:
@@ -31147,13 +31161,15 @@ components:
         culprit:
           type: string
           nullable: true
-          description: The innermost frame of your code, as `function (file)`; for a Code Quality finding, the symbol and file it is in, as `symbol (file)`, or the file alone. Null for an error without a stack and for a reported problem.
+          description: The innermost frame of your code, as `function (file)`; for a Code Quality finding, the symbol and file it is in, as `symbol (file)`, or the file alone; for a failed build, its first error's `file:line`. Null for an error without a stack and for a reported problem.
         status:
           $ref: '#/components/schemas/IssueStatus'
+        source:
+          $ref: '#/components/schemas/IssueSource'
         event_count:
           type: integer
           format: int64
-          description: Errors the issue has grouped so far; for a Code Quality finding, the scans that saw it; 0 for a reported problem.
+          description: Errors the issue has grouped so far; for a Code Quality finding, the scans that saw it; for a failed build, the failed deploys; 0 for a reported problem.
         last_seen_at:
           type: string
           format: date-time

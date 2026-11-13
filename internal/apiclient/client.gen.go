@@ -2280,27 +2280,6 @@ func (e ImportProvider) Valid() bool {
 	}
 }
 
-// Defines values for IssueSource.
-const (
-	IssueSourceCodeQuality IssueSource = "code_quality"
-	IssueSourceReport      IssueSource = "report"
-	IssueSourceRuntime     IssueSource = "runtime"
-)
-
-// Valid indicates whether the value is a known member of the IssueSource enum.
-func (e IssueSource) Valid() bool {
-	switch e {
-	case IssueSourceCodeQuality:
-		return true
-	case IssueSourceReport:
-		return true
-	case IssueSourceRuntime:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for IssueFindingSeverity.
 const (
 	Critical IssueFindingSeverity = "critical"
@@ -2319,6 +2298,30 @@ func (e IssueFindingSeverity) Valid() bool {
 	case Minor:
 		return true
 	case Nit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IssueSource.
+const (
+	IssueSourceBuild       IssueSource = "build"
+	IssueSourceCodeQuality IssueSource = "code_quality"
+	IssueSourceReport      IssueSource = "report"
+	IssueSourceRuntime     IssueSource = "runtime"
+)
+
+// Valid indicates whether the value is a known member of the IssueSource enum.
+func (e IssueSource) Valid() bool {
+	switch e {
+	case IssueSourceBuild:
+		return true
+	case IssueSourceCodeQuality:
+		return true
+	case IssueSourceReport:
+		return true
+	case IssueSourceRuntime:
 		return true
 	default:
 		return false
@@ -10198,7 +10201,7 @@ type ImportSourcesResponse struct {
 	Sources []ImportSource `json:"sources"`
 }
 
-// Issue Runtime errors from one function or frontend, grouped by error type and stack, one LavaFlow Code Quality finding, or a user-reported project problem. A report has a project resource, zero runtime occurrences, and report times as its first and last seen times.
+// Issue Runtime errors from one function or frontend, grouped by error type and stack, one LavaFlow Code Quality finding, failed builds of one function or frontend with the same first error, or a user-reported project problem. A report has a project resource, zero runtime occurrences, and report times as its first and last seen times.
 type Issue struct {
 	CreatedAt time.Time `json:"created_at"`
 
@@ -10215,7 +10218,9 @@ type Issue struct {
 	// logged with `console.error(err)` or Python's `logger.exception()`.
 	// `false` for an error logged any other way, such as a structured log
 	// line, a logger's error line, or a printed traceback, and for every
-	// `code_quality` issue. Once `true`, it stays `true`.
+	// `code_quality` issue. `true` for every `build` issue: a failed build
+	// stops its deploy as an exception stops a request. Once `true`, it
+	// stays `true`.
 	Exception bool `json:"exception"`
 
 	// Finding The finding behind a `code_quality` issue. Absent on a `runtime` issue.
@@ -10243,7 +10248,7 @@ type Issue struct {
 	// SampleEventId The ID of the latest error's log event, while logs retain it.
 	SampleEventId *string `json:"sample_event_id,omitempty"`
 
-	// Source Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it.
+	// Source Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, `build` for deploys of one function or frontend that failed in its own build step, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it. A `build` issue's `title` is the build's first error, its `error_type` the tool's code, such as `TS2322` or `npm ETARGET`, its `culprit` the error's `file:line`, its `event_count` the failed deploys, and its `last_deployment_id` the latest of them. A later deploy that builds resolves it. Deploys Volcano failed, such as a timeout or a refused build, never make one.
 	Source IssueSource `json:"source"`
 
 	// Status `open` until someone resolves or ignores the issue. A resolved issue
@@ -10257,9 +10262,6 @@ type Issue struct {
 	Title     string    `json:"title"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
-
-// IssueSource Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it.
-type IssueSource string
 
 // IssueFinding The LavaFlow Code Quality finding behind a `code_quality` issue.
 type IssueFinding struct {
@@ -10287,6 +10289,9 @@ type IssueFinding struct {
 
 // IssueFindingSeverity How much the problem matters, as the finding was confirmed.
 type IssueFindingSeverity string
+
+// IssueSource Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, `build` for deploys of one function or frontend that failed in its own build step, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it. A `build` issue's `title` is the build's first error, its `error_type` the tool's code, such as `TS2322` or `npm ETARGET`, its `culprit` the error's `file:line`, its `event_count` the failed deploys, and its `last_deployment_id` the latest of them. A later deploy that builds resolves it. Deploys Volcano failed, such as a timeout or a refused build, never make one.
+type IssueSource string
 
 // IssueStatus `open` until someone resolves or ignores the issue. A resolved issue
 // seen again reopens. A reported problem resolves when its LavaFlow fix
@@ -10466,10 +10471,10 @@ type LavaflowInvolvedResourceCount struct {
 
 // LavaflowIssueSummary The project issue a run works on.
 type LavaflowIssueSummary struct {
-	// Culprit The innermost frame of your code, as `function (file)`; for a Code Quality finding, the symbol and file it is in, as `symbol (file)`, or the file alone. Null for an error without a stack and for a reported problem.
+	// Culprit The innermost frame of your code, as `function (file)`; for a Code Quality finding, the symbol and file it is in, as `symbol (file)`, or the file alone; for a failed build, its first error's `file:line`. Null for an error without a stack and for a reported problem.
 	Culprit *string `json:"culprit"`
 
-	// EventCount Errors the issue has grouped so far; for a Code Quality finding, the scans that saw it; 0 for a reported problem.
+	// EventCount Errors the issue has grouped so far; for a Code Quality finding, the scans that saw it; for a failed build, the failed deploys; 0 for a reported problem.
 	EventCount int64              `json:"event_count"`
 	Id         openapi_types.UUID `json:"id"`
 	LastSeenAt time.Time          `json:"last_seen_at"`
@@ -10482,6 +10487,9 @@ type LavaflowIssueSummary struct {
 
 	// RunCount LavaFlow runs on this issue, this one included.
 	RunCount int64 `json:"run_count"`
+
+	// Source Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, `build` for deploys of one function or frontend that failed in its own build step, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it. A `build` issue's `title` is the build's first error, its `error_type` the tool's code, such as `TS2322` or `npm ETARGET`, its `culprit` the error's `file:line`, its `event_count` the failed deploys, and its `last_deployment_id` the latest of them. A later deploy that builds resolves it. Deploys Volcano failed, such as a timeout or a refused build, never make one.
+	Source *IssueSource `json:"source,omitempty"`
 
 	// Status `open` until someone resolves or ignores the issue. A resolved issue
 	// seen again reopens. A reported problem resolves when its LavaFlow fix
@@ -17397,6 +17405,9 @@ type ListIssuesParams struct {
 
 	// ResourceId Return only issues raised by this function or frontend.
 	ResourceId *openapi_types.UUID `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+
+	// Source Return only issues from this source, such as `build` for failed builds.
+	Source *IssueSource `form:"source,omitempty" json:"source,omitempty"`
 }
 
 // UploadProjectLogoMultipartBody defines parameters for UploadProjectLogo.
@@ -42331,6 +42342,18 @@ func NewListIssuesRequest(server string, id ProjectId, params *ListIssuesParams)
 		if params.ResourceId != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_id", *params.ResourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Source != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", *params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
