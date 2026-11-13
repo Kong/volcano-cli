@@ -312,10 +312,11 @@ func (r *Recorder) feedbackNoticeShown() bool {
 // agent request headers: no env opt-out, not turned off with `volcano telemetry
 // disable`, and the first-run notice already shown by an earlier process. A
 // config that cannot be read, or a run before the notice (including every run
-// in a home where the notice can never be saved), counts as off.
+// in a home where the notice can never be saved), counts as off, and so does a
+// development build pointed at the production API (see DevBuildToProduction).
 func (r *Recorder) Reporting() bool {
 	r.setup()
-	return r.cfgErr == nil && r.telemetryAnnounced()
+	return r.cfgErr == nil && r.telemetryAnnounced() && !DevBuildToProduction(r.cfg.APIURL())
 }
 
 // telemetryAnnounced reports whether the config was read and telemetry is on

@@ -551,8 +551,15 @@ func TestFeedback_InputErrors(t *testing.T) {
 
 func TestFeedback_DevBuildSendsNothingToProduction(t *testing.T) {
 	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
-	// Never contacted: a development build stops before sending.
 	t.Setenv("VOLCANO_API_URL", "https://api.volcano.dev")
+	// Requests stop at this transport, so a broken gate fails the test
+	// instead of posting a report to production.
+	var sent []string
+	sendClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		sent = append(sent, req.URL.String())
+		return &http.Response{StatusCode: http.StatusAccepted, Body: http.NoBody, Request: req}, nil
+	})}
+	t.Cleanup(func() { sendClient = nil })
 	old := version.Version
 	version.Version = "dev"
 	t.Cleanup(func() { version.Version = old })
@@ -562,6 +569,7 @@ func TestFeedback_DevBuildSendsNothingToProduction(t *testing.T) {
 	assert.Empty(t, stdout)
 	assert.Contains(t, stderr, "Feedback not sent: a development build sends no report to the production API")
 	assert.Empty(t, *reports)
+	assert.Empty(t, sent)
 
 	_, stderr, err = run(t, append([]string{"--dry-run"}, reportArgs...)...)
 	require.NoError(t, err)
@@ -575,4 +583,15 @@ func TestFeedback_DevBuildSendsNothingToProduction(t *testing.T) {
 	stdout, _, err = run(t, reportArgs...)
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "Feedback sent. ID: ", "the debug setting still saves the report locally")
+	assert.Empty(t, sent)
+
+	t.Setenv(telemetry.EnvFeedbackDebug, "")
+	version.Version = "v0.60.0"
+	_, _, err = run(t, reportArgs...)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"https://api.volcano.dev/cli/feedback"}, sent, "a release build sends the report")
 }
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }

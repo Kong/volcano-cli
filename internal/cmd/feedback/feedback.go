@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,6 +33,10 @@ const devBuildReason = "a development build sends no report to the production AP
 	"Point VOLCANO_API_URL at staging or a local server, or set " + telemetry.EnvFeedbackDebug + "=1 to save reports locally"
 
 const devBuildNotSent = "Feedback not sent: " + devBuildReason + "."
+
+// sendClient is the HTTP client reports are sent with; nil uses feedback.Send's
+// default. Tests replace it so that no request leaves the process.
+var sendClient *http.Client
 
 // SetRecorder makes the command use the process's telemetry recorder.
 func SetRecorder(r *telemetry.Recorder) { recorder = r }
@@ -179,7 +184,7 @@ disable or VOLCANO_FEEDBACK_DISABLED=1.`,
 			} else {
 				// Always the cloud API, also in local mode: reports go to
 				// the Volcano team, not the local server.
-				if err := feedback.Send(cmd.Context(), nil, cfg.APIURL(), token, payload); err != nil {
+				if err := feedback.Send(cmd.Context(), sendClient, cfg.APIURL(), token, payload); err != nil {
 					return fmt.Errorf("send feedback: %w", err)
 				}
 			}
@@ -355,8 +360,9 @@ func saveReport(payload []byte) error {
 }
 
 // printReport prints report for --dry-run, and says so when a real run would
-// send nothing: feedback is off, the first-run notice has not been shown, or
-// the user is logged out or uses a project access token.
+// send nothing: feedback is off, the first-run notice has not been shown, the
+// user is logged out or uses a project access token, or a development build
+// points at the production API.
 func printReport(cmd *cobra.Command, report feedback.Report, sends bool) error {
 	out, err := encodeReport(report, "  ")
 	if err != nil {
