@@ -53,7 +53,7 @@ func TestMigrationRunConflictKeepsTheRunItNames(t *testing.T) {
 	require.True(t, ok, err)
 	assert.Equal(t, runID, inProgress.RunID)
 	assert.Equal(t, http.StatusConflict, Status(err))
-	assert.Equal(t, CodeMigrationRunInProgress, Code(err))
+	assert.Equal(t, MigrationRunInProgressCode, Code(err))
 	assert.Equal(t, "volcano-cli-1", key)
 }
 
