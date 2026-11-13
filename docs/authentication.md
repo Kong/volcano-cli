@@ -52,14 +52,17 @@ export VOLCANO_TOKEN=pk-xxxxxxxxxx
 
 ## Account tokens and project access tokens
 
-The CLI accepts two kinds of credential:
+The CLI accepts three kinds of credential:
 
 | Credential | Reaches | Get one with |
 |---|---|---|
 | Account token (`pk-`) | Every project you own | `volcano login` |
 | Project access token (`pt-`) | One project | `volcano cloud access-tokens create` |
+| Delegated grant (`pg-`) | One project, only the commands you consented to | An app you consent to |
 
-Both work with `volcano login --token` and with `VOLCANO_TOKEN`.
+Account tokens and project access tokens work with `volcano login --token` and
+with `VOLCANO_TOKEN`. A delegated grant works only in `VOLCANO_TOKEN`; see
+[Delegated grants](#delegated-grants).
 
 The prompt on the dashboard's Projects page holds a device code instead of a
 token. It works with `--device-code` on `volcano login` or `volcano connect`:
@@ -112,6 +115,8 @@ also limits it to the commands you consented to. Pass it in `VOLCANO_TOKEN`.
 `volcano login` refuses a grant, so it is never saved to disk.
 A grant that has used up its changes fails with exit code `6`. See
 [scripting.md](scripting.md#exit-codes).
+
+## Log out
 
 Log out at any time:
 
