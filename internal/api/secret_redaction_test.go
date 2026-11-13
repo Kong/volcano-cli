@@ -184,3 +184,57 @@ func TestRedactedErrorsStillCarryTheStatus(t *testing.T) {
 	assert.Equal(t, http.StatusOK, apiErr.StatusCode)
 	assert.Contains(t, err.Error(), "200", "the status should still be reported")
 }
+
+// A migration run quotes the database's errors, which can quote data. A run
+// the parser did not accept, such as one whose Content-Type was stripped on
+// the way, must not become an error message, which usage telemetry sends.
+func TestMigrationRunNeverPutsTheRunInAnError(t *testing.T) {
+	const quoted = "Key (email)=(alice@example.com) already exists"
+	body := `{"id":"11111111-1111-4111-8111-111111111111","status":"failed","phase":"apply",` +
+		`"files":[{"name":"001.sql","outcome":"failed","error":{"message":"` + quoted + `"}}]}`
+	for _, status := range []int{http.StatusAccepted, http.StatusOK} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "text/plain")
+				w.WriteHeader(status)
+				_, _ = w.Write([]byte(body))
+			}))
+			t.Cleanup(server.Close)
+			client, err := NewClient(server.URL, "pg-grant", WithHTTPClient(server.Client()))
+			require.NoError(t, err)
+
+			_, err = client.CreateDatabaseMigrationRun(context.Background(), redactionTestProjectID(t), "app", "key", nil)
+			require.Error(t, err, "an unparseable response must not read as success")
+			assert.NotContains(t, err.Error(), "alice")
+			assert.Equal(t, status, Status(err))
+
+			_, err = client.GetDatabaseMigrationRun(context.Background(), redactionTestProjectID(t), "app",
+				uuid.MustParse("11111111-1111-4111-8111-111111111111"))
+			require.Error(t, err)
+			assert.NotContains(t, err.Error(), "alice")
+		})
+	}
+}
+
+// Dropping the run must not cost a refusal its message or code, even one whose
+// status the API does not declare for these routes.
+func TestMigrationRunKeepsTheRefusalMessage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`{"error":"the delegated grant has no mutations left","code":"grant_budget_exhausted"}`))
+	}))
+	t.Cleanup(server.Close)
+	client, err := NewClient(server.URL, "pg-grant", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.CreateDatabaseMigrationRun(context.Background(), redactionTestProjectID(t), "app", "key", nil)
+	require.Error(t, err)
+	assert.Equal(t, http.StatusTooManyRequests, Status(err))
+	assert.Equal(t, "grant_budget_exhausted", Code(err))
+	assert.Contains(t, err.Error(), "the delegated grant has no mutations left")
+
+	_, err = client.GetDatabaseMigrationRun(context.Background(), redactionTestProjectID(t), "app", uuid.New())
+	require.Error(t, err)
+	assert.Equal(t, "grant_budget_exhausted", Code(err))
+}

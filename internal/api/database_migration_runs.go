@@ -57,7 +57,9 @@ func (c *Client) CreateDatabaseMigrationRun(
 	case resp.JSON409 != nil:
 		return nil, migrationConflictError(resp.JSON409)
 	}
-	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON413)
+	// A run the parser did not accept quotes database errors, which can quote
+	// data, so only an error body's own fields reach the error.
+	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON400, resp.JSON404, resp.JSON413)
 }
 
 // BaselineDatabaseMigrations records files in databaseName's migration
@@ -101,5 +103,5 @@ func (c *Client) GetDatabaseMigrationRun(
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404)
+	return apiResult(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON200, resp.JSON404)
 }
