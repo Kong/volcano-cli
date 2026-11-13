@@ -30,12 +30,43 @@ it using its connection string.
 | Change size (cloud) | `volcano cloud databases resize <name> --type <size>` |
 | Apply local migrations | `volcano migrations deploy --all -d <db>` |
 | Apply cloud migrations | `volcano cloud databases migration up --all -d <db>` |
+| Record cloud migrations as applied without running them | `volcano cloud databases migration baseline -d <db> -f <file>` |
 
 Local migrations run from `volcano/migrations` against a local database. Cloud
 migrations use the cloud database command and connect through the managed
 database proxy; the local `migrations deploy` command does not have a cloud
 variant. [`volcano deploy --with-migrations`](deploy.md) runs the same
 migrations as part of a whole-project deploy.
+
+With a [delegated grant](authentication.md#delegated-grants) (`pg-`), `volcano cloud
+databases migration up` sends the files to a server-side migration run instead
+of connecting to the database. The run skips files the database's migration
+history already records. Before it applies the rest, it rehearses them on a
+short-lived branch of the database and takes a backup, where the platform and
+your plan offer branches and backups. When the run skips either step, the
+command prints a `Warning:` line saying so, and the files are applied without
+it. Where migration runs are not available, the command fails and applies
+nothing.
+
+Files applied by an earlier `up` that connected to the database directly are
+not in that history, so a run tries them again. When a run fails because an
+object already exists, the error names the file. If the database already holds
+everything that file creates, record the file as applied without running it,
+then run `up` again:
+
+```bash
+# Record named files; -f takes a name or a path and can repeat
+volcano cloud databases migration baseline -d <db> -f 001_create_users -f 002_add_posts
+
+# Record every file in volcano/migrations
+volcano cloud databases migration baseline -d <db> --all
+```
+
+Record only files the database already reflects: a recorded file never runs.
+A file the history already records with the same content is skipped; one
+recorded with different content is refused, and nothing is recorded. The
+command asks for confirmation first; `--yes` skips the prompt, and `--json`
+prints the result as JSON.
 
 Each file runs as a single query, and the database proxy refuses a query with
 more than one statement, so put one SQL statement in each file. Files run in

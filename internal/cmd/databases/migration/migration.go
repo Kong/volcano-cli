@@ -15,6 +15,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	clidatabase "github.com/Kong/volcano-cli/internal/database"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	clisession "github.com/Kong/volcano-cli/internal/session"
 )
 
 type sqlExecutor func(context.Context, string, string) error
@@ -51,6 +52,7 @@ func newWithExecutor(deps cliruntime.Deps, executor sqlExecutor) *cobra.Command 
 		Long:  "Apply SQL migrations from the volcano/migrations directory.",
 	}
 	cmd.AddCommand(newUp(deps, executor))
+	cmd.AddCommand(newBaseline(deps))
 	return cmd
 }
 
@@ -67,7 +69,11 @@ The --database flag is required. The CLI connects directly to your database via
 pgproxy and executes the SQL files.
 
 WARNING: Migrations are executed without tracking. You are responsible for not
-re-running non-idempotent migrations.`,
+re-running non-idempotent migrations.
+
+With a delegated grant (pg-) in VOLCANO_TOKEN, the files go to a server-side
+migration run instead: the CLI never reads the connection string, and the run
+skips files the database's migration history already records.`,
 		cliruntime.CommandPath(deps, "databases migration up --all -d mydb"),
 		cliruntime.CommandPath(deps, "databases migration up -a -d mydb"),
 		cliruntime.CommandPath(deps, "databases migration up -d mydb -f 001_create_users"),
@@ -173,6 +179,12 @@ func runUp(ctx context.Context, opts upOptions) error {
 		}
 	} else {
 		fmt.Fprintf(opts.out, "\nExecuting migration: %s\n", filepath.Base(migrationFiles[0]))
+	}
+
+	// A delegated grant never reads the connection string: the server applies
+	// the files instead. See runs.go.
+	if sessions := clisession.NewFactory(opts.deps); usesMigrationRuns(sessions) {
+		return applyThroughRun(ctx, sessions, opts.database, migrationFiles, opts.out)
 	}
 
 	database, err := clidatabase.NewService(opts.deps).Get(ctx, opts.database)
