@@ -11,6 +11,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/telemetry"
+	"github.com/Kong/volcano-cli/internal/version"
 )
 
 func runCmd(t *testing.T, args ...string) (string, string) {
@@ -89,4 +90,20 @@ func TestTelemetryCommandsAreNeverRecorded(t *testing.T) {
 	flush, _, err := cmd.Find([]string{"flush"})
 	require.NoError(t, err)
 	assert.True(t, flush.Hidden)
+}
+
+func TestTelemetryStatus_DevBuildToProduction(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(telemetry.EnvDisabled, "")
+	t.Setenv("VOLCANO_API_URL", "https://api.volcano.dev")
+	old := version.Version
+	t.Cleanup(func() { version.Version = old })
+
+	version.Version = "dev"
+	out, _ := runCmd(t, "status")
+	assert.Contains(t, out, "This development build sends no usage data to the production API.")
+
+	version.Version = "v0.60.0"
+	out, _ = runCmd(t, "status")
+	assert.Equal(t, "Telemetry is enabled. Run `volcano telemetry disable` to turn it off.\n", out)
 }
