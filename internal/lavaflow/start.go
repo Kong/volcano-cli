@@ -16,14 +16,16 @@ import (
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
 
-// ErrPersonStarts refuses starting a run with a project access token. A run
+// ErrPersonStarts refuses starting a run with a project access token or a
+// delegated grant. A run
 // sends the project's logs and source code to an AI service and can open a
 // pull request, so the API takes it from the owner's own session only.
-var ErrPersonStarts = errors.New("starting a LavaFlow run needs the project owner's session: a project access token can't")
+var ErrPersonStarts = errors.New("starting a LavaFlow run needs the project owner's session: a project access token or a delegated grant can't")
 
 // ErrStartNeedsLiveSignIn reports the start's person_required for a token
 // the CLI sent as a person's: a platform token that never expires, or one
-// whose sign-in ended. The CLI refuses a project access token before it asks.
+// whose sign-in ended. The CLI refuses a project access token or a delegated
+// grant before it asks.
 var ErrStartNeedsLiveSignIn = errors.New("starting a LavaFlow run needs the project owner's live sign-in")
 
 // ErrStartUnavailable reports an API that serves LavaFlow but can't start a

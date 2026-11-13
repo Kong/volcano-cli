@@ -487,10 +487,11 @@ func (s Service) DecideApproval(
 	return nil, approvalError(action, approvalID, err)
 }
 
-// errApprovalNeedsAPerson is the answer to a project access token deciding.
+// errApprovalNeedsAPerson is the answer to a project access token or a
+// delegated grant deciding.
 // Approvals exist so that a person signs off, which is why the API refuses
 // any credential that is not a person's. VOLCANO_TOKEN overrides a login, and
-// is how a project access token usually arrives. It matches
+// is how either usually arrives. It matches
 // config.ErrAccountTokenRequired, so the exit code reports a refused
 // credential. The API's 403 is left out: its generic body would add a hint
 // about the token's project, which is not the problem here.
@@ -498,8 +499,8 @@ var errApprovalNeedsAPerson = api.WithCause(errors.New(
 	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, then decide again"),
 	config.ErrAccountTokenRequired)
 
-// RequirePerson refuses a credential the CLI knows is a project access token,
-// so a decision is not confirmed only to be refused. DecideApproval still maps
+// RequirePerson refuses a credential the CLI knows is a project access token
+// or a delegated grant, so a decision is not confirmed only to be refused. DecideApproval still maps
 // the API's refusal, for credentials without a recognizable prefix.
 func (s Service) RequirePerson() error {
 	cfg, err := s.sessions.Config()
