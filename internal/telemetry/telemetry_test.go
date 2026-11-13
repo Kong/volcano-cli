@@ -814,3 +814,32 @@ func TestAnnounceFeedback_Off(t *testing.T) {
 	assert.False(t, h.recorder().AnnounceFeedback(io.Discard), "feedback follows telemetry")
 	assert.Zero(t, h.store.saves)
 }
+
+// A delegated grant never leaves the machine on a telemetry request.
+func TestFlush_DelegatedGrantSendsNoAuthorization(t *testing.T) {
+	for _, token := range []string{config.DelegatedGrantPrefix + "grant-secret"} {
+		t.Run(token[:3], func(t *testing.T) {
+			var gotAuth string
+			var gotBody []byte
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotAuth = r.Header.Get("Authorization")
+				gotBody, _ = io.ReadAll(r.Body)
+				w.WriteHeader(http.StatusAccepted)
+			}))
+			t.Cleanup(srv.Close)
+			t.Setenv("HOME", t.TempDir())
+			t.Setenv("VOLCANO_API_URL", srv.URL)
+			t.Setenv("VOLCANO_TOKEN", token)
+
+			require.NoError(t, Flush(t.Context(), strings.NewReader(`{"device_id":"d"}`), srv.Client()))
+			assert.Empty(t, gotAuth)
+			assert.NotContains(t, string(gotBody), token)
+		})
+	}
+}
+
+func TestCanSendFeedbackRefusesProjectBoundTokens(t *testing.T) {
+	assert.True(t, CanSendFeedback(config.AccountTokenPrefix+"abc"))
+	assert.False(t, CanSendFeedback(config.ProjectTokenPrefix+"abc"))
+	assert.False(t, CanSendFeedback(config.DelegatedGrantPrefix+"abc"))
+}

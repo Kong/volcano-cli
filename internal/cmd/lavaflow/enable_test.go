@@ -58,7 +58,7 @@ func TestChangesWithAProjectTokenNeedAPersonsSession(t *testing.T) {
 				t.Helper()
 				t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"secret")
 			},
-			"changing LavaFlow's settings needs a person's session: a project access token can't. " +
+			"changing LavaFlow's settings needs a person's session: a project access token or a delegated grant can't. " +
 				"Unset VOLCANO_TOKEN and sign in with 'volcano login', then run this again",
 		},
 		"saved": {
@@ -69,7 +69,7 @@ func TestChangesWithAProjectTokenNeedAPersonsSession(t *testing.T) {
 					CurrentProject: &cliconfig.ProjectConfig{ID: lavaflowProjectID, Name: "Shop"},
 				}).Save())
 			},
-			"changing LavaFlow's settings needs a person's session: a project access token can't. " +
+			"changing LavaFlow's settings needs a person's session: a project access token or a delegated grant can't. " +
 				"Sign in with 'volcano login' and run this again",
 		},
 	} {
@@ -216,7 +216,7 @@ func TestAPersonRequiredRefusalKeepsVolcanosWords(t *testing.T) {
 		for message, want := range map[string]string{
 			tokenNeverExpiresRefusal: "LavaFlow's settings weren't changed: " + tokenNeverExpiresRefusal,
 			signInRefusal:            "LavaFlow's settings weren't changed: " + signInRefusal,
-			"": "changing LavaFlow's settings needs a person's session: a project access token can't. " +
+			"": "changing LavaFlow's settings needs a person's session: a project access token or a delegated grant can't. " +
 				"Sign in with 'volcano login' and run this again",
 		} {
 			fake, deps := newLavaflowServer(t)

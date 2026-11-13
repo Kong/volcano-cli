@@ -77,7 +77,9 @@ func Flush(ctx context.Context, r io.Reader, client *http.Client) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "volcano-cli/"+version.Version)
-	if token := cfg.Token(); token != "" {
+	// A delegated grant is never sent: the server ignores it here, and the
+	// flush is a detached process the grant's run does not control.
+	if token := cfg.Token(); token != "" && !config.IsDelegatedGrant(token) {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	resp, err := client.Do(req)

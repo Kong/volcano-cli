@@ -50,18 +50,23 @@ func TestRunStartRefusesAnInvalidIssueID(t *testing.T) {
 	fake.set(func(s *lavaflowServer) { assert.Empty(t, s.started) })
 }
 
-// A project access token can't start a run, so the CLI says how the owner
-// does before it sends anything, with the exit code of a permission refused.
+// A project access token or a delegated grant can't start a run, so the CLI
+// says how the owner does before it sends anything, with the exit code of a
+// permission refused.
 func TestRunStartWithAProjectTokenNeedsTheOwnersSession(t *testing.T) {
-	fake, deps := newLavaflowServer(t)
-	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"secret")
+	for _, prefix := range []string{cliconfig.ProjectTokenPrefix, cliconfig.DelegatedGrantPrefix} {
+		t.Run(prefix, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			t.Setenv("VOLCANO_TOKEN", prefix+"secret")
 
-	_, err := executeLavaflowCommand(t, New(deps), "runs", "start", lavaflowIssueID)
-	require.ErrorIs(t, err, clilavaflow.ErrPersonStarts)
-	require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired, "the exit code reports a permission refused")
-	assert.Equal(t, "starting a LavaFlow run needs the project owner's session: a project access token can't. "+
-		"Unset VOLCANO_TOKEN and sign in with 'volcano login', then run this again", err.Error())
-	fake.set(func(s *lavaflowServer) { assert.Empty(t, s.started) })
+			_, err := executeLavaflowCommand(t, New(deps), "runs", "start", lavaflowIssueID)
+			require.ErrorIs(t, err, clilavaflow.ErrPersonStarts)
+			require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired, "the exit code reports a permission refused")
+			assert.Equal(t, "starting a LavaFlow run needs the project owner's session: a project access token or a delegated grant can't. "+
+				"Unset VOLCANO_TOKEN and sign in with 'volcano login', then run this again", err.Error())
+			fake.set(func(s *lavaflowServer) { assert.Empty(t, s.started) })
+		})
+	}
 }
 
 // Each refusal says what to do about it, keeping the API's status for the

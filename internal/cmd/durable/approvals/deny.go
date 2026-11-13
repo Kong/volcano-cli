@@ -21,7 +21,7 @@ approved, expired, or cancelled cannot be denied; the command says which and
 exits non-zero.
 
 Only a person can decide: log in with 'volcano login'. A project access token
-is refused.
+or a delegated grant is refused.
 
 By default this command prompts for confirmation, showing the approval's
 title. Use --yes to skip the prompt.`,

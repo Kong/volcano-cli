@@ -35,6 +35,9 @@ const (
 	// ProjectTokenPrefix marks a project access token, which reaches only the
 	// project it was minted in.
 	ProjectTokenPrefix = "pt-"
+	// DelegatedGrantPrefix marks a delegated grant: a short-lived credential a
+	// first-party app's worker gets for one run on one project.
+	DelegatedGrantPrefix = "pg-"
 )
 
 var (
@@ -52,7 +55,34 @@ var (
 	ErrAccountTokenRequired = errors.New("this command needs an account token (" + AccountTokenPrefix +
 		") but the current credential is a project access token (" + ProjectTokenPrefix +
 		"), which only reaches the project it was minted in. Run 'volcano login', or set VOLCANO_TOKEN to an account token")
+	// ErrNoProjectSelectedForGrant is ErrNoProjectSelectedForProjectToken
+	// worded for a delegated grant. It matches that error, so the exit code is
+	// the same.
+	ErrNoProjectSelectedForGrant error = grantRefusal{
+		message: "no project selected. A delegated grant (" + DelegatedGrantPrefix +
+			") is scoped to one project: run 'volcano use <project-id>' with that project's ID",
+		matches: ErrNoProjectSelectedForProjectToken,
+	}
+	// ErrAccountTokenRequiredForGrant is ErrAccountTokenRequired worded for a
+	// delegated grant. It matches that error, so the exit code is the same.
+	ErrAccountTokenRequiredForGrant error = grantRefusal{
+		message: "this command needs an account token (" + AccountTokenPrefix +
+			") but the current credential is a delegated grant (" + DelegatedGrantPrefix +
+			"), which only reaches the project it was granted for. Run 'volcano login', or set VOLCANO_TOKEN to an account token",
+		matches: ErrAccountTokenRequired,
+	}
 )
+
+// grantRefusal is a refusal worded for a delegated grant that matches the
+// project access token's refusal with errors.Is.
+type grantRefusal struct {
+	message string
+	matches error
+}
+
+func (e grantRefusal) Error() string { return e.message }
+
+func (e grantRefusal) Is(target error) bool { return target == e.matches }
 
 // These variables are intentionally settable with -ldflags -X.
 var (
@@ -622,17 +652,23 @@ func (c *Config) RequireProject() error {
 	if strings.TrimSpace(c.ProjectID()) != "" {
 		return nil
 	}
+	if IsDelegatedGrant(c.Token()) {
+		return ErrNoProjectSelectedForGrant
+	}
 	if IsProjectToken(c.Token()) {
 		return ErrNoProjectSelectedForProjectToken
 	}
 	return ErrNoProjectSelected
 }
 
-// RequireAccountToken rejects a project access token on a command that needs
-// account-wide access. Any other credential is treated as an account token: the
-// server is the authority on what a token may do, and tokens minted before the
-// prefixes existed carry neither.
+// RequireAccountToken rejects a project access token or a delegated grant on a
+// command that needs account-wide access. Any other credential is treated as an
+// account token: the server is the authority on what a token may do, and tokens
+// minted before the prefixes existed carry none.
 func (c *Config) RequireAccountToken() error {
+	if IsDelegatedGrant(c.Token()) {
+		return ErrAccountTokenRequiredForGrant
+	}
 	if IsProjectToken(c.Token()) {
 		return ErrAccountTokenRequired
 	}
@@ -647,6 +683,19 @@ func (c *Config) RequireAccountToken() error {
 // let it past every guard here and fail as an opaque server error instead.
 func IsProjectToken(token string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(token)), ProjectTokenPrefix)
+}
+
+// IsDelegatedGrant reports whether token is a delegated grant. Case-insensitive
+// for the same reason as IsProjectToken.
+func IsDelegatedGrant(token string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(token)), DelegatedGrantPrefix)
+}
+
+// IsProjectBound reports whether token reaches only one project: a project
+// access token or a delegated grant. Without it, a grant would fall to the
+// unknown-prefix default and be treated as an account token.
+func IsProjectBound(token string) bool {
+	return IsProjectToken(token) || IsDelegatedGrant(token)
 }
 
 // FirstPartyDeviceClientID resolves the first-party OAuth device client ID.

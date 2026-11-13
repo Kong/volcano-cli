@@ -16,6 +16,7 @@ failures apart without parsing the error text.
 | `3` | No project is selected | Run `volcano connect .` to create a project for this directory, or `volcano use <project>` |
 | `4` | The API answered HTTP 404, or no project or other cloud resource matched the name or ID | Check the name or ID |
 | `5` | The API answered HTTP 403, or the command needs an account token | Check the credential's access and the plan's limits |
+| `6` | A delegated grant (`pg-`) used all of its changes: the API answered HTTP 429 with code `grant_budget_exhausted` | Get a new grant and run the command again |
 
 `volcano sandboxes exec` and `volcano sandboxes shell` return the guest
 process's exit code instead, and `124` on timeout. See
