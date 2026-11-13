@@ -264,3 +264,53 @@ func TestGrantBaselineUsesTheBaselineRoute(t *testing.T) {
 		})
 	}
 }
+
+// Under a grant, the API's code follows the error on its own line.
+func TestGrantErrorPrintsTheAPICode(t *testing.T) {
+	run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
+		respondExitTestJSON(w, http.StatusTooManyRequests,
+			`{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`)
+	}, "cloud", "functions", "list")
+
+	assert.Equal(t, exitGrantBudgetExhausted, run.code, run.stderr)
+	assert.Contains(t, run.stderr, "Error: failed to list functions: HTTP 429: the delegated grant has no mutations left; "+
+		"ask the app for a new grant\nError code: grant_budget_exhausted\n")
+}
+
+// Any other credential sees the error as before, without the code line.
+func TestNonGrantErrorPrintsNoCodeLine(t *testing.T) {
+	code, stderr := runAgainst(t, "test-token", func(w http.ResponseWriter, _ *http.Request) {
+		respondExitTestJSON(w, http.StatusForbidden, `{"error":"feature is not available on this plan","code":"plan_required"}`)
+	}, "cloud", "functions", "list")
+
+	assert.Equal(t, exitPermissionDenied, code, stderr)
+	assert.NotContains(t, stderr, "Error code:")
+}
+
+// A 426 under a grant still names the API's code: the worker branches on the
+// code, not on which renderer printed the error.
+func TestGrantUpgradeRequiredPrintsTheAPICode(t *testing.T) {
+	run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
+		respondExitTestJSON(w, http.StatusUpgradeRequired,
+			`{"error":"cli version no longer supported","code":"cli_version_unsupported"}`)
+	}, "cloud", "functions", "list")
+
+	assert.Equal(t, 1, run.code, run.stderr)
+	assert.Contains(t, run.stderr, "cli version no longer supported\nError code: cli_version_unsupported\n")
+}
+
+// The code line follows what the command sent, not what the environment
+// holds: a local-mode command sends no credential, so a grant in
+// VOLCANO_TOKEN does not change its errors.
+func TestGrantInTheEnvironmentAloneAddsNoCodeLine(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", testGrant)
+	api.ResetLastRefusalForTest()
+	t.Cleanup(api.ResetLastRefusalForTest)
+
+	var out bytes.Buffer
+	printError(&out, &api.Error{StatusCode: http.StatusNotFound, Message: "function not found", Code: "not_found"}, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "function not found")
+	assert.NotContains(t, out.String(), "Error code:")
+}

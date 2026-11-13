@@ -61,8 +61,8 @@ The CLI accepts three kinds of credential:
 | Delegated grant (`pg-`) | One project, only the commands you consented to | An app you consent to |
 
 Account tokens and project access tokens work with `volcano login --token` and
-with `VOLCANO_TOKEN`. A delegated grant is meant for `VOLCANO_TOKEN`, not for
-`volcano login`; see [Delegated grants](#delegated-grants).
+with `VOLCANO_TOKEN`. A delegated grant is meant for `VOLCANO_TOKEN_FD` or
+`VOLCANO_TOKEN`, not for `volcano login`; see [Delegated grants](#delegated-grants).
 
 The prompt on the dashboard's Projects page holds a device code instead of a
 token. It works with `--device-code` on `volcano login` or `volcano connect`:
@@ -111,9 +111,25 @@ project access token. See
 
 A delegated grant (`pg-`) is what a Volcano app uses to act on a project you
 consented to. Like a project access token, it reaches one project; Volcano
-also limits it to the commands you consented to. Pass it in `VOLCANO_TOKEN`.
+also limits it to the commands you consented to. Pass it in `VOLCANO_TOKEN_FD` or `VOLCANO_TOKEN`.
 A grant that has used up its changes fails with exit code `6`. See
 [scripting.md](scripting.md#exit-codes).
+With a grant, an error that carries an API code is followed by a line
+`Error code: <code>`, such as `grant_budget_exhausted`.
+
+To keep a token out of the CLI's environment, pass it on a file descriptor
+instead: set `VOLCANO_TOKEN_FD` to the descriptor's number and leave
+`VOLCANO_TOKEN` unset. Use a pipe from the process that holds the token, not
+a file on disk. The CLI reads the token once, up to the first newline, closes
+the descriptor, and does not pass the token to processes it starts. `0` reads
+stdin and leaves it open; `1` and `2` are refused. Numbers from `3` up are
+Unix only. A grant set in `VOLCANO_TOKEN` is also removed from the
+environment those processes get.
+
+```bash
+# get-grant prints the grant; the CLI reads it from a pipe on descriptor 3.
+VOLCANO_TOKEN_FD=3 volcano cloud functions deploy --all 3< <(get-grant)
+```
 
 `volcano login --token` does not refuse a grant. It checks the grant with
 Volcano the way it checks an account token, and Volcano refuses a grant on
@@ -121,7 +137,7 @@ most routes. Without `--project`, or with a project name, the check fails and
 login saves nothing. With `--project` set to the ID of the grant's own
 project, the check passes if the grant may read the project, and login saves
 the grant to `~/.volcano/config.json`. A saved grant stops working when the
-app's run ends, so keep it in `VOLCANO_TOKEN` instead.
+app's run ends, so keep it in `VOLCANO_TOKEN_FD` or `VOLCANO_TOKEN` instead.
 
 `volcano cloud functions invoke` sends the grant itself and never creates a
 service key for it.

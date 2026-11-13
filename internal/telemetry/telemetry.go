@@ -384,6 +384,12 @@ func (r *Recorder) Record(inv Invocation) {
 		}
 		return
 	}
+	// The flush process can't see a token this process took into memory (one
+	// from VOLCANO_TOKEN_FD, or a grant), so it would send the saved login's
+	// token instead. Such a run sends nothing.
+	if config.TokenAdopted() {
+		return
+	}
 	_ = r.Send(payload)
 }
 

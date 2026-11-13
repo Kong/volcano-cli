@@ -43,6 +43,12 @@ const (
 )
 
 func main() {
+	// First, before anything reads the configuration: take the token from
+	// VOLCANO_TOKEN_FD, or a grant out of VOLCANO_TOKEN, into memory.
+	if err := config.AdoptToken(); err != nil {
+		fmt.Fprintln(os.Stderr, theme.Error("Error:", theme.On(os.Stderr)), err)
+		os.Exit(exitNotAuthenticated)
+	}
 	// One recorder per process: it reads the telemetry setting once, and both
 	// the agent headers and the usage event follow that read. Agent headers
 	// count as usage data: none before the first-run notice.
@@ -212,6 +218,7 @@ func printDeprecationError(w io.Writer, err error, deps cliruntime.Deps) {
 	if latest := api.LastInstructions().LatestVersion; latest != "" {
 		fmt.Fprintf(w, "Upgrade to %s: %s\n", latest, cliruntime.CommandPath(deps, "upgrade"))
 	}
+	printGrantErrorCode(w, err)
 }
 
 // printError renders a generic command error, appending a reauth hint when
@@ -222,6 +229,20 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 		fmt.Fprintf(w, "Run `%s` to re-authenticate.\n", cliruntime.CommandPath(deps, "login"))
 	}
 	printProjectTokenMismatchHint(w, err, deps)
+	printGrantErrorCode(w, err)
+}
+
+// printGrantErrorCode prints the API's error code on its own line when the
+// command sent a delegated grant, so the app's worker can branch on the code,
+// such as grant_budget_exhausted, rather than the message. Every other
+// credential sees its errors exactly as before, including a local-mode
+// command, which sends no credential even with a grant in the environment.
+func printGrantErrorCode(w io.Writer, err error) {
+	code := api.Code(err)
+	if code == "" || !api.GrantSent() {
+		return
+	}
+	fmt.Fprintf(w, "Error code: %s\n", code)
 }
 
 // loadConfig loads the configuration through the runtime's loader, so a
