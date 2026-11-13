@@ -10,8 +10,8 @@ Local development:
 `volcano deploy` deploys whatever the project has: the variables in
 volcano/volcano.env, the migrations in volcano/migrations, the functions in
 volcano/functions, the frontends listed in .volcano/source-layout.json, and
-volcano/volcano-config.yaml. Migrations run again on every --with-migrations
-run, so write them to be safe to repeat.
+volcano/volcano-config.yaml. Each migration runs once: the database records
+the files it applied, and later --with-migrations runs apply only new ones.
 
 Cloud deployment:
 
