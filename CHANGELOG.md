@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.80.0](https://github.com/Kong/volcano-cli/compare/v0.79.0...v0.80.0) (2026-11-13)
+
+
+### Features
+
+* **git:** turn applying database migrations on push on or off ([#490](https://github.com/Kong/volcano-cli/issues/490)) ([65b50e7](https://github.com/Kong/volcano-cli/commit/65b50e71e5c54fa59351ad0dc9f502d16e9cade5))
+
 ## [0.79.0](https://github.com/Kong/volcano-cli/compare/v0.78.0...v0.79.0) (2026-11-13)
 
 
