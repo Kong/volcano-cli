@@ -84,7 +84,7 @@ JavaScript during the build, in the cloud and in local mode:
   `index.ts` beside `index.tsx` in a directory, deploys the `.ts` file. A
   `hello.ts` file also deploys instead of a `hello/` directory with only an
   `index.tsx`.
-- One layout deploys differently than with CLI 0.76.0 and earlier: a `hello/`
+- One layout deploys differently than with CLI 0.77.0 and earlier: a `hello/`
   directory with `index.mjs` or `index.cjs` beside `index.tsx` now deploys
   that JavaScript instead of a `hello.ts` file, as Git deploy does. Earlier
   CLIs didn't find that directory.
