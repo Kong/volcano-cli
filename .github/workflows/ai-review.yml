@@ -10,6 +10,8 @@ permissions: {}
 jobs:
   ai-review:
     uses: Kong/volcano-actions/.github/workflows/ai-review.yml@main
+    with:
+      hand_off: true
     permissions:
       actions: write
       contents: read
@@ -18,3 +20,15 @@ jobs:
     secrets:
       anthropic_api_key: ${{ secrets.ANTHROPIC_CI_API_KEY }}
       codex_access_token: ${{ secrets.CODEX_CI_ACCESS_TOKEN }}
+  # Moves a PR back to draft after three failing AI review rounds in a row.
+  # GitHub converts a PR to draft only for a token with contents: write, so
+  # only this job gets one; it never checks out the PR. See
+  # Kong/volcano-actions README.md.
+  hand-off:
+    needs: ai-review
+    if: ${{ !cancelled() && needs.ai-review.outputs.hand-off == 'true' }}
+    uses: Kong/volcano-actions/.github/workflows/ai-review-hand-off.yml@main
+    permissions:
+      contents: write
+      pull-requests: write
+      statuses: read
