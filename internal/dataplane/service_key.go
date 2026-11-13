@@ -10,6 +10,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
@@ -48,6 +49,16 @@ func NewService(deps cliruntime.Deps) Service {
 		sessions: clisession.NewFactory(deps),
 		keyName:  CLIServiceKeyName,
 	}
+}
+
+// InvokeToken returns the bearer for the function invoke route. A pg-
+// delegated grant invokes with itself, as a service key does; any other
+// credential gets the reserved service key, as before.
+func (s Service) InvokeToken(ctx context.Context, project *clisession.ProjectSession) (string, error) {
+	if project != nil && project.Config != nil && config.IsDelegatedGrant(project.Config.Token()) {
+		return strings.TrimSpace(project.Config.Token()), nil
+	}
+	return s.ServiceKeyForProject(ctx, project)
 }
 
 // ServiceKey returns the reserved service key for the current project, creating

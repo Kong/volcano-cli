@@ -123,6 +123,9 @@ project, the check passes if the grant may read the project, and login saves
 the grant to `~/.volcano/config.json`. A saved grant stops working when the
 app's run ends, so keep it in `VOLCANO_TOKEN` instead.
 
+`volcano cloud functions invoke` sends the grant itself and never creates a
+service key for it.
+
 ## Log out
 
 Log out at any time:

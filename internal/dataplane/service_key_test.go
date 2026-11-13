@@ -185,3 +185,52 @@ func serviceKeyPayload(id, name, keyValue string) map[string]any {
 		"updated_at":  "2026-05-20T00:00:00Z",
 	}
 }
+
+// A delegated grant invokes with itself. Invoke never lists, reads or creates
+// the reserved service key under a grant, so a grant never causes a
+// long-lived key.
+func TestInvokeTokenUsesADelegatedGrantDirectly(t *testing.T) {
+	setServiceKeyTestHome(t)
+	saveServiceKeyTestConfig(t)
+	t.Setenv("VOLCANO_TOKEN", cliconfig.DelegatedGrantPrefix+"grant-secret")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("a grant must not reach the API to get an invoke token: %s %s", r.Method, r.URL.Path)
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	project, err := service.sessions.CurrentProject()
+	require.NoError(t, err)
+
+	token, err := service.InvokeToken(t.Context(), project)
+	require.NoError(t, err)
+	assert.Equal(t, cliconfig.DelegatedGrantPrefix+"grant-secret", token)
+}
+
+// Any other credential still gets the reserved service key for invoke.
+func TestInvokeTokenUsesTheServiceKeyForOtherCredentials(t *testing.T) {
+	setServiceKeyTestHome(t)
+	saveServiceKeyTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer platform-token", r.Header.Get("Authorization"))
+		if r.Method == http.MethodGet && r.URL.Path == "/projects/"+testProjectID+"/service-keys" {
+			writeServiceKeyJSON(t, w, http.StatusOK, map[string]any{
+				"data":     []any{serviceKeyPayload("11111111-1111-4111-8111-111111111111", CLIServiceKeyName, "sk-existing")},
+				"has_more": false, "page": 1, "limit": 100, "total": 1,
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	project, err := service.sessions.CurrentProject()
+	require.NoError(t, err)
+	token, err := service.InvokeToken(t.Context(), project)
+	require.NoError(t, err)
+	assert.Equal(t, "sk-existing", token)
+}
