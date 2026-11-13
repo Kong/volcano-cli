@@ -50,8 +50,10 @@ project needs a connected repository first: see '%s'.`,
 			}
 			setting := deploySetting{
 				subcommand: "migrations",
-				change: func(ctx context.Context, service gitconnect.Service) (*apiclient.ProjectGitDeploySettings, error) {
-					return service.SetApplyMigrations(ctx, on)
+				change: func(
+					ctx context.Context, service gitconnect.Service, shown *apiclient.ProjectGitConnection,
+				) (*apiclient.ProjectGitDeploySettings, error) {
+					return service.SetApplyMigrations(ctx, on, shown)
 				},
 				render: output.GitMigrationsSet,
 			}

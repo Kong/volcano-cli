@@ -292,10 +292,14 @@ While it is on, each push to the production branch applies the commit's
 pending migrations, the SQL files under `volcano/migrations`, before anything
 deploys. Each database gets a tracked migration run; when one fails, nothing
 from the push deploys and the live version keeps serving. It is off until you
-turn it on.
+turn it on. Like every push deploy, it needs auto-deploy on; with neither
+functions nor a frontend selected, a push applies its migrations and deploys no
+code.
 
 Anyone who can push to the production branch can then run any SQL as the
-database owner, so protect that branch first. Volcano applies only the files
+database owner, so protect that branch first. The confirmation names the
+repository and branch; if the connection changes before you answer, nothing is
+saved. Volcano applies only the files
 its migration history does not list yet: if some were already applied another
 way, record them first with `volcano databases migration baseline`. See
 [Database migrations](databases.md) for the files and runs.

@@ -92,7 +92,41 @@ func TestOtherSettingsLeaveMigrationsAsSaved(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, api.sentSettingsBody(), "apply_migrations")
 	assert.True(t, api.applyMigrations)
-	assert.Contains(t, out, "neither functions nor a frontend is selected")
+	assert.Contains(t, out, "so a push to main applies its migrations and deploys no code.")
+}
+
+// With nothing selected to deploy, a push still applies migrations on its own,
+// so the summary must not say a push deploys nothing.
+func TestMigrationsOnWithNothingElseToDeploy(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.deployFunctions = false
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "migrations", "on", "--yes")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Nothing was applied. The next push to main applies its pending migrations.\n")
+	assert.Contains(t, out, "so a push to main applies its migrations and deploys no code.")
+	assert.NotContains(t, out, "a push deploys nothing")
+}
+
+// The prompt names a repository and branch. If the binding moved while it was
+// open, the user's yes would let a repository they never saw run SQL as the
+// database owner.
+func TestMigrationsOnRefusesWhenTheBindingMovedUnderIt(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRepoID = gitRepositoryID
+	api.connectedAfterRead = "acme/something-else"
+
+	out, err := executeGitCommand(t, api.serve(), nil, "yes\n", "migrations", "on")
+	require.Error(t, err)
+	assert.Contains(t, out, "octo/storefront")
+	assert.Contains(t, err.Error(), "changed while this command was running")
+	assert.Contains(t, err.Error(), "acme/something-else")
+	assert.Nil(t, api.sentSettingsBody(), "nothing may be saved for a binding the user did not confirm")
+	assert.False(t, api.applyMigrations)
 }
 
 func TestMigrationsPromiseNothingWhileAutoDeployIsOff(t *testing.T) {

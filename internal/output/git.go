@@ -257,6 +257,11 @@ func GitMigrationsSet(w io.Writer, binding GitBinding) {
 	switch {
 	case !settings.ApplyMigrations:
 		Note(w, "Nothing was undone. Applied migrations stay; pushes no longer apply new ones.")
+	case settings.AutoDeployEnabled && len(deployTargets(settings)) == 0:
+		// Nothing selected to deploy: a push still applies migrations on its
+		// own, which the settings below say too.
+		Note(w, "Nothing was applied. The next push to %s applies its pending migrations.",
+			binding.Connection.ProductionBranch)
 	case settings.AutoDeployEnabled:
 		Note(w, "Nothing was applied. The next push to %s applies its pending migrations before it deploys.",
 			binding.Connection.ProductionBranch)
@@ -359,10 +364,17 @@ func gitDeploySettings(w io.Writer, binding GitBinding) {
 	}
 
 	targets := deployTargets(settings)
-	if len(targets) == 0 {
+	switch {
+	case len(targets) == 0 && settings.ApplyMigrations:
+		// The platform runs a push with migrations and nothing else to deploy:
+		// it applies them and finishes with no deploys.
+		Warning(w, "Auto-deploy is on, but neither functions nor a frontend is selected, "+
+			"so a push to %s applies its migrations and deploys no code.", connection.ProductionBranch)
+		nextStep(w, on, binding, "Deploy functions with ", "functions", "on")
+	case len(targets) == 0:
 		Warning(w, "Auto-deploy is on, but neither functions nor a frontend is selected, so a push deploys nothing.")
 		nextStep(w, on, binding, "Deploy functions with ", "functions", "on")
-	} else {
+	default:
 		lead := fmt.Sprintf("A push to %s deploys: ", connection.ProductionBranch)
 		if settings.ApplyMigrations {
 			lead = fmt.Sprintf("A push to %s applies its migrations, then deploys: ", connection.ProductionBranch)
