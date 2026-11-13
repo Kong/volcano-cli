@@ -40,6 +40,11 @@ var runPollInterval = 2 * time.Second
 // on the server after the command stops.
 var runWaitLimit = 60 * time.Minute
 
+// rerunAfterRun tells a caller that stopped following a run what to do next.
+// Running the command again starts a new run rather than following this one:
+// while this one is going, Hosting refuses it with migration_run_in_progress.
+const rerunAfterRun = "Wait for it to end before running the command again; the next run skips the files it applied"
+
 // maxRunReadFailures is how many reads in a row may fail on the network before
 // the command stops following a run.
 const maxRunReadFailures = 5
@@ -132,7 +137,7 @@ func followRun(
 		}
 		if time.Now().After(deadline) {
 			return nil, fmt.Errorf("stopped waiting for migration run %s after %s; it carries on on the server. "+
-				"Run the command again to wait for it", run.Id, runWaitLimit)
+				"%s", run.Id, runWaitLimit, rerunAfterRun)
 		}
 		if err := sleep(ctx, runPollInterval); err != nil {
 			return nil, err
@@ -146,7 +151,7 @@ func followRun(
 			failures++
 		default:
 			return nil, fmt.Errorf("stopped following migration run %s, which carries on on the server. "+
-				"Run the command again to wait for it: %w", run.Id, err)
+				"%s: %w", run.Id, rerunAfterRun, err)
 		}
 	}
 }
