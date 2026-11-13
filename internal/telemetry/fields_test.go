@@ -49,6 +49,7 @@ func TestResources(t *testing.T) {
 		{"positional wins over flag", "get <function>", []string{"a", "--function", "b"}, map[string]string{"function": "a"}},
 		{"slice flag value is dropped", "list", []string{"--database", "a,b"}, nil},
 		{"secret-shaped value is dropped", "get <name>", []string{"pk-abcdefghijklmnopqrstuvwx"}, nil},
+		{"grant-shaped value is dropped", "get <name>", []string{"pg-abcdefghijklmnopqrstuvwx"}, nil},
 		{"odd characters are dropped", "get <name>", []string{"a;rm -rf"}, nil},
 	}
 	for _, tc := range cases {
@@ -98,11 +99,12 @@ func TestResources_Capped(t *testing.T) {
 func TestRedact(t *testing.T) {
 	jwt := "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl"
 	cases := map[string]string{
-		"Authorization: Bearer abc.def-ghi":                     "Authorization: Bearer [redacted]",
-		"token " + jwt + " expired":                             "token [redacted] expired",
-		"key pk-0123456789abcdefABCD rejected":                  "key [redacted] rejected",
-		"used pt-0123456789abcdefABCD, sk-0123456789abcdefABCD": "used [redacted], [redacted]",
-		"pk-short": "pk-short",
+		"Authorization: Bearer abc.def-ghi":                                                "Authorization: Bearer [redacted]",
+		"token " + jwt + " expired":                                                        "token [redacted] expired",
+		"key pk-0123456789abcdefABCD rejected":                                             "key [redacted] rejected",
+		"used pt-0123456789abcdefABCD, sk-0123456789abcdefABCD":                            "used [redacted], [redacted]",
+		"grant pg-0123456789abcdefABCD is spent":                                           "grant [redacted] is spent",
+		"pk-short":                                                                         "pk-short",
 		"proxy sbp1.v2:0123456789abcdef:AbC+dEf/GhI=jKl= denied":                           "proxy [redacted] denied",
 		"proxy sbp1.AbC+dEf/GhI0123456789= denied":                                         "proxy [redacted] denied",
 		"exchange vbt_0123456789abcdefABCD failed":                                         "exchange [redacted] failed",

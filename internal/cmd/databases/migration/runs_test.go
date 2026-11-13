@@ -266,8 +266,26 @@ func TestMigrationUpUnderGrantStopsOnAnExpiredGrant(t *testing.T) {
 	out, err := executeMigrationCommand(t, cmd, "up", "--all", "-d", "app")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "stopped following migration run "+testRunID+", which carries on on the server")
+	assert.Contains(t, err.Error(), "Wait for it to end before running the command again")
+	assert.NotContains(t, err.Error(), "again to wait for it", "running the command again does not follow this run")
 	assert.Contains(t, out, "Started migration run "+testRunID)
 	assert.NotContains(t, out, "grant-secret")
+}
+
+// A run that outlasts the wait limit carries on; the command says to wait for
+// it rather than run again, which would start a new run.
+func TestMigrationUpUnderGrantStopsAtTheWaitLimit(t *testing.T) {
+	setGrantMigrationTest(t)
+	previous := runWaitLimit
+	runWaitLimit = 0
+	t.Cleanup(func() { runWaitLimit = previous })
+	fake := &fakeMigrationRuns{t: t, create: []func(http.ResponseWriter){acceptRun(testRunID)}}
+
+	_, err := runGrantMigration(t, fake, "up", "--all", "-d", "app")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "stopped waiting for migration run "+testRunID)
+	assert.Contains(t, err.Error(), "Wait for it to end before running the command again")
+	assert.NotContains(t, err.Error(), "again to wait for it")
 }
 
 // `deploy --with-migrations` applies through ApplyAll, which takes the same
