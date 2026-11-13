@@ -22,7 +22,7 @@ func TestMigrationsTurnOnAfterConfirmation(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "Anyone who can push to main can then run any SQL on them, so protect that branch first.")
-	assert.Contains(t, out, "volcano databases migration baseline")
+	assert.Contains(t, out, "volcano cloud databases migration baseline")
 	assert.Contains(t, out, "Apply migrations on push?")
 	assert.Equal(t, map[string]any{
 		"auto_deploy_enabled": true,

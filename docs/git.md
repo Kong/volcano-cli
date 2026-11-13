@@ -301,7 +301,7 @@ database owner, so protect that branch first. The confirmation names the
 repository and branch; if the connection changes before you answer, nothing is
 saved. Volcano applies only the files
 its migration history does not list yet: if some were already applied another
-way, record them first with `volcano databases migration baseline`. See
+way, record them first with `volcano cloud databases migration baseline`. See
 [Database migrations](databases.md) for the files and runs.
 
 Turning it off undoes nothing: applied migrations stay, and pushes stop

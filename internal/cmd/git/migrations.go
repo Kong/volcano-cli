@@ -14,7 +14,10 @@ import (
 
 func newMigrations(deps cliruntime.Deps) *cobra.Command {
 	var yes bool
-	baseline := cliruntime.CommandPath(deps, "databases migration baseline")
+	// A push applies migrations to the cloud project's databases, so the
+	// baseline is the cloud one: the top-level databases commands run against
+	// the local server.
+	baseline := cliruntime.CommandPath(deps, "cloud databases migration baseline")
 	cmd := &cobra.Command{
 		Use:   "migrations on|off",
 		Short: "Choose whether a push to the connected repository applies its database migrations",
