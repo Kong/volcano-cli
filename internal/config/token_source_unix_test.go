@@ -3,6 +3,7 @@
 package config
 
 import (
+	"errors"
 	"io"
 	"os"
 	"strconv"
@@ -18,14 +19,28 @@ import (
 // tokenFD returns a descriptor that reads token, as a worker would pass one.
 // It is a duplicate no *os.File owns, so only AdoptToken closes it: two owners
 // of one descriptor would close it twice, the second time under whatever
-// opened the number next.
+// opened the number next. The token is written from a goroutine, since a
+// token larger than the pipe's buffer blocks until the CLI reads it.
 func tokenFD(t *testing.T, token string) int {
 	t.Helper()
 	r, w, err := os.Pipe()
 	require.NoError(t, err)
-	_, err = w.WriteString(token)
-	require.NoError(t, err)
-	require.NoError(t, w.Close())
+	written := make(chan error, 1)
+	go func() {
+		_, err := w.WriteString(token)
+		written <- errors.Join(err, w.Close())
+	}()
+	t.Cleanup(func() {
+		select {
+		case err := <-written:
+			// The CLI may stop reading early and close its end.
+			if !errors.Is(err, syscall.EPIPE) {
+				assert.NoError(t, err, "writing the token")
+			}
+		case <-time.After(5 * time.Second):
+			t.Error("the token was never read")
+		}
+	})
 	fd, err := syscall.Dup(int(r.Fd()))
 	require.NoError(t, err)
 	require.NoError(t, r.Close())
