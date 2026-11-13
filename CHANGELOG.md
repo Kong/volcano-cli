@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.79.0](https://github.com/Kong/volcano-cli/compare/v0.78.0...v0.79.0) (2026-11-13)
+
+
+### Features
+
+* **databases:** apply migrations in tracked runs ([#365](https://github.com/Kong/volcano-cli/issues/365)) ([b46711d](https://github.com/Kong/volcano-cli/commit/b46711dece56ce70a7e2d14057a845b3acff4f68))
+
 ## [0.78.0](https://github.com/Kong/volcano-cli/compare/v0.77.0...v0.78.0) (2026-11-13)
 
 
