@@ -125,6 +125,12 @@ func TestScrubText(t *testing.T) {
 	assert.Equal(t, want, ScrubText(in, "/home/dev"))
 }
 
+// A delegated grant pasted into a feedback report is removed like any other
+// Volcano token.
+func TestScrubText_DelegatedGrant(t *testing.T) {
+	assert.Equal(t, "VOLCANO_TOKEN=[redacted] failed", ScrubText("VOLCANO_TOKEN=pg-0123456789abcdefABCD failed", ""))
+}
+
 func TestScrubText_BearerAcrossLines(t *testing.T) {
 	assert.Equal(t, "Authorization: Bearer [redacted]\nnext", ScrubText("Authorization: Bearer\nabc.def\nnext", ""))
 }
