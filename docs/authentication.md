@@ -61,8 +61,8 @@ The CLI accepts three kinds of credential:
 | Delegated grant (`pg-`) | One project, only the commands you consented to | An app you consent to |
 
 Account tokens and project access tokens work with `volcano login --token` and
-with `VOLCANO_TOKEN`. A delegated grant works only in `VOLCANO_TOKEN`; see
-[Delegated grants](#delegated-grants).
+with `VOLCANO_TOKEN`. A delegated grant works only in `VOLCANO_TOKEN` or
+`VOLCANO_TOKEN_FD`; see [Delegated grants](#delegated-grants).
 
 The prompt on the dashboard's Projects page holds a device code instead of a
 token. It works with `--device-code` on `volcano login` or `volcano connect`:
