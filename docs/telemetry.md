@@ -39,7 +39,7 @@ When a command fails, the event also carries the type of failure (`api`,
 `network`, `local_not_running`, `usage`, or `other`), the HTTP status and error
 code of an API error, and the error message. Before sending the message, the
 CLI replaces your home directory with `~`, strips terminal color codes, and
-removes bearer tokens, JWTs, Volcano keys and tokens (`pk-`, `pt-`, `sk-`,
+removes bearer tokens, JWTs, Volcano keys and tokens (`pk-`, `pt-`, `pg-`, `sk-`,
 `ak-`, `vbt_`, `vpg_`, `vcb_`, `sbp1.`), passwords in URLs, email addresses, and URL
 query strings. It then cuts the message to 500 characters.
 
