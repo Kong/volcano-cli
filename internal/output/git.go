@@ -80,6 +80,7 @@ func GitStatus(w io.Writer, binding GitBinding) {
 	if settings := binding.Settings; settings != nil {
 		kv(w, on, "Auto-deploy", "%s", onOff(settings.AutoDeployEnabled))
 		kv(w, on, "Functions", "%s", onOff(settings.DeployFunctions))
+		kv(w, on, "Migrations", "%s", onOff(settings.ApplyMigrations))
 		frontend := frontendTarget(settings)
 		if frontend == "" {
 			frontend = "none"
@@ -247,6 +248,26 @@ func GitFunctionsSet(w io.Writer, binding GitBinding) {
 	gitDeploySettings(w, binding)
 }
 
+// GitMigrationsSet renders applying migrations on push just turned on or off,
+// followed by what a push to the production branch deploys.
+func GitMigrationsSet(w io.Writer, binding GitBinding) {
+	settings := binding.Settings
+	Success(w, "Migrations turned %s", onOff(settings.ApplyMigrations))
+	gitBindingDetail(w, theme.On(w), binding)
+	switch {
+	case !settings.ApplyMigrations:
+		Note(w, "Nothing was undone. Applied migrations stay; pushes no longer apply new ones.")
+	case settings.AutoDeployEnabled:
+		Note(w, "Nothing was applied. The next push to %s applies its pending migrations before it deploys.",
+			binding.Connection.ProductionBranch)
+	default:
+		// Auto-deploy off: the settings below say no push deploys anything, so
+		// promising this one would contradict them.
+		Note(w, "Nothing was applied.")
+	}
+	gitDeploySettings(w, binding)
+}
+
 // GitProductionBranchSet renders the branch a push must now land on, and
 // whether it follows the repository's default branch or is pinned.
 func GitProductionBranchSet(w io.Writer, binding GitBinding) {
@@ -342,10 +363,11 @@ func gitDeploySettings(w io.Writer, binding GitBinding) {
 		Warning(w, "Auto-deploy is on, but neither functions nor a frontend is selected, so a push deploys nothing.")
 		nextStep(w, on, binding, "Deploy functions with ", "functions", "on")
 	} else {
-		fmt.Fprintf(w, "%s%s\n",
-			theme.Dim(fmt.Sprintf("A push to %s deploys: ", connection.ProductionBranch), on),
-			strings.Join(targets, ", "),
-		)
+		lead := fmt.Sprintf("A push to %s deploys: ", connection.ProductionBranch)
+		if settings.ApplyMigrations {
+			lead = fmt.Sprintf("A push to %s applies its migrations, then deploys: ", connection.ProductionBranch)
+		}
+		fmt.Fprintf(w, "%s%s\n", theme.Dim(lead, on), strings.Join(targets, ", "))
 	}
 	if frontendTarget(settings) == "" {
 		nextStep(w, on, binding, "To deploy a frontend on push too, run ", "frontend", "<name> --root <path>")

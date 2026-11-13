@@ -33,6 +33,7 @@ an empty repository once; Volcano pushes that first commit itself.`,
 	cmd.AddCommand(newProductionBranch(deps))
 	cmd.AddCommand(newAutoDeploy(deps))
 	cmd.AddCommand(newFunctions(deps))
+	cmd.AddCommand(newMigrations(deps))
 	cmd.AddCommand(newFrontend(deps))
 	cmd.AddCommand(newExport(deps))
 	cmd.AddCommand(newDisconnect(deps))
