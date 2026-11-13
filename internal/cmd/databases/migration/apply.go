@@ -29,8 +29,10 @@ and takes a backup before it applies them, where the plan has branches and
 backups.
 
 A file may hold several statements. It cannot COMMIT, ROLLBACK, or use
-statements that must run outside a transaction, such as CREATE INDEX
-CONCURRENTLY.
+savepoints. A statement that cannot run in a transaction, such as CREATE INDEX
+CONCURRENTLY, goes alone in a file whose first line is
+'-- volcano:no-transaction'. That file runs outside a transaction, and a
+retried run runs it again from its start, so write it to be safe to repeat.
 
 A database migrated without tracking, with '%s' or an earlier
 --with-migrations deploy, already reflects its files. Record them with '%s'

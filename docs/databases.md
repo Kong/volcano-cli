@@ -52,8 +52,8 @@ a push would refuse too.
 
 `migration apply` sends a database's files to a tracked migration run. Volcano
 compares them with the database's migration history and applies only the files
-the history does not record, each in its own transaction, then records them. A
-file runs once, however many times you apply.
+the history does not record, then records them. A file runs once, however many
+times you apply.
 
 ```bash
 volcano cloud databases migration apply -d app
@@ -73,9 +73,12 @@ that fails in the rehearsal fails the run without touching the database. Local
 development has no branches or backups, so a local run applies directly and
 reports `rehearsal_skipped` and `backup_skipped` warnings.
 
-A file may hold several statements. It cannot `COMMIT`, `ROLLBACK`, use
-savepoints, or run a statement that must run outside a transaction, such as
-`CREATE INDEX CONCURRENTLY`. A run refuses a file whose content changed after
+A file may hold several statements and runs in one transaction. It cannot
+`COMMIT`, `ROLLBACK`, or use savepoints. A statement that cannot run in a
+transaction, such as `CREATE INDEX CONCURRENTLY`, goes alone in a file whose
+first line is `-- volcano:no-transaction`. That file runs outside a
+transaction, so nothing rolls it back, and a retried run runs it again from its
+start: write it to be safe to repeat, such as with `IF NOT EXISTS`. A run refuses a file whose content changed after
 it was applied (`checksum_mismatch`): put the recorded content back and make the
 change in a new file. One database runs one migration run at a time; a second
 `apply` while one is queued or running names the run to wait for.
