@@ -95,8 +95,10 @@ type harness struct {
 // notice clear store.cfg.Feedback.
 func newHarness() *harness {
 	return &harness{
-		env:     map[string]string{},
-		store:   &memConfig{cfg: config.Config{Feedback: &config.FeedbackConfig{NoticeShown: true}}},
+		env: map[string]string{},
+		// A local API, so tests built as "dev" are not gated as a development
+		// build pointed at production.
+		store:   &memConfig{cfg: config.Config{APIBaseURL: "http://localhost:8080", Feedback: &config.FeedbackConfig{NoticeShown: true}}},
 		home:    "/home/dev",
 		plugins: map[string]string{},
 		now:     time.Date(2026, 10, 15, 3, 0, 0, 0, time.UTC),
@@ -751,6 +753,8 @@ func TestReporting(t *testing.T) {
 	assert.False(t, reporting(shown, func(h *harness) { h.env[EnvDisabled] = "1" }))
 	assert.False(t, reporting(State{DeviceID: "d", NoticeShown: true, Disabled: true}, nil))
 	assert.False(t, reporting(shown, func(h *harness) { h.store.failLoad = true }), "an unreadable config counts as off")
+	assert.False(t, reporting(shown, func(h *harness) { h.store.cfg.APIBaseURL = "https://api.volcano.dev" }),
+		"a development build sends no agent headers to production")
 }
 
 func TestOfflineArg(t *testing.T) {

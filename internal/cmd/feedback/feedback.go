@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,6 +26,17 @@ import (
 // it with SetRecorder so the process reads the telemetry setting once; the
 // zero value reads the real config.
 var recorder = &telemetry.Recorder{}
+
+// devBuildReason says why a development build sends no report. It is not in
+// the help: release builds never hit it.
+const devBuildReason = "a development build sends no report to the production API. " +
+	"Point VOLCANO_API_URL at staging or a local server, or set " + telemetry.EnvFeedbackDebug + "=1 to save reports locally"
+
+const devBuildNotSent = "Feedback not sent: " + devBuildReason + "."
+
+// sendClient is the HTTP client reports are sent with; nil uses feedback.Send's
+// default. Tests replace it so that no request leaves the process.
+var sendClient *http.Client
 
 // SetRecorder makes the command use the process's telemetry recorder.
 func SetRecorder(r *telemetry.Recorder) { recorder = r }
@@ -134,6 +146,13 @@ disable or VOLCANO_FEEDBACK_DISABLED=1.`,
 			if !loggedIn && !dryRun {
 				return nil
 			}
+			// A development build keeps its reports out of production
+			// analytics. Saving one locally still works.
+			devToProduction := telemetry.DevBuildToProduction(cfg.APIURL()) && !telemetry.FeedbackDebugByEnv(os.Getenv)
+			if devToProduction && !dryRun {
+				fmt.Fprintln(cmd.ErrOrStderr(), devBuildNotSent)
+				return nil
+			}
 			if input != "" {
 				if in, err = readInput(cmd, input); err != nil {
 					return err
@@ -152,7 +171,7 @@ disable or VOLCANO_FEEDBACK_DISABLED=1.`,
 				return fmt.Errorf("after redaction, %w", err)
 			}
 			if dryRun {
-				return printReport(cmd, report, on && loggedIn)
+				return printReport(cmd, report, on && loggedIn && !devToProduction)
 			}
 			payload, err := encodeReport(report, "")
 			if err != nil {
@@ -165,7 +184,7 @@ disable or VOLCANO_FEEDBACK_DISABLED=1.`,
 			} else {
 				// Always the cloud API, also in local mode: reports go to
 				// the Volcano team, not the local server.
-				if err := feedback.Send(cmd.Context(), nil, cfg.APIURL(), token, payload); err != nil {
+				if err := feedback.Send(cmd.Context(), sendClient, cfg.APIURL(), token, payload); err != nil {
 					return fmt.Errorf("send feedback: %w", err)
 				}
 			}
@@ -248,6 +267,10 @@ func printStatus(cmd *cobra.Command) error {
 	// in a home that cannot be saved, no report ever is.
 	if !recorder.AnnounceFeedback(cmd.ErrOrStderr()) {
 		fmt.Fprintln(w, "Feedback is enabled, but no report is sent until the first-run notice can be saved to ~/.volcano/config.json.")
+		return nil
+	}
+	if telemetry.DevBuildToProduction(cfg.APIURL()) && !telemetry.FeedbackDebugByEnv(os.Getenv) {
+		fmt.Fprintln(w, "Feedback is enabled, but "+devBuildReason+".")
 		return nil
 	}
 	fmt.Fprintln(w, "Feedback is enabled. Run `volcano feedback disable` to turn it off.")
@@ -337,8 +360,9 @@ func saveReport(payload []byte) error {
 }
 
 // printReport prints report for --dry-run, and says so when a real run would
-// send nothing: feedback is off, the first-run notice has not been shown, or
-// the user is logged out or uses a project access token.
+// send nothing: feedback is off, the first-run notice has not been shown, the
+// user is logged out or uses a project access token, or a development build
+// points at the production API.
 func printReport(cmd *cobra.Command, report feedback.Report, sends bool) error {
 	out, err := encodeReport(report, "  ")
 	if err != nil {

@@ -54,7 +54,8 @@ func spawnFlush(payload []byte) error {
 // Flush reads one event payload from r and posts it to the cloud API's
 // /cli/telemetry endpoint, with the saved login token when there is one. The
 // server accepts the event without a token. The opt-out is not checked again:
-// the process that built the event already did.
+// the process that built the event already did. A development build pointed at
+// the production API drops the event (see DevBuildToProduction).
 func Flush(ctx context.Context, r io.Reader, client *http.Client) error {
 	payload, err := io.ReadAll(io.LimitReader(r, maxPayloadBytes+1))
 	if err != nil {
@@ -66,6 +67,9 @@ func Flush(ctx context.Context, r io.Reader, client *http.Client) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
+	}
+	if DevBuildToProduction(cfg.APIURL()) {
+		return nil
 	}
 	if client == nil {
 		client = &http.Client{Timeout: flushTimeout}

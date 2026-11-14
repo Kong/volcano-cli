@@ -94,6 +94,9 @@ func printStatus(cmd *cobra.Command) error {
 		return nil
 	}
 	fmt.Fprintln(w, "Telemetry is enabled. Run `volcano telemetry disable` to turn it off.")
+	if telemetry.DevBuildToProduction(cfg.APIURL()) {
+		fmt.Fprintln(w, "This development build sends no usage data to the production API.")
+	}
 	return nil
 }
 
