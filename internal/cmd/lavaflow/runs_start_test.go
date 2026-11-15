@@ -151,6 +151,25 @@ func TestRunStartWithATokenThatNeverExpiresNeedsALiveSignIn(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, api.Status(err), "the exit code reports a permission refused")
 }
 
+// VOLCANO_TOKEN_FD holds a descriptor number, so the hint says to pass the new
+// token on the descriptor rather than set the variable to it.
+func TestRunStartWithATokenFromADescriptorSaysToPassTheNewTokenOnIt(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	t.Setenv("VOLCANO_TOKEN", "")
+	cliconfig.AdoptTokenFromFDForTest("vol_never_expires")
+	t.Cleanup(cliconfig.ResetAdoptedTokenForTest)
+	fake.set(func(s *lavaflowServer) {
+		s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPost
+		s.refusal = map[string]any{"error": "this token never expires", "code": "person_required"}
+	})
+
+	_, err := executeLavaflowCommand(t, New(deps), "runs", "start", lavaflowIssueID)
+	require.ErrorIs(t, err, clilavaflow.ErrStartNeedsLiveSignIn)
+	assert.Equal(t, "starting a LavaFlow run needs the project owner's live sign-in. "+
+		"Unset VOLCANO_TOKEN_FD and run 'volcano login', or pass a platform token that expires on the descriptor",
+		err.Error())
+}
+
 // An issue with a run in progress names that run when the newest runs have
 // it, and points to the list when they don't.
 func TestRunStartNamesTheRunInProgress(t *testing.T) {
