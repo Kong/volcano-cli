@@ -54,7 +54,7 @@ var (
 	// the configured credential only reaches a single project.
 	ErrAccountTokenRequired = errors.New("this command needs an account token (" + AccountTokenPrefix +
 		") but the current credential is a project access token (" + ProjectTokenPrefix +
-		"), which only reaches the project it was minted in. Run 'volcano login', or set VOLCANO_TOKEN to an account token")
+		"), which only reaches the project it was minted in. Run 'volcano login', or pass an account token in VOLCANO_TOKEN or on the descriptor VOLCANO_TOKEN_FD names")
 	// ErrNoProjectSelectedForGrant is ErrNoProjectSelectedForProjectToken
 	// worded for a delegated grant. It matches that error, so the exit code is
 	// the same.
@@ -68,7 +68,7 @@ var (
 	ErrAccountTokenRequiredForGrant error = grantRefusal{
 		message: "this command needs an account token (" + AccountTokenPrefix +
 			") but the current credential is a delegated grant (" + DelegatedGrantPrefix +
-			"), which only reaches the project it was granted for. Run 'volcano login', or set VOLCANO_TOKEN to an account token",
+			"), which only reaches the project it was granted for. Run 'volcano login', or pass an account token in VOLCANO_TOKEN or on the descriptor VOLCANO_TOKEN_FD names",
 		matches: ErrAccountTokenRequired,
 	}
 )
@@ -353,28 +353,39 @@ func withLock(run func() error) (err error) {
 	return run()
 }
 
-// Token returns the configured token, with VOLCANO_TOKEN taking precedence unless env overrides are disabled.
+// Token returns the configured token. The environment's token, from
+// VOLCANO_TOKEN_FD or VOLCANO_TOKEN (see environmentToken), takes precedence
+// unless env overrides are disabled.
 func (c *Config) Token() string {
 	// Trimmed because this is the documented CI path, where
 	// `export VOLCANO_TOKEN=$(cat secret)` readily carries a trailing newline.
 	// Untrimmed, that reaches the Authorization header and net/http refuses to
 	// send the request at all, reporting an invalid header field rather than
 	// anything the user can act on.
-	if token := strings.TrimSpace(os.Getenv(envToken)); !c.IgnoreEnv && token != "" {
+	if token := environmentToken(); !c.IgnoreEnv && token != "" {
 		return token
 	}
 	return c.UserToken
 }
 
-// TokenEnv is the environment variable whose token Token returns ahead of the
-// saved one.
+// environmentToken is the token from the environment: the one AdoptToken took in, or
+// else VOLCANO_TOKEN.
+func environmentToken() string {
+	if adopted := adoptedToken.Load(); adopted != nil {
+		return *adopted
+	}
+	return strings.TrimSpace(os.Getenv(envToken))
+}
+
+// TokenEnv is VOLCANO_TOKEN. A hint that names the variable the token came
+// from uses TokenEnvName, which is VOLCANO_TOKEN_FD when the token came from it.
 const TokenEnv = envToken
 
-// TokenFromEnv reports whether Token returns the TokenEnv variable's token
-// rather than the saved one. Signing in saves a token, which Token then still
-// passes over.
+// TokenFromEnv reports whether Token returns the environment's token, from
+// VOLCANO_TOKEN_FD or VOLCANO_TOKEN, rather than the saved one. Signing in
+// saves a token, which Token then still passes over.
 func (c *Config) TokenFromEnv() bool {
-	return !c.IgnoreEnv && strings.TrimSpace(os.Getenv(envToken)) != ""
+	return !c.IgnoreEnv && environmentToken() != ""
 }
 
 // FunctionInvokeToken returns the token used for runtime function invocation.

@@ -38,6 +38,12 @@ type grantRun struct {
 // injected, so the CLI reads its configuration the way it does in the VM.
 func runAsWorker(t *testing.T, handler http.HandlerFunc, args ...string) grantRun {
 	t.Helper()
+	return runAsWorkerWith(t, nil, handler, args...)
+}
+
+// runAsWorkerWith is runAsWorker with setup run in the workspace first.
+func runAsWorkerWith(t *testing.T, setup func(), handler http.HandlerFunc, args ...string) grantRun {
+	t.Helper()
 	resetInstructions(t)
 	api.ResetLastRefusalForTest()
 	t.Cleanup(api.ResetLastRefusalForTest)
@@ -65,6 +71,9 @@ func runAsWorker(t *testing.T, handler http.HandlerFunc, args ...string) grantRu
 	t.Setenv("VOLCANO_PROJECT_ID", "")
 	t.Setenv("VOLCANO_TELEMETRY_DISABLED", "1")
 	t.Setenv("VOLCANO_NONINTERACTIVE", "1")
+	if setup != nil {
+		setup()
+	}
 
 	deps := cliruntime.Deps{HTTPClient: server.Client()}
 	root := rootcmd.New(deps)
@@ -190,4 +199,88 @@ func TestGrantInvokesWithTheGrantAndNoServiceKey(t *testing.T) {
 	assert.Equal(t, []string{"POST /functions/" + testFunctionID + "/invoke"}, run.requests)
 	assert.Equal(t, []string{"Bearer " + testGrant}, run.auth)
 	assert.JSONEq(t, `{"ok":true}`, run.stdout)
+}
+
+// Under a grant, the API's code follows the error on its own line.
+func TestGrantErrorPrintsTheAPICode(t *testing.T) {
+	run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
+		respondExitTestJSON(w, http.StatusTooManyRequests,
+			`{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`)
+	}, "cloud", "functions", "list")
+
+	assert.Equal(t, exitGrantBudgetExhausted, run.code, run.stderr)
+	assert.Contains(t, run.stderr, "Error: failed to list functions: HTTP 429: the delegated grant has no mutations left; "+
+		"ask the app for a new grant\nError code: grant_budget_exhausted\n")
+}
+
+// Any other credential sees the error as before, without the code line.
+func TestNonGrantErrorPrintsNoCodeLine(t *testing.T) {
+	code, stderr := runAgainst(t, "test-token", func(w http.ResponseWriter, _ *http.Request) {
+		respondExitTestJSON(w, http.StatusForbidden, `{"error":"feature is not available on this plan","code":"plan_required"}`)
+	}, "cloud", "functions", "list")
+
+	assert.Equal(t, exitPermissionDenied, code, stderr)
+	assert.NotContains(t, stderr, "Error code:")
+}
+
+// A 426 under a grant still names the API's code: the worker branches on the
+// code, not on which renderer printed the error.
+func TestGrantUpgradeRequiredPrintsTheAPICode(t *testing.T) {
+	run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
+		respondExitTestJSON(w, http.StatusUpgradeRequired,
+			`{"error":"cli version no longer supported","code":"cli_version_unsupported"}`)
+	}, "cloud", "functions", "list")
+
+	assert.Equal(t, 1, run.code, run.stderr)
+	assert.Contains(t, run.stderr, "cli version no longer supported\nError code: cli_version_unsupported\n")
+}
+
+// The code line follows what the command sent, not what the environment
+// holds: a local-mode command sends no credential, so a grant in
+// VOLCANO_TOKEN does not change its errors.
+func TestGrantInTheEnvironmentAloneAddsNoCodeLine(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", testGrant)
+	api.ResetLastRefusalForTest()
+	t.Cleanup(api.ResetLastRefusalForTest)
+
+	var out bytes.Buffer
+	printError(&out, &api.Error{StatusCode: http.StatusNotFound, Message: "function not found", Code: "not_found"}, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "function not found")
+	assert.NotContains(t, out.String(), "Error code:")
+}
+
+// The app's worker applies migrations with `databases migration apply`, which
+// starts a server-side run. Under a grant it uses only routes a grant may call
+// and never reads the database, whose answer holds the connection string.
+func TestGrantMigrationApplyUsesOnlyARun(t *testing.T) {
+	runsPath := "/projects/" + mainTestProjectAlpha + "/databases/app/migration-runs"
+	const runID = "44444444-4444-4444-8444-444444444444"
+	run := runAsWorkerWith(t, func() {
+		require.NoError(t, os.MkdirAll(filepath.Join("volcano", "migrations"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "001_init.sql"), []byte("CREATE TABLE t();"), 0o644))
+	}, func(w http.ResponseWriter, r *http.Request) {
+		state := `{"id":"` + runID + `","status":"succeeded","phase":"apply","source":"api","warnings":[],` +
+			`"database":{"id":"66666666-6666-4666-8666-666666666666","name":"app"},` +
+			`"files":[{"name":"001_init.sql","outcome":"applied"}],` +
+			`"created_at":"2026-11-11T00:00:00Z","updated_at":"2026-11-11T00:00:00Z"}`
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/capabilities":
+			respondExitTestJSON(w, http.StatusOK, `{"data":[{"id":"databases.migrations","status":"available"}]}`)
+		case r.Method == http.MethodPost && r.URL.Path == runsPath:
+			respondExitTestJSON(w, http.StatusAccepted, state)
+		case r.Method == http.MethodGet && r.URL.Path == runsPath+"/"+runID:
+			respondExitTestJSON(w, http.StatusOK, state)
+		default:
+			respondExitTestJSON(w, http.StatusForbidden, `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`)
+		}
+	}, "cloud", "databases", "migration", "apply", "-d", "app")
+
+	assert.Equal(t, 0, run.code, run.stderr)
+	assert.Contains(t, run.requests, "POST "+runsPath)
+	for i, request := range run.requests {
+		assert.Contains(t, []string{"GET /capabilities", "POST " + runsPath, "GET " + runsPath + "/" + runID}, request)
+		assert.Equal(t, "Bearer "+testGrant, run.auth[i], request)
+	}
 }

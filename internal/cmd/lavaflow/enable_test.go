@@ -254,6 +254,25 @@ func TestAPersonRequiredRefusalSaysToUnsetVolcanoToken(t *testing.T) {
 	}
 }
 
+// A token read from VOLCANO_TOKEN_FD is used the same way, so the refusal
+// names that variable: unsetting VOLCANO_TOKEN would change nothing.
+func TestAPersonRequiredRefusalNamesVolcanoTokenFD(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPatch
+		s.refusal = map[string]any{"error": signInRefusal, "code": "person_required"}
+	})
+	t.Setenv("VOLCANO_TOKEN", "")
+	cliconfig.AdoptTokenFromFDForTest("pk-secret")
+	t.Cleanup(cliconfig.ResetAdoptedTokenForTest)
+
+	_, err := executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "merge", "--yes")
+	require.Error(t, err)
+	assert.Equal(t, "LavaFlow's settings weren't changed: "+signInRefusal+". VOLCANO_TOKEN_FD is set, and its "+
+		"token is used instead of a 'volcano login' sign-in until you unset it", err.Error())
+	assert.Equal(t, http.StatusForbidden, api.Status(err))
+}
+
 // Volcano's words for a platform token that never expires, and for a
 // credential that isn't the owner's own sign-in, such as one that ended.
 const (

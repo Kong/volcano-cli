@@ -815,6 +815,24 @@ func TestAnnounceFeedback_Off(t *testing.T) {
 	assert.Zero(t, h.store.saves)
 }
 
+// The flush process can't see a token taken into memory, and would send the
+// saved login's token with the event. A run on such a token sends nothing.
+func TestRecord_AdoptedTokenSendsNothing(t *testing.T) {
+	t.Setenv("VOLCANO_TOKEN", config.DelegatedGrantPrefix+"grant-secret")
+	config.ResetAdoptedTokenForTest()
+	t.Cleanup(config.ResetAdoptedTokenForTest)
+	require.NoError(t, config.AdoptToken())
+	h := newHarness()
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+
+	h.recorder().Record(Invocation{Stderr: io.Discard})
+	assert.Empty(t, h.sent)
+
+	config.ResetAdoptedTokenForTest()
+	h.recorder().Record(Invocation{Stderr: io.Discard})
+	assert.Len(t, h.sent, 1, "the same run without an adopted token sends its event")
+}
+
 // A delegated grant never leaves the machine on a telemetry request.
 func TestFlush_DelegatedGrantSendsNoAuthorization(t *testing.T) {
 	for _, token := range []string{config.DelegatedGrantPrefix + "grant-secret"} {

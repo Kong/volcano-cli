@@ -503,13 +503,13 @@ func refused(cfg *config.Config, err error) error {
 		// expires, a sign-in that ended, an owner whose GitHub account can't
 		// push to the repository, or a project with no repository.
 		// When its words say to sign in with volcano login, a token in
-		// VOLCANO_TOKEN wins over that sign-in, so say so; unsetting it
-		// fixes nothing about the repository.
+		// VOLCANO_TOKEN or VOLCANO_TOKEN_FD wins over that sign-in, so say
+		// so; unsetting it fixes nothing about the repository.
 		if message := api.Message(err); message != "" {
 			refusal := fmt.Errorf("LavaFlow's settings weren't changed: %s", message)
 			if cfg.TokenFromEnv() && strings.Contains(message, "volcano login") {
 				refusal = fmt.Errorf("%w. %s is set, and its token is used instead of a 'volcano login' sign-in "+
-					"until you unset it", refusal, config.TokenEnv)
+					"until you unset it", refusal, config.TokenEnvName())
 			}
 			return api.WithCause(refusal, err)
 		}
@@ -537,7 +537,7 @@ func personDecides(cfg *config.Config, cause error) error {
 // unset first.
 func signInAgain(cfg *config.Config) string {
 	if cfg.TokenFromEnv() {
-		return "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
+		return "Unset " + config.TokenEnvName() + " and sign in with 'volcano login', then run this again"
 	}
 	return "Sign in with 'volcano login' and run this again"
 }

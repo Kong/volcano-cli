@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 
@@ -45,12 +46,26 @@ func LastRefusal() Refusal {
 	return lastRefusal
 }
 
-// ResetLastRefusalForTest clears the process-global refusal state. Test-only:
-// each CLI invocation is a fresh process.
+// grantSent records whether any request in this process carried a delegated
+// grant.
+var grantSent atomic.Bool
+
+// GrantSent reports whether any API request in this process carried a
+// delegated grant (pg-). It reads the requests that went out rather than the
+// configuration: a local-mode command sends no credential even when a grant
+// is in the environment.
+func GrantSent() bool {
+	return grantSent.Load()
+}
+
+// ResetLastRefusalForTest clears the process-global request state: the last
+// refusal and whether a grant was sent. Test-only: each CLI invocation is a
+// fresh process.
 func ResetLastRefusalForTest() {
 	refusalMu.Lock()
 	lastRefusal = Refusal{}
 	refusalMu.Unlock()
+	grantSent.Store(false)
 }
 
 func recordRefusal(req *http.Request) {
@@ -89,12 +104,16 @@ func bearerToken(authorization string) string {
 }
 
 // refusalDoer records the request behind every 403 the API returns, so a
-// caller explaining one can describe the request instead of guessing at it.
+// caller explaining one can describe the request instead of guessing at it,
+// and whether any request carried a delegated grant (GrantSent).
 type refusalDoer struct {
 	next apiclient.HttpRequestDoer
 }
 
 func (d refusalDoer) Do(req *http.Request) (*http.Response, error) {
+	if config.IsDelegatedGrant(bearerToken(req.Header.Get("Authorization"))) {
+		grantSent.Store(true)
+	}
 	resp, err := d.next.Do(req)
 	if resp != nil && resp.StatusCode == http.StatusForbidden {
 		recordRefusal(req)

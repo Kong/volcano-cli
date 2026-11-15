@@ -155,12 +155,18 @@ func runLimitReached(now time.Time, err error) error {
 }
 
 // liveSignIn says how the owner signs in so a start counts as theirs. A token
-// in VOLCANO_TOKEN wins over a 'volcano login' sign-in, so that case says to
-// unset it or replace it.
+// from the environment wins over a 'volcano login' sign-in, so that case names
+// the variable to unset or replace.
 func liveSignIn(cfg *config.Config, cause error) error {
 	how := "Run 'volcano login', or use a platform token that expires"
 	if cfg.TokenFromEnv() {
-		how = "Unset " + config.TokenEnv + " and run 'volcano login', or set it to a platform token that expires"
+		replace := "set it to a platform token that expires"
+		if config.TokenEnvName() == config.TokenFDEnv {
+			// VOLCANO_TOKEN_FD holds a descriptor number, so the new token goes
+			// on the descriptor, not in the variable.
+			replace = "pass a platform token that expires on the descriptor"
+		}
+		how = "Unset " + config.TokenEnvName() + " and run 'volcano login', or " + replace
 	}
 	return api.WithCause(fmt.Errorf("%w. %s", ErrStartNeedsLiveSignIn, how), cause)
 }
