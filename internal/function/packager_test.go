@@ -30,6 +30,7 @@ func TestPackageSourceRenamesSingleFilesToStandardEntrypoints(t *testing.T) {
 		{name: "typescript", runtime: testRuntimeOption("nodejs24.x", "nodejs", true, nil, "index.js", "handler", nil), filename: "hello.ts", wantEntry: "index.ts", sourceCode: "export const handler = async (): Promise<object> => ({ statusCode: 200 });"},
 		{name: "typescript es module", runtime: testRuntimeOption("nodejs24.x", "nodejs", true, nil, "index.js", "handler", nil), filename: "hello.mts", wantEntry: "index.mts", sourceCode: "export const handler = async (): Promise<object> => ({ statusCode: 200 });"},
 		{name: "typescript commonjs", runtime: testRuntimeOption("nodejs24.x", "nodejs", true, nil, "index.js", "handler", nil), filename: "hello.cts", wantEntry: "index.cts", sourceCode: "export const handler = async (): Promise<object> => ({ statusCode: 200 });"},
+		{name: "typescript jsx", runtime: testRuntimeOption("nodejs24.x", "nodejs", true, nil, "index.js", "handler", nil), filename: "page.tsx", wantEntry: "index.tsx", sourceCode: "export const handler = async (): Promise<object> => ({ statusCode: 200, body: String(<p>hi</p>) });"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -109,6 +110,54 @@ export const handler = async () => ({ statusCode: 200, body: greet() });`), 0o64
 	assert.Equal(t, "nodejs24.x", pkg.Runtime)
 	assert.Equal(t, "handler", pkg.Handler)
 	assert.ElementsMatch(t, []string{"index.ts", "lib/greet.ts", "package.json", "tsconfig.json"}, packageArchiveNames(t, pkg.ArchiveData))
+}
+
+// A .tsx handler uploads under its own name, index.tsx for a single file, so
+// the build compiles its JSX; never as index.js, which Node.js would fail to
+// parse.
+func TestPackageSourceUploadsJSXHandlersAsTSX(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		files map[string]string
+		want  []string
+	}{
+		{
+			name:  "single file",
+			files: map[string]string{"page.tsx": "export const handler = async () => ({ statusCode: 200, body: String(<p>hi</p>) });"},
+			want:  []string{"index.tsx"},
+		},
+		{
+			name: "directory",
+			files: map[string]string{
+				"page/index.tsx":     `import { View } from "./view";` + "\nexport const handler = async () => ({ statusCode: 200, body: String(<View />) });",
+				"page/view.tsx":      "export const View = () => <p>hi</p>;",
+				"page/tsconfig.json": `{"compilerOptions":{"jsx":"react-jsx"}}`,
+			},
+			want: []string{"index.tsx", "view.tsx", "tsconfig.json"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			functionsDir := filepath.Join(dir, "volcano", "functions")
+			for file, content := range tc.files {
+				path := filepath.Join(functionsDir, filepath.FromSlash(file))
+				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+				require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+			}
+
+			sources, err := ScanSources(dir, testRuntimeCatalog(t))
+			require.NoError(t, err)
+			require.Len(t, sources, 1)
+			assert.Equal(t, "page", sources[0].Name)
+
+			pkg, err := PackageSource(sources[0], dir)
+			require.NoError(t, err)
+
+			assert.Equal(t, "nodejs24.x", pkg.Runtime)
+			assert.Equal(t, "handler", pkg.Handler)
+			assert.ElementsMatch(t, tc.want, packageArchiveNames(t, pkg.ArchiveData))
+		})
+	}
 }
 
 func TestPackageSourceIncludesDirectoryFunctionNamedLikeIgnoredSegment(t *testing.T) {

@@ -65,20 +65,19 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 		"Ungated workflows: not allowed", "Turn it on with volcano cloud lavaflow enable")
 	env.runCloudCLI(t, "lavaflow", "enable", "--yes").requireSuccess(t,
 		"LavaFlow sends this project's logs and source code to an AI service that Volcano operates.", "LavaFlow is on")
-	env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only",
-		"--custom-context", "cli-e2e context").requireSuccess(t, "LavaFlow's settings are saved")
+	env.runCloudCLI(t, "lavaflow", "settings", "set", "--autonomy", "diagnose_only").
+		requireSuccess(t, "LavaFlow's settings are saved")
 
 	settings := env.runCloudCLI(t, "lavaflow", "settings", "--json")
 	settings.requireSuccess(t)
 	var saved struct {
-		Enabled       bool   `json:"enabled"`
-		Autonomy      string `json:"autonomy"`
-		CustomContext string `json:"custom_context"`
+		Enabled  bool   `json:"enabled"`
+		Autonomy string `json:"autonomy"`
 	}
 	if err := json.Unmarshal([]byte(settings.stdout), &saved); err != nil {
 		t.Fatalf("settings --json did not emit JSON: %v\n%s", err, settings.output)
 	}
-	if !saved.Enabled || saved.Autonomy != "diagnose_only" || saved.CustomContext != "cli-e2e context" {
+	if !saved.Enabled || saved.Autonomy != "diagnose_only" {
 		t.Fatalf("settings did not read back what was saved: %+v", saved)
 	}
 

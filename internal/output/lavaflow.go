@@ -45,8 +45,6 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 		kv(w, on, "Repository", "none connected")
 	}
 	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
-	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
-	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
 	if !settings.CanUpdate {
 		kv(w, on, "You can change it", "no: only the project's owner can, from their own session while their account is active")
@@ -77,8 +75,7 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	}
 }
 
-// LavaflowSettings renders every setting, with the custom context and system
-// prompt in full. available and mergeAvailable are whether LavaFlow takes
+// LavaflowSettings renders every setting. available and mergeAvailable are whether LavaFlow takes
 // changes and can merge its fixes for the project; a nil mergeAvailable
 // leaves the Merging line out.
 func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings, available, mergeAvailable *bool) {
@@ -91,8 +88,6 @@ func LavaflowSettings(w io.Writer, settings *apiclient.LavaflowSettings, availab
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
 	kv(w, on, "Updated", "%s", formatLavaflowTimePtr(settings.UpdatedAt, "not saved yet"))
-	block(w, on, "Custom context", settings.CustomContext)
-	block(w, on, "System prompt", settings.SystemPrompt)
 }
 
 // LavaflowSettingsSaved renders the settings a change left.
@@ -103,8 +98,6 @@ func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.Lava
 	kv(w, on, "Autonomy", "%s", lavaflowAutonomy(settings.Autonomy))
 	lavaflowHumanReviewPaths(w, on, settings.MergePolicy)
 	kv(w, on, "Ungated workflows", "%s", lavaflowUngatedWorkflows(settings.AllowUngatedWorkflows))
-	kv(w, on, "Custom context", "%s", setOrNot(settings.CustomContext))
-	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 }
 
 // LavaflowStats renders the issues LavaFlow took on and the fix pull requests
@@ -185,9 +178,9 @@ func LavaflowRunStarted(w io.Writer, runID string, status apiclient.LavaflowRunS
 	fmt.Fprintf(w, "Follow it with %s\n", theme.Command(showCommand, on))
 }
 
-// LavaflowRun renders one run: what it worked on, the commit it read, its
-// review, what happened to its fix, any failure in the API's own words, its
-// diagnosis and the diff.
+// LavaflowRun renders one run: what it worked on and where that issue came
+// from, the commit it read, its review, what happened to its fix, any failure
+// in the API's own words, its diagnosis and the diff.
 func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	on := theme.On(w)
 	kv(w, on, "Run", "%s", run.Id)
@@ -197,6 +190,9 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 		kv(w, on, "Title", "%s", clean(*run.Title))
 	}
 	kv(w, on, "Issue", "%s", run.IssueId)
+	if source := lavaflowIssueSource(run.Issue); source != "" {
+		kv(w, on, "Issue source", "%s", source)
+	}
 	if source := lavaflowSourceCommit(run.SourceCommit); source != "" {
 		kv(w, on, "Source", "%s", source)
 	}
@@ -301,6 +297,28 @@ func lavaflowRepositoryChecks(checks *apiclient.LavaflowRepositoryChecks) string
 	return "The repository's tests didn't run."
 }
 
+// lavaflowIssueSource says where the issue a run works on came from, so a
+// run on a failed build reads as a build fix, or "" when the server sent no
+// source, as one older than the field does. A source the CLI doesn't know
+// prints as the API gives it.
+func lavaflowIssueSource(issue *apiclient.LavaflowIssueSummary) string {
+	if issue == nil || issue.Source == nil {
+		return ""
+	}
+	switch *issue.Source {
+	case apiclient.IssueSourceBuild:
+		return "failed build"
+	case apiclient.IssueSourceRuntime:
+		return "runtime error"
+	case apiclient.IssueSourceCodeQuality:
+		return "Code Quality finding"
+	case apiclient.IssueSourceReport:
+		return "reported problem"
+	default:
+		return clean(strings.ReplaceAll(string(*issue.Source), "_", " "))
+	}
+}
+
 // lavaflowSourceCommit is the commit a run read the code at, short, with
 // where it came from, or "" when the run read none.
 func lavaflowSourceCommit(commit *apiclient.LavaflowSourceCommit) string {
@@ -397,13 +415,6 @@ func lavaflowAllowedWorkflow(workflow apiclient.LavaflowAllowedWorkflow) string 
 	default:
 		return line + ": couldn't be read"
 	}
-}
-
-func setOrNot(text string) string {
-	if strings.TrimSpace(text) == "" {
-		return "not set"
-	}
-	return fmt.Sprintf("set (%d characters)", len([]rune(text)))
 }
 
 // lavaflowMergeAvailability says whether LavaFlow can merge its fixes. The

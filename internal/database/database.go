@@ -12,12 +12,13 @@ import (
 
 // Service performs authenticated Volcano database workflows.
 type Service struct {
+	deps     cliruntime.Deps
 	sessions clisession.Factory
 }
 
 // NewService returns a database service.
 func NewService(deps cliruntime.Deps) Service {
-	return Service{sessions: clisession.NewFactory(deps)}
+	return Service{deps: deps, sessions: clisession.NewFactory(deps)}
 }
 
 // Create creates a database in the current project.

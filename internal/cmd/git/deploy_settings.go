@@ -18,8 +18,15 @@ type deploySetting struct {
 	// subcommand is the command's own name, whose next step the output leaves
 	// out.
 	subcommand string
-	change     func(context.Context, gitconnect.Service) (*apiclient.ProjectGitDeploySettings, error)
-	render     func(io.Writer, output.GitBinding)
+	// change saves the setting. It is given the binding the command read and
+	// showed, for a change that must not land on any other.
+	change func(
+		context.Context, gitconnect.Service, *apiclient.ProjectGitConnection,
+	) (*apiclient.ProjectGitDeploySettings, error)
+	render func(io.Writer, output.GitBinding)
+	// confirm, when set, is asked once the repository is known and before
+	// anything is saved. Declining saves nothing and is not an error.
+	confirm func(*apiclient.ProjectGitConnection) (bool, error)
 }
 
 // runDeploySetting changes one deploy setting on a project with a repository
@@ -36,7 +43,14 @@ func runDeploySetting(ctx context.Context, deps cliruntime.Deps, out io.Writer, 
 		return err
 	}
 
-	settings, err := setting.change(ctx, service)
+	if setting.confirm != nil {
+		confirmed, err := setting.confirm(connection)
+		if err != nil || !confirmed {
+			return err
+		}
+	}
+
+	settings, err := setting.change(ctx, service, connection)
 	if err != nil {
 		return guide(deps, err)
 	}

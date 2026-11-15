@@ -181,8 +181,22 @@ func TestStatusListsEveryDeploySetting(t *testing.T) {
 	assert.Contains(t, out, "Production branch: release (pinned)")
 	assert.Contains(t, out, "Auto-deploy: on")
 	assert.Contains(t, out, "Functions: off")
+	assert.Contains(t, out, "Migrations: off")
 	assert.Contains(t, out, "Frontend: web (apps/web)")
 	assert.Contains(t, out, "A push to release deploys: frontend web (apps/web)\n")
+}
+
+func TestStatusSaysAPushAppliesMigrationsFirst(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.applyMigrations = true
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "status")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Migrations: on")
+	assert.Contains(t, out, "A push to main applies its migrations, then deploys: functions\n")
 }
 
 func TestStatusSaysWhenTheBranchFollowsTheDefault(t *testing.T) {
