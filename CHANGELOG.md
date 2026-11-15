@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.83.0](https://github.com/Kong/volcano-cli/compare/v0.82.0...v0.83.0) (2026-11-15)
+
+
+### Features
+
+* **auth:** read the token from a file descriptor and print grant error codes ([#479](https://github.com/Kong/volcano-cli/issues/479)) ([ef6768a](https://github.com/Kong/volcano-cli/commit/ef6768af28801c1b8c2e675ce696a63f8f967098))
+
 ## [0.82.0](https://github.com/Kong/volcano-cli/compare/v0.81.0...v0.82.0) (2026-11-15)
 
 
