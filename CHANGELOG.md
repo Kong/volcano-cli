@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.81.0](https://github.com/Kong/volcano-cli/compare/v0.80.0...v0.81.0) (2026-11-15)
+
+
+### Features
+
+* **auth:** treat pg- delegated grants as project-bound ([#476](https://github.com/Kong/volcano-cli/issues/476)) ([4a9370c](https://github.com/Kong/volcano-cli/commit/4a9370c5869c57b8856a280a7e64e9deeed52546))
+
 ## [0.80.0](https://github.com/Kong/volcano-cli/compare/v0.79.0...v0.80.0) (2026-11-13)
 
 
