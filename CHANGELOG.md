@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.82.0](https://github.com/Kong/volcano-cli/compare/v0.81.0...v0.82.0) (2026-11-15)
+
+
+### Features
+
+* **functions:** invoke with a delegated grant, not a service key ([#477](https://github.com/Kong/volcano-cli/issues/477)) ([c4fa69e](https://github.com/Kong/volcano-cli/commit/c4fa69e95f33fb0326f627f00af6f5228f2953d9))
+
 ## [0.81.0](https://github.com/Kong/volcano-cli/compare/v0.80.0...v0.81.0) (2026-11-15)
 
 
