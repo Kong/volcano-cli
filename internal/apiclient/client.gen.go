@@ -2280,27 +2280,6 @@ func (e ImportProvider) Valid() bool {
 	}
 }
 
-// Defines values for IssueSource.
-const (
-	IssueSourceCodeQuality IssueSource = "code_quality"
-	IssueSourceReport      IssueSource = "report"
-	IssueSourceRuntime     IssueSource = "runtime"
-)
-
-// Valid indicates whether the value is a known member of the IssueSource enum.
-func (e IssueSource) Valid() bool {
-	switch e {
-	case IssueSourceCodeQuality:
-		return true
-	case IssueSourceReport:
-		return true
-	case IssueSourceRuntime:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for IssueFindingSeverity.
 const (
 	Critical IssueFindingSeverity = "critical"
@@ -2319,6 +2298,30 @@ func (e IssueFindingSeverity) Valid() bool {
 	case Minor:
 		return true
 	case Nit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IssueSource.
+const (
+	IssueSourceBuild       IssueSource = "build"
+	IssueSourceCodeQuality IssueSource = "code_quality"
+	IssueSourceReport      IssueSource = "report"
+	IssueSourceRuntime     IssueSource = "runtime"
+)
+
+// Valid indicates whether the value is a known member of the IssueSource enum.
+func (e IssueSource) Valid() bool {
+	switch e {
+	case IssueSourceBuild:
+		return true
+	case IssueSourceCodeQuality:
+		return true
+	case IssueSourceReport:
+		return true
+	case IssueSourceRuntime:
 		return true
 	default:
 		return false
@@ -10198,7 +10201,7 @@ type ImportSourcesResponse struct {
 	Sources []ImportSource `json:"sources"`
 }
 
-// Issue Runtime errors from one function or frontend, grouped by error type and stack, one LavaFlow Code Quality finding, or a user-reported project problem. A report has a project resource, zero runtime occurrences, and report times as its first and last seen times.
+// Issue Runtime errors from one function or frontend, grouped by error type and stack, one LavaFlow Code Quality finding, failed builds of one function or frontend with the same first error, or a user-reported project problem. A report has a project resource, zero runtime occurrences, and report times as its first and last seen times.
 type Issue struct {
 	CreatedAt time.Time `json:"created_at"`
 
@@ -10215,7 +10218,9 @@ type Issue struct {
 	// logged with `console.error(err)` or Python's `logger.exception()`.
 	// `false` for an error logged any other way, such as a structured log
 	// line, a logger's error line, or a printed traceback, and for every
-	// `code_quality` issue. Once `true`, it stays `true`.
+	// `code_quality` issue. `true` for every `build` issue: a failed build
+	// stops its deploy as an exception stops a request. Once `true`, it
+	// stays `true`.
 	Exception bool `json:"exception"`
 
 	// Finding The finding behind a `code_quality` issue. Absent on a `runtime` issue.
@@ -10243,7 +10248,7 @@ type Issue struct {
 	// SampleEventId The ID of the latest error's log event, while logs retain it.
 	SampleEventId *string `json:"sample_event_id,omitempty"`
 
-	// Source Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it.
+	// Source Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, `build` for deploys of one function or frontend that failed in its own build step, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it. A `build` issue's `title` is the build's first error, its `error_type` the tool's code, such as `TS2322` or `npm ETARGET`, its `culprit` the error's `file:line`, its `event_count` the failed deploys, and its `last_deployment_id` the latest of them. A later deploy that builds resolves it. Deploys Volcano failed, such as a timeout or a refused build, never make one.
 	Source IssueSource `json:"source"`
 
 	// Status `open` until someone resolves or ignores the issue. A resolved issue
@@ -10257,9 +10262,6 @@ type Issue struct {
 	Title     string    `json:"title"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
-
-// IssueSource Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it.
-type IssueSource string
 
 // IssueFinding The LavaFlow Code Quality finding behind a `code_quality` issue.
 type IssueFinding struct {
@@ -10287,6 +10289,9 @@ type IssueFinding struct {
 
 // IssueFindingSeverity How much the problem matters, as the finding was confirmed.
 type IssueFindingSeverity string
+
+// IssueSource Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, `build` for deploys of one function or frontend that failed in its own build step, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it. A `build` issue's `title` is the build's first error, its `error_type` the tool's code, such as `TS2322` or `npm ETARGET`, its `culprit` the error's `file:line`, its `event_count` the failed deploys, and its `last_deployment_id` the latest of them. A later deploy that builds resolves it. Deploys Volcano failed, such as a timeout or a refused build, never make one.
+type IssueSource string
 
 // IssueStatus `open` until someone resolves or ignores the issue. A resolved issue
 // seen again reopens. A reported problem resolves when its LavaFlow fix
@@ -10466,10 +10471,10 @@ type LavaflowInvolvedResourceCount struct {
 
 // LavaflowIssueSummary The project issue a run works on.
 type LavaflowIssueSummary struct {
-	// Culprit The innermost frame of your code, as `function (file)`; for a Code Quality finding, the symbol and file it is in, as `symbol (file)`, or the file alone. Null for an error without a stack and for a reported problem.
+	// Culprit The innermost frame of your code, as `function (file)`; for a Code Quality finding, the symbol and file it is in, as `symbol (file)`, or the file alone; for a failed build, its first error's `file:line`. Null for an error without a stack and for a reported problem.
 	Culprit *string `json:"culprit"`
 
-	// EventCount Errors the issue has grouped so far; for a Code Quality finding, the scans that saw it; 0 for a reported problem.
+	// EventCount Errors the issue has grouped so far; for a Code Quality finding, the scans that saw it; for a failed build, the failed deploys; 0 for a reported problem.
 	EventCount int64              `json:"event_count"`
 	Id         openapi_types.UUID `json:"id"`
 	LastSeenAt time.Time          `json:"last_seen_at"`
@@ -10482,6 +10487,9 @@ type LavaflowIssueSummary struct {
 
 	// RunCount LavaFlow runs on this issue, this one included.
 	RunCount int64 `json:"run_count"`
+
+	// Source Where the issue came from: `runtime` for errors your code logged, `code_quality` for a LavaFlow Code Quality finding in code a deploy changed, `build` for deploys of one function or frontend that failed in its own build step, or `report` for a problem reported for the project, such as through Slack. A `code_quality` issue's `error_type` is the finding's rule, its `culprit` the enclosing function and file, and its `event_count` the scans that found it. A `build` issue's `title` is the build's first error, its `error_type` the tool's code, such as `TS2322` or `npm ETARGET`, its `culprit` the error's `file:line`, its `event_count` the failed deploys, and its `last_deployment_id` the latest of them. A later deploy that builds resolves it. Deploys Volcano failed, such as a timeout or a refused build, never make one.
+	Source *IssueSource `json:"source,omitempty"`
 
 	// Status `open` until someone resolves or ignores the issue. A resolved issue
 	// seen again reopens. A reported problem resolves when its LavaFlow fix
@@ -10907,9 +10915,6 @@ type LavaflowSettings struct {
 	// CodeQuality LavaFlow Code Quality: whether LavaFlow reviews the code each production deploy changes and opens pull requests that fix what it confirms.
 	CodeQuality LavaflowCodeQualitySettings `json:"code_quality"`
 
-	// CustomContext Context about the project for LavaFlow's runs. Empty when unset. Saved, but runs do not use it yet.
-	CustomContext string `json:"custom_context"`
-
 	// Enabled Whether LavaFlow works on the project's issues. Off by default.
 	Enabled bool `json:"enabled"`
 
@@ -10928,9 +10933,6 @@ type LavaflowSettings struct {
 	// SkillLearning What LavaFlow will do with a skill it learns from a writer's correction of one of its fixes, once learning ships in a later release. `auto`, the default, activates it at once. `review` keeps it `proposed` until the owner activates it. `off` learns none and loads no project skill; the project's skills stay readable and deletable. A writer of the repository can steer LavaFlow through what it learns, outside the repository's history and branch protection, so a repository that protects its guidance, or relays CI output through a bot account with write access, should use `review`. Turning learning up needs the project's `lavaflow.skills` capability.
 	SkillLearning LavaflowSkillLearning `json:"skill_learning"`
 
-	// SystemPrompt Instructions for LavaFlow's runs, to follow after LavaFlow's own, which take precedence. Empty when unset. Saved, but runs do not use it yet.
-	SystemPrompt string `json:"system_prompt"`
-
 	// UpdatedAt When the settings were last saved, or last changed by connecting a repository. Null until they first are.
 	UpdatedAt *time.Time `json:"updated_at"`
 
@@ -10947,9 +10949,8 @@ type LavaflowSettingsUpdate struct {
 	Autonomy *LavaflowAutonomy `json:"autonomy,omitempty"`
 
 	// CodeQuality Turns Code Quality on or off. Only the project's owner, signed in, can turn it on; any credential that can save the settings can turn it off.
-	CodeQuality   *LavaflowCodeQualityUpdate `json:"code_quality,omitempty"`
-	CustomContext *string                    `json:"custom_context,omitempty"`
-	Enabled       *bool                      `json:"enabled,omitempty"`
+	CodeQuality *LavaflowCodeQualityUpdate `json:"code_quality,omitempty"`
+	Enabled     *bool                      `json:"enabled,omitempty"`
 
 	// MergePolicy The merge policy fields to change. An omitted field keeps its saved value. Send `human_review_paths: []` to clear the paths.
 	MergePolicy *LavaflowMergePolicyUpdate `json:"merge_policy,omitempty"`
@@ -10959,7 +10960,6 @@ type LavaflowSettingsUpdate struct {
 
 	// SkillLearning Only the project's owner turns learning up, from `off` to `review` or `auto` or from `review` to `auto`, signed in as a person: with a sign-in session, a `volcano login` token whose sign-in is live, or a platform token with an expiry, and with a GitHub account that can push to the project's repository. Any other credential gets `403` with code `person_required`. Turning it down or off, or sending the saved value, needs no check. A project access token may send `off` with `project_id`, alone or with `code_quality` turned off, and nothing else; any other save it makes gets `403` with code `person_required`.
 	SkillLearning *LavaflowSkillLearning `json:"skill_learning,omitempty"`
-	SystemPrompt  *string                `json:"system_prompt,omitempty"`
 }
 
 // LavaflowSkill A project skill with its active version.
@@ -17405,6 +17405,9 @@ type ListIssuesParams struct {
 
 	// ResourceId Return only issues raised by this function or frontend.
 	ResourceId *openapi_types.UUID `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+
+	// Source Return only issues from this source, such as `build` for failed builds.
+	Source *IssueSource `form:"source,omitempty" json:"source,omitempty"`
 }
 
 // UploadProjectLogoMultipartBody defines parameters for UploadProjectLogo.
@@ -18132,9 +18135,6 @@ type CreateLavaflowRunJSONRequestBody = LavaflowRunCreate
 
 // PatchLavaflowSettingsJSONRequestBody defines body for PatchLavaflowSettings for application/json ContentType.
 type PatchLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
-
-// UpdateLavaflowSettingsJSONRequestBody defines body for UpdateLavaflowSettings for application/json ContentType.
-type UpdateLavaflowSettingsJSONRequestBody = LavaflowSettingsUpdate
 
 // UpdateLavaflowSkillJSONRequestBody defines body for UpdateLavaflowSkill for application/json ContentType.
 type UpdateLavaflowSkillJSONRequestBody = LavaflowSkillUpdate
@@ -20178,11 +20178,6 @@ type ClientInterface interface {
 	PatchLavaflowSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PatchLavaflowSettings(ctx context.Context, body PatchLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateLavaflowSettingsWithBody request with any body
-	UpdateLavaflowSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateLavaflowSettings(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLavaflowSkillVersions request
 	ListLavaflowSkillVersions(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -22826,30 +22821,6 @@ func (c *Client) PatchLavaflowSettingsWithBody(ctx context.Context, contentType 
 
 func (c *Client) PatchLavaflowSettings(ctx context.Context, body PatchLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPatchLavaflowSettingsRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateLavaflowSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateLavaflowSettingsRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateLavaflowSettings(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateLavaflowSettingsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -32158,46 +32129,6 @@ func NewPatchLavaflowSettingsRequestWithBody(server string, contentType string, 
 	}
 
 	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewUpdateLavaflowSettingsRequest calls the generic UpdateLavaflowSettings builder with application/json body
-func NewUpdateLavaflowSettingsRequest(server string, body UpdateLavaflowSettingsJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateLavaflowSettingsRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewUpdateLavaflowSettingsRequestWithBody generates requests for UpdateLavaflowSettings with any type of body
-func NewUpdateLavaflowSettingsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/lavaflow/settings")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -42420,6 +42351,18 @@ func NewListIssuesRequest(server string, id ProjectId, params *ListIssuesParams)
 
 		}
 
+		if params.Source != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", *params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if encoded := queryValues.Encode(); encoded != "" {
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
@@ -49118,11 +49061,6 @@ type ClientWithResponsesInterface interface {
 
 	PatchLavaflowSettingsWithResponse(ctx context.Context, body PatchLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchLavaflowSettingsClientResponse, error)
 
-	// UpdateLavaflowSettingsWithBodyWithResponse request with any body
-	UpdateLavaflowSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
-
-	UpdateLavaflowSettingsWithResponse(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error)
-
 	// ListLavaflowSkillVersionsWithResponse request
 	ListLavaflowSkillVersionsWithResponse(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillVersionsClientResponse, error)
 
@@ -53204,44 +53142,6 @@ func (r PatchLavaflowSettingsClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PatchLavaflowSettingsClientResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type UpdateLavaflowSettingsClientResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *LavaflowSettings
-	JSON400      *Error
-	JSON401      *Error
-	JSON403      *Error
-	JSON404      *Error
-	JSON409      *Error
-	JSON413      *Error
-	JSON429      *Error
-	JSON503      *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateLavaflowSettingsClientResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateLavaflowSettingsClientResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r UpdateLavaflowSettingsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -64426,23 +64326,6 @@ func (c *ClientWithResponses) PatchLavaflowSettingsWithResponse(ctx context.Cont
 	return ParsePatchLavaflowSettingsClientResponse(rsp)
 }
 
-// UpdateLavaflowSettingsWithBodyWithResponse request with arbitrary body returning *UpdateLavaflowSettingsClientResponse
-func (c *ClientWithResponses) UpdateLavaflowSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error) {
-	rsp, err := c.UpdateLavaflowSettingsWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateLavaflowSettingsClientResponse(rsp)
-}
-
-func (c *ClientWithResponses) UpdateLavaflowSettingsWithResponse(ctx context.Context, body UpdateLavaflowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaflowSettingsClientResponse, error) {
-	rsp, err := c.UpdateLavaflowSettings(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateLavaflowSettingsClientResponse(rsp)
-}
-
 // ListLavaflowSkillVersionsWithResponse request returning *ListLavaflowSkillVersionsClientResponse
 func (c *ClientWithResponses) ListLavaflowSkillVersionsWithResponse(ctx context.Context, params *ListLavaflowSkillVersionsParams, reqEditors ...RequestEditorFn) (*ListLavaflowSkillVersionsClientResponse, error) {
 	rsp, err := c.ListLavaflowSkillVersions(ctx, params, reqEditors...)
@@ -72330,88 +72213,6 @@ func ParsePatchLavaflowSettingsClientResponse(rsp *http.Response) (*PatchLavaflo
 	}
 
 	response := &PatchLavaflowSettingsClientResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest LavaflowSettings
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON413 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON429 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateLavaflowSettingsClientResponse parses an HTTP response from a UpdateLavaflowSettingsWithResponse call
-func ParseUpdateLavaflowSettingsClientResponse(rsp *http.Response) (*UpdateLavaflowSettingsClientResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateLavaflowSettingsClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

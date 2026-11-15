@@ -189,6 +189,7 @@ type gitAPI struct {
 
 	autoDeploy      bool
 	deployFunctions bool
+	applyMigrations bool
 	frontend        string
 	frontendRoot    string
 	// providerStatus overrides the response on the routes that reach the git
@@ -549,7 +550,8 @@ func (a *gitAPI) serveDeploySettings(w http.ResponseWriter) {
 }
 
 // serveUpdateDeploySettings replaces every deploy setting with what it was
-// sent, as the platform does: a field left out is cleared, not kept.
+// sent, as the platform does: a field left out is cleared, not kept, except
+// apply_migrations, which keeps its saved value when left out.
 func (a *gitAPI) serveUpdateDeploySettings(w http.ResponseWriter, r *http.Request) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -563,6 +565,9 @@ func (a *gitAPI) serveUpdateDeploySettings(w http.ResponseWriter, r *http.Reques
 	a.deployFunctions, _ = a.settingsBody["deploy_functions"].(bool)
 	a.frontend, _ = a.settingsBody["frontend_name"].(string)
 	a.frontendRoot, _ = a.settingsBody["frontend_app_root"].(string)
+	if apply, ok := a.settingsBody["apply_migrations"].(bool); ok {
+		a.applyMigrations = apply
+	}
 	writeGitJSON(a.t, w, http.StatusOK, a.deploySettings())
 }
 
@@ -570,6 +575,7 @@ func (a *gitAPI) deploySettings() map[string]any {
 	settings := map[string]any{
 		"auto_deploy_enabled": a.autoDeploy,
 		"deploy_functions":    a.deployFunctions,
+		"apply_migrations":    a.applyMigrations,
 		"updated_at":          "2026-08-18T00:00:00Z",
 	}
 	if a.frontend != "" {

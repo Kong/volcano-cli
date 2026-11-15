@@ -151,10 +151,11 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeDeployHonorsItsFlagsAndReportsAFailedBuild(t, volcanoBin, env)
 	requireLocalModeDeploysStarter(t, volcanoBin, env)
 	requireLocalModeDeploysTypeScriptFunctions(t, volcanoBin, env)
+	requireLocalModeDeploysJSXFunctions(t, volcanoBin, env)
 
 	resetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "reset", "--yes")
 	requireContains(t, resetOutput, "Local reset complete.")
-	requireContains(t, resetOutput, "volcano migrations deploy --all -d app")
+	requireContains(t, resetOutput, "volcano databases migration apply -d app")
 
 	statusAfterReset := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "status")
 	requireContains(t, statusAfterReset, "Volcano Local Development Status")

@@ -523,6 +523,27 @@ func (s Service) SetDeployFunctions(ctx context.Context, on bool) (*apiclient.Pr
 		})
 }
 
+// SetApplyMigrations turns applying the commit's pending migrations before a
+// push deploys on or off. Unlike the other settings, the platform keeps the
+// saved value when the field is left out, so only this write sends it.
+//
+// expected is the binding the caller read and showed. Turning this on lets
+// whoever can push to that repository's production branch run SQL as the
+// database owner, so the write is refused when the binding changed since: the
+// user agreed to that repository and branch, not to whatever is bound now.
+// Like Disconnect, this narrows the window rather than closing it.
+func (s Service) SetApplyMigrations(
+	ctx context.Context, on bool, expected *apiclient.ProjectGitConnection,
+) (*apiclient.ProjectGitDeploySettings, error) {
+	if err := s.confirmUnchanged(ctx, expected); err != nil {
+		return nil, err
+	}
+	return s.changeDeploySettings(ctx, "failed to turn migrations "+onOff(on),
+		func(settings *apiclient.UpdateProjectGitDeploySettingsRequest) {
+			settings.ApplyMigrations = &on
+		})
+}
+
 func onOff(on bool) string {
 	if on {
 		return "on"

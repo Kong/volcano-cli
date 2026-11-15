@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.80.0](https://github.com/Kong/volcano-cli/compare/v0.79.0...v0.80.0) (2026-11-13)
+
+
+### Features
+
+* **git:** turn applying database migrations on push on or off ([#490](https://github.com/Kong/volcano-cli/issues/490)) ([65b50e7](https://github.com/Kong/volcano-cli/commit/65b50e71e5c54fa59351ad0dc9f502d16e9cade5))
+
+## [0.79.0](https://github.com/Kong/volcano-cli/compare/v0.78.0...v0.79.0) (2026-11-13)
+
+
+### Features
+
+* **databases:** apply migrations in tracked runs ([#365](https://github.com/Kong/volcano-cli/issues/365)) ([b46711d](https://github.com/Kong/volcano-cli/commit/b46711dece56ce70a7e2d14057a845b3acff4f68))
+
+## [0.78.0](https://github.com/Kong/volcano-cli/compare/v0.77.0...v0.78.0) (2026-11-13)
+
+
+### Features
+
+* **lavaflow:** show the source of a run's issue ([#480](https://github.com/Kong/volcano-cli/issues/480)) ([db53521](https://github.com/Kong/volcano-cli/commit/db5352133714eb817524bc4013ee7da454dcdbb2))
+
+## [0.77.0](https://github.com/Kong/volcano-cli/compare/v0.76.0...v0.77.0) (2026-11-12)
+
+
+### Features
+
+* **lavaflow:** remove the custom context and system prompt flags ([#481](https://github.com/Kong/volcano-cli/issues/481)) ([fd0628c](https://github.com/Kong/volcano-cli/commit/fd0628c4606491df2e1d1ba866066dd88abceb14))
+
+
+### Bug Fixes
+
+* **lavaflow:** save settings with PATCH ([#483](https://github.com/Kong/volcano-cli/issues/483)) ([9abb357](https://github.com/Kong/volcano-cli/commit/9abb357ab3a203887aeffaef77768ea65278d863))
+
 ## [0.76.0](https://github.com/Kong/volcano-cli/compare/v0.75.3...v0.76.0) (2026-11-11)
 
 

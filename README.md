@@ -61,14 +61,13 @@ files, migrations directory, and README). Use a template to add
 language-specific files: `javascript` (aliases: `js`, `node`, `nodejs`),
 `nextjs`, `python`, or `ruby`.
 
-More detail lives in `docs/`:
+More detail lives in the [CLI docs](https://docs.volcano.dev/cli):
 
-- [Installation details](docs/installation.md)
-- [Authentication](docs/authentication.md)
-- [Deploy a project](docs/deploy.md)
-- [Project configuration](docs/project-configuration.md)
-- [CLI operations overview](docs/cli/overview.md)
-- [Documentation search (`volcano docs`)](docs/docs-search.md)
+- [Installation details](https://docs.volcano.dev/cli/installation)
+- [Authentication](https://docs.volcano.dev/cli/authentication)
+- [Deploy a project](https://docs.volcano.dev/cli/deploy)
+- [Project configuration](https://docs.volcano.dev/cli/project-configuration)
+- [Documentation search (`volcano docs`)](https://docs.volcano.dev/cli/docs-search)
 
 ## Contributing
 

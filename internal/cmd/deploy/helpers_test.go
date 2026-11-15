@@ -128,6 +128,13 @@ type fakeVolcano struct {
 	reads       []string
 	// durableReads counts the reads of each durable function.
 	durableReads map[string]int
+	// migrationsUnavailable leaves databases.migrations out of the capability
+	// list.
+	migrationsUnavailable bool
+	// failMigrations names databases whose migration run fails.
+	failMigrations map[string]bool
+	// migrationFiles lists the files each migration run carried, by database.
+	migrationFiles map[string][]string
 	// functionReads counts the reads of each function.
 	functionReads map[string]int
 }
@@ -135,15 +142,16 @@ type fakeVolcano struct {
 func newFakeVolcano(t *testing.T) *fakeVolcano {
 	t.Helper()
 	return &fakeVolcano{
-		t:             t,
-		sourceMode:    "platform",
-		frontends:     map[string]map[string][]string{},
-		archives:      map[string][]string{},
-		deployments:   map[string]uuid.UUID{},
-		successors:    map[string]uuid.UUID{},
-		resources:     map[string]uuid.UUID{},
-		durableReads:  map[string]int{},
-		functionReads: map[string]int{},
+		t:              t,
+		sourceMode:     "platform",
+		frontends:      map[string]map[string][]string{},
+		archives:       map[string][]string{},
+		deployments:    map[string]uuid.UUID{},
+		successors:     map[string]uuid.UUID{},
+		resources:      map[string]uuid.UUID{},
+		durableReads:   map[string]int{},
+		migrationFiles: map[string][]string{},
+		functionReads:  map[string]int{},
 	}
 }
 
@@ -298,6 +306,33 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.NotFound(w, r)
+	case r.Method == http.MethodGet && path == "/capabilities":
+		f.reads = append(f.reads, "capabilities")
+		status := "available"
+		if f.migrationsUnavailable {
+			status = "unavailable"
+		}
+		f.writeJSON(w, http.StatusOK, map[string]any{"data": []any{map[string]any{"id": "databases.migrations", "status": status}}})
+	case r.Method == http.MethodPost && strings.HasPrefix(path, project+"/databases/") && strings.HasSuffix(path, "/migration-runs"):
+		database := strings.TrimSuffix(strings.TrimPrefix(path, project+"/databases/"), "/migration-runs")
+		var body struct {
+			Files []struct {
+				Name string `json:"name"`
+			} `json:"files"`
+		}
+		require.NoError(f.t, json.NewDecoder(r.Body).Decode(&body))
+		f.calls = append(f.calls, "migrations "+database)
+		for _, file := range body.Files {
+			f.migrationFiles[database] = append(f.migrationFiles[database], file.Name)
+		}
+		f.writeJSON(w, http.StatusAccepted, f.migrationRun(database, "queued"))
+	case r.Method == http.MethodGet && strings.Contains(path, "/migration-runs/"):
+		database, _, _ := strings.Cut(strings.TrimPrefix(path, project+"/databases/"), "/")
+		status := "succeeded"
+		if f.failMigrations[database] {
+			status = "failed"
+		}
+		f.writeJSON(w, http.StatusOK, f.migrationRun(database, status))
 	case r.Method == http.MethodGet && strings.HasPrefix(path, project+"/functions/"):
 		id := strings.TrimPrefix(path, project+"/functions/")
 		for name, resource := range f.resources {
@@ -330,6 +365,33 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 		f.t.Errorf("unexpected request %s %s", r.Method, path)
 		http.NotFound(w, r)
 	}
+}
+
+// migrationRun is the run a database's migration run reads as.
+func (f *fakeVolcano) migrationRun(database, status string) map[string]any {
+	run := map[string]any{
+		"id":         uuid.NewSHA1(uuid.NameSpaceURL, []byte(database)).String(),
+		"database":   map[string]any{"type": "database", "id": uuid.NewString(), "name": database},
+		"status":     status,
+		"phase":      "apply",
+		"source":     "api",
+		"warnings":   []any{},
+		"created_at": "2026-10-01T00:00:00Z",
+		"updated_at": "2026-10-01T00:00:00Z",
+	}
+	var files []any
+	for _, name := range f.migrationFiles[database] {
+		outcome := "applied"
+		if status == "failed" {
+			outcome = "failed"
+		}
+		files = append(files, map[string]any{"name": name, "outcome": outcome})
+	}
+	run["files"] = files
+	if status == "failed" {
+		run["error"] = map[string]any{"code": "migration_failed", "message": "a migration failed"}
+	}
+	return run
 }
 
 // deployed returns the resource payload for a deploy of name, with a new
