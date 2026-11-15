@@ -384,9 +384,10 @@ func (s Service) invokeToken(ctx context.Context, project *clisession.ProjectSes
 	}
 	// Cloud supplies the token via the provider: a pg- delegated grant or a
 	// service key the session already holds is used itself, otherwise the
-	// reserved data-plane service key (see dataplane.Service.InvokeToken). Local mode has no provider and the session
-	// layer drops the credential entirely (see session.Factory.APIClient), so the
-	// returned token is unused there.
+	// reserved data-plane service key (see dataplane.Service.InvokeToken).
+	// Local mode has no provider and the session layer drops the credential
+	// entirely (see session.Factory.APIClient), so the returned token is unused
+	// there.
 	if s.invokeTokenProvider != nil {
 		return s.invokeTokenProvider(ctx, project)
 	}
