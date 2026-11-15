@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -55,6 +56,48 @@ func TestAdoptTokenLeavesOtherTokensInTheEnvironment(t *testing.T) {
 
 	assert.Equal(t, AccountTokenPrefix+"account", os.Getenv(envToken))
 	assert.Equal(t, AccountTokenPrefix+"account", (&Config{}).Token())
+}
+
+// A blank VOLCANO_TOKEN_FD counts as unset, as a blank VOLCANO_TOKEN does, so
+// an environment template that leaves it empty stops nothing.
+func TestAdoptTokenTreatsABlankDescriptorAsUnset(t *testing.T) {
+	for _, blank := range []string{"", "  "} {
+		t.Run("account token, fd "+strconv.Quote(blank), func(t *testing.T) {
+			adoptTokenTest(t)
+			t.Setenv(envToken, AccountTokenPrefix+"account")
+			t.Setenv(TokenFDEnv, blank)
+
+			require.NoError(t, AdoptToken())
+
+			assert.False(t, TokenAdopted())
+			assert.Equal(t, AccountTokenPrefix+"account", (&Config{}).Token())
+			_, set := os.LookupEnv(TokenFDEnv)
+			assert.False(t, set)
+		})
+		t.Run("grant, fd "+strconv.Quote(blank), func(t *testing.T) {
+			adoptTokenTest(t)
+			t.Setenv(envToken, DelegatedGrantPrefix+"from-env")
+			t.Setenv(TokenFDEnv, blank)
+
+			require.NoError(t, AdoptToken())
+
+			assert.Equal(t, DelegatedGrantPrefix+"from-env", (&Config{}).Token())
+			assert.Equal(t, envToken, TokenEnvName())
+			_, set := os.LookupEnv(envToken)
+			assert.False(t, set)
+		})
+	}
+}
+
+// Where os.NewFile takes a handle rather than a descriptor number, only stdin
+// can carry the token.
+func TestAdoptTokenRefusesNumberedDescriptorsOffUnix(t *testing.T) {
+	if descriptorsByNumber {
+		t.Skip("descriptors from 3 up are read on Unix")
+	}
+	adoptTokenTest(t)
+	t.Setenv(TokenFDEnv, "3")
+	require.ErrorContains(t, AdoptToken(), "VOLCANO_TOKEN_FD can only be 0 (stdin) on "+runtime.GOOS)
 }
 
 func TestAdoptTokenRefusals(t *testing.T) {

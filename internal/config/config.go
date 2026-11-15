@@ -54,7 +54,7 @@ var (
 	// the configured credential only reaches a single project.
 	ErrAccountTokenRequired = errors.New("this command needs an account token (" + AccountTokenPrefix +
 		") but the current credential is a project access token (" + ProjectTokenPrefix +
-		"), which only reaches the project it was minted in. Run 'volcano login', or set VOLCANO_TOKEN to an account token")
+		"), which only reaches the project it was minted in. Run 'volcano login', or pass an account token in VOLCANO_TOKEN or VOLCANO_TOKEN_FD")
 	// ErrNoProjectSelectedForGrant is ErrNoProjectSelectedForProjectToken
 	// worded for a delegated grant. It matches that error, so the exit code is
 	// the same.
@@ -68,7 +68,7 @@ var (
 	ErrAccountTokenRequiredForGrant error = grantRefusal{
 		message: "this command needs an account token (" + AccountTokenPrefix +
 			") but the current credential is a delegated grant (" + DelegatedGrantPrefix +
-			"), which only reaches the project it was granted for. Run 'volcano login', or set VOLCANO_TOKEN to an account token",
+			"), which only reaches the project it was granted for. Run 'volcano login', or pass an account token in VOLCANO_TOKEN or VOLCANO_TOKEN_FD",
 		matches: ErrAccountTokenRequired,
 	}
 )

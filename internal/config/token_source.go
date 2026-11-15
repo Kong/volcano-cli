@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -14,7 +15,8 @@ import (
 // VOLCANO_TOKEN. A process that can read the CLI's environment, such as one a
 // coding agent left running next to it, can read VOLCANO_TOKEN; it can't read
 // a descriptor the CLI has already read and closed. 0 reads stdin and leaves
-// it open; 1 and 2 are refused.
+// it open; 1 and 2 are refused; numbers from 3 up are Unix only. A blank value
+// counts as unset.
 const TokenFDEnv = "VOLCANO_TOKEN_FD" //nolint:gosec // the name of an environment variable, not a credential
 
 // maxTokenFDBytes bounds what is read from the token descriptor.
@@ -39,15 +41,18 @@ var tokenFromFD atomic.Bool
 // the telemetry flush reads an account token from there.
 func AdoptToken() error {
 	fdText, fdSet := os.LookupEnv(TokenFDEnv)
-	if !fdSet {
+	if fdSet {
+		if err := os.Unsetenv(TokenFDEnv); err != nil {
+			return err
+		}
+	}
+	// A blank VOLCANO_TOKEN_FD counts as unset, as a blank VOLCANO_TOKEN does.
+	if strings.TrimSpace(fdText) == "" {
 		if token := strings.TrimSpace(os.Getenv(envToken)); IsDelegatedGrant(token) {
 			adoptedToken.Store(&token)
 			return os.Unsetenv(envToken)
 		}
 		return nil
-	}
-	if err := os.Unsetenv(TokenFDEnv); err != nil {
-		return err
 	}
 	if strings.TrimSpace(os.Getenv(envToken)) != "" {
 		return fmt.Errorf("set %s or %s, not both", TokenFDEnv, envToken)
@@ -101,6 +106,11 @@ func readTokenFD(fd int) (string, error) {
 	case 1, 2:
 		return "", fmt.Errorf("%s can't be %d: that is stdout or stderr", TokenFDEnv, fd)
 	default:
+		// Elsewhere os.NewFile takes a handle, not a descriptor number, so only
+		// stdin is read there.
+		if !descriptorsByNumber {
+			return "", fmt.Errorf("%s can only be 0 (stdin) on %s", TokenFDEnv, runtime.GOOS)
+		}
 		file := os.NewFile(uintptr(fd), TokenFDEnv)
 		if file == nil {
 			return "", fmt.Errorf("%s=%d is not an open file descriptor", TokenFDEnv, fd)
@@ -147,4 +157,11 @@ func readTokenLine(r io.Reader, fd int) (string, error) {
 func ResetAdoptedTokenForTest() {
 	adoptedToken.Store(nil)
 	tokenFromFD.Store(false)
+}
+
+// AdoptTokenFromFDForTest holds token as if AdoptToken had read it from
+// VOLCANO_TOKEN_FD. Test-only: it reads no descriptor.
+func AdoptTokenFromFDForTest(token string) {
+	adoptedToken.Store(&token)
+	tokenFromFD.Store(true)
 }
