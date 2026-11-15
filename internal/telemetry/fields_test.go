@@ -49,6 +49,7 @@ func TestResources(t *testing.T) {
 		{"positional wins over flag", "get <function>", []string{"a", "--function", "b"}, map[string]string{"function": "a"}},
 		{"slice flag value is dropped", "list", []string{"--database", "a,b"}, nil},
 		{"secret-shaped value is dropped", "get <name>", []string{"pk-abcdefghijklmnopqrstuvwx"}, nil},
+		{"grant-shaped value is dropped", "get <name>", []string{"pg-abcdefghijklmnopqrstuvwx"}, nil},
 		{"odd characters are dropped", "get <name>", []string{"a;rm -rf"}, nil},
 	}
 	for _, tc := range cases {
@@ -102,6 +103,8 @@ func TestRedact(t *testing.T) {
 		"token " + jwt + " expired":                             "token [redacted] expired",
 		"key pk-0123456789abcdefABCD rejected":                  "key [redacted] rejected",
 		"used pt-0123456789abcdefABCD, sk-0123456789abcdefABCD": "used [redacted], [redacted]",
+		"grant pg-0123456789abcdefABCD is spent":                "grant [redacted] is spent",
+		"x-api-key vgt_0123456789abcdefABCD refused":            "x-api-key [redacted] refused",
 		"pk-short": "pk-short",
 		"proxy sbp1.v2:0123456789abcdef:AbC+dEf/GhI=jKl= denied":                           "proxy [redacted] denied",
 		"proxy sbp1.AbC+dEf/GhI0123456789= denied":                                         "proxy [redacted] denied",

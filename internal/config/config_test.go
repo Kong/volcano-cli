@@ -514,3 +514,41 @@ func TestIsProjectToken(t *testing.T) {
 		})
 	}
 }
+
+func TestIsDelegatedGrantAndIsProjectBound(t *testing.T) {
+	for token, want := range map[string][2]bool{
+		DelegatedGrantPrefix + "abc": {true, true},
+		"  PG-abc":                   {true, true},
+		ProjectTokenPrefix + "abc":   {false, true},
+		AccountTokenPrefix + "abc":   {false, false},
+		"legacy-token":               {false, false},
+		"":                           {false, false},
+	} {
+		t.Run(token, func(t *testing.T) {
+			assert.Equal(t, want[0], IsDelegatedGrant(token), "IsDelegatedGrant")
+			assert.Equal(t, want[1], IsProjectBound(token), "IsProjectBound")
+		})
+	}
+}
+
+// A grant was once an unknown prefix, and so an account token. It is refused
+// where a pt- token is, with the same sentinels, in words that name a grant.
+func TestRequireAccountTokenAndProjectRefuseADelegatedGrant(t *testing.T) {
+	t.Setenv(envToken, "")
+	t.Setenv(envProjectID, "")
+	cfg := &Config{UserToken: DelegatedGrantPrefix + "secret-grant"}
+	for name, err := range map[string]error{
+		"account token": cfg.RequireAccountToken(),
+		"project":       cfg.RequireProject(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "delegated grant ("+DelegatedGrantPrefix+")")
+			assert.NotContains(t, err.Error(), "project access token")
+			assert.NotContains(t, err.Error(), ProjectTokenPrefix)
+		})
+	}
+	require.ErrorIs(t, cfg.RequireAccountToken(), ErrAccountTokenRequired)
+	require.ErrorIs(t, cfg.RequireProject(), ErrNoProjectSelectedForProjectToken)
+	assert.NotErrorIs(t, cfg.RequireProject(), ErrAccountTokenRequired)
+}

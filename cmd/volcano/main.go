@@ -37,6 +37,9 @@ const (
 	exitNoProject        = 3
 	exitNotFound         = 4
 	exitPermissionDenied = 5
+	// exitGrantBudgetExhausted is the API's 429 grant_budget_exhausted: a
+	// delegated grant used all of its mutations, and a new grant is the fix.
+	exitGrantBudgetExhausted = 6
 )
 
 func main() {
@@ -187,6 +190,8 @@ func printProjectEnvDeprecation(w io.Writer, used bool) {
 func exitCode(err error) int {
 	status := api.Status(err)
 	switch {
+	case api.GrantBudgetExhausted(err):
+		return exitGrantBudgetExhausted
 	case errors.Is(err, config.ErrNotAuthenticated), status == http.StatusUnauthorized:
 		return exitNotAuthenticated
 	case errors.Is(err, config.ErrNoProjectSelected), errors.Is(err, config.ErrNoProjectSelectedForProjectToken):

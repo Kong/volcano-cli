@@ -31,7 +31,7 @@ one with ctx.waitForApproval and suspends until a person approves or denies it,
 or until its timeout passes. Either way the workflow resumes with the outcome.
 
 Anyone with access to the project can list approvals and read their stats.
-Only a person can decide one: approve and deny refuse a project access token.`,
+Only a person can decide one: approve and deny refuse a project access token or a delegated grant.`,
 	}
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newGet(deps))

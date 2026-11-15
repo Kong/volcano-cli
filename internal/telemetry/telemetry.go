@@ -238,17 +238,18 @@ func FeedbackDebugByEnv(getenv func(string) string) bool {
 }
 
 // LoggedIn reports whether the config holds a login token that can send a
-// feedback report. `volcano feedback` sends nothing without one. A project
-// access token does not count: the server takes reports only from an account.
+// feedback report. `volcano feedback` sends nothing without one. A credential
+// tied to one project, a project access token or a delegated grant, does not
+// count: the server takes reports only from an account.
 func (r *Recorder) LoggedIn() bool {
 	r.setup()
 	return r.cfg != nil && CanSendFeedback(r.cfg.Token())
 }
 
 // CanSendFeedback reports whether token can send a feedback report: it is set
-// and is not a project access token.
+// and is not tied to one project (a project access token or a delegated grant).
 func CanSendFeedback(token string) bool {
-	return token != "" && !config.IsProjectToken(token)
+	return token != "" && !config.IsProjectBound(token)
 }
 
 // FeedbackOn reports whether `volcano feedback` may send a report: the config

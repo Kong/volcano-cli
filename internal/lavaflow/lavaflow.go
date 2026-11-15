@@ -106,10 +106,10 @@ var ErrCantTurnOn = errors.New("LavaFlow can't be turned on for this project: " 
 	"it isn't open to the owner's account, or the owner's plan doesn't include it")
 
 // ErrPersonDecides refuses changing LavaFlow's settings with a project access
-// token. Turning LavaFlow on, off or changing how far it goes is a person's
+// token or a delegated grant. Turning LavaFlow on, off or changing how far it goes is a person's
 // decision, so the API takes it from a person's session only, and the CLI
 // says so before asking.
-var ErrPersonDecides = errors.New("changing LavaFlow's settings needs a person's session: a project access token can't")
+var ErrPersonDecides = errors.New("changing LavaFlow's settings needs a person's session: a project access token or a delegated grant can't")
 
 // ErrOwnerDecides refuses changing LavaFlow's settings when the settings say
 // the caller can't, before the CLI asks or sends anything. Only the project's
@@ -409,7 +409,8 @@ func validMergePolicy(policy *apiclient.LavaflowMergePolicyUpdate) error {
 	return nil
 }
 
-// update refuses a project access token before sending anything. Every
+// update refuses a project access token or a delegated grant before sending
+// anything. Every
 // change reads the settings first, which refuses a project without LavaFlow
 // records with the route's reason, and checks can_update before it asks or
 // sends. A change that turns LavaFlow on, or changes autonomy to merge, then
@@ -425,7 +426,7 @@ func (s Service) update(ctx context.Context, verb string, update apiclient.Lavaf
 	if err != nil {
 		return nil, err
 	}
-	if config.IsProjectToken(authenticated.Config.Token()) {
+	if config.IsProjectBound(authenticated.Config.Token()) {
 		return nil, personDecides(authenticated.Config, config.ErrAccountTokenRequired)
 	}
 	current, err := authenticated.API.GetLavaflowSettings(ctx, authenticated.ProjectID)

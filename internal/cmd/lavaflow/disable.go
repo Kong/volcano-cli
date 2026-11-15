@@ -24,7 +24,7 @@ func newDisable(deps cliruntime.Deps) *cobra.Command {
 		Short: "Turn LavaFlow off",
 		Long: `Turn LavaFlow off for the current project. No new run starts; past runs and
 their records stay readable. Only the project's owner can, from their own
-session: a project access token is refused.`,
+session: a project access token or a delegated grant is refused.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps

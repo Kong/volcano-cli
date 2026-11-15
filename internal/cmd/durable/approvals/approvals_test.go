@@ -867,15 +867,25 @@ func TestApprovalsDecideRefusesAProjectAccessToken(t *testing.T) {
 	}
 }
 
-// A credential the CLI knows is a project access token is refused before the
-// prompt and before the approval is read: confirming a decision the API will
-// refuse wastes the person's yes, and an approval that does not exist would
-// otherwise answer with a 404 instead of saying who can decide.
+// A credential the CLI knows is a project access token or a delegated grant is
+// refused before the prompt and before the approval is read: confirming a
+// decision the API will refuse wastes the person's yes, and an approval that
+// does not exist would otherwise answer with a 404 instead of saying who can
+// decide.
 func TestApprovalsDecideRefusesAProjectTokenBeforeAnyRequest(t *testing.T) {
-	for _, args := range [][]string{{"approve", approvalID}, {"deny", approvalID, "--yes"}} {
-		t.Run(args[0], func(t *testing.T) {
+	for _, tc := range []struct{ token, command string }{
+		{"PT-approvals-test", "approve"},
+		{"PT-approvals-test", "deny"},
+		{"pg-approvals-test", "approve"},
+		{"pg-approvals-test", "deny"},
+	} {
+		args := []string{"approve", approvalID}
+		if tc.command == "deny" {
+			args = []string{"deny", approvalID, "--yes"}
+		}
+		t.Run(tc.token[:3]+tc.command, func(t *testing.T) {
 			setApprovalsTestHome(t)
-			t.Setenv("VOLCANO_TOKEN", "PT-approvals-test")
+			t.Setenv("VOLCANO_TOKEN", tc.token)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				t.Errorf("a project access token's decision must not reach the API: %s %s", r.Method, r.URL.Path)
 				respondJSON(t, w, http.StatusNotFound, map[string]any{"error": "not found"})
