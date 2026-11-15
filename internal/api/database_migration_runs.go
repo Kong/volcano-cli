@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -15,22 +14,26 @@ import (
 // already has a queued or running migration run.
 const MigrationRunInProgressCode = "migration_run_in_progress"
 
-// FeatureUnavailableCode is the 404 the API answers when migration runs are
-// not turned on where it runs.
-const FeatureUnavailableCode = "feature_unavailable"
-
-// MigrationRunInProgressError is a run the API would not start because RunID
-// is already queued or running on the database.
+// MigrationRunInProgressError is a migration request refused because the
+// database already has a queued or running run, which RunID names.
 type MigrationRunInProgressError struct {
 	Err   *Error
 	RunID uuid.UUID
 }
 
-func (e *MigrationRunInProgressError) Error() string {
-	return fmt.Sprintf("%s (run %s)", e.Err.Error(), e.RunID)
-}
+func (e *MigrationRunInProgressError) Error() string { return e.Err.Error() }
 
 func (e *MigrationRunInProgressError) Unwrap() error { return e.Err }
+
+// GetDatabaseMigrations returns the files a database's migration history
+// records and the run that is queued or running, if any.
+func (c *Client) GetDatabaseMigrations(ctx context.Context, projectID uuid.UUID, databaseName string) (*apiclient.DatabaseMigrations, error) {
+	resp, err := c.client.GetDatabaseMigrationsWithResponse(ctx, projectID, strings.TrimSpace(databaseName))
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404, resp.JSON409, resp.JSON503)
+}
 
 // CreateDatabaseMigrationRun starts a server-side migration run of files on
 // databaseName. The server compares them with the database's history and
@@ -95,7 +98,7 @@ func migrationConflictError(conflict *apiclient.DatabaseMigrationConflictError) 
 	return apiErr
 }
 
-// GetDatabaseMigrationRun returns one migration run with its files.
+// GetDatabaseMigrationRun returns one migration run with each file's outcome.
 func (c *Client) GetDatabaseMigrationRun(
 	ctx context.Context, projectID uuid.UUID, databaseName string, runID uuid.UUID,
 ) (*apiclient.DatabaseMigrationRun, error) {
@@ -103,5 +106,16 @@ func (c *Client) GetDatabaseMigrationRun(
 	if err != nil {
 		return nil, err
 	}
+	return apiResult(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON200, resp.JSON404)
+}
+
+// ListDatabaseMigrationRuns returns a database's 50 most recent migration
+// runs, newest first, without their files.
+func (c *Client) ListDatabaseMigrationRuns(ctx context.Context, projectID uuid.UUID, databaseName string) (*apiclient.DatabaseMigrationRunList, error) {
+	resp, err := c.client.ListDatabaseMigrationRunsWithResponse(ctx, projectID, strings.TrimSpace(databaseName))
+	if err != nil {
+		return nil, err
+	}
+	// A run's error can quote data, as in GetDatabaseMigrationRun.
 	return apiResult(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON200, resp.JSON404)
 }

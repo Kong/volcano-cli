@@ -100,7 +100,9 @@ func frontendArguments(args []string, root string, rootSet, none bool) (name, fr
 func runFrontend(ctx context.Context, opts frontendOptions) error {
 	return runDeploySetting(ctx, opts.deps, opts.out, deploySetting{
 		subcommand: "frontend",
-		change: func(ctx context.Context, service gitconnect.Service) (*apiclient.ProjectGitDeploySettings, error) {
+		change: func(
+			ctx context.Context, service gitconnect.Service, _ *apiclient.ProjectGitConnection,
+		) (*apiclient.ProjectGitDeploySettings, error) {
 			return service.SetFrontend(ctx, opts.name, opts.root)
 		},
 		render: output.GitFrontendSet,

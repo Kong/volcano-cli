@@ -203,6 +203,19 @@ func TestDatabasesHelpIncludesMigration(t *testing.T) {
 	assert.Contains(t, out, "migration")
 }
 
+func TestDatabaseMigrationHelpNamesTheTrackedCommands(t *testing.T) {
+	for _, args := range [][]string{{"databases", "migration", "--help"}, {"cloud", "databases", "migration", "--help"}} {
+		out, err := executeRootCommand(t, args...)
+		require.NoError(t, err)
+		for _, command := range []string{"status", "apply", "baseline", "runs", "up"} {
+			assert.Contains(t, out, "\n  "+command+" ", args)
+		}
+	}
+	out, err := executeRootCommand(t, "cloud", "databases", "migration", "apply", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "volcano cloud databases migration apply -d mydb")
+}
+
 func TestDatabaseMigrationsUpCommandPath(t *testing.T) {
 	t.Chdir(t.TempDir())
 
@@ -339,7 +352,8 @@ func TestDeployHelpNamesTheTreeItRunsFrom(t *testing.T) {
 	out, err := executeRootCommand(t, "deploy", "--help")
 	require.NoError(t, err)
 	assert.Contains(t, out, "volcano deploy --with-migrations\n")
-	assert.Contains(t, out, "Database to apply migrations to (default: app)")
+	assert.Contains(t, out, "Database to apply migrations to (default: each one with a directory in volcano/migrations, else app)")
+	assert.Contains(t, out, "volcano databases migration baseline -d app --all")
 	assert.NotContains(t, out, "volcano cloud deploy")
 	assert.NotContains(t, out, "cloud.env")
 
@@ -347,7 +361,8 @@ func TestDeployHelpNamesTheTreeItRunsFrom(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "volcano cloud deploy --env-file volcano/cloud.env --with-migrations -d app")
 	assert.Contains(t, out, "volcano/volcano.env holds the local server's values")
-	assert.Contains(t, out, "default: the one the manifests declare")
+	assert.Contains(t, out, "else the one the manifests declare")
+	assert.Contains(t, out, "volcano cloud databases migration baseline -d app --all")
 }
 
 func TestCloudFunctionPaginationUsesCloudPath(t *testing.T) {

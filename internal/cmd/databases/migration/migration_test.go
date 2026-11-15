@@ -31,11 +31,11 @@ type migrationExecution struct {
 func TestMigrationsUpAllExecutesSortedFiles(t *testing.T) {
 	setMigrationCommandTestHome(t)
 	t.Chdir(t.TempDir())
-	require.NoError(t, os.MkdirAll(filepath.Join("volcano", "migrations", "nested"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join("volcano", "migrations", "_drafts"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "002_second.sql"), []byte("CREATE TABLE second;"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "001_first.sql"), []byte("CREATE TABLE first;"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "003_third.sql"), []byte("CREATE TABLE third;"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "nested", "004_nested.sql"), []byte("CREATE TABLE nested;"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "_drafts", "004_nested.sql"), []byte("CREATE TABLE nested;"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "notes.txt"), []byte("ignore me"), 0o644))
 	saveMigrationCommandTestConfig(t)
 
@@ -153,16 +153,42 @@ func TestMigrationsUpValidatesFlags(t *testing.T) {
 	}
 }
 
-// ApplyAll takes the database from a caller rather than the flag, and treats
-// it the way the command treats --database.
-func TestApplyAllRequiresADatabase(t *testing.T) {
+// With a directory per database, up runs the directory named for the
+// database, as Git deploy and tracked runs read it.
+func TestMigrationsUpRunsTheDatabasesDirectory(t *testing.T) {
 	setMigrationCommandTestHome(t)
 	t.Chdir(t.TempDir())
+	writeMigrationFile(t, "app/001_app.sql", "CREATE TABLE app_table;")
+	writeMigrationFile(t, "analytics/001_events.sql", "CREATE TABLE events;")
+	saveMigrationCommandTestConfig(t)
 
-	var out bytes.Buffer
-	err := ApplyAll(context.Background(), cliruntime.Deps{}, " ", &out)
-	require.EqualError(t, err, "specify the database with --database/-d")
-	assert.Empty(t, out.String())
+	connectionString := "postgres://example/app"
+	server := newMigrationDatabaseServer(t, http.StatusOK, migrationDatabasePayload("app", "active", &connectionString))
+	defer server.Close()
+
+	var executions []migrationExecution
+	executor := func(_ context.Context, conn, sql string) error {
+		executions = append(executions, migrationExecution{connectionString: conn, sql: sql})
+		return nil
+	}
+
+	out, err := executeMigrationCommand(t, newWithExecutor(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}, executor), "up", "--all", "-d", "app")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"CREATE TABLE app_table;"}, migrationExecutionSQL(executions))
+	assert.Contains(t, out, "Applying 001_app.sql... ok")
+	assert.NotContains(t, out, "001_events.sql")
+}
+
+// Git deploy refuses top-level files beside database directories, so up does
+// too rather than run half of what a push would refuse.
+func TestMigrationsUpRefusesAMixedLayout(t *testing.T) {
+	setMigrationCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	writeMigrationFile(t, "001_top.sql", "CREATE TABLE top;")
+	writeMigrationFile(t, "app/002_app.sql", "CREATE TABLE app_table;")
+
+	_, err := executeMigrationCommand(t, newWithExecutor(cliruntime.Deps{}, nil), "up", "--all", "-d", "app")
+	require.ErrorContains(t, err, "volcano/migrations mixes top-level files, such as 001_top.sql, with database directories, such as app/")
 }
 
 func TestMigrationsUpHandlesNoMigrationFiles(t *testing.T) {
@@ -260,6 +286,13 @@ func TestMigrationsUpFailsFastOnSQLError(t *testing.T) {
 	assert.Equal(t, []string{"BAD SQL;"}, migrationExecutionSQL(executions))
 	assert.Contains(t, out, "Applying 001_bad.sql... error")
 	assert.NotContains(t, out, "Applying 002_later.sql")
+}
+
+func writeMigrationFile(t *testing.T, name, content string) {
+	t.Helper()
+	path := filepath.Join("volcano", "migrations", filepath.FromSlash(name))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }
 
 func executeMigrationCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {

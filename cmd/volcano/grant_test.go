@@ -201,70 +201,6 @@ func TestGrantInvokesWithTheGrantAndNoServiceKey(t *testing.T) {
 	assert.JSONEq(t, `{"ok":true}`, run.stdout)
 }
 
-// Migrations under a grant go through a server-side run. The CLI never reads
-// the database, whose answer holds the connection string.
-func TestGrantMigrationUpUsesAMigrationRun(t *testing.T) {
-	runsPath := "/projects/" + mainTestProjectAlpha + "/databases/app/migration-runs"
-	const runID = "44444444-4444-4444-8444-444444444444"
-	run := runAsWorkerWith(t, func() {
-		require.NoError(t, os.MkdirAll(filepath.Join("volcano", "migrations"), 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "001_init.sql"), []byte("CREATE TABLE t();"), 0o644))
-	}, func(w http.ResponseWriter, r *http.Request) {
-		state := `{"id":"` + runID + `","status":"succeeded","phase":"apply","source":"api","warnings":[],` +
-			`"database":{"id":"66666666-6666-4666-8666-666666666666","name":"app"},` +
-			`"files":[{"name":"001_init.sql","outcome":"applied"}],` +
-			`"created_at":"2026-11-11T00:00:00Z","updated_at":"2026-11-11T00:00:00Z"}`
-		switch {
-		case r.Method == http.MethodPost && r.URL.Path == runsPath:
-			respondExitTestJSON(w, http.StatusAccepted, state)
-		case r.Method == http.MethodGet && r.URL.Path == runsPath+"/"+runID:
-			respondExitTestJSON(w, http.StatusOK, state)
-		default:
-			respondExitTestJSON(w, http.StatusForbidden, `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`)
-		}
-	}, "cloud", "databases", "migration", "up", "--all", "-d", "app")
-
-	assert.Equal(t, 0, run.code, run.stderr)
-	assert.Equal(t, []string{"POST " + runsPath}, run.requests)
-	assert.Contains(t, run.stdout, "001_init.sql: applied")
-	for _, request := range run.requests {
-		assert.NotEqual(t, "GET /projects/"+mainTestProjectAlpha+"/databases/app", request)
-	}
-}
-
-// Baseline under a grant goes through Hosting's baseline route, with the files
-// the caller names, and exits like other commands when Hosting refuses it.
-func TestGrantBaselineUsesTheBaselineRoute(t *testing.T) {
-	baselinePath := "/projects/" + mainTestProjectAlpha + "/databases/app/migrations/baseline"
-	writeMigration := func() {
-		require.NoError(t, os.MkdirAll(filepath.Join("volcano", "migrations"), 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "001_init.sql"), []byte("CREATE TABLE t();"), 0o644))
-	}
-	for _, tc := range []struct {
-		name   string
-		status int
-		body   string
-		code   int
-	}{
-		{"recorded", http.StatusOK, `{"recorded":["001_init.sql"]}`, 0},
-		{"refused", http.StatusForbidden, `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`, exitPermissionDenied},
-		{"budget", http.StatusTooManyRequests, `{"error":"the delegated grant has no mutations left; ask the app for a new grant","code":"grant_budget_exhausted"}`, exitGrantBudgetExhausted},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			run := runAsWorkerWith(t, writeMigration, func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == http.MethodPost && r.URL.Path == baselinePath {
-					respondExitTestJSON(w, tc.status, tc.body)
-					return
-				}
-				respondExitTestJSON(w, http.StatusForbidden, `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`)
-			}, "cloud", "databases", "migration", "baseline", "-d", "app", "-f", "001_init", "--yes")
-
-			assert.Equal(t, tc.code, run.code, run.stderr)
-			assert.Equal(t, []string{"POST " + baselinePath}, run.requests)
-		})
-	}
-}
-
 // Under a grant, the API's code follows the error on its own line.
 func TestGrantErrorPrintsTheAPICode(t *testing.T) {
 	run := runAsWorker(t, func(w http.ResponseWriter, _ *http.Request) {
@@ -313,4 +249,38 @@ func TestGrantInTheEnvironmentAloneAddsNoCodeLine(t *testing.T) {
 
 	assert.Contains(t, out.String(), "function not found")
 	assert.NotContains(t, out.String(), "Error code:")
+}
+
+// The app's worker applies migrations with `databases migration apply`, which
+// starts a server-side run. Under a grant it uses only routes a grant may call
+// and never reads the database, whose answer holds the connection string.
+func TestGrantMigrationApplyUsesOnlyARun(t *testing.T) {
+	runsPath := "/projects/" + mainTestProjectAlpha + "/databases/app/migration-runs"
+	const runID = "44444444-4444-4444-8444-444444444444"
+	run := runAsWorkerWith(t, func() {
+		require.NoError(t, os.MkdirAll(filepath.Join("volcano", "migrations"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join("volcano", "migrations", "001_init.sql"), []byte("CREATE TABLE t();"), 0o644))
+	}, func(w http.ResponseWriter, r *http.Request) {
+		state := `{"id":"` + runID + `","status":"succeeded","phase":"apply","source":"api","warnings":[],` +
+			`"database":{"id":"66666666-6666-4666-8666-666666666666","name":"app"},` +
+			`"files":[{"name":"001_init.sql","outcome":"applied"}],` +
+			`"created_at":"2026-11-11T00:00:00Z","updated_at":"2026-11-11T00:00:00Z"}`
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/capabilities":
+			respondExitTestJSON(w, http.StatusOK, `{"data":[{"id":"databases.migrations","status":"available"}]}`)
+		case r.Method == http.MethodPost && r.URL.Path == runsPath:
+			respondExitTestJSON(w, http.StatusAccepted, state)
+		case r.Method == http.MethodGet && r.URL.Path == runsPath+"/"+runID:
+			respondExitTestJSON(w, http.StatusOK, state)
+		default:
+			respondExitTestJSON(w, http.StatusForbidden, `{"error":"delegated grants cannot be used on this endpoint","code":"grant_route_not_allowed"}`)
+		}
+	}, "cloud", "databases", "migration", "apply", "-d", "app")
+
+	assert.Equal(t, 0, run.code, run.stderr)
+	assert.Contains(t, run.requests, "POST "+runsPath)
+	for i, request := range run.requests {
+		assert.Contains(t, []string{"GET /capabilities", "POST " + runsPath, "GET " + runsPath + "/" + runID}, request)
+		assert.Equal(t, "Bearer "+testGrant, run.auth[i], request)
+	}
 }

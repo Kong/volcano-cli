@@ -210,7 +210,7 @@ func testAProjectWithRecordsWhileUnavailable(t *testing.T, planOff bool) {
 	assert.Equal(t, http.StatusNotFound, api.Status(err))
 	assert.Len(t, fake.updates, 1, "enable sent nothing")
 
-	_, err = executeLavaflowCommand(t, New(deps), "settings", "set", "--system-prompt", "x")
+	_, err = executeLavaflowCommand(t, New(deps), "settings", "set", "--autonomy", "diagnose_only")
 	require.Error(t, err)
 	want, status := lavaflowNotAvailable, http.StatusNotFound
 	if planOff {
@@ -218,7 +218,7 @@ func testAProjectWithRecordsWhileUnavailable(t *testing.T, planOff bool) {
 	}
 	assert.Equal(t, want, err.Error(), "plan off: %v", planOff)
 	assert.Equal(t, status, api.Status(err), "plan off: %v", planOff)
-	assert.Equal(t, map[string]any{"system_prompt": "x"}, fake.lastUpdate(t), "the save said why")
+	assert.Equal(t, map[string]any{"autonomy": "diagnose_only"}, fake.lastUpdate(t), "the save said why")
 }
 
 // Every command answers --json with the API's own fields and values, the
