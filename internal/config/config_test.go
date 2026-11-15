@@ -549,6 +549,9 @@ func TestRequireAccountTokenAndProjectRefuseADelegatedGrant(t *testing.T) {
 		})
 	}
 	require.ErrorIs(t, cfg.RequireAccountToken(), ErrAccountTokenRequired)
+	// The grant may have come from either variable, and setting VOLCANO_TOKEN
+	// next to VOLCANO_TOKEN_FD is refused, so the hint names both.
+	require.ErrorContains(t, cfg.RequireAccountToken(), "pass an account token in VOLCANO_TOKEN or VOLCANO_TOKEN_FD")
 	require.ErrorIs(t, cfg.RequireProject(), ErrNoProjectSelectedForProjectToken)
 	assert.NotErrorIs(t, cfg.RequireProject(), ErrAccountTokenRequired)
 }
