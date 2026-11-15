@@ -35,6 +35,13 @@ brew install Kong/volcano/volcano
 volcano --help
 ```
 
+Or install with mise:
+
+```bash
+mise use -g 'github:Kong/volcano-cli[asset_pattern=volcano-{{ os() }}-{{ arch(x64="amd64") }}{{ ".exe" if os() == "windows" else "" }},bin=volcano]@latest'
+volcano --help
+```
+
 Or install manually:
 
 ```bash
