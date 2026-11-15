@@ -9,7 +9,6 @@ package durable
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -469,7 +468,7 @@ func (s Service) DecideApproval(
 	switch api.Status(err) {
 	case http.StatusForbidden:
 		if api.LastRefusal().ProjectAccessToken || refusesProjectTokenDecision(api.Message(err)) {
-			return nil, errApprovalNeedsAPerson
+			return nil, errApprovalNeedsAPerson()
 		}
 	case http.StatusConflict:
 		current, getErr := authenticated.API.GetDurableApproval(ctx, authenticated.ProjectID, approvalID)
@@ -490,14 +489,16 @@ func (s Service) DecideApproval(
 // errApprovalNeedsAPerson is the answer to a project access token or a
 // delegated grant deciding.
 // Approvals exist so that a person signs off, which is why the API refuses
-// any credential that is not a person's. VOLCANO_TOKEN overrides a login, and
-// is how either usually arrives. It matches
-// config.ErrAccountTokenRequired, so the exit code reports a refused
-// credential. The API's 403 is left out: its generic body would add a hint
-// about the token's project, which is not the problem here.
-var errApprovalNeedsAPerson = api.WithCause(errors.New(
-	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, then decide again"),
-	config.ErrAccountTokenRequired)
+// any credential that is not a person's. VOLCANO_TOKEN or VOLCANO_TOKEN_FD
+// overrides a login, and is how either usually arrives; the answer names the
+// one in use. It matches config.ErrAccountTokenRequired, so the exit code
+// reports a refused credential. The API's 403 is left out: its generic body
+// would add a hint about the token's project, which is not the problem here.
+func errApprovalNeedsAPerson() error {
+	return api.WithCause(fmt.Errorf(
+		"approvals are decided by a person. Run `volcano login` with %s unset, then decide again", config.TokenEnvName()),
+		config.ErrAccountTokenRequired)
+}
 
 // RequirePerson refuses a credential the CLI knows is a project access token
 // or a delegated grant, so a decision is not confirmed only to be refused. DecideApproval still maps
@@ -508,7 +509,7 @@ func (s Service) RequirePerson() error {
 		return err
 	}
 	if config.IsProjectBound(cfg.Token()) {
-		return errApprovalNeedsAPerson
+		return errApprovalNeedsAPerson()
 	}
 	return nil
 }

@@ -24,6 +24,9 @@ const maxTokenFDBytes = 16 << 10
 // returns it ahead of VOLCANO_TOKEN.
 var adoptedToken atomic.Pointer[string]
 
+// tokenFromFD records that adoptedToken came from VOLCANO_TOKEN_FD.
+var tokenFromFD atomic.Bool
+
 // AdoptToken takes the environment's token into memory, once, at startup,
 // before anything reads the configuration.
 //
@@ -58,6 +61,7 @@ func AdoptToken() error {
 		return err
 	}
 	adoptedToken.Store(&token)
+	tokenFromFD.Store(true)
 	return nil
 }
 
@@ -65,6 +69,16 @@ func AdoptToken() error {
 // VOLCANO_TOKEN_FD, or a delegated grant from VOLCANO_TOKEN.
 func TokenAdopted() bool {
 	return adoptedToken.Load() != nil
+}
+
+// TokenEnvName names the environment variable the environment's token came
+// from: VOLCANO_TOKEN_FD when AdoptToken read it from a descriptor, otherwise
+// VOLCANO_TOKEN. A hint that says which variable to unset uses it.
+func TokenEnvName() string {
+	if tokenFromFD.Load() {
+		return TokenFDEnv
+	}
+	return envToken
 }
 
 // EnvironmentTokenSet reports whether the environment gives a token, in
@@ -132,4 +146,5 @@ func readTokenLine(r io.Reader, fd int) (string, error) {
 // each CLI invocation is a fresh process.
 func ResetAdoptedTokenForTest() {
 	adoptedToken.Store(nil)
+	tokenFromFD.Store(false)
 }

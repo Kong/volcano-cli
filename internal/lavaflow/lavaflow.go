@@ -537,7 +537,7 @@ func personDecides(cfg *config.Config, cause error) error {
 // unset first.
 func signInAgain(cfg *config.Config) string {
 	if cfg.TokenFromEnv() {
-		return "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again"
+		return "Unset " + config.TokenEnvName() + " and sign in with 'volcano login', then run this again"
 	}
 	return "Sign in with 'volcano login' and run this again"
 }
