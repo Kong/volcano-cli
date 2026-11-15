@@ -353,7 +353,9 @@ func withLock(run func() error) (err error) {
 	return run()
 }
 
-// Token returns the configured token, with VOLCANO_TOKEN taking precedence unless env overrides are disabled.
+// Token returns the configured token. The environment's token, from
+// VOLCANO_TOKEN_FD or VOLCANO_TOKEN (see environmentToken), takes precedence
+// unless env overrides are disabled.
 func (c *Config) Token() string {
 	// Trimmed because this is the documented CI path, where
 	// `export VOLCANO_TOKEN=$(cat secret)` readily carries a trailing newline.
@@ -375,13 +377,13 @@ func environmentToken() string {
 	return strings.TrimSpace(os.Getenv(envToken))
 }
 
-// TokenEnv is the environment variable whose token Token returns ahead of the
-// saved one.
+// TokenEnv is VOLCANO_TOKEN. A hint that names the variable the token came
+// from uses TokenEnvName, which is VOLCANO_TOKEN_FD when the token came from it.
 const TokenEnv = envToken
 
-// TokenFromEnv reports whether Token returns the TokenEnv variable's token
-// rather than the saved one. Signing in saves a token, which Token then still
-// passes over.
+// TokenFromEnv reports whether Token returns the environment's token, from
+// VOLCANO_TOKEN_FD or VOLCANO_TOKEN, rather than the saved one. Signing in
+// saves a token, which Token then still passes over.
 func (c *Config) TokenFromEnv() bool {
 	return !c.IgnoreEnv && environmentToken() != ""
 }
