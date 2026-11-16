@@ -11,6 +11,9 @@ jobs:
   retarget-or-override:
     if: github.event.changes.base || github.event.label.name == 'ai-review-override'
     uses: Kong/volcano-actions/.github/workflows/ai-review.yml@main
+    with:
+      # Sends each review's tokens and cost to Kong's Dash0.
+      otlp_endpoint: https://ingress.us-west-2.aws.dash0.com
     permissions:
       actions: write
       contents: read
@@ -19,3 +22,4 @@ jobs:
     secrets:
       anthropic_api_key: ${{ secrets.ANTHROPIC_CI_API_KEY }}
       codex_access_token: ${{ secrets.CODEX_CI_ACCESS_TOKEN }}
+      otlp_headers: Authorization=Bearer ${{ secrets.DASH0_INGEST_TOKEN }},Dash0-Dataset=volcano
