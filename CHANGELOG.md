@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.83.1](https://github.com/Kong/volcano-cli/compare/v0.83.0...v0.83.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **lavaflow:** explain required approval waits ([#497](https://github.com/Kong/volcano-cli/issues/497)) ([7b601bd](https://github.com/Kong/volcano-cli/commit/7b601bdb050bdab4b49a5dce15335257baa45b2b))
+
 ## [0.83.0](https://github.com/Kong/volcano-cli/compare/v0.82.0...v0.83.0) (2026-11-15)
 
 
