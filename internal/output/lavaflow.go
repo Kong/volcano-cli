@@ -639,6 +639,8 @@ func lavaflowMergeStatus(status apiclient.LavaflowMergeStatus) string {
 	switch status {
 	case apiclient.LavaflowMergeStatusWaitingForChecks:
 		return "waiting for CI"
+	case apiclient.LavaflowMergeStatusWaitingForApproval:
+		return "waiting for required approval (merges automatically after approval and CI)"
 	case apiclient.LavaflowMergeStatusHeld:
 		return "held"
 	case apiclient.LavaflowMergeStatusQueued:
