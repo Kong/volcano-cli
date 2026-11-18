@@ -111,6 +111,16 @@ func LavaflowStats(w io.Writer, stats *apiclient.LavaflowStats) {
 	summary(w, on, "%d issue(s) opened and %d fix pull request(s) opened, %s to %s",
 		stats.Totals.IssuesOpened, stats.Totals.PullRequestsOpened,
 		stats.WindowStart.Format(time.DateOnly), stats.WindowEnd.Format(time.DateOnly))
+	if delivery := stats.Delivery; delivery != nil {
+		kv(w, on, "Runs without an owned PR", "%d of %d (%d finished)", delivery.RunsWithoutOwnedPr, delivery.Runs, delivery.FinishedWithoutOwnedPr)
+		kv(w, on, "Issues with PR coverage", "%d of %d", delivery.IssuesWithPrCoverage, delivery.IssuesWithRuns)
+		if delivery.MeanTimeToPrSeconds != nil {
+			kv(w, on, "Mean time to PR", "%ds (%d samples)", *delivery.MeanTimeToPrSeconds, delivery.TimeToPrSamples)
+		}
+		if delivery.MeanTimeToCoverageSeconds != nil {
+			kv(w, on, "Mean time to coverage", "%ds (%d samples)", *delivery.MeanTimeToCoverageSeconds, delivery.TimeToCoverageSamples)
+		}
+	}
 }
 
 // LavaflowResources renders every function, frontend and durable function with
@@ -160,11 +170,37 @@ func LavaflowRuns(w io.Writer, page LavaflowRunsPage) {
 	for _, run := range page.Runs {
 		fmt.Fprintf(w, "%-36s  %-31s  %-24s  %-30s  %-16s  %s\n",
 			run.Id.String(), Truncate(lavaflowRunListStatus(run), 31), Truncate(clean(run.Resource.Name), 24),
-			Truncate(clean(stringOr(run.Title, "-")), 30), formatLavaflowTime(run.CreatedAt), lavaflowPullRequestCell(run.PullRequest))
+			Truncate(clean(stringOr(run.Title, "-")), 30), formatLavaflowTime(run.CreatedAt), lavaflowDeliveryCell(run.PullRequest, run.Delivery))
 	}
 	summary(w, on, "Showing %d run(s)", len(page.Runs))
 	if page.NextCommand != "" {
 		nextPage(w, on, clean(page.NextCommand))
+	}
+}
+
+func lavaflowDeliveryCell(pr *apiclient.LavaflowPullRequest, delivery *apiclient.LavaflowDelivery) string {
+	if pr != nil || delivery == nil {
+		return lavaflowPullRequestCell(pr)
+	}
+	if cover := delivery.Coverage; cover != nil {
+		return fmt.Sprintf("Covered by #%d (%s)", cover.Number, clean(string(cover.State)))
+	}
+	if status := lavaflowDeliveryStatus(delivery.State); status != "" {
+		return status
+	}
+	return "-"
+}
+
+func lavaflowDeliveryStatus(state apiclient.LavaflowDeliveryState) string {
+	switch state {
+	case apiclient.LavaflowDeliveryStateWaitingForPrerequisite:
+		return "Waiting"
+	case apiclient.LavaflowDeliveryStateTerminalMiss:
+		return "Undelivered"
+	case apiclient.LavaflowDeliveryStateStopped:
+		return "Stopped"
+	default:
+		return ""
 	}
 }
 
@@ -463,7 +499,33 @@ func lavaflowHumanReviewPaths(w io.Writer, on bool, policy apiclient.LavaflowMer
 // state and where its merge is, or why the run has no pull request.
 func lavaflowFix(w io.Writer, on bool, run *apiclient.LavaflowRun) {
 	fmt.Fprintln(w, theme.Dim("Fix:", on))
-	pr := run.PullRequest
+	pr, delivery := run.PullRequest, run.Delivery
+	if delivery != nil {
+		for _, skip := range delivery.PriorSkips {
+			fixKV(w, on, "Previous blocker", "%s (%s)", clean(string(skip.Reason)), formatLavaflowTimePtr(skip.RecordedAt, "time unknown"))
+		}
+		if delivery.NextAction != nil {
+			defer fixKV(w, on, "Next action", "%s", clean(*delivery.NextAction))
+		}
+		if cover := delivery.Coverage; cover != nil && pr == nil {
+			fixKV(w, on, "Covering pull request", "#%d %s", cover.Number, clean(cover.Url))
+			fixKV(w, on, "State", "%s", clean(string(cover.State)))
+			if cover.State == apiclient.LavaflowDeliveryCoverageStateMerged {
+				fixKV(w, on, "Deployment", "%s", formatLavaflowTimePtr(cover.DeployedAt, "unconfirmed"))
+			}
+			return
+		}
+		if state := lavaflowDeliveryStatus(delivery.State); state != "" && pr == nil {
+			if delivery.Reason != nil {
+				fixKV(w, on, "Delivery", "%s (%s)", state, clean(*delivery.Reason))
+			} else {
+				fixKV(w, on, "Delivery", "%s", state)
+			}
+			if delivery.State == apiclient.LavaflowDeliveryStateWaitingForPrerequisite || run.PullRequestSkipped == nil {
+				return
+			}
+		}
+	}
 	if pr == nil {
 		fmt.Fprintf(w, "  %s\n", lavaflowNoFix(run))
 		return

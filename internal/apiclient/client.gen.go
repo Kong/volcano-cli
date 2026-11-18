@@ -2394,6 +2394,54 @@ func (e LavaflowCommitOrigin) Valid() bool {
 	}
 }
 
+// Defines values for LavaflowDeliveryCoverageState.
+const (
+	LavaflowDeliveryCoverageStateMerged LavaflowDeliveryCoverageState = "merged"
+	LavaflowDeliveryCoverageStateOpen   LavaflowDeliveryCoverageState = "open"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowDeliveryCoverageState enum.
+func (e LavaflowDeliveryCoverageState) Valid() bool {
+	switch e {
+	case LavaflowDeliveryCoverageStateMerged:
+		return true
+	case LavaflowDeliveryCoverageStateOpen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaflowDeliveryState.
+const (
+	LavaflowDeliveryStateCovered                LavaflowDeliveryState = "covered"
+	LavaflowDeliveryStatePending                LavaflowDeliveryState = "pending"
+	LavaflowDeliveryStatePrCreated              LavaflowDeliveryState = "pr_created"
+	LavaflowDeliveryStateStopped                LavaflowDeliveryState = "stopped"
+	LavaflowDeliveryStateTerminalMiss           LavaflowDeliveryState = "terminal_miss"
+	LavaflowDeliveryStateWaitingForPrerequisite LavaflowDeliveryState = "waiting_for_prerequisite"
+)
+
+// Valid indicates whether the value is a known member of the LavaflowDeliveryState enum.
+func (e LavaflowDeliveryState) Valid() bool {
+	switch e {
+	case LavaflowDeliveryStateCovered:
+		return true
+	case LavaflowDeliveryStatePending:
+		return true
+	case LavaflowDeliveryStatePrCreated:
+		return true
+	case LavaflowDeliveryStateStopped:
+		return true
+	case LavaflowDeliveryStateTerminalMiss:
+		return true
+	case LavaflowDeliveryStateWaitingForPrerequisite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaflowDraftReason.
 const (
 	LavaflowDraftReasonConvertedToDraft LavaflowDraftReason = "converted_to_draft"
@@ -5798,22 +5846,22 @@ func (e ListLavaflowRunsParamsCategory) Valid() bool {
 
 // Defines values for ListLavaflowRunsParamsPullRequestState.
 const (
-	Closed ListLavaflowRunsParamsPullRequestState = "closed"
-	Merged ListLavaflowRunsParamsPullRequestState = "merged"
-	None   ListLavaflowRunsParamsPullRequestState = "none"
-	Open   ListLavaflowRunsParamsPullRequestState = "open"
+	ListLavaflowRunsParamsPullRequestStateClosed ListLavaflowRunsParamsPullRequestState = "closed"
+	ListLavaflowRunsParamsPullRequestStateMerged ListLavaflowRunsParamsPullRequestState = "merged"
+	ListLavaflowRunsParamsPullRequestStateNone   ListLavaflowRunsParamsPullRequestState = "none"
+	ListLavaflowRunsParamsPullRequestStateOpen   ListLavaflowRunsParamsPullRequestState = "open"
 )
 
 // Valid indicates whether the value is a known member of the ListLavaflowRunsParamsPullRequestState enum.
 func (e ListLavaflowRunsParamsPullRequestState) Valid() bool {
 	switch e {
-	case Closed:
+	case ListLavaflowRunsParamsPullRequestStateClosed:
 		return true
-	case Merged:
+	case ListLavaflowRunsParamsPullRequestStateMerged:
 		return true
-	case None:
+	case ListLavaflowRunsParamsPullRequestStateNone:
 		return true
-	case Open:
+	case ListLavaflowRunsParamsPullRequestStateOpen:
 		return true
 	default:
 		return false
@@ -10363,6 +10411,84 @@ type LavaflowDayCounts struct {
 	PullRequestsOpened int64 `json:"pull_requests_opened"`
 }
 
+// LavaflowDelivery Pull request delivery recorded independently of run execution and live recovery.
+type LavaflowDelivery struct {
+	// Coverage Another run's verified covering pull request. That run owns the pull request.
+	Coverage *LavaflowDeliveryCoverage `json:"coverage,omitempty"`
+
+	// NextAction Action required before delivery can proceed, when known.
+	NextAction *string `json:"next_action,omitempty"`
+
+	// PriorSkips Reasons recorded before the run resumed, in order.
+	PriorSkips []LavaflowDeliverySkip `json:"prior_skips"`
+
+	// Reason Recorded skip or failure code for an undelivered run.
+	Reason *string `json:"reason,omitempty"`
+
+	// RecordedAt When the current delivery result was recorded, if known.
+	RecordedAt *time.Time `json:"recorded_at"`
+
+	// State Where pull request delivery stands. A run can complete its diagnosis and still wait for a prerequisite, reach a terminal miss, or stop at diagnosis. A draft counts as a created pull request.
+	State LavaflowDeliveryState `json:"state"`
+}
+
+// LavaflowDeliveryCoverage Another run's verified covering pull request. That run owns the pull request.
+type LavaflowDeliveryCoverage struct {
+	DeployedAt *time.Time `json:"deployed_at"`
+	MergedAt   *time.Time `json:"merged_at"`
+	Number     int64      `json:"number"`
+	OpenedAt   *time.Time `json:"opened_at"`
+
+	// RepositoryId Repository ID recorded for the pull request. Omitted if unknown.
+	RepositoryId *int64                        `json:"repository_id,omitempty"`
+	RunId        openapi_types.UUID            `json:"run_id"`
+	State        LavaflowDeliveryCoverageState `json:"state"`
+	Url          string                        `json:"url"`
+}
+
+// LavaflowDeliveryCoverageState defines model for LavaflowDeliveryCoverage.State.
+type LavaflowDeliveryCoverageState string
+
+// LavaflowDeliverySkip defines model for LavaflowDeliverySkip.
+type LavaflowDeliverySkip struct {
+	// Reason Why a finished run opened no pull request, with what you can do next. `diagnose_only`: the project's `autonomy` was `diagnose_only` when the run was queued, or became it before the pull request opened, so LavaFlow only diagnosed the issue; read the diagnosis, and set `autonomy` to `open_pr` or `merge` for later runs to open pull requests. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn't private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository's secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `convention_unsatisfiable`: LavaFlow would merge the fix, but no title can meet the repository's commit convention, so it kept the fix on the run; apply the fix yourself, or relax the convention. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn't read the repository at the deployed commit, or the production branch no longer holds it; check the project's repository connection and that the commit exists on that branch. `permission_missing`: the Volcano GitHub App, or the project owner's GitHub account, lacks a permission LavaFlow needs; grant the App's requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. `lineage_cap`: LavaFlow opened as many pull requests in this fix's lineage as it may; review the lineage's pull requests and fix the rest yourself. `lineage_held`: an earlier pull request in this fix's lineage was held, stopped or closed, so LavaFlow opens no more in it; apply the fix yourself from the diagnosis. `review_unresolved`: LavaFlow's review didn't pass a Code Quality fix; read the diagnosis. `duplicate_in_repository`: another project on the repository has the open Code Quality pull request for the same finding. `security_finding`: the finding has security impact and the repository isn't private, so the fix would disclose it; fix it yourself. New reasons may appear.
+	Reason     LavaflowSkipReason `json:"reason"`
+	RecordedAt *time.Time         `json:"recorded_at"`
+}
+
+// LavaflowDeliveryState Where pull request delivery stands. A run can complete its diagnosis and still wait for a prerequisite, reach a terminal miss, or stop at diagnosis. A draft counts as a created pull request.
+type LavaflowDeliveryState string
+
+// LavaflowDeliveryStats Delivery for retained runs created in the requested UTC window and category, evaluated at as_of.
+type LavaflowDeliveryStats struct {
+	AsOf time.Time `json:"as_of"`
+
+	// FinishedWithoutOwnedPr Runs without a pull request of their own that were no longer queued or running at as_of.
+	FinishedWithoutOwnedPr int64 `json:"finished_without_owned_pr"`
+
+	// IssuesWithPrCoverage Distinct issues with an open or merged pull request owned by a cohort run or linked through verified coverage.
+	IssuesWithPrCoverage int64 `json:"issues_with_pr_coverage"`
+
+	// IssuesWithRuns Distinct issues represented by runs in the cohort.
+	IssuesWithRuns int64 `json:"issues_with_runs"`
+
+	// MeanTimeToCoverageSeconds Mean seconds from run creation to recorded coverage by another pull request. Null when there are no samples.
+	MeanTimeToCoverageSeconds *int64 `json:"mean_time_to_coverage_seconds"`
+
+	// MeanTimeToPrSeconds Mean seconds from run creation to opening its own pull request. Null when there are no samples.
+	MeanTimeToPrSeconds *int64 `json:"mean_time_to_pr_seconds"`
+	Runs                int64  `json:"runs"`
+
+	// RunsWithoutOwnedPr All runs in the cohort without a pull request of their own, including active, stopped, and covered runs.
+	RunsWithoutOwnedPr int64 `json:"runs_without_owned_pr"`
+
+	// TimeToCoverageSamples Covered runs with a recorded coverage time at or after run creation.
+	TimeToCoverageSamples int64 `json:"time_to_coverage_samples"`
+
+	// TimeToPrSamples Runs with a recorded opening time at or after run creation.
+	TimeToPrSamples int64 `json:"time_to_pr_samples"`
+}
+
 // LavaflowDiagnosis defines model for LavaflowDiagnosis.
 type LavaflowDiagnosis struct {
 	Evidence []string `json:"evidence"`
@@ -10644,9 +10770,12 @@ type LavaflowRun struct {
 	Category *LavaflowRunCategory `json:"category"`
 
 	// ChangedFiles Repository paths the fix changes, sorted; empty without a fix. A path that may itself hold a credential is listed as "", as `diff_withheld` lists it, and so is every path when `diff` can't tell the fix's files apart. A file past a truncated `diff`'s cut is listed.
-	ChangedFiles []string           `json:"changed_files"`
-	CreatedAt    time.Time          `json:"created_at"`
-	Diagnosis    *LavaflowDiagnosis `json:"diagnosis"`
+	ChangedFiles []string  `json:"changed_files"`
+	CreatedAt    time.Time `json:"created_at"`
+
+	// Delivery Pull request delivery recorded independently of run execution and live recovery.
+	Delivery  *LavaflowDelivery  `json:"delivery,omitempty"`
+	Diagnosis *LavaflowDiagnosis `json:"diagnosis"`
 
 	// Diff The fix LavaFlow saved, as the unified diff its reviewers read, cut short past 256 KiB as they read it, with a last line that starts with `[diff truncated`. When a file's content, before or after the fix, or any change to it may hold a credential, or the file is too long for LavaFlow to read whole (over 64 KiB, or past 256 KiB across the fix's files), every change to that file is left out, with one line in their place that starts with `# LavaFlow withheld` and names the file. A run held with `possible_credential` leaves out every file. Null for a run with no saved fix, or one saved before LavaFlow kept its diff.
 	Diff *string `json:"diff"`
@@ -10775,10 +10904,13 @@ type LavaflowRunStatusCounts struct {
 // LavaflowRunSummary defines model for LavaflowRunSummary.
 type LavaflowRunSummary struct {
 	// Category A Code Quality run carries its finding's from the start. Any other run's is null until LavaFlow records a diagnosis. Runs from before categories get one when their diagnosis names one or their saved fix's paths imply one, and stay null only when neither does.
-	Category   *LavaflowRunCategory `json:"category"`
-	CreatedAt  time.Time            `json:"created_at"`
-	FinishedAt *time.Time           `json:"finished_at"`
-	Id         openapi_types.UUID   `json:"id"`
+	Category  *LavaflowRunCategory `json:"category"`
+	CreatedAt time.Time            `json:"created_at"`
+
+	// Delivery Pull request delivery recorded independently of run execution and live recovery.
+	Delivery   *LavaflowDelivery  `json:"delivery,omitempty"`
+	FinishedAt *time.Time         `json:"finished_at"`
+	Id         openapi_types.UUID `json:"id"`
 
 	// Issue Null only for a run that works on no issue.
 	Issue   *LavaflowIssueSummary `json:"issue"`
@@ -11183,6 +11315,9 @@ type LavaflowSourceCommit struct {
 type LavaflowStats struct {
 	// Days One entry per UTC day, oldest first, zeros included.
 	Days []LavaflowDayCounts `json:"days"`
+
+	// Delivery Delivery for retained runs created in the requested UTC window and category, evaluated at as_of.
+	Delivery *LavaflowDeliveryStats `json:"delivery,omitempty"`
 
 	// ProjectId The project the counts are for.
 	ProjectId openapi_types.UUID `json:"project_id"`
