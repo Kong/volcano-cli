@@ -31364,6 +31364,8 @@ components:
           description: One entry per UTC day, oldest first, zeros included.
           items:
             $ref: '#/components/schemas/LavaflowDayCounts'
+        delivery:
+          $ref: '#/components/schemas/LavaflowDeliveryStats'
         totals:
           type: object
           properties:
@@ -31382,6 +31384,61 @@ components:
         - window_end
         - days
         - totals
+    LavaflowDeliveryStats:
+      type: object
+      description: Delivery for retained runs created in the requested UTC window and category, evaluated at as_of.
+      properties:
+        as_of:
+          type: string
+          format: date-time
+        runs:
+          type: integer
+          format: int64
+        runs_without_owned_pr:
+          type: integer
+          format: int64
+          description: All runs in the cohort without a pull request of their own, including active, stopped, and covered runs.
+        finished_without_owned_pr:
+          type: integer
+          format: int64
+          description: Runs without a pull request of their own that were no longer queued or running at as_of.
+        issues_with_runs:
+          type: integer
+          format: int64
+          description: Distinct issues represented by runs in the cohort.
+        issues_with_pr_coverage:
+          type: integer
+          format: int64
+          description: Distinct issues with an open or merged pull request owned by a cohort run or linked through verified coverage.
+        time_to_pr_samples:
+          type: integer
+          format: int64
+          description: Runs with a recorded opening time at or after run creation.
+        mean_time_to_pr_seconds:
+          type: integer
+          format: int64
+          nullable: true
+          description: Mean seconds from run creation to opening its own pull request. Null when there are no samples.
+        time_to_coverage_samples:
+          type: integer
+          format: int64
+          description: Covered runs with a recorded coverage time at or after run creation.
+        mean_time_to_coverage_seconds:
+          type: integer
+          format: int64
+          nullable: true
+          description: Mean seconds from run creation to recorded coverage by another pull request. Null when there are no samples.
+      required:
+        - as_of
+        - runs
+        - runs_without_owned_pr
+        - finished_without_owned_pr
+        - issues_with_runs
+        - issues_with_pr_coverage
+        - time_to_pr_samples
+        - mean_time_to_pr_seconds
+        - time_to_coverage_samples
+        - mean_time_to_coverage_seconds
     LavaflowResourceReference:
       type: object
       description: A function, durable function or frontend in the project, or the project of a user-reported problem.
@@ -31583,6 +31640,80 @@ components:
         - LavaflowSkipReasonDuplicateInRepository
         - LavaflowSkipReasonSecurityFinding
       description: 'Why a finished run opened no pull request, with what you can do next. `diagnose_only`: the project''s `autonomy` was `diagnose_only` when the run was queued, or became it before the pull request opened, so LavaFlow only diagnosed the issue; read the diagnosis, and set `autonomy` to `open_pr` or `merge` for later runs to open pull requests. `not_fixable`: the diagnosis found no change in the code that fixes the error, for example because the cause is outside it; read the diagnosis. `low_confidence`: the diagnosis is not confident enough to propose a fix; read the diagnosis. `no_patch`: LavaFlow proposed no change; read the diagnosis. `possible_credential`: the fix or its description held what looks like a credential or a project secret, so LavaFlow pushed nothing; apply the fix yourself from the diagnosis. `possible_personal_data`: the fix adds an email address the repository lacks, and the repository isn''t private, so LavaFlow pushed nothing; apply the fix yourself. `ungated_workflows`: a workflow could run the fix with the repository''s secrets before a person approves it; gate the workflow on a label a person adds, or turn on `allow_ungated_workflows`. `convention_unsatisfiable`: LavaFlow would merge the fix, but no title can meet the repository''s commit convention, so it kept the fix on the run; apply the fix yourself, or relax the convention. `pull_request_open`: another LavaFlow pull request for the issue is open; review or close it first. `source_unavailable`: LavaFlow couldn''t read the repository at the deployed commit, or the production branch no longer holds it; check the project''s repository connection and that the commit exists on that branch. `permission_missing`: the Volcano GitHub App, or the project owner''s GitHub account, lacks a permission LavaFlow needs; grant the App''s requested permissions and make sure the owner can push to the repository. `repository_changed`: the project no longer deploys from the repository the run read; a new run uses the current one. `publish_failed`: opening the pull request failed; a new run tries again. `lineage_cap`: LavaFlow opened as many pull requests in this fix''s lineage as it may; review the lineage''s pull requests and fix the rest yourself. `lineage_held`: an earlier pull request in this fix''s lineage was held, stopped or closed, so LavaFlow opens no more in it; apply the fix yourself from the diagnosis. `review_unresolved`: LavaFlow''s review didn''t pass a Code Quality fix; read the diagnosis. `duplicate_in_repository`: another project on the repository has the open Code Quality pull request for the same finding. `security_finding`: the finding has security impact and the repository isn''t private, so the fix would disclose it; fix it yourself. New reasons may appear.'
+    LavaflowDeliveryState:
+      type: string
+      enum: [pending, pr_created, covered, waiting_for_prerequisite, terminal_miss, stopped]
+      description: >-
+        Where pull request delivery stands. A run can complete its diagnosis and still wait for a prerequisite,
+        reach a terminal miss, or stop at diagnosis. A draft counts as a created pull request.
+    LavaflowDeliveryCoverage:
+      type: object
+      description: Another run's verified covering pull request. That run owns the pull request.
+      properties:
+        run_id:
+          type: string
+          format: uuid
+        repository_id:
+          type: integer
+          format: int64
+          description: Repository ID recorded for the pull request. Omitted if unknown.
+        number:
+          type: integer
+          format: int64
+        url:
+          type: string
+          format: uri
+        state:
+          type: string
+          enum: [open, merged]
+        opened_at:
+          type: string
+          format: date-time
+          nullable: true
+        merged_at:
+          type: string
+          format: date-time
+          nullable: true
+        deployed_at:
+          type: string
+          format: date-time
+          nullable: true
+      required: [run_id, number, url, state, opened_at, merged_at, deployed_at]
+    LavaflowDeliverySkip:
+      type: object
+      properties:
+        reason:
+          $ref: '#/components/schemas/LavaflowSkipReason'
+        recorded_at:
+          type: string
+          format: date-time
+          nullable: true
+      required: [reason, recorded_at]
+    LavaflowDelivery:
+      type: object
+      description: Pull request delivery recorded independently of run execution and live recovery.
+      properties:
+        state:
+          $ref: '#/components/schemas/LavaflowDeliveryState'
+        reason:
+          type: string
+          description: Recorded skip or failure code for an undelivered run.
+        next_action:
+          type: string
+          description: Action required before delivery can proceed, when known.
+        recorded_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the current delivery result was recorded, if known.
+        coverage:
+          $ref: '#/components/schemas/LavaflowDeliveryCoverage'
+        prior_skips:
+          type: array
+          description: Reasons recorded before the run resumed, in order.
+          items:
+            $ref: '#/components/schemas/LavaflowDeliverySkip'
+      required: [state, recorded_at, prior_skips]
     LavaflowRunSummary:
       type: object
       properties:
@@ -31641,6 +31772,8 @@ components:
             - $ref: '#/components/schemas/LavaflowRunProgress'
           nullable: true
           description: Where a run LavaFlow is still working on stands; null once it has nothing left to do.
+        delivery:
+          $ref: '#/components/schemas/LavaflowDelivery'
         pull_request_skipped:
           allOf:
             - $ref: '#/components/schemas/LavaflowSkipReason'
