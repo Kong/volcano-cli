@@ -504,7 +504,7 @@ func lavaflowFix(w io.Writer, on bool, run *apiclient.LavaflowRun) {
 			}
 			return
 		}
-		if delivery.NextAction != nil {
+		if delivery.NextAction != nil && run.PullRequest == nil {
 			fixKV(w, on, "Delivery", "Waiting (%s)", clean(stringOr(delivery.Reason, "prerequisite")))
 			fixKV(w, on, "Next action", "%s", clean(*delivery.NextAction))
 			return
@@ -522,6 +522,9 @@ func lavaflowFix(w io.Writer, on bool, run *apiclient.LavaflowRun) {
 	}
 	if run.Merge != nil {
 		lavaflowMergeLines(w, on, run.Merge, pr)
+	}
+	if run.Delivery != nil && run.Delivery.NextAction != nil {
+		fixKV(w, on, "Next action", "%s", clean(*run.Delivery.NextAction))
 	}
 	// The API doesn't say yet whether a merged fix deployed. Print it here
 	// once the pull request carries deployed_at.
