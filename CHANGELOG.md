@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.84.0](https://github.com/Kong/volcano-cli/compare/v0.83.1...v0.84.0) (2026-11-18)
+
+
+### Features
+
+* **lavaflow:** report pull request delivery in the CLI ([#499](https://github.com/Kong/volcano-cli/issues/499)) ([e94260c](https://github.com/Kong/volcano-cli/commit/e94260c6bb8fc333d91c75f6ed0e2d948de24bce))
+
 ## [0.83.1](https://github.com/Kong/volcano-cli/compare/v0.83.0...v0.83.1) (2026-11-17)
 
 
