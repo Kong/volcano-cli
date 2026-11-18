@@ -183,17 +183,24 @@ func lavaflowDeliveryCell(pr *apiclient.LavaflowPullRequest, delivery *apiclient
 		return lavaflowPullRequestCell(pr)
 	}
 	if cover := delivery.Coverage; cover != nil {
-		return fmt.Sprintf("Covered by #%d (%s)", cover.Number, cover.State)
+		return fmt.Sprintf("Covered by #%d (%s)", cover.Number, clean(string(cover.State)))
 	}
-	switch string(delivery.State) {
-	case "waiting_for_prerequisite":
+	if status := lavaflowDeliveryStatus(delivery.State); status != "" {
+		return status
+	}
+	return "-"
+}
+
+func lavaflowDeliveryStatus(state apiclient.LavaflowDeliveryState) string {
+	switch state {
+	case apiclient.LavaflowDeliveryStateWaitingForPrerequisite:
 		return "Waiting"
-	case "terminal_miss":
+	case apiclient.LavaflowDeliveryStateTerminalMiss:
 		return "Undelivered"
-	case "stopped":
+	case apiclient.LavaflowDeliveryStateStopped:
 		return "Stopped"
 	default:
-		return "-"
+		return ""
 	}
 }
 
@@ -492,25 +499,33 @@ func lavaflowHumanReviewPaths(w io.Writer, on bool, policy apiclient.LavaflowMer
 // state and where its merge is, or why the run has no pull request.
 func lavaflowFix(w io.Writer, on bool, run *apiclient.LavaflowRun) {
 	fmt.Fprintln(w, theme.Dim("Fix:", on))
-	if delivery := run.Delivery; delivery != nil {
+	pr, delivery := run.PullRequest, run.Delivery
+	if delivery != nil {
 		for _, skip := range delivery.PriorSkips {
 			fixKV(w, on, "Previous blocker", "%s (%s)", clean(string(skip.Reason)), formatLavaflowTimePtr(skip.RecordedAt, "time unknown"))
 		}
-		if cover := delivery.Coverage; cover != nil {
+		if delivery.NextAction != nil {
+			defer fixKV(w, on, "Next action", "%s", clean(*delivery.NextAction))
+		}
+		if cover := delivery.Coverage; cover != nil && pr == nil {
 			fixKV(w, on, "Covering pull request", "#%d %s", cover.Number, clean(cover.Url))
-			fixKV(w, on, "State", "%s", cover.State)
-			if cover.State == "merged" {
+			fixKV(w, on, "State", "%s", clean(string(cover.State)))
+			if cover.State == apiclient.LavaflowDeliveryCoverageStateMerged {
 				fixKV(w, on, "Deployment", "%s", formatLavaflowTimePtr(cover.DeployedAt, "unconfirmed"))
 			}
 			return
 		}
-		if delivery.NextAction != nil && run.PullRequest == nil {
-			fixKV(w, on, "Delivery", "Waiting (%s)", clean(stringOr(delivery.Reason, "prerequisite")))
-			fixKV(w, on, "Next action", "%s", clean(*delivery.NextAction))
-			return
+		if state := lavaflowDeliveryStatus(delivery.State); state != "" && pr == nil {
+			if delivery.Reason != nil {
+				fixKV(w, on, "Delivery", "%s (%s)", state, clean(*delivery.Reason))
+			} else {
+				fixKV(w, on, "Delivery", "%s", state)
+			}
+			if delivery.State == apiclient.LavaflowDeliveryStateWaitingForPrerequisite || run.PullRequestSkipped == nil {
+				return
+			}
 		}
 	}
-	pr := run.PullRequest
 	if pr == nil {
 		fmt.Fprintf(w, "  %s\n", lavaflowNoFix(run))
 		return
@@ -522,9 +537,6 @@ func lavaflowFix(w io.Writer, on bool, run *apiclient.LavaflowRun) {
 	}
 	if run.Merge != nil {
 		lavaflowMergeLines(w, on, run.Merge, pr)
-	}
-	if run.Delivery != nil && run.Delivery.NextAction != nil {
-		fixKV(w, on, "Next action", "%s", clean(*run.Delivery.NextAction))
 	}
 	// The API doesn't say yet whether a merged fix deployed. Print it here
 	// once the pull request carries deployed_at.
