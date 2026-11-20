@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -37,4 +38,19 @@ func TestLavaflowDeliveryStatus(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLavaflowFixPrintsCoveringPullRequestState(t *testing.T) {
+	t.Parallel()
+
+	deployed := time.Date(2026, time.November, 19, 18, 15, 0, 0, time.UTC)
+	run := &apiclient.LavaflowRun{Delivery: &apiclient.LavaflowDelivery{
+		Coverage: &apiclient.LavaflowDeliveryCoverage{
+			Number: 24, Url: "https://github.com/example/project/pull/24",
+			State: apiclient.LavaflowDeliveryCoverageStateMerged, DeployedAt: &deployed,
+		},
+	}}
+	var out bytes.Buffer
+	lavaflowFix(&out, false, run)
+	require.Equal(t, "Fix:\n  Covering pull request: #24 https://github.com/example/project/pull/24\n  State: merged\n", out.String())
 }
