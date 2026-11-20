@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.84.1](https://github.com/Kong/volcano-cli/compare/v0.84.0...v0.84.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* **lavaflow:** show the covering pull request state ([#501](https://github.com/Kong/volcano-cli/issues/501)) ([bd87ac3](https://github.com/Kong/volcano-cli/commit/bd87ac384fdd123f64a12ec9182c2ace6a30024f))
+
 ## [0.84.0](https://github.com/Kong/volcano-cli/compare/v0.83.1...v0.84.0) (2026-11-18)
 
 
