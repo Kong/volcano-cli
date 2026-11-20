@@ -510,9 +510,6 @@ func lavaflowFix(w io.Writer, on bool, run *apiclient.LavaflowRun) {
 		if cover := delivery.Coverage; cover != nil && pr == nil {
 			fixKV(w, on, "Covering pull request", "#%d %s", cover.Number, clean(cover.Url))
 			fixKV(w, on, "State", "%s", clean(string(cover.State)))
-			if cover.State == apiclient.LavaflowDeliveryCoverageStateMerged {
-				fixKV(w, on, "Deployment", "%s", formatLavaflowTimePtr(cover.DeployedAt, "unconfirmed"))
-			}
 			return
 		}
 		if state := lavaflowDeliveryStatus(delivery.State); state != "" && pr == nil {
@@ -538,8 +535,6 @@ func lavaflowFix(w io.Writer, on bool, run *apiclient.LavaflowRun) {
 	if run.Merge != nil {
 		lavaflowMergeLines(w, on, run.Merge, pr)
 	}
-	// The API doesn't say yet whether a merged fix deployed. Print it here
-	// once the pull request carries deployed_at.
 }
 
 // fixKV writes a "Label: value" line inside the Fix block.
