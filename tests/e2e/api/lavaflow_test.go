@@ -177,14 +177,25 @@ func requireAPIE2ELavaFlowUngatedWorkflowsRefuseATokenThatNeverExpires(t *testin
 		"Turn it on only if those workflows keep secrets away from untrusted code")
 }
 
+// A change Volcano refuses with person_required: the CLI's own prefix,
+// followed by Volcano's words, which name `volcano login` (the CLI adds its
+// VOLCANO_TOKEN hint on that). A 403 without a code shares the prefix but
+// quotes Volcano's words after lavaflowChangeRefusedQuote instead. The rest of
+// Volcano's words are copy, which the unit tests cover against a fake.
+const (
+	lavaflowSettingsNotChanged = "LavaFlow's settings weren't changed: "
+	lavaflowSignInHint         = "volcano login"
+	lavaflowChangeRefusedQuote = "Volcano said:"
+)
+
 // requireRefusedForATokenThatNeverExpires checks a change the CLI warned
 // about, then Volcano refused with person_required because the token never
 // expires: the CLI keeps Volcano's words, which name `volcano login`, and
 // exits 5.
 func requireRefusedForATokenThatNeverExpires(t *testing.T, refused cliResult, warning string) {
 	t.Helper()
-	refused.requireFailure(t, warning,
-		"LavaFlow's settings weren't changed: this token never expires; sign in with `volcano login`, or use a platform token that expires, to make this change")
+	refused.requireFailure(t, warning, lavaflowSettingsNotChanged, lavaflowSignInHint)
+	refused.requireNotContains(t, lavaflowChangeRefusedQuote)
 	if refused.code != 5 {
 		t.Fatalf("the refused change exited %d, want 5:\n%s", refused.code, redactCredentials(refused.output))
 	}
