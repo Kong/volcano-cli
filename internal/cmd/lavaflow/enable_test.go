@@ -276,7 +276,7 @@ func TestAPersonRequiredRefusalNamesVolcanoTokenFD(t *testing.T) {
 // Volcano's words for a platform token that never expires, and for a
 // credential that isn't the owner's own sign-in, such as one that ended.
 const (
-	tokenNeverExpiresRefusal = "this token never expires; sign in with `volcano login` to turn this on"
+	tokenNeverExpiresRefusal = "this token never expires; sign in with `volcano login`, or use a platform token that expires, to make this change"
 	signInRefusal            = "only the project's owner, signed in with `volcano login`, can turn this on"
 )
 
