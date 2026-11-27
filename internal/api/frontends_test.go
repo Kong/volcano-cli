@@ -534,3 +534,23 @@ func frontendRouteResponse(id, projectID, frontendID, functionID, pathPrefix str
 		"updated_at":   "2026-05-20T00:00:00Z",
 	}
 }
+
+func TestCandidateUploadsCarryCIOriginWithTelemetryDisabled(t *testing.T) {
+	t.Setenv("GITHUB_ACTIONS", "true")
+	t.Setenv("VOLCANO_TELEMETRY_DISABLED", "1")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "ci", r.Header.Get("X-Volcano-Client"))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+	projectID, frontendID := uuid.New(), uuid.New()
+	input := FrontendCandidateInput{Name: "preview", Archive: []byte("archive")}
+	_, err = client.CreateFrontendCandidate(t.Context(), projectID, frontendID, input)
+	require.NoError(t, err)
+	_, err = client.RedeployFrontendCandidate(t.Context(), projectID, frontendID, uuid.New(), input)
+	require.NoError(t, err)
+}
