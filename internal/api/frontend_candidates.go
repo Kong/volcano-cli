@@ -42,7 +42,7 @@ func (c *Client) CreateFrontendCandidate(ctx context.Context, projectID, fronten
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.CreateFrontendCandidateWithBodyWithResponse(ctx, projectID, frontendID, contentType, body)
+	resp, err := c.client.CreateFrontendCandidateWithBodyWithResponse(ctx, projectID, frontendID, contentType, body, attachDeployCIOrigin)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (c *Client) RedeployFrontendCandidate(ctx context.Context, projectID, front
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.RedeployFrontendCandidateWithBodyWithResponse(ctx, projectID, frontendID, candidateID, contentType, body)
+	resp, err := c.client.RedeployFrontendCandidateWithBodyWithResponse(ctx, projectID, frontendID, candidateID, contentType, body, attachDeployCIOrigin)
 	if err != nil {
 		return nil, err
 	}

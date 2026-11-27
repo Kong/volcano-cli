@@ -70,7 +70,7 @@ func (c *Client) DeployFrontend(ctx context.Context, projectID uuid.UUID, input 
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.CreateFrontendWithBodyWithResponse(ctx, projectID, contentType, body)
+	resp, err := c.client.CreateFrontendWithBodyWithResponse(ctx, projectID, contentType, body, attachDeployCIOrigin)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (c *Client) DeleteFrontend(ctx context.Context, projectID, frontendID uuid.
 
 // RedeployFrontend starts a new deployment using the last uploaded archive.
 func (c *Client) RedeployFrontend(ctx context.Context, projectID, frontendID uuid.UUID) (*apiclient.Frontend, error) {
-	resp, err := c.client.RedeployFrontendWithResponse(ctx, projectID, frontendID)
+	resp, err := c.client.RedeployFrontendWithResponse(ctx, projectID, frontendID, attachDeployCIOrigin)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (c *Client) RedeployFrontend(ctx context.Context, projectID, frontendID uui
 func (c *Client) CreateFrontendDeployment(ctx context.Context, projectID, frontendID, sourceDeploymentID uuid.UUID) (*apiclient.Frontend, error) {
 	rsp, err := c.client.CreateFrontendDeployment(ctx, projectID, frontendID, apiclient.CreateFrontendDeploymentRequest{
 		SourceDeploymentId: sourceDeploymentID,
-	})
+	}, attachDeployCIOrigin)
 	if err != nil {
 		return nil, err
 	}

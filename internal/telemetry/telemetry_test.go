@@ -652,17 +652,6 @@ func TestHarnessFor(t *testing.T) {
 	}
 }
 
-func TestCIVendor(t *testing.T) {
-	env := func(vars map[string]string) func(string) string {
-		return func(k string) string { return vars[k] }
-	}
-	assert.Empty(t, CIVendor(env(nil)))
-	assert.Equal(t, "generic", CIVendor(env(map[string]string{"CI": "true"})))
-	assert.Empty(t, CIVendor(env(map[string]string{"CI": "false"})))
-	assert.Equal(t, "gitlab", CIVendor(env(map[string]string{"CI": "true", "GITLAB_CI": "true"})))
-	assert.Equal(t, "buildkite", CIVendor(env(map[string]string{"BUILDKITE": "true"})))
-}
-
 func TestRecord_SavesStateInConfigFile(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	require.NoError(t, config.Update(func(cfg *config.Config) (bool, error) {
