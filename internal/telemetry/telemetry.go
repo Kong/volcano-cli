@@ -39,6 +39,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/agent"
 	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/cienv"
 	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/sensitive"
@@ -551,7 +552,7 @@ func (r *Recorder) build(inv Invocation, deviceID string) Event {
 		OS:           runtime.GOOS,
 		Arch:         runtime.GOARCH,
 		CPUs:         runtime.NumCPU(),
-		CIVendor:     CIVendor(r.Getenv),
+		CIVendor:     cienv.Vendor(r.Getenv),
 		StdinTTY:     inv.StdinTTY,
 		Agent:        detected.Name,
 		AgentSource:  string(detected.Source),

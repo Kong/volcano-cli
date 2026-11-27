@@ -61,7 +61,7 @@ func (c *Client) DeployDurableFunction(
 	if err != nil {
 		return nil, false, err
 	}
-	resp, err := c.deployClient.CreateDurableFunctionWithBodyWithResponse(ctx, projectID, contentType, body)
+	resp, err := c.deployClient.CreateDurableFunctionWithBodyWithResponse(ctx, projectID, contentType, body, attachDeployCIOrigin)
 	if err != nil {
 		return nil, false, err
 	}

@@ -59,7 +59,7 @@ func (c *Client) DeployFunction(ctx context.Context, projectID uuid.UUID, fn Fun
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.deployClient.CreateFunctionWithBodyWithResponse(ctx, projectID, contentType, body)
+	resp, err := c.deployClient.CreateFunctionWithBodyWithResponse(ctx, projectID, contentType, body, attachDeployCIOrigin)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (c *Client) DeployFunctionsBatch(ctx context.Context, projectID uuid.UUID, 
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.CreateFunctionsBatchWithBodyWithResponse(ctx, projectID, contentType, body)
+	resp, err := c.client.CreateFunctionsBatchWithBodyWithResponse(ctx, projectID, contentType, body, attachDeployCIOrigin)
 	if err != nil {
 		return nil, err
 	}

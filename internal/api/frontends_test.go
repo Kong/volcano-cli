@@ -19,6 +19,8 @@ import (
 // the request as a successful deploy instead of surfacing "HTTP 201: Created"
 // as an error.
 func TestDeployFrontendAcceptsEmptyCreatedBody(t *testing.T) {
+	t.Setenv("GITHUB_ACTIONS", "true")
+	t.Setenv("VOLCANO_TELEMETRY_DISABLED", "1")
 	projectID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,6 +28,9 @@ func TestDeployFrontendAcceptsEmptyCreatedBody(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
+		assert.Equal(t, "ci", r.Header.Get("X-Volcano-Client"))
+		assert.NotEmpty(t, r.Header.Get(headerCLIVersion))
+		assert.Empty(t, r.Header.Get(headerAgent))
 		w.WriteHeader(http.StatusCreated)
 	}))
 	defer server.Close()
